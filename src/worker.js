@@ -161,6 +161,7 @@
         rec = { k: '#error', id: 'error@' + abs, ts: [], err: String(err && err.message || err) };
       }
       if (rec) {
+        if (cfg.lite && rec.ts) for (var li = 0; li < rec.ts.length; li++) lite(rec.ts[li].p, 0);
         rec.o = abs; rec.n = fe - s; rec.l = lines; rec.w = job.part;
         batch.push(rec); count++;
         if (batch.length >= 2000) post(false);
@@ -184,6 +185,20 @@
     self.postMessage({ type: 'done', lines: lines, count: count, errors: errors, jobId: job.jobId, part: job.part });
   }
 
+  // Lite mode (very large files): individual light / marking elements and vendor extensions are
+  // replaced by a count; everything else is kept. The full XML stays available from the file.
+  var LITE_DROP = { LightElement: 1, MarkingElement: 1 };
+  function lite(o, d) {
+    if (!o || typeof o !== 'object' || d > 8) return;
+    for (var k in o) {
+      var v = o[k];
+      if (!v || typeof v !== 'object') continue;
+      if (k === 'extension') { delete o[k]; continue; }
+      var first = Array.isArray(v) ? v[0] : v;
+      if (k === 'element' && first && LITE_DROP[first._t]) { o[k] = { _t: 'OmittedElements', _omitted: Array.isArray(v) ? v.length : 1, _of: first._t }; continue; }
+      if (Array.isArray(v)) { for (var i = 0; i < v.length; i++) lite(v[i], d + 1); } else lite(v, d + 1);
+    }
+  }
   self.onmessage = function (ev) {
     var msg = ev.data;
     if (msg.cmd === 'scan') {

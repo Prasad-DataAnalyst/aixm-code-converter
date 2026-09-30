@@ -37,6 +37,8 @@
     setTimeout(function () { t.remove(); }, ms || 3800);
   }
   function dsOf() { return S.datasets[S.active] || null; }
+  var LITE_AUTO = 1.5 * 1024 * 1024 * 1024;
+  try { S.memMode = localStorage.getItem('aixm-mem') || 'auto'; } catch (e) { S.memMode = 'auto'; }
   try { M.setLocator(MAPVIEW.countryAt); } catch (e) { /* map data missing */ }
   function copyText(txt) { EXPORTS.copyText(txt).then(function (ok) { toast(ok ? 'Copied to the clipboard' : 'Copy failed — select the text manually'); }); }
 
@@ -226,10 +228,14 @@
     var busy = S.files.some(function (f) { return f.status === 'parsing' || f.status === 'indexing'; });
     if (!S.files.length) { bar.classList.add('hidden'); return; }
     bar.classList.remove('hidden');
+    var big = S.files.some(function (f) { return f.size > LITE_AUTO; });
     bar.innerHTML = '<div class="grow"><b>' + S.files.length + ' file(s)</b> <span class="muted">· ' + ready.length + ' ready to extract · parallel threads: ' + threads() + '</span></div>' +
+      '<label class="muted" title="Lite keeps less detail in memory (individual light and marking elements are counted, not stored) so files of 2–5 GB fit in the browser. Auto uses Lite for files over 1.5 GB.">Memory ' +
+      '<select class="inp small" id="mem-mode"><option value="auto">Auto' + (big ? ' (Lite for large files)' : '') + '</option><option value="full">Full detail</option><option value="lite">Lite (2–5 GB files)</option></select></label>' +
       (S.datasets.length ? '<button class="btn" id="goto-dash">' + I.dash + ' Open dashboard</button>' : '') +
       '<button class="btn primary big" id="extract-btn"' + (!ready.length || busy ? ' disabled' : '') + '>' + I.play + ' Extract</button>';
     var eb = $('#extract-btn'); if (eb) eb.onclick = function () { extractAll(); };
+    var mm = $('#mem-mode'); if (mm) { mm.value = S.memMode || 'auto'; mm.onchange = function () { S.memMode = mm.value; try { localStorage.setItem('aixm-mem', mm.value); } catch (e) { /* storage unavailable */ } }; }
     var gd = $('#goto-dash'); if (gd) gd.onclick = function () { go('dash'); };
   }
   function updateFileItem(f) {
@@ -287,7 +293,9 @@
       var nParts = Math.max(1, Math.min(threads(), Math.floor(size / (6 * 1024 * 1024)) || 1));
       if (sn.family === '45' && sn.isUpdate) nParts = Math.min(nParts, 4);
       var ds = { id: f.id, name: f.name, file: f.file, size: size, sniff: sn, family: sn.family, version: sn.version, recs: [], partLines: new Array(nParts), viewDate: S.asOf };
-      var cfg = { family: sn.family, names: featureNames(sn), aixmPrefixes: sn.aixmPrefixes, eventPrefixes: sn.eventPrefixes, gmlPrefixes: sn.gmlPrefixes, isUpdate: sn.isUpdate, effective: sn.header && sn.header.effective };
+      var liteOn = S.memMode === 'lite' || (S.memMode !== 'full' && size > LITE_AUTO);
+      var cfg = { family: sn.family, names: featureNames(sn), aixmPrefixes: sn.aixmPrefixes, eventPrefixes: sn.eventPrefixes, gmlPrefixes: sn.gmlPrefixes, isUpdate: sn.isUpdate, effective: sn.header && sn.header.effective, lite: liteOn };
+      ds.lite = liteOn;
       var done = new Array(nParts).fill(0), finished = 0, t0 = performance.now(), counts = 0, errors = 0;
       var workers = [];
       var ctl = { workers: workers, cancelled: false, resolve: function () { f.status = 'cancelled'; running.delete(f.id); renderFileList(); resolve(); } };
@@ -337,7 +345,7 @@
             ds.tRead = tRead; ds.tTotal = performance.now() - t0; ds.errors = errors;
             applyLib(ds, f.lib);
             ds.cacheKey = f.lib ? f.lib.key : dropKey(f.file);
-            saveCache(ds);
+            if (ds.size <= LITE_AUTO) saveCache(ds); // multi-GB data sets are not duplicated into browser storage
             S.datasets = S.datasets.filter(function (x) { return x.id !== ds.id; });
             S.datasets.push(ds);
             M.harmonizeStates(S.datasets);
@@ -769,7 +777,7 @@
         [['AIXM version', ds.sniff.versionLabel], ['Namespace / root', (ds.sniff.namespace || '') + ' <' + ds.sniff.root + '>'], ['Effective date', ds.effective !== null ? M.fmtDate(ds.effective, true) + ' (' + ds.effectiveSource + ')' : '—'],
           ['AIRAC cycle', ds.airac ? ds.airac.id + ' — cycle start ' + M.fmtDate(ds.airac.date) + (ds.airac.exact ? ' (exact AIRAC date)' : ' (effective date falls inside this cycle)') : '—'],
           ['Data valid from', ds.dataFrom !== null ? M.fmtDate(ds.dataFrom) : '—'], ['Latest time slice start', ds.dataLatest !== null ? M.fmtDate(ds.dataLatest, true) : '—'],
-          ['ICAO prefixes', (ds.prefixes || []).join(', ')], ['Created', ds.created || '—'], ['Read time', (ds.tRead / 1000).toFixed(2) + ' s · ' + (ds.size / 1048576 / (ds.tRead / 1000)).toFixed(1) + ' MB/s'],
+          ['ICAO prefixes', (ds.prefixes || []).join(', ')], ['Created', ds.created || '—'], ['Read time', (ds.tRead / 1000).toFixed(2) + ' s · ' + (ds.size / 1048576 / (ds.tRead / 1000)).toFixed(1) + ' MB/s'], ['Memory mode', ds.lite ? 'Lite — light and marking elements are counted, not kept (open the AIXM code to see them)' : 'Full detail'],
           ['Parse warnings', ds.parseErrors ? ds.parseErrors.length : 0]].map(function (r) { return '<tr><td class="muted">' + r[0] + '</td><td>' + esc(r[1]) + '</td></tr>'; }).join('') + '</table>' +
         '<div class="btn-group" style="margin-top:12px"><button class="btn primary" data-act="aip">' + I.book + ' Open AIP</button><button class="btn" data-act="map">' + I.map + ' Map</button><button class="btn" data-act="export">' + I.export + ' Export</button><button class="btn" data-act="remove">' + I.trash + ' Remove</button></div></div></div>';
       card.addEventListener('click', function (e) {

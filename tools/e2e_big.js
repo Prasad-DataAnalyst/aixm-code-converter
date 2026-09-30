@@ -14,6 +14,7 @@ fs.mkdirSync(OUT, { recursive: true });
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.goto('file://' + path.join(ROOT, 'AIXM-Code-Converter.html'));
+  if (process.env.MEM) { await page.evaluate((m) => localStorage.setItem('aixm-mem', m), process.env.MEM); await page.reload(); }
   await page.setInputFiles('#file-input', [FILE]);
   await page.waitForFunction(() => window.__AIXM.S.files.length && window.__AIXM.S.files.every((f) => f.status === 'ready'));
   const t0 = Date.now();
