@@ -56,7 +56,14 @@ var AIP = (function () {
     var comp = s(sc.composition);
     return join([SURF[comp] || (comp ? comp.replace(/^OTHER:/, '').replace(/_/g, ' ') : ''), s(sc.preparation) ? '(' + s(sc.preparation) + ')' : ''], ' ');
   }
+  // magnetic variation as published: at most 2 decimals, E/W
+  function magVar(v) { var x = Math.abs(+v); return (isNaN(x) ? v : String(+x.toFixed(2))) + '°' + (+v < 0 ? 'W' : 'E'); }
   function strengthSurface(sc) { return join([pcn(sc), surface(sc)], '\n'); }
+  // ACR/PCR (ICAO, from 28 NOV 2024) has no AIXM 5.1 property: many States give it in a remark
+  function pcrFromNotes(notes) {
+    var m = /\bPCR\s*\d+\s*\/\s*[RF]\s*\/\s*[A-D]\s*\/\s*[W-Z]\s*\/\s*[TU]\b/.exec(notes.join(' '));
+    return m ? m[0].replace(/\s+/g, ' ') + ' (from remark)' : '';
+  }
   function dims(len, wid) { var a = M.fq(len), b = M.fq(wid); if (!a && !b) return ''; return (a || '—') + ' x ' + (b || '—'); }
   function allNotes(r, filter) { return M.notesOf(r.cur.p, filter); }
   function noteCell(r, filter) { var n = allNotes(r, filter); return n.length ? C(n.join('\n'), r, 'annotation') : null; }
@@ -246,7 +253,7 @@ var AIP = (function () {
       row('2', 'Direction and distance from (city)', [C(join(arr(p.servedCity).map(function (c) { return c && s(c.name); }), ', '), ad, 'servedCity'), C(n(['servedCity']).join('\n'), ad, 'annotation')]),
       row('3', 'Elevation / Reference temperature', [C(join([elev, temp ? '/ ' + temp : ''], ' '), ad, 'fieldElevation'), C(n(['fieldElevation', 'referenceTemperature']).join('\n'), ad, 'annotation')]),
       row('4', 'Geoid undulation at AD ELEV PSN', [C(gu, ad, 'ARP')]),
-      row('5', 'MAG VAR / Annual change', [C(mv ? join([Math.abs(+mv) + '°' + (+mv < 0 ? 'W' : 'E'), s(p.dateMagneticVariation) ? '(' + s(p.dateMagneticVariation) + ')' : '',
+      row('5', 'MAG VAR / Annual change', [C(mv ? join([magVar(mv), s(p.dateMagneticVariation) ? '(' + s(p.dateMagneticVariation) + ')' : '',
         s(p.magneticVariationChange) ? '/ ' + s(p.magneticVariationChange) + '°' : ''], ' ') : '', ad, 'magneticVariation'), C(n(['magneticVariation']).join('\n'), ad, 'annotation')]),
       row('6', 'AD operator, address, telephone, telefax, e-mail, AFS, website', [C(operator, ad, 'responsibleOrganisation'), C(adContact, ad, 'contact'), C(n(['responsibleOrganisation']).join('\n'), ad, 'annotation')]),
       row('7', 'Types of traffic permitted (IFR/VFR)', [C(uniq(traffic).join('/'), ad, 'availability')]),
@@ -460,7 +467,7 @@ var AIP = (function () {
         C(M.shortName(d).replace(/^RWY /, ''), d, 'designator'),
         C(s(dp.trueBearing) ? s(dp.trueBearing) + '°' : '', d, 'trueBearing'),
         C(dims(rp.nominalLength, rp.nominalWidth), rw, 'nominalLength'),
-        C(join([strengthSurface(rp.surfaceProperties), swy ? 'SWY: ' + swy : ''], '\n'), rw, 'surfaceProperties'),
+        C(join([strengthSurface(rp.surfaceProperties), !pcn(rp.surfaceProperties) ? pcrFromNotes(rw ? M.notesOf(rp) : []) : '', swy ? 'SWY: ' + swy : ''], '\n'), rw, 'surfaceProperties'),
         C(thrTxt, thr || d, thr ? 'location' : '_thr'),
         C(thrElev, thr || d, thr ? 'location' : 'elevationTDZ'),
         C(s(dp.slopeTDZ) ? s(dp.slopeTDZ) + '%' : '', d, 'slopeTDZ'),
@@ -473,7 +480,7 @@ var AIP = (function () {
         C(remarks.join('\n'), d, 'annotation')
       ];
     });
-    return [table('', ['Designations RWY NR', 'True BRG', 'Dimensions of RWY', 'Strength (PCN) and surface of RWY and SWY', 'THR coordinates / RWY end coordinates / THR geoid undulation',
+    return [table('', ['Designations RWY NR', 'True BRG', 'Dimensions of RWY', 'Strength (PCN / PCR) and surface of RWY and SWY', 'THR coordinates / RWY end coordinates / THR geoid undulation',
       'THR elevation and highest elevation of TDZ', 'Slope of RWY/SWY', 'SWY dimensions', 'CWY dimensions', 'Strip dimensions', 'RESA dimensions',
       'Arresting system', 'OFZ', 'Remarks'], rows)];
   };
@@ -627,7 +634,7 @@ var AIP = (function () {
       if (eq.k === 'DME' && s(q.channel)) freq = 'CH ' + s(q.channel);
       var mv = s(q.magneticVariation) || s(q.declination);
       var loc = arr(q.location)[0];
-      return [C(join([typeTxt || eqType(eq), mv ? '(' + Math.abs(+mv) + '°' + (+mv < 0 ? 'W' : 'E') + ')' : '', eq.k === 'Localizer' && s(p.signalPerformance) ? s(p.signalPerformance).replace(/_/g, ' ') : ''], ' '), eq, 'designator'),
+      return [C(join([typeTxt || eqType(eq), mv ? '(' + magVar(mv) + ')' : '', eq.k === 'Localizer' && s(p.signalPerformance) ? s(p.signalPerformance).replace(/_/g, ' ') : ''], ' '), eq, 'designator'),
         C(s(q.designator) || s(p.designator), eq, 'designator'), C(freq, eq, q.frequency ? 'frequency' : 'channel'), C(hoursOf(eq) || hours, eq, 'availability'),
         C(loc ? M.fPoint(loc) : '', eq, 'location'), C(eq.k === 'DME' ? M.fElev(loc) : '', eq, 'location'), C(''),
         C(uniq(M.notesOf(q).concat(extra || [])).join('\n'), eq, 'annotation')];
@@ -874,7 +881,7 @@ var AIP = (function () {
       var loc = arr(p.location)[0] || (comps[0] && arr(comps[0].cur.p.location)[0]);
       var dmeEq = comps.filter(function (e) { return e.k === 'DME'; })[0];
       var mv = comps.map(function (e) { return s(e.cur.p.magneticVariation) || s(e.cur.p.declination); }).filter(Boolean)[0];
-      rows.push([C(join([s(p.name), '(' + s(p.type).replace(/_/g, '/') + ')', mv ? Math.abs(+mv) + '°' + (+mv < 0 ? 'W' : 'E') : ''], ' '), n, 'name'), C(s(p.designator), n, 'designator'),
+      rows.push([C(join([s(p.name), '(' + s(p.type).replace(/_/g, '/') + ')', mv ? magVar(mv) : ''], ' '), n, 'name'), C(s(p.designator), n, 'designator'),
         C(freq.join('\n'), comps[0] || n, comps[0] ? (comps[0].cur.p.frequency ? 'frequency' : 'channel') : null), C(hoursOf(n) || comps.map(hoursOf).filter(Boolean)[0] || ''),
         C(loc ? M.fPoint(loc) : '', n, 'location'), C(dmeEq ? M.fElev(dmeEq.cur.p.location) : '', dmeEq || n, 'location'),
         C(uniq([].concat(M.notesOf(p), [].concat.apply([], comps.map(function (e) { return M.notesOf(e.cur.p); })))).join('\n'), n, 'annotation')]);
@@ -886,7 +893,7 @@ var AIP = (function () {
         if (owner && (k === 'DME' && eq.cur.p._ils)) return;
         var p = eq.cur.p, loc = arr(p.location)[0];
         var mv = s(p.magneticVariation) || s(p.declination);
-        rows.push([C(join([s(p.name), '(' + (s(p.type) || k) + ')', mv ? Math.abs(+mv) + '°' + (+mv < 0 ? 'W' : 'E') : ''], ' '), eq, 'name'), C(s(p.designator), eq, 'designator'),
+        rows.push([C(join([s(p.name), '(' + (s(p.type) || k) + ')', mv ? magVar(mv) : ''], ' '), eq, 'name'), C(s(p.designator), eq, 'designator'),
           C(k === 'DME' || k === 'TACAN' ? (s(p.channel) ? 'CH ' + s(p.channel) : '') : M.fq(p.frequency), eq, k === 'DME' || k === 'TACAN' ? 'channel' : 'frequency'), C(hoursOf(eq)),
           C(loc ? M.fPoint(loc) : '', eq, 'location'), C(k === 'DME' ? M.fElev(loc) : '', eq, 'location'), C(M.notesOf(p).join('\n'), eq, 'annotation')]);
       });

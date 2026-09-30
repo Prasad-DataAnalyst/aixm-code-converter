@@ -2669,7 +2669,10 @@ var AX = (function () {
   }
 
   /* ------------------------------------------------------------ temporality */
-  function tms(s) { if (!s) return null; var t = Date.parse(s); return isNaN(t) ? null : t; }
+  // AIXM times are UTC. A date-time without zone ("2026-10-29T00:00:00") would be read as local time by
+  // Date.parse (a laptop at UTC+3 would move it to the previous day and AIRAC cycle), so add the "Z".
+  var NO_ZONE = /T\d\d:\d\d(:\d\d(\.\d+)?)?$/;
+  function tms(s) { if (!s) return null; if (typeof s === 'number') return s; var t = Date.parse(NO_ZONE.test(s) ? s + 'Z' : s); return isNaN(t) ? null : t; }
   function mergeProps(a, b) { var o = {}, k; for (k in a) o[k] = a[k]; for (k in b) o[k] = b[k]; return o; }
   /* Resolve the effective state of a feature at time t (ms) or latest (t==null). */
   function resolve(rec, t) {
@@ -2728,7 +2731,7 @@ var AX = (function () {
     for (var k in p) {
       if (skipKeys && skipKeys[k]) continue;
       var v = p[k], path = prefix ? prefix + '/' + k : k;
-      if (k === '_t' || k === '_na') continue;
+      if (k === '_t' || k === '_na' || k === 'timeSliceMetadata' || k === 'featureMetadata') continue; // ISO 19115 metadata is not aeronautical data
       if (k === '_geo') { out[path] = geoSig(v); continue; }
       if (Array.isArray(v)) {
         var items = v.map(function (x) { var o = {}; if (x && typeof x === 'object' && valStr(x) === null) flatten(x, '', o); else o[''] = valStr(x); return o; });
@@ -3540,7 +3543,7 @@ var MODEL = (function () {
     if (/^(UNL|GND|FLOOR|CEILING)$/i.test(val) || u === 'OTHER') return String(val).toUpperCase();
     if (u === 'FL') return 'FL ' + val;
     ref = s(ref);
-    var rs = { MSL: 'AMSL', SFC: 'AGL', STD: 'STD', W84: 'W84' }[ref] || ref;
+    var rs = { MSL: 'AMSL', SFC: 'AGL', STD: 'STD', W84: 'W84', 'OTHER:ALT': 'AMSL', 'OTHER:HEI': 'AGL' }[ref] || String(ref || '').replace(/^OTHER:/, '');
     if (/^0+(\.0+)?$/.test(val) && ref === 'SFC') return 'GND';
     return val + ' ' + (UOM[u] || u) + (rs ? ' ' + rs : '');
   }
@@ -4083,7 +4086,14 @@ var AIP = (function () {
     var comp = s(sc.composition);
     return join([SURF[comp] || (comp ? comp.replace(/^OTHER:/, '').replace(/_/g, ' ') : ''), s(sc.preparation) ? '(' + s(sc.preparation) + ')' : ''], ' ');
   }
+  // magnetic variation as published: at most 2 decimals, E/W
+  function magVar(v) { var x = Math.abs(+v); return (isNaN(x) ? v : String(+x.toFixed(2))) + '°' + (+v < 0 ? 'W' : 'E'); }
   function strengthSurface(sc) { return join([pcn(sc), surface(sc)], '\n'); }
+  // ACR/PCR (ICAO, from 28 NOV 2024) has no AIXM 5.1 property: many States give it in a remark
+  function pcrFromNotes(notes) {
+    var m = /\bPCR\s*\d+\s*\/\s*[RF]\s*\/\s*[A-D]\s*\/\s*[W-Z]\s*\/\s*[TU]\b/.exec(notes.join(' '));
+    return m ? m[0].replace(/\s+/g, ' ') + ' (from remark)' : '';
+  }
   function dims(len, wid) { var a = M.fq(len), b = M.fq(wid); if (!a && !b) return ''; return (a || '—') + ' x ' + (b || '—'); }
   function allNotes(r, filter) { return M.notesOf(r.cur.p, filter); }
   function noteCell(r, filter) { var n = allNotes(r, filter); return n.length ? C(n.join('\n'), r, 'annotation') : null; }
@@ -4273,7 +4283,7 @@ var AIP = (function () {
       row('2', 'Direction and distance from (city)', [C(join(arr(p.servedCity).map(function (c) { return c && s(c.name); }), ', '), ad, 'servedCity'), C(n(['servedCity']).join('\n'), ad, 'annotation')]),
       row('3', 'Elevation / Reference temperature', [C(join([elev, temp ? '/ ' + temp : ''], ' '), ad, 'fieldElevation'), C(n(['fieldElevation', 'referenceTemperature']).join('\n'), ad, 'annotation')]),
       row('4', 'Geoid undulation at AD ELEV PSN', [C(gu, ad, 'ARP')]),
-      row('5', 'MAG VAR / Annual change', [C(mv ? join([Math.abs(+mv) + '°' + (+mv < 0 ? 'W' : 'E'), s(p.dateMagneticVariation) ? '(' + s(p.dateMagneticVariation) + ')' : '',
+      row('5', 'MAG VAR / Annual change', [C(mv ? join([magVar(mv), s(p.dateMagneticVariation) ? '(' + s(p.dateMagneticVariation) + ')' : '',
         s(p.magneticVariationChange) ? '/ ' + s(p.magneticVariationChange) + '°' : ''], ' ') : '', ad, 'magneticVariation'), C(n(['magneticVariation']).join('\n'), ad, 'annotation')]),
       row('6', 'AD operator, address, telephone, telefax, e-mail, AFS, website', [C(operator, ad, 'responsibleOrganisation'), C(adContact, ad, 'contact'), C(n(['responsibleOrganisation']).join('\n'), ad, 'annotation')]),
       row('7', 'Types of traffic permitted (IFR/VFR)', [C(uniq(traffic).join('/'), ad, 'availability')]),
@@ -4487,7 +4497,7 @@ var AIP = (function () {
         C(M.shortName(d).replace(/^RWY /, ''), d, 'designator'),
         C(s(dp.trueBearing) ? s(dp.trueBearing) + '°' : '', d, 'trueBearing'),
         C(dims(rp.nominalLength, rp.nominalWidth), rw, 'nominalLength'),
-        C(join([strengthSurface(rp.surfaceProperties), swy ? 'SWY: ' + swy : ''], '\n'), rw, 'surfaceProperties'),
+        C(join([strengthSurface(rp.surfaceProperties), !pcn(rp.surfaceProperties) ? pcrFromNotes(rw ? M.notesOf(rp) : []) : '', swy ? 'SWY: ' + swy : ''], '\n'), rw, 'surfaceProperties'),
         C(thrTxt, thr || d, thr ? 'location' : '_thr'),
         C(thrElev, thr || d, thr ? 'location' : 'elevationTDZ'),
         C(s(dp.slopeTDZ) ? s(dp.slopeTDZ) + '%' : '', d, 'slopeTDZ'),
@@ -4500,7 +4510,7 @@ var AIP = (function () {
         C(remarks.join('\n'), d, 'annotation')
       ];
     });
-    return [table('', ['Designations RWY NR', 'True BRG', 'Dimensions of RWY', 'Strength (PCN) and surface of RWY and SWY', 'THR coordinates / RWY end coordinates / THR geoid undulation',
+    return [table('', ['Designations RWY NR', 'True BRG', 'Dimensions of RWY', 'Strength (PCN / PCR) and surface of RWY and SWY', 'THR coordinates / RWY end coordinates / THR geoid undulation',
       'THR elevation and highest elevation of TDZ', 'Slope of RWY/SWY', 'SWY dimensions', 'CWY dimensions', 'Strip dimensions', 'RESA dimensions',
       'Arresting system', 'OFZ', 'Remarks'], rows)];
   };
@@ -4654,7 +4664,7 @@ var AIP = (function () {
       if (eq.k === 'DME' && s(q.channel)) freq = 'CH ' + s(q.channel);
       var mv = s(q.magneticVariation) || s(q.declination);
       var loc = arr(q.location)[0];
-      return [C(join([typeTxt || eqType(eq), mv ? '(' + Math.abs(+mv) + '°' + (+mv < 0 ? 'W' : 'E') + ')' : '', eq.k === 'Localizer' && s(p.signalPerformance) ? s(p.signalPerformance).replace(/_/g, ' ') : ''], ' '), eq, 'designator'),
+      return [C(join([typeTxt || eqType(eq), mv ? '(' + magVar(mv) + ')' : '', eq.k === 'Localizer' && s(p.signalPerformance) ? s(p.signalPerformance).replace(/_/g, ' ') : ''], ' '), eq, 'designator'),
         C(s(q.designator) || s(p.designator), eq, 'designator'), C(freq, eq, q.frequency ? 'frequency' : 'channel'), C(hoursOf(eq) || hours, eq, 'availability'),
         C(loc ? M.fPoint(loc) : '', eq, 'location'), C(eq.k === 'DME' ? M.fElev(loc) : '', eq, 'location'), C(''),
         C(uniq(M.notesOf(q).concat(extra || [])).join('\n'), eq, 'annotation')];
@@ -4901,7 +4911,7 @@ var AIP = (function () {
       var loc = arr(p.location)[0] || (comps[0] && arr(comps[0].cur.p.location)[0]);
       var dmeEq = comps.filter(function (e) { return e.k === 'DME'; })[0];
       var mv = comps.map(function (e) { return s(e.cur.p.magneticVariation) || s(e.cur.p.declination); }).filter(Boolean)[0];
-      rows.push([C(join([s(p.name), '(' + s(p.type).replace(/_/g, '/') + ')', mv ? Math.abs(+mv) + '°' + (+mv < 0 ? 'W' : 'E') : ''], ' '), n, 'name'), C(s(p.designator), n, 'designator'),
+      rows.push([C(join([s(p.name), '(' + s(p.type).replace(/_/g, '/') + ')', mv ? magVar(mv) : ''], ' '), n, 'name'), C(s(p.designator), n, 'designator'),
         C(freq.join('\n'), comps[0] || n, comps[0] ? (comps[0].cur.p.frequency ? 'frequency' : 'channel') : null), C(hoursOf(n) || comps.map(hoursOf).filter(Boolean)[0] || ''),
         C(loc ? M.fPoint(loc) : '', n, 'location'), C(dmeEq ? M.fElev(dmeEq.cur.p.location) : '', dmeEq || n, 'location'),
         C(uniq([].concat(M.notesOf(p), [].concat.apply([], comps.map(function (e) { return M.notesOf(e.cur.p); })))).join('\n'), n, 'annotation')]);
@@ -4913,7 +4923,7 @@ var AIP = (function () {
         if (owner && (k === 'DME' && eq.cur.p._ils)) return;
         var p = eq.cur.p, loc = arr(p.location)[0];
         var mv = s(p.magneticVariation) || s(p.declination);
-        rows.push([C(join([s(p.name), '(' + (s(p.type) || k) + ')', mv ? Math.abs(+mv) + '°' + (+mv < 0 ? 'W' : 'E') : ''], ' '), eq, 'name'), C(s(p.designator), eq, 'designator'),
+        rows.push([C(join([s(p.name), '(' + (s(p.type) || k) + ')', mv ? magVar(mv) : ''], ' '), eq, 'name'), C(s(p.designator), eq, 'designator'),
           C(k === 'DME' || k === 'TACAN' ? (s(p.channel) ? 'CH ' + s(p.channel) : '') : M.fq(p.frequency), eq, k === 'DME' || k === 'TACAN' ? 'channel' : 'frequency'), C(hoursOf(eq)),
           C(loc ? M.fPoint(loc) : '', eq, 'location'), C(k === 'DME' ? M.fElev(loc) : '', eq, 'location'), C(M.notesOf(p).join('\n'), eq, 'annotation')]);
       });
@@ -5157,8 +5167,21 @@ var ANALYSIS = (function () {
   /* ---------------------------------------------------------- in-file */
   function inFileChanges(ds) {
     var out = [];
+    // Snapshot files hold one BASELINE per feature; its start date tells when the feature was last amended.
+    // The initial-load date (shared by a large share of the features) is not an amendment.
+    var DAY = 86400000, days = {}, single = 0;
+    ds.recs.forEach(function (r) { if (r.ts.length === 1 && r.ts[0].i === 'BASELINE') { var b = AX.tms(r.ts[0].b); if (b !== null) { single++; var d = Math.floor(b / DAY); days[d] = (days[d] || 0) + 1; } } });
+    var loadDays = {};
+    Object.keys(days).forEach(function (d) { if (days[d] > Math.max(30, single * 0.3)) loadDays[d] = true; });
     ds.recs.forEach(function (r) {
       var ts = r.ts;
+      if (ts.length === 1 && ts[0].i === 'BASELINE' && !ts[0].le && !r.chg) {
+        var b0 = AX.tms(ts[0].b);
+        if (b0 !== null && !loadDays[Math.floor(b0 / DAY)]) {
+          var isNew = ts[0].lb && AX.tms(ts[0].lb) === b0;
+          out.push({ rec: r, kind: isNew ? 'New feature' : 'Amended (new baseline)', from: ts[0].b, to: null, fields: [], tsIdx: 0, noValues: !isNew });
+        }
+      }
       if (r.chg) {
         out.push({ rec: r, kind: r.chg === 'New' ? 'New feature' : r.chg === 'Withdrawn' ? 'Withdrawn' : 'Changed (AIXM 4.5 update)', from: ts[0].b, to: null,
           fields: r.chg === 'Changed' ? AX.diffFlat({}, AX.flatten(ts[0].p)) : [], tsIdx: 0 });
@@ -5306,6 +5329,7 @@ var ANALYSIS = (function () {
           var pd = fd.p[pk], v = p[pk];
           if (!pd || typeof v !== 'string' || !D.v5.codes[pd.t]) continue;
           var cl = D.v5.codes[pd.t].v;
+          if (!Object.keys(cl).length) continue; // pattern / numeric types (designators, RNP values) have no enumeration
           if (!(v in cl) && v.indexOf('OTHER') !== 0) add('warning', 'Code list', 'Value "' + v + '" of ' + pk + ' is not in ' + pd.t, r);
         }
       }
@@ -5386,7 +5410,7 @@ var ANALYSIS = (function () {
     var inCycle = ev.filter(function (e) { return e.t !== null && e.t >= cycle.date && e.t < cycle.next; });
     if (inCycle.length) res.sources.push('time slices in the file starting in AIRAC ' + cycle.id);
     inCycle.forEach(function (e) {
-      if (!e.fields.length) { var en = entry(e.rec); en.kinds.add(e.kind); if (/New|withdrawn|Withdrawn/.test(e.kind)) en.added = /New/.test(e.kind); }
+      if (!e.fields.length) { var en = entry(e.rec); en.kinds.add(e.kind); if (/New|withdrawn|Withdrawn/.test(e.kind)) en.added = /New/.test(e.kind); if (e.noValues) en.amended = true; }
       e.fields.forEach(function (f) { addField(e.rec, f, 'file', e.kind); });
     });
     var cmp = ds.prevCmp;
@@ -5397,6 +5421,9 @@ var ANALYSIS = (function () {
         else if (it.kind === 'modified') it.fields.forEach(function (f) { addField(it.b, f, 'prev', 'Changed since previous cycle'); });
       });
       res.removed = cmp.items.filter(function (it) { return it.kind === 'removed'; });
+      // a new baseline whose values are identical to the previous cycle is not a change for the reader
+      var changed = new Set(cmp.items.map(function (it) { return it.b; }));
+      res.byRec.forEach(function (e, r) { if (e.amended && !e.added && !e.props.size && !changed.has(r)) res.byRec.delete(r); });
     }
     res.byRec.forEach(function (e, r) { res.count++; res.list.push({ rec: r, e: e, sec: AIP.sectionOf(ds, r) }); });
     res.list.sort(function (a, b) { return a.sec.no < b.sec.no ? -1 : a.sec.no > b.sec.no ? 1 : 0; });
@@ -7741,7 +7768,7 @@ var I18N = (function () {
     ['Hours of operation', 'ساعات التشغيل', 'Heures de fonctionnement', 'Horario de funcionamiento'], ['Call sign', 'نداء الاتصال', 'Indicatif d’appel', 'Distintivo de llamada'], ['Service designation', 'تسمية الخدمة', 'Désignation du service', 'Designación del servicio'],
     ['Vertical limits', 'الحدود الرأسية', 'Limites verticales', 'Límites verticales'], ['Lateral limits', 'الحدود الأفقية', 'Limites latérales', 'Límites laterales'], ['Class', 'الفئة', 'Classe', 'Clase'], ['Unit', 'الوحدة', 'Organisme', 'Dependencia'],
     ['Designations RWY NR', 'رقم المدرج', 'Désignation RWY NR', 'Designación RWY NR'], ['True BRG', 'الاتجاه الحقيقي', 'Relèvement vrai', 'Marcación verdadera'], ['Dimensions of RWY', 'أبعاد المدرج', 'Dimensions de la RWY', 'Dimensiones de la RWY'],
-    ['Strength (PCN) and surface of RWY and SWY', 'متانة (PCN) وسطح المدرج ومنطقة التوقف', 'Résistance (PCN) et revêtement RWY et SWY', 'Resistencia (PCN) y superficie de RWY y SWY'],
+    ['Strength (PCN / PCR) and surface of RWY and SWY', 'متانة (PCN) وسطح المدرج ومنطقة التوقف', 'Résistance (PCN) et revêtement RWY et SWY', 'Resistencia (PCN) y superficie de RWY y SWY'],
     ['THR elevation and highest elevation of TDZ', 'ارتفاع العتبة وأعلى ارتفاع لمنطقة ملامسة العجلات', 'Altitude du THR et altitude maximale de la TDZ', 'Elevación del THR y elevación máxima de la TDZ'], ['Slope of RWY/SWY', 'ميل المدرج/منطقة التوقف', 'Pente RWY/SWY', 'Pendiente RWY/SWY'],
     ['SWY dimensions', 'أبعاد منطقة التوقف', 'Dimensions SWY', 'Dimensiones SWY'], ['CWY dimensions', 'أبعاد منطقة الخلوص', 'Dimensions CWY', 'Dimensiones CWY'], ['Strip dimensions', 'أبعاد شريط المدرج', 'Dimensions de la bande', 'Dimensiones de la franja'],
     ['RESA dimensions', 'أبعاد منطقة الأمان في نهاية المدرج', 'Dimensions RESA', 'Dimensiones RESA'], ['Arresting system', 'نظام الإيقاف', 'Dispositif d’arrêt', 'Sistema de detención'],
@@ -8757,6 +8784,7 @@ var I18N = (function () {
     if (!e) return null;
     if (e.added) return { strong: true, lines: ['New in AIRAC ' + cc.cycle.id + ' (' + Array.from(e.kinds).join(', ') + ')'] };
     if (p && e.props.has(p)) return { strong: true, lines: e.props.get(p).map(function (f) { return ANALYSIS.prettyPath(f.path) + ': ' + (f.old !== undefined ? ANALYSIS.displayVal(ds, f.old) : '—') + '  →  ' + (f.neu !== undefined ? ANALYSIS.displayVal(ds, f.neu) : 'removed'); }) };
+    if (!e.props.size && e.amended) return { strong: false, amended: true, lines: ['Amended in AIRAC ' + cc.cycle.id + ' (new baseline from ' + M.fmtDate(cc.cycle.date) + '). ' + (ds.prevCmp ? 'No value differs from ' + ds.prevCmp.a.name + '.' : 'Load the previous cycle\'s file (Compare with previous cycle) to see exactly which values changed.')] };
     return { strong: false, lines: ['Other properties of this feature change in AIRAC ' + cc.cycle.id + ': ' + Array.from(e.props.keys()).join(', ')] };
   }
   function cellHtml(c, ds) {
@@ -8768,7 +8796,7 @@ var I18N = (function () {
     var tip = (ci ? '⚠ CHANGE ' + ci.lines.join('\n') + '\n\n' : '') + (c.tip ? c.tip + '\n' : '') + M.typeName(c.r) + (c.p ? ' · ' + c.p : '') + ' · line ' + num(c.r.line) + '\nClick to view the AIXM code';
     return '<span class="src' + (ci ? (ci.strong ? ' chg' : ' chg-soft') : '') + '" data-cell="' + idx + '" title="' + esc(tip) + '">' + t + '</span>';
   }
-  function rowChanged(ds, cells) { return S.hlOn && cells.some(function (c) { return c && c.r && chgInfo(ds, c.r, c.p) && chgInfo(ds, c.r, c.p).strong; }); }
+  function rowChanged(ds, cells) { return S.hlOn && cells.some(function (c) { var ci = c && c.r && chgInfo(ds, c.r, c.p); return ci && (ci.strong || ci.amended); }); }
   function effOf(r) { return r && r.cur ? M.fmtTs(r.cur.b) : ''; }
   function sectionBodyHtml(ds, sec, rowLimit) {
     var h = '';
@@ -9449,7 +9477,7 @@ var I18N = (function () {
     var libFiles = {};
     if (ds.lib) { var st = libStates().filter(function (x) { return x.name === ds.lib.state; })[0]; if (st) st.files.forEach(function (f) { var d = LIBRARY.fileDate(f); if (d) { var a = AX.airac(d); if (a) (libFiles[a.id] = libFiles[a.id] || []).push(f.name); } }); }
     S.datasets.forEach(function (d) { if (d.state === ds.state && d.airac) (libFiles[d.airac.id] = libFiles[d.airac.id] || []).push(d.name); });
-    var h = '<h1 class="view-title">Timeline</h1><p class="view-sub">When does the data change? Each column is an AIRAC cycle; the bar shows how many features change in it (GEN / ENR / AD). Click a cycle to list its changes, open the AMDT report or highlight it in the AIP. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>';
+    var h = '<h1 class="view-title">Timeline</h1><p class="view-sub">When does the data change? Each column is an AIRAC cycle; the bar shows how many features change in it or start their current version in it (GEN / ENR / AD). Click a cycle to list its changes, open the AMDT report or highlight it in the AIP. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>';
     if (!tl.cycles.length) { v.innerHTML = h + '<div class="card card-pad muted">No dated changes in this file.</div>'; return; }
     h += '<div class="card tl-card"><div class="tl-strip">' + tl.cycles.map(function (c) {
       var hh = function (n) { return Math.round(n / max * 110); };
@@ -9487,6 +9515,8 @@ var I18N = (function () {
     }
     cellRegistry = cellRegistry || [];
     v.innerHTML = h;
+    var selCol = $('.tl-col.sel', v), strip = $('.tl-strip', v);
+    if (selCol && strip) strip.scrollLeft = Math.max(0, selCol.offsetLeft - strip.clientWidth + selCol.offsetWidth * 3);
     v.onclick = function (e) {
       var col = e.target.closest('[data-cy]');
       if (col) { S.tlSel = col.getAttribute('data-cy'); go('timeline'); return; }

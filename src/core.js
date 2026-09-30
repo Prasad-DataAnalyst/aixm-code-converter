@@ -1043,7 +1043,10 @@ var AX = (function () {
   }
 
   /* ------------------------------------------------------------ temporality */
-  function tms(s) { if (!s) return null; var t = Date.parse(s); return isNaN(t) ? null : t; }
+  // AIXM times are UTC. A date-time without zone ("2026-10-29T00:00:00") would be read as local time by
+  // Date.parse (a laptop at UTC+3 would move it to the previous day and AIRAC cycle), so add the "Z".
+  var NO_ZONE = /T\d\d:\d\d(:\d\d(\.\d+)?)?$/;
+  function tms(s) { if (!s) return null; if (typeof s === 'number') return s; var t = Date.parse(NO_ZONE.test(s) ? s + 'Z' : s); return isNaN(t) ? null : t; }
   function mergeProps(a, b) { var o = {}, k; for (k in a) o[k] = a[k]; for (k in b) o[k] = b[k]; return o; }
   /* Resolve the effective state of a feature at time t (ms) or latest (t==null). */
   function resolve(rec, t) {
@@ -1102,7 +1105,7 @@ var AX = (function () {
     for (var k in p) {
       if (skipKeys && skipKeys[k]) continue;
       var v = p[k], path = prefix ? prefix + '/' + k : k;
-      if (k === '_t' || k === '_na') continue;
+      if (k === '_t' || k === '_na' || k === 'timeSliceMetadata' || k === 'featureMetadata') continue; // ISO 19115 metadata is not aeronautical data
       if (k === '_geo') { out[path] = geoSig(v); continue; }
       if (Array.isArray(v)) {
         var items = v.map(function (x) { var o = {}; if (x && typeof x === 'object' && valStr(x) === null) flatten(x, '', o); else o[''] = valStr(x); return o; });

@@ -882,6 +882,7 @@
     if (!e) return null;
     if (e.added) return { strong: true, lines: ['New in AIRAC ' + cc.cycle.id + ' (' + Array.from(e.kinds).join(', ') + ')'] };
     if (p && e.props.has(p)) return { strong: true, lines: e.props.get(p).map(function (f) { return ANALYSIS.prettyPath(f.path) + ': ' + (f.old !== undefined ? ANALYSIS.displayVal(ds, f.old) : '—') + '  →  ' + (f.neu !== undefined ? ANALYSIS.displayVal(ds, f.neu) : 'removed'); }) };
+    if (!e.props.size && e.amended) return { strong: false, amended: true, lines: ['Amended in AIRAC ' + cc.cycle.id + ' (new baseline from ' + M.fmtDate(cc.cycle.date) + '). ' + (ds.prevCmp ? 'No value differs from ' + ds.prevCmp.a.name + '.' : 'Load the previous cycle\'s file (Compare with previous cycle) to see exactly which values changed.')] };
     return { strong: false, lines: ['Other properties of this feature change in AIRAC ' + cc.cycle.id + ': ' + Array.from(e.props.keys()).join(', ')] };
   }
   function cellHtml(c, ds) {
@@ -893,7 +894,7 @@
     var tip = (ci ? '⚠ CHANGE ' + ci.lines.join('\n') + '\n\n' : '') + (c.tip ? c.tip + '\n' : '') + M.typeName(c.r) + (c.p ? ' · ' + c.p : '') + ' · line ' + num(c.r.line) + '\nClick to view the AIXM code';
     return '<span class="src' + (ci ? (ci.strong ? ' chg' : ' chg-soft') : '') + '" data-cell="' + idx + '" title="' + esc(tip) + '">' + t + '</span>';
   }
-  function rowChanged(ds, cells) { return S.hlOn && cells.some(function (c) { return c && c.r && chgInfo(ds, c.r, c.p) && chgInfo(ds, c.r, c.p).strong; }); }
+  function rowChanged(ds, cells) { return S.hlOn && cells.some(function (c) { var ci = c && c.r && chgInfo(ds, c.r, c.p); return ci && (ci.strong || ci.amended); }); }
   function effOf(r) { return r && r.cur ? M.fmtTs(r.cur.b) : ''; }
   function sectionBodyHtml(ds, sec, rowLimit) {
     var h = '';
@@ -1574,7 +1575,7 @@
     var libFiles = {};
     if (ds.lib) { var st = libStates().filter(function (x) { return x.name === ds.lib.state; })[0]; if (st) st.files.forEach(function (f) { var d = LIBRARY.fileDate(f); if (d) { var a = AX.airac(d); if (a) (libFiles[a.id] = libFiles[a.id] || []).push(f.name); } }); }
     S.datasets.forEach(function (d) { if (d.state === ds.state && d.airac) (libFiles[d.airac.id] = libFiles[d.airac.id] || []).push(d.name); });
-    var h = '<h1 class="view-title">Timeline</h1><p class="view-sub">When does the data change? Each column is an AIRAC cycle; the bar shows how many features change in it (GEN / ENR / AD). Click a cycle to list its changes, open the AMDT report or highlight it in the AIP. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>';
+    var h = '<h1 class="view-title">Timeline</h1><p class="view-sub">When does the data change? Each column is an AIRAC cycle; the bar shows how many features change in it or start their current version in it (GEN / ENR / AD). Click a cycle to list its changes, open the AMDT report or highlight it in the AIP. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>';
     if (!tl.cycles.length) { v.innerHTML = h + '<div class="card card-pad muted">No dated changes in this file.</div>'; return; }
     h += '<div class="card tl-card"><div class="tl-strip">' + tl.cycles.map(function (c) {
       var hh = function (n) { return Math.round(n / max * 110); };
@@ -1612,6 +1613,8 @@
     }
     cellRegistry = cellRegistry || [];
     v.innerHTML = h;
+    var selCol = $('.tl-col.sel', v), strip = $('.tl-strip', v);
+    if (selCol && strip) strip.scrollLeft = Math.max(0, selCol.offsetLeft - strip.clientWidth + selCol.offsetWidth * 3);
     v.onclick = function (e) {
       var col = e.target.closest('[data-cy]');
       if (col) { S.tlSel = col.getAttribute('data-cy'); go('timeline'); return; }

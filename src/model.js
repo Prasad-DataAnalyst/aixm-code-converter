@@ -494,7 +494,7 @@ var MODEL = (function () {
     if (/^(UNL|GND|FLOOR|CEILING)$/i.test(val) || u === 'OTHER') return String(val).toUpperCase();
     if (u === 'FL') return 'FL ' + val;
     ref = s(ref);
-    var rs = { MSL: 'AMSL', SFC: 'AGL', STD: 'STD', W84: 'W84' }[ref] || ref;
+    var rs = { MSL: 'AMSL', SFC: 'AGL', STD: 'STD', W84: 'W84', 'OTHER:ALT': 'AMSL', 'OTHER:HEI': 'AGL' }[ref] || String(ref || '').replace(/^OTHER:/, '');
     if (/^0+(\.0+)?$/.test(val) && ref === 'SFC') return 'GND';
     return val + ' ' + (UOM[u] || u) + (rs ? ' ' + rs : '');
   }

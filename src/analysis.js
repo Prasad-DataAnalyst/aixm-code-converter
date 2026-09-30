@@ -29,8 +29,21 @@ var ANALYSIS = (function () {
   /* ---------------------------------------------------------- in-file */
   function inFileChanges(ds) {
     var out = [];
+    // Snapshot files hold one BASELINE per feature; its start date tells when the feature was last amended.
+    // The initial-load date (shared by a large share of the features) is not an amendment.
+    var DAY = 86400000, days = {}, single = 0;
+    ds.recs.forEach(function (r) { if (r.ts.length === 1 && r.ts[0].i === 'BASELINE') { var b = AX.tms(r.ts[0].b); if (b !== null) { single++; var d = Math.floor(b / DAY); days[d] = (days[d] || 0) + 1; } } });
+    var loadDays = {};
+    Object.keys(days).forEach(function (d) { if (days[d] > Math.max(30, single * 0.3)) loadDays[d] = true; });
     ds.recs.forEach(function (r) {
       var ts = r.ts;
+      if (ts.length === 1 && ts[0].i === 'BASELINE' && !ts[0].le && !r.chg) {
+        var b0 = AX.tms(ts[0].b);
+        if (b0 !== null && !loadDays[Math.floor(b0 / DAY)]) {
+          var isNew = ts[0].lb && AX.tms(ts[0].lb) === b0;
+          out.push({ rec: r, kind: isNew ? 'New feature' : 'Amended (new baseline)', from: ts[0].b, to: null, fields: [], tsIdx: 0, noValues: !isNew });
+        }
+      }
       if (r.chg) {
         out.push({ rec: r, kind: r.chg === 'New' ? 'New feature' : r.chg === 'Withdrawn' ? 'Withdrawn' : 'Changed (AIXM 4.5 update)', from: ts[0].b, to: null,
           fields: r.chg === 'Changed' ? AX.diffFlat({}, AX.flatten(ts[0].p)) : [], tsIdx: 0 });
@@ -178,6 +191,7 @@ var ANALYSIS = (function () {
           var pd = fd.p[pk], v = p[pk];
           if (!pd || typeof v !== 'string' || !D.v5.codes[pd.t]) continue;
           var cl = D.v5.codes[pd.t].v;
+          if (!Object.keys(cl).length) continue; // pattern / numeric types (designators, RNP values) have no enumeration
           if (!(v in cl) && v.indexOf('OTHER') !== 0) add('warning', 'Code list', 'Value "' + v + '" of ' + pk + ' is not in ' + pd.t, r);
         }
       }
@@ -258,7 +272,7 @@ var ANALYSIS = (function () {
     var inCycle = ev.filter(function (e) { return e.t !== null && e.t >= cycle.date && e.t < cycle.next; });
     if (inCycle.length) res.sources.push('time slices in the file starting in AIRAC ' + cycle.id);
     inCycle.forEach(function (e) {
-      if (!e.fields.length) { var en = entry(e.rec); en.kinds.add(e.kind); if (/New|withdrawn|Withdrawn/.test(e.kind)) en.added = /New/.test(e.kind); }
+      if (!e.fields.length) { var en = entry(e.rec); en.kinds.add(e.kind); if (/New|withdrawn|Withdrawn/.test(e.kind)) en.added = /New/.test(e.kind); if (e.noValues) en.amended = true; }
       e.fields.forEach(function (f) { addField(e.rec, f, 'file', e.kind); });
     });
     var cmp = ds.prevCmp;
@@ -269,6 +283,9 @@ var ANALYSIS = (function () {
         else if (it.kind === 'modified') it.fields.forEach(function (f) { addField(it.b, f, 'prev', 'Changed since previous cycle'); });
       });
       res.removed = cmp.items.filter(function (it) { return it.kind === 'removed'; });
+      // a new baseline whose values are identical to the previous cycle is not a change for the reader
+      var changed = new Set(cmp.items.map(function (it) { return it.b; }));
+      res.byRec.forEach(function (e, r) { if (e.amended && !e.added && !e.props.size && !changed.has(r)) res.byRec.delete(r); });
     }
     res.byRec.forEach(function (e, r) { res.count++; res.list.push({ rec: r, e: e, sec: AIP.sectionOf(ds, r) }); });
     res.list.sort(function (a, b) { return a.sec.no < b.sec.no ? -1 : a.sec.no > b.sec.no ? 1 : 0; });
