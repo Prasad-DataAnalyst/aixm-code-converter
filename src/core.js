@@ -919,6 +919,7 @@ var AX = (function () {
   /* Resolve the effective state of a feature at time t (ms) or latest (t==null). */
   function resolve(rec, t) {
     var ts = rec.ts;
+    if (!ts.length) return { p: {}, b: null, e: null, i: null, s: 0, c: 0, idx: -1, empty: true };
     if (ts.length === 1 && ts[0].i !== 'TEMPDELTA') return { p: ts[0].p, b: ts[0].b, e: ts[0].e, i: ts[0].i, s: ts[0].s, c: ts[0].c, idx: 0 };
     var perm = [], temp = [];
     for (var i = 0; i < ts.length; i++) (ts[i].i === 'TEMPDELTA' ? temp : perm).push(i);
@@ -1070,7 +1071,7 @@ var AX = (function () {
     parseXml: parseXml, textOf: textOf, attr: attr, child: child, desc: desc,
     sniff: sniff, convFeature5: convFeature5, convFeature45: convFeature45, uidKey: uidKey,
     parse45Coord: parse45Coord, dms: dms, fmtPos: fmtPos, toNM: toNM, dest: dest, distNM: distNM, bearing: bearing,
-    arcPts: arcPts, circlePts: circlePts, resolve: resolve, tms: tms, flatten: flatten, fingerprint: fingerprint, diffFlat: diffFlat,
+    arcPts: arcPts, circlePts: circlePts, resolve: resolve, mergeProps: mergeProps, tms: tms, flatten: flatten, fingerprint: fingerprint, diffFlat: diffFlat,
     valStr: valStr, geoSig: geoSig, airac: airac, stateFromICAO: stateFromICAO, icaoPrefixOf: icaoPrefixOf, normRef: normRef,
     GML_NS_RE: GML_NS_RE, AIXM5_RE: AIXM5_RE, FROM45: FROM45
   };

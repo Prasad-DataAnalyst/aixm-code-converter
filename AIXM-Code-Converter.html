@@ -1062,6 +1062,77 @@ tr.chg-row > td:first-child { box-shadow: inset 4px 0 0 #c62828; }
 .lib-card .lc-head .btn { color: var(--brand); background: #fff; border-color: #fff; }
 .lib-file .row { flex-wrap: wrap; justify-content: flex-end; }
 
+/* ------------------------------------------------------------ side by side */
+.sbs-sel { height: 30px; max-width: 280px; font-size: 12.5px; }
+.sbs-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13px; }
+.sbs-bar svg { width: 16px; height: 16px; vertical-align: -3px; }
+.sbs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.sbs-col { min-width: 0; }
+.sbs-head { position: sticky; top: 0; z-index: 2; padding: 8px 12px; border-radius: 9px; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
+.sbs-head.old { background: #eceff1; color: #37474f; }
+.sbs-head.new { background: #5c0632; color: #fff; }
+:root[data-theme="dark"] .sbs-head.old { background: #2b3236; color: #cfd8dc; }
+.sbs .sbs-new, .sbs .src.sbs-new { background: #c62828 !important; color: #fff !important; border-radius: 4px; padding: 1px 4px; font-weight: 600; }
+.sbs .sbs-old, .sbs .src.sbs-old { background: #fff3cd; color: #6d4c00; border-radius: 4px; padding: 1px 4px; text-decoration: line-through; text-decoration-color: rgba(109, 76, 0, .55); }
+:root[data-theme="dark"] .sbs .sbs-old { background: #4a3b10; color: #ffe08a; }
+.sbs tr.sbs-chg > td:first-child { box-shadow: inset 4px 0 0 #c62828; }
+.sbs tr.sbs-add > td:first-child { box-shadow: inset 4px 0 0 var(--added); }
+.sbs tr.sbs-del > td:first-child { box-shadow: inset 4px 0 0 var(--removed); }
+.sbs .sbs-missing { color: var(--muted); font-style: italic; background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(0, 0, 0, .035) 8px 16px); }
+.sbs.only-diff tr.sbs-same { display: none; }
+.sbs .tbl-wrap { overflow-x: auto; }
+@media (max-width: 1100px) { .sbs { grid-template-columns: 1fr; } }
+
+/* ------------------------------------------------------------ AMDT report */
+.amdt-banner { display: flex; flex-wrap: wrap; gap: 26px; align-items: center; padding: 14px 18px; margin-bottom: 14px; border-radius: 12px; background: linear-gradient(110deg, #4a0428, #5c0632 55%, #8e2a5a); color: #fff; }
+.amdt-banner .muted { color: rgba(255, 255, 255, .72); font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; }
+.amdt-banner .amdt-id { font-size: 22px; font-weight: 800; }
+.amdt-banner b { font-size: 16px; }
+.amdt-body { max-height: 72vh; overflow: auto; }
+.amdt-sec h3 { margin: 18px 0 8px; }
+.btn svg, .modal-head h3 svg { width: 15px; height: 15px; vertical-align: -2px; }
+
+/* ------------------------------------------------------------ timeline */
+.tl-card { padding: 14px 12px 8px; }
+.tl-strip { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 6px; align-items: stretch; }
+.tl-tags { display: flex; gap: 3px; height: 16px; }
+.tl-col { flex: 0 0 64px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; border: 1px solid transparent; border-radius: 10px; background: none; cursor: pointer; color: var(--text); position: relative; font: inherit; }
+.tl-col:hover { background: var(--surface-2); }
+.tl-col.sel { border-color: var(--brand); background: var(--brand-soft); }
+.tl-col.empty .tl-id { color: var(--muted); }
+.tl-n { font-size: 12px; font-weight: 700; height: 16px; }
+.tl-bar { display: flex; flex-direction: column-reverse; justify-content: flex-start; width: 26px; height: 112px; border-bottom: 2px solid var(--border); }
+.tl-bar i, .tl-legend i { display: block; width: 100%; }
+.p-GEN { background: #8e24aa; } .p-ENR { background: #1565c0; } .p-AD { background: #c62828; } .p-Other { background: #90a4ae; }
+.tl-id { font-weight: 700; font-size: 13px; }
+.tl-date { font-size: 11px; color: var(--muted); }
+.tl-tag { font-size: 10px; border-radius: 6px; padding: 0 5px; color: #fff; }
+.tl-tag.now { background: #2e7d32; } .tl-tag.file { background: #5c0632; }
+.tl-doc { position: absolute; top: 2px; right: 4px; font-size: 11px; }
+.tl-legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); padding: 6px 4px 0; }
+.tl-legend i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; vertical-align: -1px; }
+.gantt { padding: 12px 14px; }
+.g-axis { position: relative; height: 22px; margin-left: 240px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+.g-axis span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; }
+.g-axis .g-now { color: #2e7d32; font-weight: 700; }
+.g-row { display: flex; align-items: center; height: 26px; border-bottom: 1px dashed var(--border); }
+.g-lbl { flex: 0 0 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; padding-right: 8px; }
+.g-track { position: relative; flex: 1; height: 100%; }
+.g-track i { position: absolute; top: 6px; height: 14px; border-radius: 4px; background: #e08e00; }
+.g-track i.notam { background: #c62828; }
+
+/* ------------------------------------------------------------ NOTAM */
+.notam-card { padding: 12px 14px; margin-bottom: 12px; }
+.notam-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px; }
+.notam-body { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; margin-bottom: 8px; }
+.notam-text { margin: 0; padding: 10px 12px; background: #fffbe6; color: #3e2f00; border: 1px solid #f0e2a4; border-radius: 9px; font: 13px/1.5 Consolas, "Courier New", monospace; white-space: pre-wrap; }
+:root[data-theme="dark"] .notam-text { background: #2d2a18; color: #f5e9b8; border-color: #5a5130; }
+.notam-dec { font-size: 12.5px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.notam-aff { border-top: 1px solid var(--border); padding-top: 8px; font-size: 12.5px; }
+.aff-row { padding: 3px 0; }
+.aff-chg { display: inline-block; background: #c62828; color: #fff; border-radius: 4px; padding: 0 5px; margin: 1px 2px; }
+@media (max-width: 900px) { .notam-body { grid-template-columns: 1fr; } }
+
 </style>
 </head>
 <body>
@@ -2442,6 +2513,7 @@ var AX = (function () {
   /* Resolve the effective state of a feature at time t (ms) or latest (t==null). */
   function resolve(rec, t) {
     var ts = rec.ts;
+    if (!ts.length) return { p: {}, b: null, e: null, i: null, s: 0, c: 0, idx: -1, empty: true };
     if (ts.length === 1 && ts[0].i !== 'TEMPDELTA') return { p: ts[0].p, b: ts[0].b, e: ts[0].e, i: ts[0].i, s: ts[0].s, c: ts[0].c, idx: 0 };
     var perm = [], temp = [];
     for (var i = 0; i < ts.length; i++) (ts[i].i === 'TEMPDELTA' ? temp : perm).push(i);
@@ -2593,7 +2665,7 @@ var AX = (function () {
     parseXml: parseXml, textOf: textOf, attr: attr, child: child, desc: desc,
     sniff: sniff, convFeature5: convFeature5, convFeature45: convFeature45, uidKey: uidKey,
     parse45Coord: parse45Coord, dms: dms, fmtPos: fmtPos, toNM: toNM, dest: dest, distNM: distNM, bearing: bearing,
-    arcPts: arcPts, circlePts: circlePts, resolve: resolve, tms: tms, flatten: flatten, fingerprint: fingerprint, diffFlat: diffFlat,
+    arcPts: arcPts, circlePts: circlePts, resolve: resolve, mergeProps: mergeProps, tms: tms, flatten: flatten, fingerprint: fingerprint, diffFlat: diffFlat,
     valStr: valStr, geoSig: geoSig, airac: airac, stateFromICAO: stateFromICAO, icaoPrefixOf: icaoPrefixOf, normRef: normRef,
     GML_NS_RE: GML_NS_RE, AIXM5_RE: AIXM5_RE, FROM45: FROM45
   };
@@ -3519,7 +3591,7 @@ var MODEL = (function () {
     if (withTime && iso.slice(11, 16) !== '00:00') out += ' ' + iso.slice(11, 16) + 'Z';
     return out;
   }
-  function fmtTs(str) { var t = AX.tms(str); return t === null ? (str || '') : fmtDate(t, true); }
+  function fmtTs(str) { if (typeof str === 'number') return fmtDate(str, true); var t = AX.tms(str); return t === null ? (str || '') : fmtDate(t, true); }
 
   return {
     setDict: setDict, dict: dict, finalize: finalize, setViewDate: setViewDate, target: target, eachRef: eachRef,
@@ -5952,7 +6024,7 @@ var EXPORTS = (function () {
     (list || []).forEach(function (s) { if (!s) return; if (s.group) out = out.concat(flatSections(s.group)); else out.push(s); });
     return out;
   }
-  function safeName(t) { return String(t || 'aixm').replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 120); }
+  function safeName(t) { return String(t || 'aixm').replace(/[\u2013\u2014\u2192\u21c6]/g, '-').replace(/[\\/:*?"<>|]+/g, '_').replace(/[^\x20-\x7e]/g, '').replace(/\s+/g, '_').replace(/_+/g, '_').slice(0, 120) || 'aixm'; }
   function download(name, blob) {
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -6583,6 +6655,372 @@ var CONVERT = (function () {
 })();
 </script>
 <script>/* =============================================================================
+ * AIXM Code Converter - review tools (no DOM)
+ *  - AIRAC AIP amendment (AMDT) report from the changes of a cycle
+ *  - side-by-side alignment of two builds of one AIP section (row matching,
+ *    changed cells)
+ *  - Digital NOTAM: events, NOTAM/SNOWTAM text in ICAO format, Q-code decoding,
+ *    affected features and their temporary changes
+ *  - timeline data (changes per AIRAC cycle, temporary changes as periods)
+ * ========================================================================== */
+/* global AX, MODEL, AIP, ANALYSIS */
+var REVIEW = (function () {
+  'use strict';
+  var M = MODEL, s = M.s, arr = AX.arr, C = AIP.C;
+  var DAY = 86400000;
+
+  function partOf(no) { return /^GEN/.test(no) ? 'GEN' : /^ENR/.test(no) ? 'ENR' : /^AD/.test(no) ? 'AD' : 'Other'; }
+  function secTitle(ds, sec) {
+    if (!sec || !sec.id) return '';
+    var it = AIP.findSection(ds, sec.id);
+    return it ? it.title : '';
+  }
+
+  /* ------------------------------------------------------ AMDT report */
+  // cc = ANALYSIS.cycleChanges(ds, cycle) -> export scope (EXPORTS format)
+  function amdtScope(ds, cc) {
+    var cy = cc.cycle, pub = new Date(cy.date - 42 * DAY), secs = new Map(), parts = { GEN: 0, ENR: 0, AD: 0, Other: 0 };
+    function secEntry(ds2, sec) {
+      var key = sec.no + (sec.ad ? ' ' + M.shortName(sec.ad) : '');
+      var e = secs.get(key);
+      if (!e) secs.set(key, e = { key: key, no: sec.no, ad: sec.ad, title: secTitle(ds2, sec), rows: [], changed: 0, added: 0, removed: 0 });
+      return e;
+    }
+    cc.list.forEach(function (x) {
+      var e = secEntry(ds, x.sec), feat = M.label(ds, x.rec);
+      parts[partOf(x.sec.no)]++;
+      var reason = Array.from(x.e.kinds).join(', ');
+      if (x.e.added) { e.added++; e.rows.push([C(feat, x.rec), C(M.typeName(x.rec)), C('NEW'), C(''), C(''), C('inserted'), C(reason)]); }
+      else e.changed++;
+      x.e.props.forEach(function (l) {
+        l.forEach(function (f) {
+          e.rows.push([C(feat, x.rec, ANALYSIS.topProp(f.path)), C(M.typeName(x.rec)), C(f.old === undefined ? 'INSERT' : f.neu === undefined ? 'DELETE' : 'AMEND'), C(ANALYSIS.prettyPath(f.path)),
+            C(f.old !== undefined ? ANALYSIS.displayVal(ds, f.old) : ''), C(f.neu !== undefined ? ANALYSIS.displayVal(ds, f.neu) : 'deleted'), C(reason)]);
+        });
+      });
+    });
+    (cc.removed || []).forEach(function (it) {
+      var dsA = ds.prevCmp.a, e = secEntry(dsA, it.sec);
+      parts[partOf(it.sec.no)]++;
+      e.removed++;
+      e.rows.push([C(M.label(dsA, it.a)), C(M.typeName(it.a)), C('WITHDRAWN'), C(''), C(''), C('not in the new cycle'), C('Removed since ' + dsA.name)]);
+    });
+    var list = Array.from(secs.values()).sort(function (a, b) { return a.key < b.key ? -1 : a.key > b.key ? 1 : 0; });
+    var cols = ['Feature', 'Type', 'Action', 'Item', 'Previous value', 'New value', 'Reason / source'];
+    var summary = { kind: 'kv', title: 'Amendment', rows: [
+      { no: '', label: 'State', cells: [C(ds.state)] },
+      { no: '', label: 'AIRAC AIP amendment', cells: [C('AIRAC AMDT ' + cy.id)] },
+      { no: '', label: 'Publication date (not later than)', cells: [C(M.fmtDate(pub.getTime()) + ' (42 days before the effective date)')] },
+      { no: '', label: 'Effective date', cells: [C(M.fmtDate(cy.date) + ' 0000 UTC')] },
+      { no: '', label: 'Next AIRAC date', cells: [C(M.fmtDate(cy.next))] },
+      { no: '', label: 'Source data', cells: [C(ds.name + ' (' + (ds.sniff.versionLabel || '') + ')')] },
+      { no: '', label: 'Change sources', cells: [C(cc.sources.join('; ') || 'none')] },
+      { no: '', label: 'Summary', cells: [C(cc.count + ' feature(s) changed or added' + ((cc.removed || []).length ? ', ' + cc.removed.length + ' withdrawn' : '') + ' — GEN ' + parts.GEN + ', ENR ' + parts.ENR + ', AD ' + parts.AD + (parts.Other ? ', other ' + parts.Other : ''))] }
+    ] };
+    var affected = { kind: 'table', title: 'AIP sections affected by this amendment', cols: ['Part', 'Section', 'Aerodrome', 'Title', 'Amended', 'New', 'Withdrawn'], rows: list.map(function (e) {
+      return [C(partOf(e.no)), C(e.no), C(e.ad ? M.shortName(e.ad) : ''), C(e.title), C(String(e.changed)), C(String(e.added)), C(String(e.removed))];
+    }) };
+    var sections = [{ no: 'AMDT ' + cy.id, title: 'AIRAC AIP amendment — summary', blocks: [summary, affected,
+      { kind: 'note', text: 'Insert / amend / delete the items below in the AIP sections listed. Values come from the AIXM data; "previous value" is the value valid before ' + M.fmtDate(cy.date) + '.' }] }];
+    list.forEach(function (e) {
+      sections.push({ no: e.no + (e.ad ? ' ' + M.shortName(e.ad) : ''), title: e.title || e.no, blocks: [{ kind: 'table', cols: cols, rows: e.rows }] });
+    });
+    if (!list.length) sections[0].blocks.push({ kind: 'note', text: 'No changes found for AIRAC ' + cy.id + '. Load the previous cycle file (Compare) to see every difference.' });
+    return { title: 'AIRAC AMDT ' + cy.id + ' — effective ' + M.fmtDate(cy.date), sub: ds.state + ' — ' + ds.name, ds: ds, sections: sections, amdt: { cycle: cy, pub: pub.getTime(), list: list, parts: parts } };
+  }
+
+  /* ------------------------------------------------ side-by-side diff */
+  function ctext(c) { return c && c.t ? String(c.t) : ''; }
+  function rowText(cells) { return cells.map(ctext).join(' | '); }
+  function rowKey(b, cells) {
+    if (b.kind === 'kv') return (cells.no || '') + '|' + cells.label;
+    var k = ctext(cells[0]);
+    if (!k || k.length < 2) k += '|' + ctext(cells[1]);
+    return k;
+  }
+  function blockRows(b) { return b.kind === 'kv' ? b.rows : b.kind === 'table' ? b.rows : []; }
+  function cellsOf(b, row) { return b.kind === 'kv' ? row.cells : row; }
+  function keyed(b) {
+    var seen = {}, out = [];
+    blockRows(b).forEach(function (row, i) {
+      var k = rowKey(b, row), n = seen[k] = (seen[k] || 0) + 1;
+      out.push({ key: k + '#' + n, row: row, i: i });
+    });
+    return out;
+  }
+  function alignRows(bl, br) {
+    var L = bl ? keyed(bl) : [], R = br ? keyed(br) : [], lmap = new Map(), used = new Set(), out = [];
+    L.forEach(function (x) { lmap.set(x.key, x); });
+    var li = 0;
+    R.forEach(function (r) {
+      var l = lmap.get(r.key);
+      if (l && !used.has(l.key)) {
+        for (; li < l.i; li++) if (!used.has(L[li].key) && !R.some(function (y) { return y.key === L[li].key; })) { used.add(L[li].key); out.push({ l: L[li].row, r: null, st: 'del' }); }
+        used.add(l.key); li = Math.max(li, l.i + 1);
+        var cl = cellsOf(bl, l.row), cr = cellsOf(br, r.row), ch = [];
+        var n = Math.max(cl.length, cr.length);
+        for (var i = 0; i < n; i++) if (ctext(cl[i]) !== ctext(cr[i])) ch.push(i);
+        out.push({ l: l.row, r: r.row, st: ch.length ? 'chg' : 'same', cols: ch });
+      } else out.push({ l: null, r: r.row, st: 'add' });
+    });
+    L.forEach(function (x) { if (!used.has(x.key)) out.push({ l: x.row, r: null, st: 'del' }); });
+    return out;
+  }
+  function flat(sec) {
+    if (!sec) return [];
+    if (sec.group) return [].concat.apply([], sec.group.map(flat));
+    return [sec];
+  }
+  // -> {pairs:[{no,title, blocks:[{title, kind, cols, bl, br, rows:[{l,r,st,cols}]}]}], stats}
+  function sbsDiff(secL, secR) {
+    var A = flat(secL), B = flat(secR), stats = { chg: 0, add: 0, del: 0, cells: 0 }, pairs = [];
+    var amap = new Map(); A.forEach(function (x) { amap.set(x.no, x); });
+    B.forEach(function (sb) {
+      var sa = amap.get(sb.no) || null;
+      var blocks = [], ab = sa ? sa.blocks || [] : [], bb = sb.blocks || [], usedA = new Set();
+      function findA(b, i) {
+        for (var j = 0; j < ab.length; j++) if (!usedA.has(j) && ab[j].kind === b.kind && (ab[j].title || '') === (b.title || '')) { usedA.add(j); return ab[j]; }
+        if (ab[i] && !usedA.has(i) && ab[i].kind === b.kind) { usedA.add(i); return ab[i]; }
+        return null;
+      }
+      bb.forEach(function (b, i) {
+        var a = findA(b, i);
+        if (b.kind === 'note' || (a && a.kind === 'note')) { blocks.push({ kind: 'note', title: b.title, textL: a ? a.text : '', textR: b.text, st: a && a.text === b.text ? 'same' : 'chg' }); return; }
+        var rows = alignRows(a, b);
+        rows.forEach(function (r) { if (r.st !== 'same') stats[r.st]++; if (r.cols) stats.cells += r.cols.length; });
+        blocks.push({ kind: b.kind, title: b.title, cols: b.cols, bl: a, br: b, rows: rows });
+      });
+      ab.forEach(function (a, j) {
+        if (usedA.has(j) || a.kind === 'note') return;
+        var rows = alignRows(a, null);
+        stats.del += rows.length;
+        blocks.push({ kind: a.kind, title: a.title, cols: a.cols, bl: a, br: null, rows: rows });
+      });
+      pairs.push({ no: sb.no, title: sb.title, blocks: blocks });
+    });
+    return { pairs: pairs, stats: stats };
+  }
+  function sbsScope(ds, diff, labelL, labelR, title) {
+    var rows = [];
+    diff.pairs.forEach(function (p) {
+      p.blocks.forEach(function (b) {
+        (b.rows || []).forEach(function (r) {
+          if (r.st === 'same') return;
+          var cl = r.l ? (b.kind === 'kv' ? r.l.cells : r.l) : [], cr = r.r ? (b.kind === 'kv' ? r.r.cells : r.r) : [];
+          var item = b.kind === 'kv' ? ((r.r || r.l).no ? (r.r || r.l).no + ' ' : '') + (r.r || r.l).label : ctext((r.r || r.l)[0]);
+          if (r.st === 'chg') r.cols.forEach(function (i) {
+            rows.push([C(p.no), C(b.title || ''), C(item), C(b.kind === 'kv' ? '' : (b.cols && b.cols[i]) || ''), C(ctext(cl[i])), C(ctext(cr[i]))]);
+          });
+          else rows.push([C(p.no), C(b.title || ''), C(item), C(r.st === 'add' ? '(row added)' : '(row removed)'), C(r.st === 'del' ? rowText(cl) : ''), C(r.st === 'add' ? rowText(cr) : '')]);
+        });
+      });
+    });
+    return { title: title, sub: ds.state + ' — ' + labelL + ' ⇆ ' + labelR, ds: ds, sections: [{ no: 'SIDE BY SIDE', title: title, blocks: [
+      { kind: 'kv', rows: [{ no: '', label: 'Left', cells: [C(labelL)] }, { no: '', label: 'Right', cells: [C(labelR)] },
+        { no: '', label: 'Differences', cells: [C(diff.stats.cells + ' changed value(s), ' + diff.stats.add + ' row(s) added, ' + diff.stats.del + ' row(s) removed')] }] },
+      { kind: 'table', cols: ['Section', 'Table', 'Item', 'Column', labelL, labelR], rows: rows }] }] };
+  }
+
+  /* ---------------------------------------------------- Digital NOTAM */
+  var Q_SUBJ = {
+    LA: 'approach lighting system', LB: 'aerodrome beacon', LC: 'runway centre line lights', LD: 'landing direction indicator lights', LE: 'runway edge lights', LF: 'sequenced flashing lights', LG: 'pilot-controlled lighting',
+    LH: 'high intensity runway lights', LI: 'runway end identifier lights', LJ: 'runway alignment indicator lights', LK: 'CAT II components of approach lighting', LL: 'low intensity runway lights', LM: 'medium intensity runway lights',
+    LP: 'PAPI', LR: 'all landing area lighting facilities', LS: 'stopway lights', LT: 'threshold lights', LU: 'helicopter approach path indicator', LV: 'VASIS', LW: 'heliport lighting', LX: 'taxiway centre line lights', LY: 'taxiway edge lights', LZ: 'runway touchdown zone lights',
+    MA: 'movement area', MB: 'bearing strength', MC: 'clearway', MD: 'declared distances', MG: 'taxiing guidance system', MH: 'runway arresting gear', MK: 'parking area', MM: 'daylight markings', MN: 'apron', MO: 'stop bar', MP: 'aircraft stands',
+    MR: 'runway', MS: 'stopway', MT: 'threshold', MU: 'runway turning bay', MW: 'strip / shoulder', MX: 'taxiway(s)', MY: 'rapid exit taxiway',
+    FA: 'aerodrome', FB: 'friction measuring device', FC: 'ceiling measurement equipment', FD: 'docking system', FE: 'oxygen', FF: 'fire fighting and rescue', FG: 'ground movement control', FH: 'helicopter alighting area / platform', FI: 'aircraft de-icing',
+    FJ: 'oils', FL: 'landing direction indicator', FM: 'meteorological service', FO: 'fog dispersal system', FP: 'heliport', FS: 'snow removal equipment', FT: 'transmissometer', FU: 'fuel availability', FW: 'wind direction indicator', FZ: 'customs / immigration',
+    CA: 'air/ground facility', CB: 'ADS-B', CC: 'ADS-C', CD: 'CPDLC', CE: 'en-route surveillance radar', CG: 'ground controlled approach system', CL: 'SELCAL', CP: 'precision approach radar', CR: 'surveillance radar element of PAR', CS: 'secondary surveillance radar', CT: 'terminal area surveillance radar',
+    IC: 'ILS', ID: 'DME associated with ILS', IG: 'glide path (ILS)', II: 'inner marker (ILS)', IL: 'localizer (ILS)', IM: 'middle marker (ILS)', IN: 'localizer (not associated with ILS)', IO: 'outer marker (ILS)', IS: 'ILS category I', IT: 'ILS category II', IU: 'ILS category III', IW: 'MLS', IX: 'locator, outer (ILS)', IY: 'locator, middle (ILS)',
+    GA: 'GNSS airfield-specific operations', GW: 'GNSS area-wide operations',
+    NA: 'all radio navigation facilities', NB: 'non-directional radio beacon', ND: 'DME', NF: 'fan marker', NL: 'locator', NM: 'VOR/DME', NN: 'TACAN', NT: 'VORTAC', NV: 'VOR', NX: 'direction finding station',
+    AA: 'minimum altitude', AC: 'control zone', AD: 'air defence identification zone', AE: 'control area', AF: 'flight information region', AH: 'upper control area', AL: 'minimum usable flight level', AN: 'area navigation route', AO: 'oceanic control area',
+    AP: 'reporting point', AR: 'ATS route', AT: 'terminal control area', AU: 'upper flight information region', AV: 'upper advisory area', AX: 'significant point', AZ: 'aerodrome traffic zone',
+    SA: 'automatic terminal information service', SB: 'ATS reporting office', SC: 'area control centre', SE: 'flight information service', SF: 'aerodrome flight information service', SL: 'flow control centre', SO: 'oceanic area control centre', SP: 'approach control service',
+    SS: 'flight service station', ST: 'aerodrome control tower', SU: 'upper area control centre', SV: 'VOLMET broadcast', SY: 'upper advisory service',
+    PA: 'standard instrument arrival', PB: 'standard VFR arrival', PC: 'contingency procedures', PD: 'standard instrument departure', PE: 'standard VFR departure', PF: 'flow control procedure', PH: 'holding procedure', PI: 'instrument approach procedure', PK: 'VFR approach procedure',
+    PL: 'flight plan processing', PM: 'aerodrome operating minima', PN: 'noise operating restriction', PO: 'obstacle clearance altitude and height', PR: 'radio failure procedures', PT: 'transition altitude or transition level', PU: 'missed approach procedure', PX: 'minimum holding altitude', PZ: 'ADIZ procedure',
+    RA: 'airspace reservation', RD: 'danger area', RM: 'military operating area', RO: 'overflying of', RP: 'prohibited area', RR: 'restricted area', RT: 'temporary restricted area',
+    WA: 'air display', WB: 'aerobatics', WC: 'captive balloon or kite', WD: 'demolition of explosives', WE: 'exercises', WF: 'air refuelling', WG: 'glider flying', WH: 'blasting', WJ: 'banner / target towing', WL: 'ascent of free balloon', WM: 'missile, gun or rocket firing',
+    WP: 'parachute jumping exercise / paragliding / hang gliding', WR: 'radioactive materials or toxic chemicals', WS: 'burning or blowing gas', WT: 'mass movement of aircraft', WU: 'unmanned aircraft', WV: 'formation flight', WW: 'significant volcanic activity', WY: 'aerial survey', WZ: 'model flying',
+    OA: 'aeronautical information service', OB: 'obstacle', OE: 'aircraft entry requirements', OL: 'obstacle lights', OR: 'rescue coordination centre', KK: 'checklist', XX: 'other (plain language)'
+  };
+  var Q_COND = {
+    AC: 'withdrawn for maintenance', AD: 'available for daylight operation', AF: 'flight checked and found reliable', AG: 'operating but ground checked only', AH: 'hours of service are now', AK: 'resumed normal operation', AL: 'operative subject to previously published limitations',
+    AM: 'military operations only', AN: 'available for night operation', AO: 'operational', AP: 'available, prior permission required', AR: 'available on request', AS: 'unserviceable', AU: 'not available', AW: 'completely withdrawn', AX: 'previously promulgated shutdown cancelled',
+    CA: 'activated', CC: 'completed', CD: 'deactivated', CE: 'erected', CF: 'operating frequency changed', CG: 'downgraded', CH: 'changed', CI: 'identification or call sign changed', CL: 'realigned', CM: 'displaced', CN: 'cancelled', CO: 'operating', CP: 'operating on reduced power',
+    CR: 'temporarily replaced by', CS: 'installed', CT: 'on test, do not use',
+    HA: 'braking action is', HB: 'friction coefficient is', HC: 'covered by compacted snow', HD: 'covered by dry snow', HE: 'covered by water', HF: 'totally free of snow and ice', HG: 'grass cutting in progress', HH: 'hazard due to', HI: 'covered by ice', HJ: 'launch planned', HK: 'bird migration in progress',
+    HL: 'snow clearance completed', HM: 'marked by', HN: 'covered by wet snow or slush', HO: 'obscured by snow', HP: 'snow clearance in progress', HQ: 'operation cancelled', HR: 'standing water', HS: 'sanding in progress', HT: 'approach according to signal area only', HU: 'launch in progress',
+    HV: 'work completed', HW: 'work in progress', HX: 'concentration of birds', HY: 'snow banks exist', HZ: 'covered by frozen ruts and ridges',
+    LA: 'operating on auxiliary power supply', LB: 'reserved for aircraft based therein', LC: 'closed', LD: 'unsafe', LE: 'operating without auxiliary power supply', LF: 'interference from', LG: 'operating without identification', LH: 'unserviceable for aircraft heavier than',
+    LI: 'closed to IFR operations', LK: 'operating as a fixed light', LL: 'usable for length / width', LN: 'closed to all night operations', LP: 'prohibited to', LR: 'aircraft restricted to runways and taxiways', LS: 'subject to interruption', LT: 'limited to',
+    LV: 'closed to VFR operations', LW: 'will take place', LX: 'operating but caution advised', XX: 'plain language', TT: 'trigger NOTAM (AIRAC AIP amendment or supplement)'
+  };
+  var SCENARIO = {
+    'AD.CLS': 'Aerodrome closure', 'AD.LIM': 'Aerodrome limitation', 'APE.CLS': 'Apron portion closure', 'APE.LIM': 'Apron portion limitation', 'APN.CLS': 'Apron closure', 'APN.LIM': 'Apron limitation',
+    'ATSA.ACT': 'ATS airspace activation', 'ATSA.NEW': 'New ATS airspace', 'NAV.UNS': 'Navaid unserviceable', 'OBL.UNS': 'Obstacle lights unserviceable', 'OBS.NEW': 'New obstacle', 'OTHER': 'Other (plain language)',
+    'RCP.CHG': 'Runway centreline point change', 'RDD.CHG': 'Declared distance change', 'RWE.CLS': 'Runway portion closure', 'RWY.CLS': 'Runway closure', 'RWY.LIM': 'Runway limitation', 'SAA.ACT': 'Special activity airspace activation',
+    'SAA.NEW': 'New special activity airspace', 'SFC.CON': 'Runway surface condition (SNOWTAM / GRF)', 'STAND.CLS': 'Aircraft stand closure', 'STAND.LIM': 'Aircraft stand limitation', 'TWY.CLS': 'Taxiway closure', 'TWY.LIM': 'Taxiway limitation',
+    'RTE.CLS': 'Route closure', 'RTE.LIM': 'Route limitation', 'NAV.CHG': 'Navaid change', 'DPN.NEW': 'New designated point', 'HLD.CHG': 'Holding change', 'SID.CHG': 'SID change', 'STAR.CHG': 'STAR change', 'IAP.CHG': 'Approach change'
+  };
+  var PURPOSE = { N: 'immediate attention', B: 'pre-flight information bulletin', O: 'flight operations', M: 'miscellaneous', K: 'checklist' };
+  var TRAFFIC = { I: 'IFR', V: 'VFR', K: 'checklist' };
+  var SCOPE = { A: 'aerodrome', E: 'en-route', W: 'navigation warning', K: 'checklist' };
+  function qdecode(code) {
+    code = String(code || '').toUpperCase().replace(/^Q/, '');
+    if (code.length < 4) return '';
+    var su = Q_SUBJ[code.slice(0, 2)], co = Q_COND[code.slice(2, 4)];
+    return (su || code.slice(0, 2)) + (co ? ' — ' + co : '');
+  }
+  function letters(v, map) { return String(v || '').split('').map(function (c) { return map[c] || c; }).join(' + '); }
+  function ymd(t) { return t === null || t === undefined ? '' : new Date(t).toISOString().replace(/[-T:]/g, '').slice(2, 12); }
+  function fl(v) { var x = s(v && v.v !== undefined ? v.v : v); return x ? ('000' + x).slice(-3) : ''; }
+  function notamText(n, ev) {
+    var type = s(n.type) || 'N', id = (s(n.series) || '') + (s(n.number) || '') + '/' + String(s(n.year) || '').slice(-2);
+    var lines = [id + ' NOTAM' + type + (s(n.referredNumber) || s(n.referredSeries) ? ' ' + (s(n.referredSeries) || '') + s(n.referredNumber) + '/' + String(s(n.referredYear) || '').slice(-2) : '')];
+    var q = [s(n.affectedFIR), s(n.selectionCode), s(n.traffic), s(n.purpose), s(n.scope), fl(n.minimumFL), fl(n.maximumFL), (s(n.coordinates) || '') + (fl(n.radius) || '')];
+    if (q.some(Boolean)) lines.push('Q) ' + q.join('/'));
+    var abc = [];
+    if (s(n.location)) abc.push('A) ' + s(n.location));
+    if (s(n.effectiveStart)) abc.push('B) ' + s(n.effectiveStart));
+    if (s(n.effectiveEnd)) abc.push('C) ' + s(n.effectiveEnd) + (s(n.estimatedEnd) === 'YES' ? ' EST' : ''));
+    else if (s(n.permanent) === 'YES') abc.push('C) PERM');
+    if (abc.length) lines.push(abc.join(' '));
+    if (s(n.schedule)) lines.push('D) ' + s(n.schedule));
+    var texts = arr(n.text).map(function (t) { return typeof t === 'string' ? t : t && (t._v || s(t)); }).filter(Boolean);
+    lines.push('E) ' + (texts.length ? texts.join('\n   ') : (ev && ev.autoText) || ''));
+    if (s(n.lowerLimit) || n.lowerLimit) lines.push('F) ' + (M.fq(n.lowerLimit) || s(n.lowerLimit)) + '   G) ' + (M.fq(n.upperLimit) || s(n.upperLimit)));
+    return lines.join('\n');
+  }
+  function otherText(n) { // SNOWTAM, ASHTAM or unknown notification: key: value lines
+    var out = [(n._t || 'Notification') + ' ' + (s(n.number) || '') + (s(n.year) ? '/' + String(s(n.year)).slice(-2) : '') + (s(n.location) ? ' ' + s(n.location) : '')];
+    (function walk(o, pre, d) {
+      if (!o || typeof o !== 'object' || d > 4) return;
+      Object.keys(o).forEach(function (k) {
+        if (k === '_t' || k === '_geo' || /^(number|year|location|publisher|processed)$/.test(k) && d === 0) return;
+        var v = o[k];
+        arr(v).forEach(function (x) {
+          if (x && typeof x === 'object' && !('ref' in x) && x.v === undefined) walk(x, pre + k + ' ', d + 1);
+          else { var t = x && x.ref ? (x.title || x.ref) : M.fq(x) || s(x); if (t) out.push(pre + k + ': ' + t); }
+        });
+      });
+    })(n, '', 0);
+    return out.join('\n');
+  }
+  // baseline of r (or of the same feature in another loaded data set) at time of the temporary slice t
+  function baseFor(ds, r, t, others) {
+    var perm = r.ts.filter(function (x) { return x.i !== 'TEMPDELTA'; });
+    if (perm.length) return { ds: ds, p: AX.resolve({ ts: perm }, AX.tms(t.b)).p };
+    for (var i = 0; i < (others || []).length; i++) {
+      var o = others[i], r2 = o.byId && o.byId.get(r.id);
+      if (r2) { var p2 = r2.ts.filter(function (x) { return x.i !== 'TEMPDELTA'; }); if (p2.length) return { ds: o, r: r2, p: AX.resolve({ ts: p2 }, AX.tms(t.b)).p }; }
+    }
+    return null;
+  }
+  function changeLines(ds, r, t, others) {
+    var base = baseFor(ds, r, t, others);
+    var fa = base ? AX.flatten(base.p || {}) : {}, fb = AX.flatten(base ? AX.mergeProps(base.p || {}, t.p) : t.p);
+    var d = AX.diffFlat(fa, fb).filter(function (x) { return !/^extension/.test(x.path) && !/annotation.*\/(propertyName|purpose)$/.test(x.path) && x.neu !== undefined; });
+    return d.map(function (x) { return ANALYSIS.prettyPath(x.path) + ': ' + (x.old !== undefined ? ANALYSIS.displayVal(ds, x.old) + ' → ' : '') + (x.neu !== undefined ? ANALYSIS.displayVal(ds, x.neu) : 'removed'); });
+  }
+  function labelFor(ds, r, others) {
+    var l = M.label(ds, r);
+    if (!/[0-9a-f]{8}-[0-9a-f]{4}/i.test(l)) return l;
+    for (var i = 0; i < (others || []).length; i++) { var o = others[i], r2 = o.byId && o.byId.get(r.id); if (r2) return M.label(o, r2); }
+    return M.typeName(r) + ' ' + String(r.id).slice(0, 8);
+  }
+  // -> [{ev, name, scenario, scenarioText, start, end, notams:[{n, text, id, q}], affected:[{r, ts, interp, lines}]}]
+  function notams(ds, others) {
+    if (ds._notams && ds._notamsN === (others || []).length) return ds._notams;
+    var events = ds.byType.Event || [], byEv = new Map();
+    events.forEach(function (e) { byEv.set(e, []); });
+    if (events.length) {
+      ds.recs.forEach(function (r) {
+        if (r.k === 'Event') return;
+        r.ts.forEach(function (t, i) {
+          arr(t.p && t.p.extension).forEach(function (x) {
+            var ref = x && x.theEvent, ev = ref && M.target(ds, ref);
+            if (ev && byEv.has(ev)) byEv.get(ev).push({ r: r, ts: t, idx: i, interp: t.i });
+          });
+        });
+      });
+    }
+    var out = events.map(function (e) {
+      var p = e.cur.p, aff = byEv.get(e) || [];
+      aff.forEach(function (a) { a.label = labelFor(ds, a.r, others); try { a.lines = changeLines(ds, a.r, a.ts, others); } catch (err) { a.lines = []; } });
+      var auto = aff.map(function (a) { return a.label + (a.lines.length ? ' ' + a.lines.join('; ') : ''); }).join('. ');
+      var ctx = { autoText: auto };
+      var ns = arr(p.notification).filter(function (n) { return n && typeof n === 'object' && n.nil === undefined; }).map(function (n) {
+        var isN = !n._t || n._t === 'NOTAM';
+        return { n: n, kind: n._t || 'NOTAM', id: (s(n.series) || '') + (s(n.number) || '') + '/' + String(s(n.year) || '').slice(-2), text: isN ? notamText(n, ctx) : otherText(n), q: isN ? qdecode(s(n.selectionCode)) : '',
+          purpose: letters(s(n.purpose), PURPOSE), traffic: letters(s(n.traffic), TRAFFIC), scope: letters(s(n.scope), SCOPE), issued: AX.tms(s(n.issued)) };
+      });
+      var start = AX.tms(e.cur.b), end = AX.tms(e.cur.e);
+      aff.forEach(function (a) { var b = AX.tms(a.ts.b), en = AX.tms(a.ts.e); if (start === null || (b !== null && b < start)) start = b; if (en !== null && (end === null || en > end)) end = en; });
+      return { ev: e, name: s(p.name) || M.label(ds, e), scenario: s(p.scenario), scenarioText: SCENARIO[s(p.scenario)] || s(p.scenario), start: start, end: end, notams: ns, affected: aff,
+        text: ns.length ? '' : 'E) ' + auto };
+    });
+    out.sort(function (a, b) { return (b.start || 0) - (a.start || 0); });
+    ds._notams = out; ds._notamsN = (others || []).length;
+    return out;
+  }
+  function notamStatus(x, now) {
+    if (x.start !== null && x.start > now) return 'upcoming';
+    if (x.end !== null && x.end <= now) return 'expired';
+    return 'active';
+  }
+  function notamScope(ds, list) {
+    var rows = [];
+    list.forEach(function (x) {
+      var txt = x.notams.length ? x.notams.map(function (n) { return n.text; }).join('\n\n') : x.text;
+      rows.push([C(x.notams.map(function (n) { return n.id; }).join(', ') || '—'), C(x.scenarioText), C(x.name, x.ev), C(M.fmtTs(x.start)), C(x.end !== null ? M.fmtTs(x.end) : 'PERM / not set'),
+        C(x.notams.map(function (n) { return n.q; }).filter(Boolean).join('; ')), C(txt), C(x.affected.map(function (a) { return a.label + (a.lines.length ? ' — ' + a.lines.join('; ') : ''); }).join('\n'))]);
+    });
+    return { title: 'Digital NOTAM', sub: ds.state + ' — ' + ds.name, ds: ds, sections: [{ no: 'NOTAM', title: 'Digital NOTAM events', blocks: [{ kind: 'table', cols: ['NOTAM', 'Scenario', 'Event', 'From', 'To', 'Q-code meaning', 'NOTAM text', 'Affected features (temporary change)'], rows: rows }] }] };
+  }
+
+  /* ------------------------------------------------------------ timeline */
+  // -> {cycles:[{cycle, n, parts:{GEN,ENR,AD,Other}, temp, perm}], temps:[{rec, from, to, label, section}], range:[t0,t1]}
+  function timeline(ds) {
+    var ev = ds._events || (ds._events = ANALYSIS.inFileChanges(ds)), m = new Map(), temps = [];
+    ev.forEach(function (e) {
+      if (e.t === null) return;
+      var a = AX.airac(e.t); if (!a) return;
+      var c = m.get(a.id);
+      if (!c) m.set(a.id, c = { cycle: a, n: 0, parts: { GEN: 0, ENR: 0, AD: 0, Other: 0 }, temp: 0, perm: 0, events: [] });
+      c.n++; c.parts[partOf(e.section.no)]++; c.events.push(e);
+      if (/Temporary/.test(e.kind)) { c.temp++; temps.push({ rec: e.rec, from: e.t, to: AX.tms(e.to), label: M.label(ds, e.rec), section: e.section, kind: e.kind, fields: e.fields }); }
+      else c.perm++;
+    });
+    (ds.byType.Event ? notams(ds) : []).forEach(function (x) {
+      if (x.start === null) return;
+      if (!temps.some(function (t) { return x.affected.some(function (a) { return a.r === t.rec; }) && t.from === x.start; }))
+        temps.push({ rec: x.ev, from: x.start, to: x.end, label: x.name, section: { no: 'NOTAM' }, kind: 'Digital NOTAM ' + x.scenario, fields: [] });
+    });
+    if (ds.airac && !m.has(ds.airac.id)) m.set(ds.airac.id, { cycle: ds.airac, n: 0, parts: { GEN: 0, ENR: 0, AD: 0, Other: 0 }, temp: 0, perm: 0, events: [] });
+    var cycles = Array.from(m.values()).sort(function (a, b) { return a.cycle.date - b.cycle.date; });
+    // fill the gaps between cycles (up to 60) so the strip is continuous
+    if (cycles.length > 1) {
+      var full = [], t = cycles[0].cycle.date, end = cycles[cycles.length - 1].cycle.date, guard = 0;
+      while (t <= end && guard++ < 60) {
+        var a = AX.airac(t), have = m.get(a.id);
+        full.push(have || { cycle: a, n: 0, parts: { GEN: 0, ENR: 0, AD: 0, Other: 0 }, temp: 0, perm: 0, events: [] });
+        t = a.next;
+      }
+      if (guard < 60) cycles = full;
+    }
+    temps.sort(function (a, b) { return a.from - b.from; });
+    var t0 = temps.length ? temps[0].from : null, t1 = null;
+    temps.forEach(function (x) { var e = x.to !== null ? x.to : x.from + DAY; if (t1 === null || e > t1) t1 = e; });
+    return { cycles: cycles, temps: temps, range: [t0, t1] };
+  }
+
+  return { amdtScope: amdtScope, sbsDiff: sbsDiff, sbsScope: sbsScope, notams: notams, notamStatus: notamStatus, notamScope: notamScope, qdecode: qdecode, timeline: timeline, partOf: partOf,
+    SCENARIO: SCENARIO, Q_SUBJ: Q_SUBJ, Q_COND: Q_COND, ymd: ymd };
+})();
+</script>
+<script>/* =============================================================================
  * AIXM Code Converter - application (UI, extraction orchestration)
  * ========================================================================== */
 /* global AX, MODEL, AIP, ANALYSIS, MAPVIEW, EXPORTS, fflate */
@@ -6621,6 +7059,7 @@ var CONVERT = (function () {
     setTimeout(function () { t.remove(); }, ms || 3800);
   }
   function dsOf() { return S.datasets[S.active] || null; }
+  function copyText(txt) { EXPORTS.copyText(txt).then(function (ok) { toast(ok ? 'Copied to the clipboard' : 'Copy failed — select the text manually'); }); }
 
   /* ------------------------------------------------------------- icons */
   function ic(path, extra) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" ' + (extra || '') + '>' + path + '</svg>'; }
@@ -6650,13 +7089,17 @@ var CONVERT = (function () {
     caret: ic('<path d="m9 18 6-6-6-6"/>', 'class="caret"'),
     info: ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
     trash: ic('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'),
-    play: ic('<path d="M6 4l14 8-14 8z"/>')
+    play: ic('<path d="M6 4l14 8-14 8z"/>'),
+    timeline: ic('<path d="M3 12h18"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 5v3M12 16v3M18 5v3"/>'),
+    notam: ic('<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/>'),
+    sbs: ic('<rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/>'),
+    amdt: ic('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 13h6M9 17h4"/>')
   };
 
   /* --------------------------------------------------------------- nav */
   var VIEWS = [
     ['library', 'Library', I.folder], ['files', 'Files', I.upload], ['dash', 'Dashboard', I.dash], ['aip', 'AIP', I.book], ['map', 'Map', I.map], null,
-    ['changes', 'Changes', I.changes], ['compare', 'Compare', I.compare], ['quality', 'Quality', I.check], ['explorer', 'Explorer', I.list], null,
+    ['changes', 'Changes', I.changes], ['timeline', 'Timeline', I.timeline], ['compare', 'Compare', I.compare], ['notam', 'NOTAM', I.notam], ['quality', 'Quality', I.check], ['explorer', 'Explorer', I.list], null,
     ['export', 'Export', I.export]
   ];
   function renderNav() {
@@ -6680,7 +7123,7 @@ var CONVERT = (function () {
     var v = document.createElement('div');
     v.className = 'view' + (view === 'aip' || view === 'map' || view === 'explorer' ? ' full' : '');
     main.appendChild(v);
-    ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport })[view](v, opts || {});
+    ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, timeline: viewTimeline, notam: viewNotam, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport })[view](v, opts || {});
   }
 
   /* ------------------------------------------------------------- theme */
@@ -7413,7 +7856,7 @@ var CONVERT = (function () {
       return '<tr><td class="nowrap">' + esc(x.sec.no + (x.sec.ad ? ' ' + M.shortName(x.sec.ad) : '')) + '</td><td><a href="#" data-go="' + idx + '">' + esc(M.label(ds, x.rec)) + '</a><div class="muted" style="font-size:11.5px">' + esc(x.rec.k) + '</div></td><td>' + f.slice(0, 12).join('<br>') + (f.length > 12 ? '<br>…' : '') + '</td></tr>';
     }).join('');
     var rem = (cc.removed || []).map(function (it) { return '<tr><td>' + esc(it.sec.no) + '</td><td>' + esc(M.label(cc.removed && ds.prevCmp.a, it.a)) + '</td><td><span class="chip del">removed (not in this cycle)</span></td></tr>'; }).join('');
-    back.innerHTML = '<div class="modal" style="width:min(1100px,100%)"><div class="modal-head"><h3>Changes in AIRAC ' + esc(cc.cycle.id) + ' — effective ' + esc(M.fmtDate(cc.cycle.date)) + '</h3><span class="sp"></span><button class="btn small" data-m="pdf">' + I.pdf + ' PDF</button><button class="btn small" data-m="xlsx">' + I.xls + ' Excel</button><button class="btn small ghost" data-m="close">' + I.x + '</button></div>' +
+    back.innerHTML = '<div class="modal" style="width:min(1100px,100%)"><div class="modal-head"><h3>Changes in AIRAC ' + esc(cc.cycle.id) + ' — effective ' + esc(M.fmtDate(cc.cycle.date)) + '</h3><span class="sp"></span><button class="btn small primary" data-m="amdt">' + I.amdt + ' AMDT report</button><button class="btn small" data-m="pdf">' + I.pdf + ' PDF</button><button class="btn small" data-m="xlsx">' + I.xls + ' Excel</button><button class="btn small ghost" data-m="close">' + I.x + '</button></div>' +
       '<div class="modal-body cycle-list"><p class="muted">Sources: ' + esc(cc.sources.join('; ') || 'none') + '. Click a feature to open its AIP page with the changed values highlighted in red.</p>' +
       (rows || rem ? '<table class="aip"><thead><tr><th>AIP section</th><th>Feature</th><th>What changes (old → new)</th></tr></thead><tbody>' + rows + rem + '</tbody></table>' : '<div class="card card-pad">No changes found for this cycle. Load the previous cycle\'s file to compare every value.</div>') + '</div></div>';
     document.body.appendChild(back);
@@ -7425,6 +7868,7 @@ var CONVERT = (function () {
       if (!m) return;
       var k = m.getAttribute('data-m');
       if (k === 'close') { back.remove(); return; }
+      if (k === 'amdt') { back.remove(); openAmdt(ds, cc.cycle); return; }
       runExport(k, cycleScope(ds));
     });
   }
@@ -7475,14 +7919,20 @@ var CONVERT = (function () {
       var h = '<div class="sec-head"><div class="grow"><div class="crumbs">' + esc(ds.state) + ' · ' + esc(ds.name) + ' · ' + esc(ds.sniff.versionLabel) + (ds.airac ? ' · AIRAC ' + ds.airac.id : '') + '</div>' +
         '<h2>' + (code ? '<span class="code">' + esc(code) + '</span> ' : '') + esc(sec.group ? sec.title : (sec.no + ' ' + sec.title)) + '</h2>' +
         '<div class="eff">' + (effAll !== null ? 'Latest effective date in this section: <b>' + M.fmtDate(effAll, true) + '</b>' : '') + (ds.viewDate !== null && ds.viewDate !== undefined ? ' · data valid on ' + M.fmtDate(ds.viewDate) : ' · latest time slices') + '</div>' + cycleBarHtml(ds) + '</div>' +
-        '<div class="btn-group">' + (adRec ? '<button class="btn small" data-x="map">' + I.map + ' Map</button>' : '') +
+        '<div class="btn-group">' + sbsSelectHtml(ds) + (adRec ? '<button class="btn small" data-x="map">' + I.map + ' Map</button>' : '') +
         '<button class="btn small" data-x="print">' + I.print + ' Print</button><button class="btn small" data-x="pdf">' + I.pdf + ' PDF</button><button class="btn small" data-x="xlsx">' + I.xls + ' Excel</button>' +
         '<button class="btn small" data-x="json">' + I.json + ' JSON</button><button class="btn small" data-x="mail">' + I.mail + ' E-mail</button></div></div><div class="sec-body">';
-      secs.forEach(function (x) {
+      var sbs = S.sbs ? sbsBuild(ds, item, sec) : null;
+      if (sbs && sbs.err) { toast(sbs.err, 6000); S.sbs = null; sbs = null; }
+      if (sbs) h += sbsHtml(sbs);
+      else secs.forEach(function (x) {
         h += '<div class="aip-sec" data-secid="' + esc(x.id || '') + '">' + (secs.length > 1 ? '<h3><span class="no">' + esc(x.no) + '</span> ' + esc(x.title) + '</h3>' : '') + sectionBodyHtml(ds, x) + '</div>';
       });
       h += '</div>';
       host.innerHTML = h;
+      if (sbs) sbsSync(host);
+      var sbsSel = $('[data-sbs]', host);
+      if (sbsSel) sbsSel.onchange = function () { S.sbs = sbsSel.value ? { key: sbsSel.value } : null; if (S.sbs && S.sbs.key === 'lib') { sbsFromLibrary(ds); return; } renderSection(ds, S.aipSel); };
       host.scrollTop = 0;
       host.onclick = function (e) {
         var c = e.target.closest('[data-cell]');
@@ -7498,6 +7948,9 @@ var CONVERT = (function () {
           return;
         }
         if (handleCycleBar(e, ds, function () { renderTree(ds, ds.catalogue); renderSection(ds, S.aipSel); })) return;
+        if (e.target.matches && e.target.matches('[data-sbs-only]')) { S.sbsOnly = e.target.checked; host.querySelector('.sbs').classList.toggle('only-diff', S.sbsOnly); sbsSync(host); return; }
+        var sx = e.target.closest('[data-sbsx]');
+        if (sx && sbs) { runExport(sx.getAttribute('data-sbsx'), REVIEW.sbsScope(ds, sbs.diff, sbs.labelL, sbs.labelR, 'Side by side: ' + (code ? code + ' ' : '') + (sec.group ? sec.title : sec.no + ' ' + sec.title))); return; }
         var x = e.target.closest('[data-x]');
         if (!x) return;
         var scope = { title: (code ? code + ' ' : '') + (sec.group ? sec.title : sec.no + ' ' + sec.title), sub: ds.state + ' — ' + ds.name, ds: ds, sections: [sec] };
@@ -7509,6 +7962,111 @@ var CONVERT = (function () {
       }
     }, 10);
   }
+  /* ------------------------------------------------ side-by-side AIP */
+  function sbsSelectHtml(ds) {
+    var o = ['<option value="">Single view</option>'];
+    ANALYSIS.changeCycles(ds).forEach(function (c) { if (c.n) o.push('<option value="cyc:' + c.cycle.id + '">⇆ Before / from AIRAC ' + c.cycle.id + ' (' + M.fmtDate(c.cycle.date) + ')</option>'); });
+    S.datasets.forEach(function (d, i) { if (d !== ds) o.push('<option value="ds:' + i + '">⇆ With ' + esc((d.state === ds.state ? '' : d.state + ' · ') + d.name + (d.airac ? ' · AIRAC ' + d.airac.id : '')) + '</option>'); });
+    if (ds.lib && libPrevFile(ds) && !S.datasets.some(function (d) { return d.lib && d.lib.path === libPrevFile(ds).path; })) o.push('<option value="lib">⇆ With the previous cycle in the Library</option>');
+    if (o.length < 2) return '';
+    var cur = S.sbs ? S.sbs.key : '';
+    return '<select class="inp small sbs-sel" data-sbs="1" title="Show this section side by side with another cycle">' + o.join('').replace('value="' + cur + '"', 'value="' + cur + '" selected') + '</select>';
+  }
+  async function sbsFromLibrary(ds) {
+    var lp = libPrevFile(ds);
+    toast('Opening ' + lp.name + ' from the Library…');
+    var prev = await openLibFile(ds.lib.state, lp, { silent: true });
+    if (!prev) { S.sbs = null; renderSection(ds, S.aipSel); return; }
+    if (S.datasets.indexOf(prev) < 0) S.datasets.push(prev);
+    S.active = S.datasets.indexOf(ds);
+    S.sbs = { key: 'ds:' + S.datasets.indexOf(prev) };
+    renderSection(ds, S.aipSel);
+  }
+  function mapSectionId(ds, other, id) {
+    var m = /^(AD[23]\.\d+:|AD:)(\d+)$/.exec(id);
+    if (!m) return id;
+    var ad = ds.recs[+m[2]], code = ad && M.shortName(ad);
+    var hit = (other.byType.AirportHeliport || []).filter(function (a) { return M.shortName(a) === code; })[0];
+    return hit ? m[1] + hit.i : null;
+  }
+  function buildAt(ds, item, t) {
+    var keep = ds.viewDate;
+    M.setViewDate(ds, t);
+    try { return AIP.build(ds, item); } finally { M.setViewDate(ds, keep); }
+  }
+  function sbsBuild(ds, item, sec) {
+    var key = S.sbs.key, left, right, labelL, labelR, dsL = ds;
+    try {
+      if (key.indexOf('cyc:') === 0) {
+        var c = ANALYSIS.changeCycles(ds).filter(function (x) { return x.cycle.id === key.slice(4); })[0];
+        if (!c) return { err: 'That cycle has no changes in this file.' };
+        left = buildAt(ds, item, c.cycle.date - 1); right = buildAt(ds, item, c.cycle.date);
+        labelL = 'Before AIRAC ' + c.cycle.id + ' (valid ' + M.fmtDate(c.cycle.date - 86400000) + ')'; labelR = 'AIRAC ' + c.cycle.id + ' (from ' + M.fmtDate(c.cycle.date) + ')';
+      } else if (key.indexOf('ds:') === 0) {
+        var o = S.datasets[+key.slice(3)];
+        if (!o || o === ds) return { err: 'The other data set is no longer loaded.' };
+        var oid = mapSectionId(ds, o, item.id), oitem = oid && AIP.findSection(o, oid);
+        left = oitem ? AIP.build(o, oitem) : { no: sec.no, title: sec.title, blocks: [{ kind: 'note', text: 'This section is not in ' + o.name + '.' }] };
+        right = sec; dsL = o;
+        var older = (o.effective || 0) <= (ds.effective || 0);
+        labelL = o.name + (o.airac ? ' · AIRAC ' + o.airac.id : '') + (older ? '' : ' (newer)'); labelR = ds.name + (ds.airac ? ' · AIRAC ' + ds.airac.id : '');
+      } else return null;
+    } catch (err) { console.error(err); return { err: 'Side-by-side view failed: ' + err.message }; }
+    return { diff: REVIEW.sbsDiff(left, right), labelL: labelL, labelR: labelR, dsL: dsL, dsR: ds };
+  }
+  function sbsCell(c, ds, chg, side) {
+    if (!c || !c.t) return '<span class="nil">—</span>';
+    var cls = chg ? (side === 'r' ? ' sbs-new' : ' sbs-old') : '';
+    if (!c.r) return cls ? '<span class="' + cls.trim() + '">' + esc(c.t) + '</span>' : esc(c.t);
+    var idx = cellRegistry.push({ ds: ds, r: c.r, p: c.p }) - 1;
+    return '<span class="src' + cls + '" data-cell="' + idx + '" title="' + esc((chg ? (side === 'r' ? 'CHANGED — new value\n' : 'CHANGED — old value\n') : '') + M.typeName(c.r) + (c.p ? ' · ' + c.p : '') + ' · line ' + num(c.r.line) + '\nClick to view the AIXM code') + '">' + esc(c.t) + '</span>';
+  }
+  function sbsSide(sb, side) {
+    var ds = side === 'l' ? sb.dsL : sb.dsR, h = '';
+    sb.diff.pairs.forEach(function (p, pi) {
+      if (sb.diff.pairs.length > 1) h += '<h3 data-pr="' + pi + ':h"><span class="no">' + esc(p.no) + '</span> ' + esc(p.title) + '</h3>';
+      p.blocks.forEach(function (b, bi) {
+        var k = pi + ':' + bi;
+        if (b.title) h += '<div class="block-title" data-pr="' + k + ':t">' + esc(b.title) + '</div>';
+        if (b.kind === 'note') { var tx = side === 'l' ? b.textL : b.textR; h += '<div class="note-box' + (b.st === 'chg' ? (side === 'r' ? ' sbs-rowchg' : '') : '') + '" data-pr="' + k + ':n">' + esc(tx || '—') + '</div>'; return; }
+        var rows = b.rows.slice(0, 1500);
+        if (b.kind === 'kv') {
+          h += '<table class="aip-kv"><tbody>' + rows.map(function (r, ri) {
+            var row = r[side], st = r.st, attr = ' data-pr="' + k + ':' + ri + '" class="sbs-' + st + '"';
+            if (!row) return '<tr' + attr + '><td colspan="3" class="sbs-missing">' + (st === 'add' ? 'not in this version' : 'removed') + '</td></tr>';
+            var cells = row.cells, parts = cells.map(function (c, ci) { return c && c.t ? '<div class="vpart">' + sbsCell(c, ds, st === 'chg' && r.cols.indexOf(ci) >= 0 || st === 'add' && side === 'r', side) + '</div>' : ''; }).join('');
+            return '<tr' + attr + '><td class="no">' + esc(row.no || '') + '</td><td class="lbl">' + esc(row.label) + '</td><td class="val">' + (parts || '<span class="nil">NIL</span>') + '</td></tr>';
+          }).join('') + '</tbody></table>';
+          return;
+        }
+        var bb = b.br || b.bl;
+        h += '<div class="tbl-wrap"><table class="aip"><thead><tr data-pr="' + k + ':th">' + (bb.cols || []).map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' + rows.map(function (r, ri) {
+          var row = r[side], st = r.st, attr = ' data-pr="' + k + ':' + ri + '" class="sbs-' + st + '"';
+          if (!row) return '<tr' + attr + '><td colspan="' + (bb.cols || []).length + '" class="sbs-missing">' + (st === 'add' ? 'not in this version' : 'removed') + '</td></tr>';
+          return '<tr' + attr + '>' + row.map(function (c, ci) { return '<td>' + sbsCell(c, ds, st === 'chg' && r.cols.indexOf(ci) >= 0 || st === 'add' && side === 'r', side) + '</td>'; }).join('') + '</tr>';
+        }).join('') + (b.rows.length ? '' : '<tr data-pr="' + k + ':0"><td colspan="' + (bb.cols || []).length + '" class="nil">NIL</td></tr>') + '</tbody></table></div>' +
+          (b.rows.length > 1500 ? '<div class="muted" data-pr="' + k + ':m">Showing 1,500 of ' + num(b.rows.length) + ' rows — export for all differences.</div>' : '');
+      });
+    });
+    return h;
+  }
+  function sbsHtml(sb) {
+    var st = sb.diff.stats, none = !st.cells && !st.add && !st.del;
+    return '<div class="sbs-bar"><b>' + I.sbs + ' Side by side</b> <span class="chg-badge">' + num(st.cells) + ' changed value(s)</span> <span class="chip add">' + num(st.add) + ' row(s) added</span> <span class="chip del">' + num(st.del) + ' removed</span>' +
+      (none ? ' <span class="muted">— identical</span>' : '') + '<label class="chk"><input type="checkbox" data-sbs-only="1"' + (S.sbsOnly ? ' checked' : '') + '> Only differences</label><span class="sp"></span>' +
+      '<button class="btn small" data-sbsx="pdf">' + I.pdf + ' Differences PDF</button><button class="btn small" data-sbsx="xlsx">' + I.xls + ' Excel</button><button class="btn small" data-sbsx="mail">' + I.mail + ' E-mail</button></div>' +
+      '<div class="sbs' + (S.sbsOnly ? ' only-diff' : '') + '"><div class="sbs-col"><div class="sbs-head old">' + esc(sb.labelL) + '</div>' + sbsSide(sb, 'l') + '</div><div class="sbs-col"><div class="sbs-head new">' + esc(sb.labelR) + '</div>' + sbsSide(sb, 'r') + '</div></div>';
+  }
+  function sbsSync(host) {
+    var cols = host.querySelectorAll('.sbs-col');
+    if (cols.length !== 2) return;
+    var L = {}, R = [];
+    cols[0].querySelectorAll('[data-pr]').forEach(function (n) { n.style.height = ''; L[n.getAttribute('data-pr')] = n; });
+    cols[1].querySelectorAll('[data-pr]').forEach(function (n) { n.style.height = ''; R.push(n); });
+    var pairs = R.map(function (r) { var l = L[r.getAttribute('data-pr')]; return l ? [l, r, Math.max(l.getBoundingClientRect().height, r.getBoundingClientRect().height)] : null; }).filter(Boolean);
+    pairs.forEach(function (x) { if (x[2]) { x[0].style.height = x[2] + 'px'; x[1].style.height = x[2] + 'px'; } });
+  }
+
   function runExport(kind, scope, adRec) {
     try {
       if (kind === 'map' && adRec) { var sn = scope.sections && scope.sections[0] && scope.sections[0].no || ''; go('map', /2\.2[24]$|3\.2[23]$/.test(sn) ? { ds: scope.ds, procs: adRec } : { ds: scope.ds, focus: adRec }); return; }
@@ -7814,7 +8372,7 @@ var CONVERT = (function () {
       '<div class="card stat" data-kind="" style="cursor:pointer"><b>' + num(st.unchanged) + '</b><span class="muted">unchanged</span></div>' +
       '<div class="card stat"><b style="font-size:14px">' + (res.useUuid ? 'UUID' : 'natural keys') + '</b><span class="muted">matching method</span></div></div>' +
       '<div class="toolbar"><input class="inp" id="cmp-q" placeholder="Filter by feature, type or AIP section…" style="min-width:320px" value="' + esc(filter.q) + '"><span class="chip">' + (filter.kind || 'all changes') + '</span><span class="sp"></span>' +
-      '<button class="btn small" id="cmp-map">' + I.map + ' Show on map</button><button class="btn small" id="cmp-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="cmp-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="cmp-json">' + I.json + ' JSON</button><button class="btn small" id="cmp-mail">' + I.mail + ' E-mail</button></div>' +
+      '<button class="btn small primary" id="cmp-amdt" title="AIRAC AIP amendment report of the new file">' + I.amdt + ' AMDT report</button><button class="btn small" id="cmp-map">' + I.map + ' Show on map</button><button class="btn small" id="cmp-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="cmp-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="cmp-json">' + I.json + ' JSON</button><button class="btn small" id="cmp-mail">' + I.mail + ' E-mail</button></div>' +
       (list.length ? '<div class="tbl-wrap"><table class="aip"><thead><tr><th>AIP section</th><th>Feature</th><th>Change</th><th>Changed values (old → new)</th><th>Effective (new)</th><th>AIXM</th></tr></thead><tbody>' +
         list.slice(0, 500).map(function (it) {
           var r = it.b || it.a, ds = it.b ? res.b : res.a;
@@ -7847,10 +8405,173 @@ var CONVERT = (function () {
         })) }] }] };
     }
     $('#cmp-map').onclick = function () { MAPVIEW.setCompare(res); go('map', { ds: res.b }); };
+    $('#cmp-amdt').onclick = function () { res.b.prevCmp = res; res.b.cyc = null; openAmdt(res.b, res.b.airac); };
     $('#cmp-pdf').onclick = function () { runExport('pdf', scope()); };
     $('#cmp-xlsx').onclick = function () { runExport('xlsx', scope()); };
     $('#cmp-json').onclick = function () { runExport('json', scope()); };
     $('#cmp-mail').onclick = function () { runExport('mail', scope()); };
+  }
+
+  /* ====================================================== AMDT REPORT */
+  function openAmdt(ds, cycle) {
+    var cc = cycle ? ANALYSIS.cycleChanges(ds, cycle) : getCyc(ds);
+    if (!cc || !cc.cycle) { toast('No AIRAC cycle for this data set.'); return; }
+    var scope = REVIEW.amdtScope(ds, cc);
+    var back = document.createElement('div');
+    back.className = 'modal-back';
+    cellRegistry = cellRegistry || [];
+    var body = scope.sections.map(function (sec, i) {
+      return '<div class="aip-sec amdt-sec"><h3><span class="no">' + esc(sec.no) + '</span> ' + esc(i ? sec.title : '') + '</h3>' + sectionBodyHtml(ds, sec, 2000) + '</div>';
+    }).join('');
+    back.innerHTML = '<div class="modal" style="width:min(1180px,100%)"><div class="modal-head"><h3>' + I.amdt + ' ' + esc(scope.title) + '</h3><span class="sp"></span>' +
+      '<button class="btn small" data-m="print">' + I.print + ' Print</button><button class="btn small" data-m="pdf">' + I.pdf + ' PDF</button><button class="btn small" data-m="xlsx">' + I.xls + ' Excel</button><button class="btn small" data-m="json">' + I.json + ' JSON</button><button class="btn small" data-m="mail">' + I.mail + ' E-mail</button><button class="btn small ghost" data-m="close">' + I.x + '</button></div>' +
+      '<div class="modal-body amdt-body"><div class="amdt-banner"><div><div class="muted">' + esc(ds.state) + '</div><div class="amdt-id">AIRAC AMDT ' + esc(cc.cycle.id) + '</div></div><div><div class="muted">Effective</div><b>' + esc(M.fmtDate(cc.cycle.date)) + '</b></div><div><div class="muted">Publish by</div><b>' + esc(M.fmtDate(scope.amdt.pub)) + '</b></div>' +
+      ['GEN', 'ENR', 'AD'].map(function (k) { return '<div><div class="muted">' + k + '</div><b>' + scope.amdt.parts[k] + '</b></div>'; }).join('') + '</div>' +
+      (ds.prevCmp ? '' : '<div class="note-box">Only changes recorded inside this file are listed. For a complete amendment, <a href="#" data-m="prev">compare with the previous cycle file</a>.</div>') + body + '</div></div>';
+    document.body.appendChild(back);
+    back.addEventListener('click', function (e) {
+      if (e.target === back) { back.remove(); return; }
+      var c = e.target.closest('[data-cell]');
+      if (c) { var reg = cellRegistry[+c.getAttribute('data-cell')]; openXml(reg.ds, reg.r, reg.p); return; }
+      var m = e.target.closest('[data-m]');
+      if (!m) return;
+      e.preventDefault();
+      var k = m.getAttribute('data-m');
+      if (k === 'close') { back.remove(); return; }
+      if (k === 'prev') { back.remove(); pickPrevious(ds, function () { openAmdt(ds, cc.cycle); }); return; }
+      runExport(k, scope);
+    });
+  }
+
+  /* ========================================================= TIMELINE */
+  function viewTimeline(v) {
+    var ds = dsOf();
+    if (!ds) { v.innerHTML = emptyState('No data', ''); return; }
+    var tl = REVIEW.timeline(ds), now = Date.now(), cur = AX.airac(now);
+    var sel = S.tlSel && tl.cycles.some(function (c) { return c.cycle.id === S.tlSel; }) ? S.tlSel : (tl.cycles.filter(function (c) { return c.n; }).pop() || tl.cycles[tl.cycles.length - 1] || {}).cycle;
+    if (sel && sel.id) sel = sel.id;
+    var max = Math.max.apply(null, tl.cycles.map(function (c) { return c.n; }).concat([1]));
+    var libFiles = {};
+    if (ds.lib) { var st = libStates().filter(function (x) { return x.name === ds.lib.state; })[0]; if (st) st.files.forEach(function (f) { var d = LIBRARY.fileDate(f); if (d) { var a = AX.airac(d); if (a) (libFiles[a.id] = libFiles[a.id] || []).push(f.name); } }); }
+    S.datasets.forEach(function (d) { if (d.state === ds.state && d.airac) (libFiles[d.airac.id] = libFiles[d.airac.id] || []).push(d.name); });
+    var h = '<h1 class="view-title">Timeline</h1><p class="view-sub">When does the data change? Each column is an AIRAC cycle; the bar shows how many features change in it (GEN / ENR / AD). Click a cycle to list its changes, open the AMDT report or highlight it in the AIP. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>';
+    if (!tl.cycles.length) { v.innerHTML = h + '<div class="card card-pad muted">No dated changes in this file.</div>'; return; }
+    h += '<div class="card tl-card"><div class="tl-strip">' + tl.cycles.map(function (c) {
+      var hh = function (n) { return Math.round(n / max * 110); };
+      var isCur = cur && c.cycle.id === cur.id, isFile = ds.airac && c.cycle.id === ds.airac.id;
+      return '<button class="tl-col' + (c.cycle.id === sel ? ' sel' : '') + (c.n ? '' : ' empty') + '" data-cy="' + c.cycle.id + '" title="AIRAC ' + c.cycle.id + ' — ' + M.fmtDate(c.cycle.date) + '\n' + c.n + ' change(s): GEN ' + c.parts.GEN + ', ENR ' + c.parts.ENR + ', AD ' + c.parts.AD + (c.temp ? ', ' + c.temp + ' temporary' : '') + (libFiles[c.cycle.id] ? '\nFiles: ' + libFiles[c.cycle.id].join(', ') : '') + '">' +
+        '<span class="tl-n">' + (c.n || '') + '</span><span class="tl-bar">' + ['AD', 'ENR', 'GEN', 'Other'].map(function (k) { return c.parts[k] ? '<i class="p-' + k + '" style="height:' + Math.max(3, hh(c.parts[k])) + 'px"></i>' : ''; }).join('') + '</span>' +
+        '<span class="tl-id">' + c.cycle.id + '</span><span class="tl-date">' + M.fmtDate(c.cycle.date).replace(/ \d{4}$/, '') + '</span>' +
+        '<span class="tl-tags">' + (isCur ? '<span class="tl-tag now">today</span>' : '') + (isFile ? '<span class="tl-tag file">file</span>' : '') + '</span>' + (libFiles[c.cycle.id] ? '<span class="tl-doc" title="' + esc(libFiles[c.cycle.id].join(', ')) + '">📄</span>' : '') + '</button>';
+    }).join('') + '</div><div class="tl-legend"><span><i class="p-GEN"></i> GEN</span><span><i class="p-ENR"></i> ENR</span><span><i class="p-AD"></i> AD</span><span>📄 file of this State for that cycle</span></div></div>';
+    var c = tl.cycles.filter(function (x) { return x.cycle.id === sel; })[0];
+    if (c) {
+      h += '<div class="toolbar" style="margin-top:14px"><h3 style="margin:0">AIRAC ' + esc(c.cycle.id) + ' — effective ' + esc(M.fmtDate(c.cycle.date)) + '</h3><span class="chip">' + c.n + ' change(s)</span>' + (c.temp ? '<span class="chip warn">' + c.temp + ' temporary</span>' : '') + '<span class="sp"></span>' +
+        '<button class="btn small primary" data-tl="amdt">' + I.amdt + ' AMDT report</button><button class="btn small" data-tl="hl">' + I.book + ' Highlight in AIP</button><button class="btn small" data-tl="list">' + I.list + ' All changes (incl. previous cycle)</button></div>';
+      h += c.events.length ? '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Effective</th><th>Until</th><th>AIP section</th><th>Feature</th><th>Change</th><th>What changes (old → new)</th></tr></thead><tbody>' + c.events.slice(0, 400).map(function (e) {
+        var idx = cellRegistry.push({ ds: ds, r: e.rec }) - 1;
+        var f = e.fields.slice(0, 6).map(function (x) { return '<div><span class="muted">' + esc(ANALYSIS.prettyPath(x.path)) + ':</span> ' + (x.old !== undefined ? '<span class="diff-old">' + esc(ANALYSIS.displayVal(ds, x.old)) + '</span> ' : '') + '→ <span class="chg-badge">' + esc(x.neu !== undefined ? ANALYSIS.displayVal(ds, x.neu) : 'removed') + '</span></div>'; }).join('');
+        return '<tr><td class="nowrap">' + esc(M.fmtTs(e.from)) + '</td><td class="nowrap">' + esc(e.to ? M.fmtTs(e.to) : '') + '</td><td class="nowrap">' + esc(e.section.no + (e.section.ad ? ' ' + M.shortName(e.section.ad) : '')) + '</td><td><a href="#" data-aip="' + idx + '">' + esc(M.label(ds, e.rec)) + '</a></td><td><span class="chip ' + (/Temporary/.test(e.kind) ? 'warn' : /New/.test(e.kind) ? 'add' : 'info') + '">' + esc(e.kind) + '</span></td><td>' + (f || '—') + '</td></tr>';
+      }).join('') + '</tbody></table></div>' : '<div class="card card-pad muted">No time slice of this file starts in AIRAC ' + esc(c.cycle.id) + '.' + (ds.prevCmp ? '' : ' Compare with the previous cycle file to see the differences.') + '</div>';
+    }
+    if (tl.temps.length && tl.range[0] !== null) {
+      var t0 = tl.range[0], t1 = Math.max(tl.range[1], t0 + 86400000), span = t1 - t0;
+      var ticks = [], step = span > 400 * 86400000 ? 'y' : span > 60 * 86400000 ? 'm' : 'd', d = new Date(t0);
+      d = step === 'y' ? new Date(Date.UTC(d.getUTCFullYear(), 0, 1)) : step === 'm' ? new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)) : new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      for (var g = 0; g < 400 && d.getTime() <= t1; g++) {
+        if (d.getTime() >= t0) ticks.push(d.getTime());
+        d = step === 'y' ? new Date(Date.UTC(d.getUTCFullYear() + 1, 0, 1)) : step === 'm' ? new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)) : new Date(d.getTime() + Math.max(1, Math.ceil(span / 86400000 / 12)) * 86400000);
+      }
+      var pos = function (x) { return Math.max(0, Math.min(100, (x - t0) / span * 100)); };
+      h += '<h3 style="margin:22px 0 8px">Temporary changes and NOTAM periods</h3><div class="card gantt">' +
+        '<div class="g-axis">' + ticks.map(function (x) { return '<span style="left:' + pos(x) + '%">' + esc(M.fmtDate(x).replace(step === 'd' ? / \d{4}$/ : /^\d+ /, '')) + '</span>'; }).join('') + (now >= t0 && now <= t1 ? '<span class="g-now" style="left:' + pos(now) + '%">now</span>' : '') + '</div>' +
+        tl.temps.slice(0, 300).map(function (x) {
+          var idx = cellRegistry.push({ ds: ds, r: x.rec }) - 1, a = pos(x.from), b = pos(x.to !== null ? x.to : x.from + 86400000);
+          return '<div class="g-row"><a href="#" class="g-lbl" data-det="' + idx + '" title="' + esc(x.kind) + '">' + esc(x.label) + '</a><div class="g-track"><i class="' + (/NOTAM/.test(x.kind) ? 'notam' : '') + '" style="left:' + a + '%;width:' + Math.max(0.6, b - a) + '%" title="' + esc(M.fmtTs(x.from) + ' – ' + (x.to !== null ? M.fmtTs(x.to) : 'until further notice') + '\n' + x.kind + (x.fields.length ? '\n' + x.fields.slice(0, 5).map(function (f) { return ANALYSIS.prettyPath(f.path) + ': ' + ANALYSIS.displayVal(ds, f.neu); }).join('\n') : '')) + '"></i></div></div>';
+        }).join('') + '</div>';
+    }
+    cellRegistry = cellRegistry || [];
+    v.innerHTML = h;
+    v.onclick = function (e) {
+      var col = e.target.closest('[data-cy]');
+      if (col) { S.tlSel = col.getAttribute('data-cy'); go('timeline'); return; }
+      var a = e.target.closest('[data-aip]');
+      if (a) { e.preventDefault(); var r = cellRegistry[+a.getAttribute('data-aip')]; ds.hlCycle = c.cycle; ds.cyc = null; S.hlOn = true; openAipFor(r.ds, r.r); return; }
+      var dt = e.target.closest('[data-det]');
+      if (dt) { e.preventDefault(); var r2 = cellRegistry[+dt.getAttribute('data-det')]; openDetail(r2.ds, r2.r, 'ts'); return; }
+      var b = e.target.closest('[data-tl]');
+      if (!b || !c) return;
+      var k = b.getAttribute('data-tl');
+      if (k === 'amdt') openAmdt(ds, c.cycle);
+      if (k === 'hl') { ds.hlCycle = c.cycle; ds.cyc = null; S.hlOn = true; go('aip'); }
+      if (k === 'list') { ds.hlCycle = c.cycle; ds.cyc = null; openCycleList(ds); }
+    };
+  }
+
+  /* ============================================================ NOTAM */
+  function viewNotam(v, opts) {
+    var ds = dsOf();
+    if (!ds) { v.innerHTML = emptyState('No data', ''); return; }
+    var withEv = S.datasets.filter(function (d) { return (d.byType.Event || []).length; });
+    var h = '<h1 class="view-title">Digital NOTAM</h1><p class="view-sub">AIXM 5.1 Digital NOTAM events (<code>event:Event</code>) shown as ICAO NOTAM text, with the Q-code decoded and the temporary changes of each affected feature. Base data of the same features is taken from the other loaded files of the State.</p>';
+    if (!(ds.byType.Event || []).length) {
+      v.innerHTML = h + '<div class="card card-pad">No Digital NOTAM events in <b>' + esc(ds.name) + '</b>.' + (withEv.length ? ' Files with events: ' + withEv.map(function (d) { return '<a href="#" data-dsn="' + S.datasets.indexOf(d) + '">' + esc(d.name) + '</a>'; }).join(', ') : ' Load a Digital NOTAM file (e.g. from the Donlon Digital NOTAM samples) together with the baseline.') + '</div>';
+      v.onclick = function (e) { var a = e.target.closest('[data-dsn]'); if (a) { e.preventDefault(); S.active = +a.getAttribute('data-dsn'); renderDsSelect(); go('notam'); } };
+      return;
+    }
+    var others = S.datasets.filter(function (d) { return d !== ds && d.state === ds.state; }).concat(S.datasets.filter(function (d) { return d !== ds && d.state !== ds.state; }));
+    var list = REVIEW.notams(ds, others), now = ds.viewDate !== null && ds.viewDate !== undefined ? ds.viewDate : Date.now();
+    var f = S.notamF || { st: '', q: '' };
+    var counts = { active: 0, upcoming: 0, expired: 0 };
+    list.forEach(function (x) { counts[REVIEW.notamStatus(x, now)]++; });
+    h += '<div class="stat-row">' + [['', 'all', list.length], ['active', 'active now', counts.active], ['upcoming', 'upcoming', counts.upcoming], ['expired', 'expired', counts.expired]].map(function (x) {
+      return '<div class="card stat" data-nst="' + x[0] + '" style="cursor:pointer' + (f.st === x[0] ? ';outline:2px solid var(--brand)' : '') + '"><b>' + x[2] + '</b><span class="muted">' + x[1] + '</span></div>';
+    }).join('') + '</div><div class="toolbar"><input class="inp" id="nt-q" placeholder="Filter: location, NOTAM number, scenario, text…" style="min-width:320px" value="' + esc(f.q) + '"><span class="sp"></span>' +
+      '<button class="btn small" id="nt-copy">' + I.copy + ' Copy all NOTAM text</button><button class="btn small" id="nt-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="nt-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="nt-mail">' + I.mail + ' E-mail</button></div><div id="nt-list"></div>';
+    v.innerHTML = h;
+    function current() {
+      var q = f.q.toLowerCase();
+      return list.filter(function (x) {
+        if (f.st && REVIEW.notamStatus(x, now) !== f.st) return false;
+        if (q) { var txt = (x.name + ' ' + x.scenario + ' ' + x.scenarioText + ' ' + x.notams.map(function (n) { return n.text + ' ' + n.q; }).join(' ') + ' ' + x.affected.map(function (a) { return a.label; }).join(' ')).toLowerCase(); if (txt.indexOf(q) < 0) return false; }
+        return true;
+      });
+    }
+    function draw() {
+      var l = current();
+      cellRegistry = [];
+      $('#nt-list').innerHTML = l.length ? l.slice(0, 300).map(function (x) {
+        var st = REVIEW.notamStatus(x, now), ie = cellRegistry.push({ ds: ds, r: x.ev }) - 1;
+        return '<div class="card notam-card"><div class="notam-head"><span class="chip ' + (st === 'active' ? 'del' : st === 'upcoming' ? 'warn' : '') + '">' + st + '</span><b>' + esc(x.scenarioText || 'Event') + '</b><span class="muted">' + esc(x.name) + '</span><span class="sp"></span>' +
+          '<span class="muted nowrap">' + esc(M.fmtTs(x.start)) + ' → ' + esc(x.end !== null ? M.fmtTs(x.end) : 'until further notice') + '</span><span class="srcbtn" data-xml="' + ie + '" title="View the event AIXM code">&lt;/&gt;</span></div>' +
+          (x.notams.length ? x.notams.map(function (n) {
+            return '<div class="notam-body"><pre class="notam-text">' + esc(n.text) + '</pre><div class="notam-dec">' + (n.q ? '<div><span class="muted">Q-code:</span> <b>' + esc(n.q) + '</b></div>' : '') + (n.traffic ? '<div><span class="muted">Traffic:</span> ' + esc(n.traffic) + '</div>' : '') + (n.purpose ? '<div><span class="muted">Purpose:</span> ' + esc(n.purpose) + '</div>' : '') + (n.scope ? '<div><span class="muted">Scope:</span> ' + esc(n.scope) + '</div>' : '') +
+              '<button class="btn small" data-copy="' + esc(n.text) + '">' + I.copy + ' Copy</button></div></div>';
+          }).join('') : '<div class="notam-body"><pre class="notam-text">' + esc(x.text) + '</pre><div class="notam-dec muted">No NOTAM text in the event — generated from the affected features.</div></div>') +
+          (x.affected.length ? '<div class="notam-aff"><div class="muted" style="margin-bottom:4px">Affected features (' + x.affected.length + '):</div>' + x.affected.map(function (a) {
+            var ia = cellRegistry.push({ ds: ds, r: a.r, occ: a.ts.occ }) - 1;
+            return '<div class="aff-row"><a href="#" data-det="' + ia + '">' + esc(a.label) + '</a> <span class="chip ' + (a.interp === 'TEMPDELTA' ? 'warn' : 'info') + '">' + esc(a.interp) + '</span> ' + a.lines.slice(0, 6).map(function (l2) { return '<span class="aff-chg">' + esc(l2) + '</span>'; }).join(' ') + ' <span class="srcbtn" data-xml="' + ia + '" title="View AIXM">&lt;/&gt;</span>' + (M.pointOf(ds, a.r) || M.geometry(ds, a.r) ? ' <a href="#" data-map="' + ia + '">map</a>' : '') + '</div>';
+          }).join('') + '</div>' : '') + '</div>';
+      }).join('') + (l.length > 300 ? '<div class="muted">Showing 300 of ' + l.length + '</div>' : '') : '<div class="card card-pad muted">No NOTAM for this filter.</div>';
+    }
+    draw();
+    $$('[data-nst]', v).forEach(function (c) { c.onclick = function () { S.notamF = { st: c.getAttribute('data-nst'), q: f.q }; go('notam'); }; });
+    $('#nt-q').oninput = function (e) { f.q = e.target.value; S.notamF = f; draw(); };
+    $('#nt-list').onclick = function (e) {
+      var cp = e.target.closest('[data-copy]');
+      if (cp) { copyText(cp.getAttribute('data-copy')); return; }
+      var x = e.target.closest('[data-xml]');
+      if (x) { var r = cellRegistry[+x.getAttribute('data-xml')]; openXml(r.ds, r.r, null, r.occ); return; }
+      var d = e.target.closest('[data-det]');
+      if (d) { e.preventDefault(); var r2 = cellRegistry[+d.getAttribute('data-det')]; openDetail(r2.ds, r2.r, 'ts'); return; }
+      var mp = e.target.closest('[data-map]');
+      if (mp) { e.preventDefault(); var r3 = cellRegistry[+mp.getAttribute('data-map')]; go('map', { ds: ds, focus: r3.r }); }
+    };
+    function allText() { return current().map(function (x) { return x.notams.length ? x.notams.map(function (n) { return n.text; }).join('\n\n') : x.text; }).join('\n\n'); }
+    $('#nt-copy').onclick = function () { copyText(allText()); };
+    $('#nt-pdf').onclick = function () { runExport('pdf', REVIEW.notamScope(ds, current())); };
+    $('#nt-xlsx').onclick = function () { runExport('xlsx', REVIEW.notamScope(ds, current())); };
+    $('#nt-mail').onclick = function () { runExport('mail', REVIEW.notamScope(ds, current())); };
   }
 
   /* ========================================================= QUALITY */

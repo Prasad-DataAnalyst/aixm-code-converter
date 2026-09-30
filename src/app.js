@@ -37,6 +37,7 @@
     setTimeout(function () { t.remove(); }, ms || 3800);
   }
   function dsOf() { return S.datasets[S.active] || null; }
+  function copyText(txt) { EXPORTS.copyText(txt).then(function (ok) { toast(ok ? 'Copied to the clipboard' : 'Copy failed — select the text manually'); }); }
 
   /* ------------------------------------------------------------- icons */
   function ic(path, extra) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" ' + (extra || '') + '>' + path + '</svg>'; }
@@ -66,13 +67,17 @@
     caret: ic('<path d="m9 18 6-6-6-6"/>', 'class="caret"'),
     info: ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
     trash: ic('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'),
-    play: ic('<path d="M6 4l14 8-14 8z"/>')
+    play: ic('<path d="M6 4l14 8-14 8z"/>'),
+    timeline: ic('<path d="M3 12h18"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 5v3M12 16v3M18 5v3"/>'),
+    notam: ic('<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/>'),
+    sbs: ic('<rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/>'),
+    amdt: ic('<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 13h6M9 17h4"/>')
   };
 
   /* --------------------------------------------------------------- nav */
   var VIEWS = [
     ['library', 'Library', I.folder], ['files', 'Files', I.upload], ['dash', 'Dashboard', I.dash], ['aip', 'AIP', I.book], ['map', 'Map', I.map], null,
-    ['changes', 'Changes', I.changes], ['compare', 'Compare', I.compare], ['quality', 'Quality', I.check], ['explorer', 'Explorer', I.list], null,
+    ['changes', 'Changes', I.changes], ['timeline', 'Timeline', I.timeline], ['compare', 'Compare', I.compare], ['notam', 'NOTAM', I.notam], ['quality', 'Quality', I.check], ['explorer', 'Explorer', I.list], null,
     ['export', 'Export', I.export]
   ];
   function renderNav() {
@@ -96,7 +101,7 @@
     var v = document.createElement('div');
     v.className = 'view' + (view === 'aip' || view === 'map' || view === 'explorer' ? ' full' : '');
     main.appendChild(v);
-    ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport })[view](v, opts || {});
+    ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, timeline: viewTimeline, notam: viewNotam, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport })[view](v, opts || {});
   }
 
   /* ------------------------------------------------------------- theme */
@@ -829,7 +834,7 @@
       return '<tr><td class="nowrap">' + esc(x.sec.no + (x.sec.ad ? ' ' + M.shortName(x.sec.ad) : '')) + '</td><td><a href="#" data-go="' + idx + '">' + esc(M.label(ds, x.rec)) + '</a><div class="muted" style="font-size:11.5px">' + esc(x.rec.k) + '</div></td><td>' + f.slice(0, 12).join('<br>') + (f.length > 12 ? '<br>…' : '') + '</td></tr>';
     }).join('');
     var rem = (cc.removed || []).map(function (it) { return '<tr><td>' + esc(it.sec.no) + '</td><td>' + esc(M.label(cc.removed && ds.prevCmp.a, it.a)) + '</td><td><span class="chip del">removed (not in this cycle)</span></td></tr>'; }).join('');
-    back.innerHTML = '<div class="modal" style="width:min(1100px,100%)"><div class="modal-head"><h3>Changes in AIRAC ' + esc(cc.cycle.id) + ' — effective ' + esc(M.fmtDate(cc.cycle.date)) + '</h3><span class="sp"></span><button class="btn small" data-m="pdf">' + I.pdf + ' PDF</button><button class="btn small" data-m="xlsx">' + I.xls + ' Excel</button><button class="btn small ghost" data-m="close">' + I.x + '</button></div>' +
+    back.innerHTML = '<div class="modal" style="width:min(1100px,100%)"><div class="modal-head"><h3>Changes in AIRAC ' + esc(cc.cycle.id) + ' — effective ' + esc(M.fmtDate(cc.cycle.date)) + '</h3><span class="sp"></span><button class="btn small primary" data-m="amdt">' + I.amdt + ' AMDT report</button><button class="btn small" data-m="pdf">' + I.pdf + ' PDF</button><button class="btn small" data-m="xlsx">' + I.xls + ' Excel</button><button class="btn small ghost" data-m="close">' + I.x + '</button></div>' +
       '<div class="modal-body cycle-list"><p class="muted">Sources: ' + esc(cc.sources.join('; ') || 'none') + '. Click a feature to open its AIP page with the changed values highlighted in red.</p>' +
       (rows || rem ? '<table class="aip"><thead><tr><th>AIP section</th><th>Feature</th><th>What changes (old → new)</th></tr></thead><tbody>' + rows + rem + '</tbody></table>' : '<div class="card card-pad">No changes found for this cycle. Load the previous cycle\'s file to compare every value.</div>') + '</div></div>';
     document.body.appendChild(back);
@@ -841,6 +846,7 @@
       if (!m) return;
       var k = m.getAttribute('data-m');
       if (k === 'close') { back.remove(); return; }
+      if (k === 'amdt') { back.remove(); openAmdt(ds, cc.cycle); return; }
       runExport(k, cycleScope(ds));
     });
   }
@@ -891,14 +897,20 @@
       var h = '<div class="sec-head"><div class="grow"><div class="crumbs">' + esc(ds.state) + ' · ' + esc(ds.name) + ' · ' + esc(ds.sniff.versionLabel) + (ds.airac ? ' · AIRAC ' + ds.airac.id : '') + '</div>' +
         '<h2>' + (code ? '<span class="code">' + esc(code) + '</span> ' : '') + esc(sec.group ? sec.title : (sec.no + ' ' + sec.title)) + '</h2>' +
         '<div class="eff">' + (effAll !== null ? 'Latest effective date in this section: <b>' + M.fmtDate(effAll, true) + '</b>' : '') + (ds.viewDate !== null && ds.viewDate !== undefined ? ' · data valid on ' + M.fmtDate(ds.viewDate) : ' · latest time slices') + '</div>' + cycleBarHtml(ds) + '</div>' +
-        '<div class="btn-group">' + (adRec ? '<button class="btn small" data-x="map">' + I.map + ' Map</button>' : '') +
+        '<div class="btn-group">' + sbsSelectHtml(ds) + (adRec ? '<button class="btn small" data-x="map">' + I.map + ' Map</button>' : '') +
         '<button class="btn small" data-x="print">' + I.print + ' Print</button><button class="btn small" data-x="pdf">' + I.pdf + ' PDF</button><button class="btn small" data-x="xlsx">' + I.xls + ' Excel</button>' +
         '<button class="btn small" data-x="json">' + I.json + ' JSON</button><button class="btn small" data-x="mail">' + I.mail + ' E-mail</button></div></div><div class="sec-body">';
-      secs.forEach(function (x) {
+      var sbs = S.sbs ? sbsBuild(ds, item, sec) : null;
+      if (sbs && sbs.err) { toast(sbs.err, 6000); S.sbs = null; sbs = null; }
+      if (sbs) h += sbsHtml(sbs);
+      else secs.forEach(function (x) {
         h += '<div class="aip-sec" data-secid="' + esc(x.id || '') + '">' + (secs.length > 1 ? '<h3><span class="no">' + esc(x.no) + '</span> ' + esc(x.title) + '</h3>' : '') + sectionBodyHtml(ds, x) + '</div>';
       });
       h += '</div>';
       host.innerHTML = h;
+      if (sbs) sbsSync(host);
+      var sbsSel = $('[data-sbs]', host);
+      if (sbsSel) sbsSel.onchange = function () { S.sbs = sbsSel.value ? { key: sbsSel.value } : null; if (S.sbs && S.sbs.key === 'lib') { sbsFromLibrary(ds); return; } renderSection(ds, S.aipSel); };
       host.scrollTop = 0;
       host.onclick = function (e) {
         var c = e.target.closest('[data-cell]');
@@ -914,6 +926,9 @@
           return;
         }
         if (handleCycleBar(e, ds, function () { renderTree(ds, ds.catalogue); renderSection(ds, S.aipSel); })) return;
+        if (e.target.matches && e.target.matches('[data-sbs-only]')) { S.sbsOnly = e.target.checked; host.querySelector('.sbs').classList.toggle('only-diff', S.sbsOnly); sbsSync(host); return; }
+        var sx = e.target.closest('[data-sbsx]');
+        if (sx && sbs) { runExport(sx.getAttribute('data-sbsx'), REVIEW.sbsScope(ds, sbs.diff, sbs.labelL, sbs.labelR, 'Side by side: ' + (code ? code + ' ' : '') + (sec.group ? sec.title : sec.no + ' ' + sec.title))); return; }
         var x = e.target.closest('[data-x]');
         if (!x) return;
         var scope = { title: (code ? code + ' ' : '') + (sec.group ? sec.title : sec.no + ' ' + sec.title), sub: ds.state + ' — ' + ds.name, ds: ds, sections: [sec] };
@@ -925,6 +940,111 @@
       }
     }, 10);
   }
+  /* ------------------------------------------------ side-by-side AIP */
+  function sbsSelectHtml(ds) {
+    var o = ['<option value="">Single view</option>'];
+    ANALYSIS.changeCycles(ds).forEach(function (c) { if (c.n) o.push('<option value="cyc:' + c.cycle.id + '">⇆ Before / from AIRAC ' + c.cycle.id + ' (' + M.fmtDate(c.cycle.date) + ')</option>'); });
+    S.datasets.forEach(function (d, i) { if (d !== ds) o.push('<option value="ds:' + i + '">⇆ With ' + esc((d.state === ds.state ? '' : d.state + ' · ') + d.name + (d.airac ? ' · AIRAC ' + d.airac.id : '')) + '</option>'); });
+    if (ds.lib && libPrevFile(ds) && !S.datasets.some(function (d) { return d.lib && d.lib.path === libPrevFile(ds).path; })) o.push('<option value="lib">⇆ With the previous cycle in the Library</option>');
+    if (o.length < 2) return '';
+    var cur = S.sbs ? S.sbs.key : '';
+    return '<select class="inp small sbs-sel" data-sbs="1" title="Show this section side by side with another cycle">' + o.join('').replace('value="' + cur + '"', 'value="' + cur + '" selected') + '</select>';
+  }
+  async function sbsFromLibrary(ds) {
+    var lp = libPrevFile(ds);
+    toast('Opening ' + lp.name + ' from the Library…');
+    var prev = await openLibFile(ds.lib.state, lp, { silent: true });
+    if (!prev) { S.sbs = null; renderSection(ds, S.aipSel); return; }
+    if (S.datasets.indexOf(prev) < 0) S.datasets.push(prev);
+    S.active = S.datasets.indexOf(ds);
+    S.sbs = { key: 'ds:' + S.datasets.indexOf(prev) };
+    renderSection(ds, S.aipSel);
+  }
+  function mapSectionId(ds, other, id) {
+    var m = /^(AD[23]\.\d+:|AD:)(\d+)$/.exec(id);
+    if (!m) return id;
+    var ad = ds.recs[+m[2]], code = ad && M.shortName(ad);
+    var hit = (other.byType.AirportHeliport || []).filter(function (a) { return M.shortName(a) === code; })[0];
+    return hit ? m[1] + hit.i : null;
+  }
+  function buildAt(ds, item, t) {
+    var keep = ds.viewDate;
+    M.setViewDate(ds, t);
+    try { return AIP.build(ds, item); } finally { M.setViewDate(ds, keep); }
+  }
+  function sbsBuild(ds, item, sec) {
+    var key = S.sbs.key, left, right, labelL, labelR, dsL = ds;
+    try {
+      if (key.indexOf('cyc:') === 0) {
+        var c = ANALYSIS.changeCycles(ds).filter(function (x) { return x.cycle.id === key.slice(4); })[0];
+        if (!c) return { err: 'That cycle has no changes in this file.' };
+        left = buildAt(ds, item, c.cycle.date - 1); right = buildAt(ds, item, c.cycle.date);
+        labelL = 'Before AIRAC ' + c.cycle.id + ' (valid ' + M.fmtDate(c.cycle.date - 86400000) + ')'; labelR = 'AIRAC ' + c.cycle.id + ' (from ' + M.fmtDate(c.cycle.date) + ')';
+      } else if (key.indexOf('ds:') === 0) {
+        var o = S.datasets[+key.slice(3)];
+        if (!o || o === ds) return { err: 'The other data set is no longer loaded.' };
+        var oid = mapSectionId(ds, o, item.id), oitem = oid && AIP.findSection(o, oid);
+        left = oitem ? AIP.build(o, oitem) : { no: sec.no, title: sec.title, blocks: [{ kind: 'note', text: 'This section is not in ' + o.name + '.' }] };
+        right = sec; dsL = o;
+        var older = (o.effective || 0) <= (ds.effective || 0);
+        labelL = o.name + (o.airac ? ' · AIRAC ' + o.airac.id : '') + (older ? '' : ' (newer)'); labelR = ds.name + (ds.airac ? ' · AIRAC ' + ds.airac.id : '');
+      } else return null;
+    } catch (err) { console.error(err); return { err: 'Side-by-side view failed: ' + err.message }; }
+    return { diff: REVIEW.sbsDiff(left, right), labelL: labelL, labelR: labelR, dsL: dsL, dsR: ds };
+  }
+  function sbsCell(c, ds, chg, side) {
+    if (!c || !c.t) return '<span class="nil">—</span>';
+    var cls = chg ? (side === 'r' ? ' sbs-new' : ' sbs-old') : '';
+    if (!c.r) return cls ? '<span class="' + cls.trim() + '">' + esc(c.t) + '</span>' : esc(c.t);
+    var idx = cellRegistry.push({ ds: ds, r: c.r, p: c.p }) - 1;
+    return '<span class="src' + cls + '" data-cell="' + idx + '" title="' + esc((chg ? (side === 'r' ? 'CHANGED — new value\n' : 'CHANGED — old value\n') : '') + M.typeName(c.r) + (c.p ? ' · ' + c.p : '') + ' · line ' + num(c.r.line) + '\nClick to view the AIXM code') + '">' + esc(c.t) + '</span>';
+  }
+  function sbsSide(sb, side) {
+    var ds = side === 'l' ? sb.dsL : sb.dsR, h = '';
+    sb.diff.pairs.forEach(function (p, pi) {
+      if (sb.diff.pairs.length > 1) h += '<h3 data-pr="' + pi + ':h"><span class="no">' + esc(p.no) + '</span> ' + esc(p.title) + '</h3>';
+      p.blocks.forEach(function (b, bi) {
+        var k = pi + ':' + bi;
+        if (b.title) h += '<div class="block-title" data-pr="' + k + ':t">' + esc(b.title) + '</div>';
+        if (b.kind === 'note') { var tx = side === 'l' ? b.textL : b.textR; h += '<div class="note-box' + (b.st === 'chg' ? (side === 'r' ? ' sbs-rowchg' : '') : '') + '" data-pr="' + k + ':n">' + esc(tx || '—') + '</div>'; return; }
+        var rows = b.rows.slice(0, 1500);
+        if (b.kind === 'kv') {
+          h += '<table class="aip-kv"><tbody>' + rows.map(function (r, ri) {
+            var row = r[side], st = r.st, attr = ' data-pr="' + k + ':' + ri + '" class="sbs-' + st + '"';
+            if (!row) return '<tr' + attr + '><td colspan="3" class="sbs-missing">' + (st === 'add' ? 'not in this version' : 'removed') + '</td></tr>';
+            var cells = row.cells, parts = cells.map(function (c, ci) { return c && c.t ? '<div class="vpart">' + sbsCell(c, ds, st === 'chg' && r.cols.indexOf(ci) >= 0 || st === 'add' && side === 'r', side) + '</div>' : ''; }).join('');
+            return '<tr' + attr + '><td class="no">' + esc(row.no || '') + '</td><td class="lbl">' + esc(row.label) + '</td><td class="val">' + (parts || '<span class="nil">NIL</span>') + '</td></tr>';
+          }).join('') + '</tbody></table>';
+          return;
+        }
+        var bb = b.br || b.bl;
+        h += '<div class="tbl-wrap"><table class="aip"><thead><tr data-pr="' + k + ':th">' + (bb.cols || []).map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' + rows.map(function (r, ri) {
+          var row = r[side], st = r.st, attr = ' data-pr="' + k + ':' + ri + '" class="sbs-' + st + '"';
+          if (!row) return '<tr' + attr + '><td colspan="' + (bb.cols || []).length + '" class="sbs-missing">' + (st === 'add' ? 'not in this version' : 'removed') + '</td></tr>';
+          return '<tr' + attr + '>' + row.map(function (c, ci) { return '<td>' + sbsCell(c, ds, st === 'chg' && r.cols.indexOf(ci) >= 0 || st === 'add' && side === 'r', side) + '</td>'; }).join('') + '</tr>';
+        }).join('') + (b.rows.length ? '' : '<tr data-pr="' + k + ':0"><td colspan="' + (bb.cols || []).length + '" class="nil">NIL</td></tr>') + '</tbody></table></div>' +
+          (b.rows.length > 1500 ? '<div class="muted" data-pr="' + k + ':m">Showing 1,500 of ' + num(b.rows.length) + ' rows — export for all differences.</div>' : '');
+      });
+    });
+    return h;
+  }
+  function sbsHtml(sb) {
+    var st = sb.diff.stats, none = !st.cells && !st.add && !st.del;
+    return '<div class="sbs-bar"><b>' + I.sbs + ' Side by side</b> <span class="chg-badge">' + num(st.cells) + ' changed value(s)</span> <span class="chip add">' + num(st.add) + ' row(s) added</span> <span class="chip del">' + num(st.del) + ' removed</span>' +
+      (none ? ' <span class="muted">— identical</span>' : '') + '<label class="chk"><input type="checkbox" data-sbs-only="1"' + (S.sbsOnly ? ' checked' : '') + '> Only differences</label><span class="sp"></span>' +
+      '<button class="btn small" data-sbsx="pdf">' + I.pdf + ' Differences PDF</button><button class="btn small" data-sbsx="xlsx">' + I.xls + ' Excel</button><button class="btn small" data-sbsx="mail">' + I.mail + ' E-mail</button></div>' +
+      '<div class="sbs' + (S.sbsOnly ? ' only-diff' : '') + '"><div class="sbs-col"><div class="sbs-head old">' + esc(sb.labelL) + '</div>' + sbsSide(sb, 'l') + '</div><div class="sbs-col"><div class="sbs-head new">' + esc(sb.labelR) + '</div>' + sbsSide(sb, 'r') + '</div></div>';
+  }
+  function sbsSync(host) {
+    var cols = host.querySelectorAll('.sbs-col');
+    if (cols.length !== 2) return;
+    var L = {}, R = [];
+    cols[0].querySelectorAll('[data-pr]').forEach(function (n) { n.style.height = ''; L[n.getAttribute('data-pr')] = n; });
+    cols[1].querySelectorAll('[data-pr]').forEach(function (n) { n.style.height = ''; R.push(n); });
+    var pairs = R.map(function (r) { var l = L[r.getAttribute('data-pr')]; return l ? [l, r, Math.max(l.getBoundingClientRect().height, r.getBoundingClientRect().height)] : null; }).filter(Boolean);
+    pairs.forEach(function (x) { if (x[2]) { x[0].style.height = x[2] + 'px'; x[1].style.height = x[2] + 'px'; } });
+  }
+
   function runExport(kind, scope, adRec) {
     try {
       if (kind === 'map' && adRec) { var sn = scope.sections && scope.sections[0] && scope.sections[0].no || ''; go('map', /2\.2[24]$|3\.2[23]$/.test(sn) ? { ds: scope.ds, procs: adRec } : { ds: scope.ds, focus: adRec }); return; }
@@ -1230,7 +1350,7 @@
       '<div class="card stat" data-kind="" style="cursor:pointer"><b>' + num(st.unchanged) + '</b><span class="muted">unchanged</span></div>' +
       '<div class="card stat"><b style="font-size:14px">' + (res.useUuid ? 'UUID' : 'natural keys') + '</b><span class="muted">matching method</span></div></div>' +
       '<div class="toolbar"><input class="inp" id="cmp-q" placeholder="Filter by feature, type or AIP section…" style="min-width:320px" value="' + esc(filter.q) + '"><span class="chip">' + (filter.kind || 'all changes') + '</span><span class="sp"></span>' +
-      '<button class="btn small" id="cmp-map">' + I.map + ' Show on map</button><button class="btn small" id="cmp-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="cmp-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="cmp-json">' + I.json + ' JSON</button><button class="btn small" id="cmp-mail">' + I.mail + ' E-mail</button></div>' +
+      '<button class="btn small primary" id="cmp-amdt" title="AIRAC AIP amendment report of the new file">' + I.amdt + ' AMDT report</button><button class="btn small" id="cmp-map">' + I.map + ' Show on map</button><button class="btn small" id="cmp-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="cmp-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="cmp-json">' + I.json + ' JSON</button><button class="btn small" id="cmp-mail">' + I.mail + ' E-mail</button></div>' +
       (list.length ? '<div class="tbl-wrap"><table class="aip"><thead><tr><th>AIP section</th><th>Feature</th><th>Change</th><th>Changed values (old → new)</th><th>Effective (new)</th><th>AIXM</th></tr></thead><tbody>' +
         list.slice(0, 500).map(function (it) {
           var r = it.b || it.a, ds = it.b ? res.b : res.a;
@@ -1263,10 +1383,173 @@
         })) }] }] };
     }
     $('#cmp-map').onclick = function () { MAPVIEW.setCompare(res); go('map', { ds: res.b }); };
+    $('#cmp-amdt').onclick = function () { res.b.prevCmp = res; res.b.cyc = null; openAmdt(res.b, res.b.airac); };
     $('#cmp-pdf').onclick = function () { runExport('pdf', scope()); };
     $('#cmp-xlsx').onclick = function () { runExport('xlsx', scope()); };
     $('#cmp-json').onclick = function () { runExport('json', scope()); };
     $('#cmp-mail').onclick = function () { runExport('mail', scope()); };
+  }
+
+  /* ====================================================== AMDT REPORT */
+  function openAmdt(ds, cycle) {
+    var cc = cycle ? ANALYSIS.cycleChanges(ds, cycle) : getCyc(ds);
+    if (!cc || !cc.cycle) { toast('No AIRAC cycle for this data set.'); return; }
+    var scope = REVIEW.amdtScope(ds, cc);
+    var back = document.createElement('div');
+    back.className = 'modal-back';
+    cellRegistry = cellRegistry || [];
+    var body = scope.sections.map(function (sec, i) {
+      return '<div class="aip-sec amdt-sec"><h3><span class="no">' + esc(sec.no) + '</span> ' + esc(i ? sec.title : '') + '</h3>' + sectionBodyHtml(ds, sec, 2000) + '</div>';
+    }).join('');
+    back.innerHTML = '<div class="modal" style="width:min(1180px,100%)"><div class="modal-head"><h3>' + I.amdt + ' ' + esc(scope.title) + '</h3><span class="sp"></span>' +
+      '<button class="btn small" data-m="print">' + I.print + ' Print</button><button class="btn small" data-m="pdf">' + I.pdf + ' PDF</button><button class="btn small" data-m="xlsx">' + I.xls + ' Excel</button><button class="btn small" data-m="json">' + I.json + ' JSON</button><button class="btn small" data-m="mail">' + I.mail + ' E-mail</button><button class="btn small ghost" data-m="close">' + I.x + '</button></div>' +
+      '<div class="modal-body amdt-body"><div class="amdt-banner"><div><div class="muted">' + esc(ds.state) + '</div><div class="amdt-id">AIRAC AMDT ' + esc(cc.cycle.id) + '</div></div><div><div class="muted">Effective</div><b>' + esc(M.fmtDate(cc.cycle.date)) + '</b></div><div><div class="muted">Publish by</div><b>' + esc(M.fmtDate(scope.amdt.pub)) + '</b></div>' +
+      ['GEN', 'ENR', 'AD'].map(function (k) { return '<div><div class="muted">' + k + '</div><b>' + scope.amdt.parts[k] + '</b></div>'; }).join('') + '</div>' +
+      (ds.prevCmp ? '' : '<div class="note-box">Only changes recorded inside this file are listed. For a complete amendment, <a href="#" data-m="prev">compare with the previous cycle file</a>.</div>') + body + '</div></div>';
+    document.body.appendChild(back);
+    back.addEventListener('click', function (e) {
+      if (e.target === back) { back.remove(); return; }
+      var c = e.target.closest('[data-cell]');
+      if (c) { var reg = cellRegistry[+c.getAttribute('data-cell')]; openXml(reg.ds, reg.r, reg.p); return; }
+      var m = e.target.closest('[data-m]');
+      if (!m) return;
+      e.preventDefault();
+      var k = m.getAttribute('data-m');
+      if (k === 'close') { back.remove(); return; }
+      if (k === 'prev') { back.remove(); pickPrevious(ds, function () { openAmdt(ds, cc.cycle); }); return; }
+      runExport(k, scope);
+    });
+  }
+
+  /* ========================================================= TIMELINE */
+  function viewTimeline(v) {
+    var ds = dsOf();
+    if (!ds) { v.innerHTML = emptyState('No data', ''); return; }
+    var tl = REVIEW.timeline(ds), now = Date.now(), cur = AX.airac(now);
+    var sel = S.tlSel && tl.cycles.some(function (c) { return c.cycle.id === S.tlSel; }) ? S.tlSel : (tl.cycles.filter(function (c) { return c.n; }).pop() || tl.cycles[tl.cycles.length - 1] || {}).cycle;
+    if (sel && sel.id) sel = sel.id;
+    var max = Math.max.apply(null, tl.cycles.map(function (c) { return c.n; }).concat([1]));
+    var libFiles = {};
+    if (ds.lib) { var st = libStates().filter(function (x) { return x.name === ds.lib.state; })[0]; if (st) st.files.forEach(function (f) { var d = LIBRARY.fileDate(f); if (d) { var a = AX.airac(d); if (a) (libFiles[a.id] = libFiles[a.id] || []).push(f.name); } }); }
+    S.datasets.forEach(function (d) { if (d.state === ds.state && d.airac) (libFiles[d.airac.id] = libFiles[d.airac.id] || []).push(d.name); });
+    var h = '<h1 class="view-title">Timeline</h1><p class="view-sub">When does the data change? Each column is an AIRAC cycle; the bar shows how many features change in it (GEN / ENR / AD). Click a cycle to list its changes, open the AMDT report or highlight it in the AIP. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>';
+    if (!tl.cycles.length) { v.innerHTML = h + '<div class="card card-pad muted">No dated changes in this file.</div>'; return; }
+    h += '<div class="card tl-card"><div class="tl-strip">' + tl.cycles.map(function (c) {
+      var hh = function (n) { return Math.round(n / max * 110); };
+      var isCur = cur && c.cycle.id === cur.id, isFile = ds.airac && c.cycle.id === ds.airac.id;
+      return '<button class="tl-col' + (c.cycle.id === sel ? ' sel' : '') + (c.n ? '' : ' empty') + '" data-cy="' + c.cycle.id + '" title="AIRAC ' + c.cycle.id + ' — ' + M.fmtDate(c.cycle.date) + '\n' + c.n + ' change(s): GEN ' + c.parts.GEN + ', ENR ' + c.parts.ENR + ', AD ' + c.parts.AD + (c.temp ? ', ' + c.temp + ' temporary' : '') + (libFiles[c.cycle.id] ? '\nFiles: ' + libFiles[c.cycle.id].join(', ') : '') + '">' +
+        '<span class="tl-n">' + (c.n || '') + '</span><span class="tl-bar">' + ['AD', 'ENR', 'GEN', 'Other'].map(function (k) { return c.parts[k] ? '<i class="p-' + k + '" style="height:' + Math.max(3, hh(c.parts[k])) + 'px"></i>' : ''; }).join('') + '</span>' +
+        '<span class="tl-id">' + c.cycle.id + '</span><span class="tl-date">' + M.fmtDate(c.cycle.date).replace(/ \d{4}$/, '') + '</span>' +
+        '<span class="tl-tags">' + (isCur ? '<span class="tl-tag now">today</span>' : '') + (isFile ? '<span class="tl-tag file">file</span>' : '') + '</span>' + (libFiles[c.cycle.id] ? '<span class="tl-doc" title="' + esc(libFiles[c.cycle.id].join(', ')) + '">📄</span>' : '') + '</button>';
+    }).join('') + '</div><div class="tl-legend"><span><i class="p-GEN"></i> GEN</span><span><i class="p-ENR"></i> ENR</span><span><i class="p-AD"></i> AD</span><span>📄 file of this State for that cycle</span></div></div>';
+    var c = tl.cycles.filter(function (x) { return x.cycle.id === sel; })[0];
+    if (c) {
+      h += '<div class="toolbar" style="margin-top:14px"><h3 style="margin:0">AIRAC ' + esc(c.cycle.id) + ' — effective ' + esc(M.fmtDate(c.cycle.date)) + '</h3><span class="chip">' + c.n + ' change(s)</span>' + (c.temp ? '<span class="chip warn">' + c.temp + ' temporary</span>' : '') + '<span class="sp"></span>' +
+        '<button class="btn small primary" data-tl="amdt">' + I.amdt + ' AMDT report</button><button class="btn small" data-tl="hl">' + I.book + ' Highlight in AIP</button><button class="btn small" data-tl="list">' + I.list + ' All changes (incl. previous cycle)</button></div>';
+      h += c.events.length ? '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Effective</th><th>Until</th><th>AIP section</th><th>Feature</th><th>Change</th><th>What changes (old → new)</th></tr></thead><tbody>' + c.events.slice(0, 400).map(function (e) {
+        var idx = cellRegistry.push({ ds: ds, r: e.rec }) - 1;
+        var f = e.fields.slice(0, 6).map(function (x) { return '<div><span class="muted">' + esc(ANALYSIS.prettyPath(x.path)) + ':</span> ' + (x.old !== undefined ? '<span class="diff-old">' + esc(ANALYSIS.displayVal(ds, x.old)) + '</span> ' : '') + '→ <span class="chg-badge">' + esc(x.neu !== undefined ? ANALYSIS.displayVal(ds, x.neu) : 'removed') + '</span></div>'; }).join('');
+        return '<tr><td class="nowrap">' + esc(M.fmtTs(e.from)) + '</td><td class="nowrap">' + esc(e.to ? M.fmtTs(e.to) : '') + '</td><td class="nowrap">' + esc(e.section.no + (e.section.ad ? ' ' + M.shortName(e.section.ad) : '')) + '</td><td><a href="#" data-aip="' + idx + '">' + esc(M.label(ds, e.rec)) + '</a></td><td><span class="chip ' + (/Temporary/.test(e.kind) ? 'warn' : /New/.test(e.kind) ? 'add' : 'info') + '">' + esc(e.kind) + '</span></td><td>' + (f || '—') + '</td></tr>';
+      }).join('') + '</tbody></table></div>' : '<div class="card card-pad muted">No time slice of this file starts in AIRAC ' + esc(c.cycle.id) + '.' + (ds.prevCmp ? '' : ' Compare with the previous cycle file to see the differences.') + '</div>';
+    }
+    if (tl.temps.length && tl.range[0] !== null) {
+      var t0 = tl.range[0], t1 = Math.max(tl.range[1], t0 + 86400000), span = t1 - t0;
+      var ticks = [], step = span > 400 * 86400000 ? 'y' : span > 60 * 86400000 ? 'm' : 'd', d = new Date(t0);
+      d = step === 'y' ? new Date(Date.UTC(d.getUTCFullYear(), 0, 1)) : step === 'm' ? new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)) : new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      for (var g = 0; g < 400 && d.getTime() <= t1; g++) {
+        if (d.getTime() >= t0) ticks.push(d.getTime());
+        d = step === 'y' ? new Date(Date.UTC(d.getUTCFullYear() + 1, 0, 1)) : step === 'm' ? new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)) : new Date(d.getTime() + Math.max(1, Math.ceil(span / 86400000 / 12)) * 86400000);
+      }
+      var pos = function (x) { return Math.max(0, Math.min(100, (x - t0) / span * 100)); };
+      h += '<h3 style="margin:22px 0 8px">Temporary changes and NOTAM periods</h3><div class="card gantt">' +
+        '<div class="g-axis">' + ticks.map(function (x) { return '<span style="left:' + pos(x) + '%">' + esc(M.fmtDate(x).replace(step === 'd' ? / \d{4}$/ : /^\d+ /, '')) + '</span>'; }).join('') + (now >= t0 && now <= t1 ? '<span class="g-now" style="left:' + pos(now) + '%">now</span>' : '') + '</div>' +
+        tl.temps.slice(0, 300).map(function (x) {
+          var idx = cellRegistry.push({ ds: ds, r: x.rec }) - 1, a = pos(x.from), b = pos(x.to !== null ? x.to : x.from + 86400000);
+          return '<div class="g-row"><a href="#" class="g-lbl" data-det="' + idx + '" title="' + esc(x.kind) + '">' + esc(x.label) + '</a><div class="g-track"><i class="' + (/NOTAM/.test(x.kind) ? 'notam' : '') + '" style="left:' + a + '%;width:' + Math.max(0.6, b - a) + '%" title="' + esc(M.fmtTs(x.from) + ' – ' + (x.to !== null ? M.fmtTs(x.to) : 'until further notice') + '\n' + x.kind + (x.fields.length ? '\n' + x.fields.slice(0, 5).map(function (f) { return ANALYSIS.prettyPath(f.path) + ': ' + ANALYSIS.displayVal(ds, f.neu); }).join('\n') : '')) + '"></i></div></div>';
+        }).join('') + '</div>';
+    }
+    cellRegistry = cellRegistry || [];
+    v.innerHTML = h;
+    v.onclick = function (e) {
+      var col = e.target.closest('[data-cy]');
+      if (col) { S.tlSel = col.getAttribute('data-cy'); go('timeline'); return; }
+      var a = e.target.closest('[data-aip]');
+      if (a) { e.preventDefault(); var r = cellRegistry[+a.getAttribute('data-aip')]; ds.hlCycle = c.cycle; ds.cyc = null; S.hlOn = true; openAipFor(r.ds, r.r); return; }
+      var dt = e.target.closest('[data-det]');
+      if (dt) { e.preventDefault(); var r2 = cellRegistry[+dt.getAttribute('data-det')]; openDetail(r2.ds, r2.r, 'ts'); return; }
+      var b = e.target.closest('[data-tl]');
+      if (!b || !c) return;
+      var k = b.getAttribute('data-tl');
+      if (k === 'amdt') openAmdt(ds, c.cycle);
+      if (k === 'hl') { ds.hlCycle = c.cycle; ds.cyc = null; S.hlOn = true; go('aip'); }
+      if (k === 'list') { ds.hlCycle = c.cycle; ds.cyc = null; openCycleList(ds); }
+    };
+  }
+
+  /* ============================================================ NOTAM */
+  function viewNotam(v, opts) {
+    var ds = dsOf();
+    if (!ds) { v.innerHTML = emptyState('No data', ''); return; }
+    var withEv = S.datasets.filter(function (d) { return (d.byType.Event || []).length; });
+    var h = '<h1 class="view-title">Digital NOTAM</h1><p class="view-sub">AIXM 5.1 Digital NOTAM events (<code>event:Event</code>) shown as ICAO NOTAM text, with the Q-code decoded and the temporary changes of each affected feature. Base data of the same features is taken from the other loaded files of the State.</p>';
+    if (!(ds.byType.Event || []).length) {
+      v.innerHTML = h + '<div class="card card-pad">No Digital NOTAM events in <b>' + esc(ds.name) + '</b>.' + (withEv.length ? ' Files with events: ' + withEv.map(function (d) { return '<a href="#" data-dsn="' + S.datasets.indexOf(d) + '">' + esc(d.name) + '</a>'; }).join(', ') : ' Load a Digital NOTAM file (e.g. from the Donlon Digital NOTAM samples) together with the baseline.') + '</div>';
+      v.onclick = function (e) { var a = e.target.closest('[data-dsn]'); if (a) { e.preventDefault(); S.active = +a.getAttribute('data-dsn'); renderDsSelect(); go('notam'); } };
+      return;
+    }
+    var others = S.datasets.filter(function (d) { return d !== ds && d.state === ds.state; }).concat(S.datasets.filter(function (d) { return d !== ds && d.state !== ds.state; }));
+    var list = REVIEW.notams(ds, others), now = ds.viewDate !== null && ds.viewDate !== undefined ? ds.viewDate : Date.now();
+    var f = S.notamF || { st: '', q: '' };
+    var counts = { active: 0, upcoming: 0, expired: 0 };
+    list.forEach(function (x) { counts[REVIEW.notamStatus(x, now)]++; });
+    h += '<div class="stat-row">' + [['', 'all', list.length], ['active', 'active now', counts.active], ['upcoming', 'upcoming', counts.upcoming], ['expired', 'expired', counts.expired]].map(function (x) {
+      return '<div class="card stat" data-nst="' + x[0] + '" style="cursor:pointer' + (f.st === x[0] ? ';outline:2px solid var(--brand)' : '') + '"><b>' + x[2] + '</b><span class="muted">' + x[1] + '</span></div>';
+    }).join('') + '</div><div class="toolbar"><input class="inp" id="nt-q" placeholder="Filter: location, NOTAM number, scenario, text…" style="min-width:320px" value="' + esc(f.q) + '"><span class="sp"></span>' +
+      '<button class="btn small" id="nt-copy">' + I.copy + ' Copy all NOTAM text</button><button class="btn small" id="nt-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="nt-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="nt-mail">' + I.mail + ' E-mail</button></div><div id="nt-list"></div>';
+    v.innerHTML = h;
+    function current() {
+      var q = f.q.toLowerCase();
+      return list.filter(function (x) {
+        if (f.st && REVIEW.notamStatus(x, now) !== f.st) return false;
+        if (q) { var txt = (x.name + ' ' + x.scenario + ' ' + x.scenarioText + ' ' + x.notams.map(function (n) { return n.text + ' ' + n.q; }).join(' ') + ' ' + x.affected.map(function (a) { return a.label; }).join(' ')).toLowerCase(); if (txt.indexOf(q) < 0) return false; }
+        return true;
+      });
+    }
+    function draw() {
+      var l = current();
+      cellRegistry = [];
+      $('#nt-list').innerHTML = l.length ? l.slice(0, 300).map(function (x) {
+        var st = REVIEW.notamStatus(x, now), ie = cellRegistry.push({ ds: ds, r: x.ev }) - 1;
+        return '<div class="card notam-card"><div class="notam-head"><span class="chip ' + (st === 'active' ? 'del' : st === 'upcoming' ? 'warn' : '') + '">' + st + '</span><b>' + esc(x.scenarioText || 'Event') + '</b><span class="muted">' + esc(x.name) + '</span><span class="sp"></span>' +
+          '<span class="muted nowrap">' + esc(M.fmtTs(x.start)) + ' → ' + esc(x.end !== null ? M.fmtTs(x.end) : 'until further notice') + '</span><span class="srcbtn" data-xml="' + ie + '" title="View the event AIXM code">&lt;/&gt;</span></div>' +
+          (x.notams.length ? x.notams.map(function (n) {
+            return '<div class="notam-body"><pre class="notam-text">' + esc(n.text) + '</pre><div class="notam-dec">' + (n.q ? '<div><span class="muted">Q-code:</span> <b>' + esc(n.q) + '</b></div>' : '') + (n.traffic ? '<div><span class="muted">Traffic:</span> ' + esc(n.traffic) + '</div>' : '') + (n.purpose ? '<div><span class="muted">Purpose:</span> ' + esc(n.purpose) + '</div>' : '') + (n.scope ? '<div><span class="muted">Scope:</span> ' + esc(n.scope) + '</div>' : '') +
+              '<button class="btn small" data-copy="' + esc(n.text) + '">' + I.copy + ' Copy</button></div></div>';
+          }).join('') : '<div class="notam-body"><pre class="notam-text">' + esc(x.text) + '</pre><div class="notam-dec muted">No NOTAM text in the event — generated from the affected features.</div></div>') +
+          (x.affected.length ? '<div class="notam-aff"><div class="muted" style="margin-bottom:4px">Affected features (' + x.affected.length + '):</div>' + x.affected.map(function (a) {
+            var ia = cellRegistry.push({ ds: ds, r: a.r, occ: a.ts.occ }) - 1;
+            return '<div class="aff-row"><a href="#" data-det="' + ia + '">' + esc(a.label) + '</a> <span class="chip ' + (a.interp === 'TEMPDELTA' ? 'warn' : 'info') + '">' + esc(a.interp) + '</span> ' + a.lines.slice(0, 6).map(function (l2) { return '<span class="aff-chg">' + esc(l2) + '</span>'; }).join(' ') + ' <span class="srcbtn" data-xml="' + ia + '" title="View AIXM">&lt;/&gt;</span>' + (M.pointOf(ds, a.r) || M.geometry(ds, a.r) ? ' <a href="#" data-map="' + ia + '">map</a>' : '') + '</div>';
+          }).join('') + '</div>' : '') + '</div>';
+      }).join('') + (l.length > 300 ? '<div class="muted">Showing 300 of ' + l.length + '</div>' : '') : '<div class="card card-pad muted">No NOTAM for this filter.</div>';
+    }
+    draw();
+    $$('[data-nst]', v).forEach(function (c) { c.onclick = function () { S.notamF = { st: c.getAttribute('data-nst'), q: f.q }; go('notam'); }; });
+    $('#nt-q').oninput = function (e) { f.q = e.target.value; S.notamF = f; draw(); };
+    $('#nt-list').onclick = function (e) {
+      var cp = e.target.closest('[data-copy]');
+      if (cp) { copyText(cp.getAttribute('data-copy')); return; }
+      var x = e.target.closest('[data-xml]');
+      if (x) { var r = cellRegistry[+x.getAttribute('data-xml')]; openXml(r.ds, r.r, null, r.occ); return; }
+      var d = e.target.closest('[data-det]');
+      if (d) { e.preventDefault(); var r2 = cellRegistry[+d.getAttribute('data-det')]; openDetail(r2.ds, r2.r, 'ts'); return; }
+      var mp = e.target.closest('[data-map]');
+      if (mp) { e.preventDefault(); var r3 = cellRegistry[+mp.getAttribute('data-map')]; go('map', { ds: ds, focus: r3.r }); }
+    };
+    function allText() { return current().map(function (x) { return x.notams.length ? x.notams.map(function (n) { return n.text; }).join('\n\n') : x.text; }).join('\n\n'); }
+    $('#nt-copy').onclick = function () { copyText(allText()); };
+    $('#nt-pdf').onclick = function () { runExport('pdf', REVIEW.notamScope(ds, current())); };
+    $('#nt-xlsx').onclick = function () { runExport('xlsx', REVIEW.notamScope(ds, current())); };
+    $('#nt-mail').onclick = function () { runExport('mail', REVIEW.notamScope(ds, current())); };
   }
 
   /* ========================================================= QUALITY */

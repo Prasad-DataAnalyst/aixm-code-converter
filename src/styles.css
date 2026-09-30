@@ -389,3 +389,74 @@ tr.chg-row > td:first-child { box-shadow: inset 4px 0 0 #c62828; }
 .overlay .card { width: min(560px, 92vw); padding: 20px; }
 .lib-card .lc-head .btn { color: var(--brand); background: #fff; border-color: #fff; }
 .lib-file .row { flex-wrap: wrap; justify-content: flex-end; }
+
+/* ------------------------------------------------------------ side by side */
+.sbs-sel { height: 30px; max-width: 280px; font-size: 12.5px; }
+.sbs-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13px; }
+.sbs-bar svg { width: 16px; height: 16px; vertical-align: -3px; }
+.sbs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.sbs-col { min-width: 0; }
+.sbs-head { position: sticky; top: 0; z-index: 2; padding: 8px 12px; border-radius: 9px; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
+.sbs-head.old { background: #eceff1; color: #37474f; }
+.sbs-head.new { background: #5c0632; color: #fff; }
+:root[data-theme="dark"] .sbs-head.old { background: #2b3236; color: #cfd8dc; }
+.sbs .sbs-new, .sbs .src.sbs-new { background: #c62828 !important; color: #fff !important; border-radius: 4px; padding: 1px 4px; font-weight: 600; }
+.sbs .sbs-old, .sbs .src.sbs-old { background: #fff3cd; color: #6d4c00; border-radius: 4px; padding: 1px 4px; text-decoration: line-through; text-decoration-color: rgba(109, 76, 0, .55); }
+:root[data-theme="dark"] .sbs .sbs-old { background: #4a3b10; color: #ffe08a; }
+.sbs tr.sbs-chg > td:first-child { box-shadow: inset 4px 0 0 #c62828; }
+.sbs tr.sbs-add > td:first-child { box-shadow: inset 4px 0 0 var(--added); }
+.sbs tr.sbs-del > td:first-child { box-shadow: inset 4px 0 0 var(--removed); }
+.sbs .sbs-missing { color: var(--muted); font-style: italic; background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(0, 0, 0, .035) 8px 16px); }
+.sbs.only-diff tr.sbs-same { display: none; }
+.sbs .tbl-wrap { overflow-x: auto; }
+@media (max-width: 1100px) { .sbs { grid-template-columns: 1fr; } }
+
+/* ------------------------------------------------------------ AMDT report */
+.amdt-banner { display: flex; flex-wrap: wrap; gap: 26px; align-items: center; padding: 14px 18px; margin-bottom: 14px; border-radius: 12px; background: linear-gradient(110deg, #4a0428, #5c0632 55%, #8e2a5a); color: #fff; }
+.amdt-banner .muted { color: rgba(255, 255, 255, .72); font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; }
+.amdt-banner .amdt-id { font-size: 22px; font-weight: 800; }
+.amdt-banner b { font-size: 16px; }
+.amdt-body { max-height: 72vh; overflow: auto; }
+.amdt-sec h3 { margin: 18px 0 8px; }
+.btn svg, .modal-head h3 svg { width: 15px; height: 15px; vertical-align: -2px; }
+
+/* ------------------------------------------------------------ timeline */
+.tl-card { padding: 14px 12px 8px; }
+.tl-strip { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 6px; align-items: stretch; }
+.tl-tags { display: flex; gap: 3px; height: 16px; }
+.tl-col { flex: 0 0 64px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; border: 1px solid transparent; border-radius: 10px; background: none; cursor: pointer; color: var(--text); position: relative; font: inherit; }
+.tl-col:hover { background: var(--surface-2); }
+.tl-col.sel { border-color: var(--brand); background: var(--brand-soft); }
+.tl-col.empty .tl-id { color: var(--muted); }
+.tl-n { font-size: 12px; font-weight: 700; height: 16px; }
+.tl-bar { display: flex; flex-direction: column-reverse; justify-content: flex-start; width: 26px; height: 112px; border-bottom: 2px solid var(--border); }
+.tl-bar i, .tl-legend i { display: block; width: 100%; }
+.p-GEN { background: #8e24aa; } .p-ENR { background: #1565c0; } .p-AD { background: #c62828; } .p-Other { background: #90a4ae; }
+.tl-id { font-weight: 700; font-size: 13px; }
+.tl-date { font-size: 11px; color: var(--muted); }
+.tl-tag { font-size: 10px; border-radius: 6px; padding: 0 5px; color: #fff; }
+.tl-tag.now { background: #2e7d32; } .tl-tag.file { background: #5c0632; }
+.tl-doc { position: absolute; top: 2px; right: 4px; font-size: 11px; }
+.tl-legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); padding: 6px 4px 0; }
+.tl-legend i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; vertical-align: -1px; }
+.gantt { padding: 12px 14px; }
+.g-axis { position: relative; height: 22px; margin-left: 240px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+.g-axis span { position: absolute; top: 2px; transform: translateX(-50%); white-space: nowrap; }
+.g-axis .g-now { color: #2e7d32; font-weight: 700; }
+.g-row { display: flex; align-items: center; height: 26px; border-bottom: 1px dashed var(--border); }
+.g-lbl { flex: 0 0 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; padding-right: 8px; }
+.g-track { position: relative; flex: 1; height: 100%; }
+.g-track i { position: absolute; top: 6px; height: 14px; border-radius: 4px; background: #e08e00; }
+.g-track i.notam { background: #c62828; }
+
+/* ------------------------------------------------------------ NOTAM */
+.notam-card { padding: 12px 14px; margin-bottom: 12px; }
+.notam-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 8px; }
+.notam-body { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; margin-bottom: 8px; }
+.notam-text { margin: 0; padding: 10px 12px; background: #fffbe6; color: #3e2f00; border: 1px solid #f0e2a4; border-radius: 9px; font: 13px/1.5 Consolas, "Courier New", monospace; white-space: pre-wrap; }
+:root[data-theme="dark"] .notam-text { background: #2d2a18; color: #f5e9b8; border-color: #5a5130; }
+.notam-dec { font-size: 12.5px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.notam-aff { border-top: 1px solid var(--border); padding-top: 8px; font-size: 12.5px; }
+.aff-row { padding: 3px 0; }
+.aff-chg { display: inline-block; background: #c62828; color: #fff; border-radius: 4px; padding: 0 5px; margin: 1px 2px; }
+@media (max-width: 900px) { .notam-body { grid-template-columns: 1fr; } }

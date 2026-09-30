@@ -15,7 +15,7 @@ var EXPORTS = (function () {
     (list || []).forEach(function (s) { if (!s) return; if (s.group) out = out.concat(flatSections(s.group)); else out.push(s); });
     return out;
   }
-  function safeName(t) { return String(t || 'aixm').replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 120); }
+  function safeName(t) { return String(t || 'aixm').replace(/[\u2013\u2014\u2192\u21c6]/g, '-').replace(/[\\/:*?"<>|]+/g, '_').replace(/[^\x20-\x7e]/g, '').replace(/\s+/g, '_').replace(/_+/g, '_').slice(0, 120) || 'aixm'; }
   function download(name, blob) {
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

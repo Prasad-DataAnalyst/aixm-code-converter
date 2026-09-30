@@ -6,7 +6,8 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const ctx = { console, TextDecoder, Uint8Array, Map, Set, Date, Math, JSON, Promise, Array, Object, String, RegExp, Number, parseFloat, parseInt, isNaN, Infinity, NaN };
 vm.createContext(ctx);
-['src/core.js', 'src/model.js', 'src/aip.js'].forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8') + '\n;this.AX=AX;' + (f.includes('model') ? 'this.MODEL=MODEL;' : '') + (f.includes('aip') ? 'this.AIP=AIP;' : ''), ctx, { filename: f }));
+const GLOBALS = { 'src/core.js': 'AX', 'src/model.js': 'MODEL', 'src/aip.js': 'AIP', 'src/analysis.js': 'ANALYSIS', 'src/review.js': 'REVIEW' };
+Object.keys(GLOBALS).forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8') + '\n;this.' + GLOBALS[f] + '=' + GLOBALS[f] + ';', ctx, { filename: f }));
 const dict = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/aixm_dictionary.json'), 'utf8'));
 ctx.MODEL.setDict(dict);
 
@@ -50,6 +51,7 @@ function printSection(sec, indent) {
 (async () => {
   const ds = await parse(process.argv[2]);
   console.log('State:', ds.state, '(' + ds.stateSource + ')', '| version', ds.sniff.versionLabel, '| effective', ctx.MODEL.fmtDate(ds.effective), ds.effectiveSource, '| AIRAC', ds.airac && ds.airac.id, '| recs', ds.recs.length, '| finalize ms', ds.tFinalize);
+  if (process.env.EVAL) { ctx.ds = ds; const out = await vm.runInContext('(async () => { ' + process.env.EVAL + ' })()', ctx); if (out !== undefined) console.log(typeof out === 'string' ? out : JSON.stringify(out, null, 1)); return; }
   const cat = ctx.AIP.catalogue(ds);
   const re = new RegExp(process.argv[3] || '.');
   cat.forEach((grp) => {

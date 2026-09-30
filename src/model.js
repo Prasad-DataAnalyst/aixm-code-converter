@@ -721,7 +721,7 @@ var MODEL = (function () {
     if (withTime && iso.slice(11, 16) !== '00:00') out += ' ' + iso.slice(11, 16) + 'Z';
     return out;
   }
-  function fmtTs(str) { var t = AX.tms(str); return t === null ? (str || '') : fmtDate(t, true); }
+  function fmtTs(str) { if (typeof str === 'number') return fmtDate(str, true); var t = AX.tms(str); return t === null ? (str || '') : fmtDate(t, true); }
 
   return {
     setDict: setDict, dict: dict, finalize: finalize, setViewDate: setViewDate, target: target, eachRef: eachRef,
