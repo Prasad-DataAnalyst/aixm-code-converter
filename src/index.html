@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIXM Code Converter</title>
+<meta name="description" content="Offline desktop viewer and converter for AIXM 4.5, 5.1, 5.1.1 and 5.2 files: ICAO AIP layout, map, change detection, comparison and JSON/Excel/PDF/e-mail export.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%235c0632'/%3E%3Cpath d='M14 38l36-14-10 26-6-10-10 6z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+/*@@INLINE_CSS:tools/node_modules/leaflet/dist/leaflet.css@@*/
+/*@@INLINE_CSS:src/styles.css@@*/
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></div>
+      <div>
+        <div class="brand-title">AIXM Code Converter</div>
+        <div class="brand-sub">AIXM 4.5 · 5.1 · 5.1.1 · 5.2 → ICAO AIP</div>
+      </div>
+    </div>
+    <div class="search" id="search-wrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="search" type="search" placeholder="Search ICAO code, runway, navaid, point, airspace, frequency…  (Ctrl+K)" autocomplete="off" disabled>
+      <div class="search-results hidden" id="search-results"></div>
+    </div>
+    <span class="sp"></span>
+    <select id="ds-select" title="Active data set" class="hidden"></select>
+    <div class="row" title="Show the data valid at this date (AIXM temporality)">
+      <select id="asof-mode">
+        <option value="latest">Latest data</option>
+        <option value="date">Valid on date…</option>
+      </select>
+      <input type="date" id="asof-date" class="hidden">
+    </div>
+    <button class="tb-btn" id="theme-btn" title="Light / dark theme"></button>
+    <button class="tb-btn" id="help-btn" title="Help">?</button>
+  </header>
+  <nav class="nav" id="nav"></nav>
+  <main class="main" id="main"></main>
+</div>
+<aside class="drawer" id="drawer" aria-hidden="true"></aside>
+<div class="toast-host" id="toasts"></div>
+<div id="print-root"></div>
+<input type="file" id="file-input" multiple accept=".xml,.aixm,.gml,.zip,.txt" class="hidden">
+
+<script type="application/json" id="data-dictionary">/*@@INLINE_JSON:data/aixm_dictionary.json@@*/</script>
+<script type="application/json" id="data-world50">/*@@INLINE_JSON:tools/node_modules/world-atlas/countries-50m.json@@*/</script>
+<script type="application/json" id="data-world10">/*@@INLINE_JSON:tools/node_modules/world-atlas/countries-10m.json@@*/</script>
+<script type="application/json" id="data-places">/*@@INLINE_JSON:data/places.json@@*/</script>
+<script>/*@@INLINE_JS:tools/node_modules/leaflet/dist/leaflet.js@@*/</script>
+<script>/*@@INLINE_JS:tools/node_modules/topojson-client/dist/topojson-client.min.js@@*/</script>
+<script>/*@@INLINE_JS:tools/node_modules/fflate/umd/index.js@@*/</script>
+<script>/*@@INLINE_JS:tools/node_modules/xlsx/dist/xlsx.full.min.js@@*/</script>
+<script>/*@@INLINE_JS:tools/node_modules/jspdf/dist/jspdf.umd.min.js@@*/</script>
+<script>/*@@INLINE_JS:tools/node_modules/jspdf-autotable/dist/jspdf.plugin.autotable.min.js@@*/</script>
+<script id="src-core">/*@@INLINE_JS:src/core.js@@*/</script>
+<script type="text/plain" id="src-worker">/*@@INLINE_JS:src/worker.js@@*/</script>
+<script>/*@@INLINE_JS:src/model.js@@*/</script>
+<script>/*@@INLINE_JS:src/aip.js@@*/</script>
+<script>/*@@INLINE_JS:src/analysis.js@@*/</script>
+<script>/*@@INLINE_JS:src/mapview.js@@*/</script>
+<script>/*@@INLINE_JS:src/exports.js@@*/</script>
+<script>/*@@INLINE_JS:src/app.js@@*/</script>
+</body>
+</html>

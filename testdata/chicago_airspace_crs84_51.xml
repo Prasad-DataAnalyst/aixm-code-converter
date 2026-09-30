@@ -1,0 +1,1669 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<msg:AIXMBasicMessage xmlns:msg="http://www.aixm.aero/schema/5.1/message" xmlns:gts="http://www.isotc211.org/2005/gts" xmlns:gco="http://www.isotc211.org/2005/gco" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:gss="http://www.isotc211.org/2005/gss" xmlns:aixm5="http://www.aixm.aero/schema/5.1" xmlns:gsr="http://www.isotc211.org/2005/gsr" xmlns:ns1="http://www.aixm.aero/schema/5.0/event/0.1" xmlns:iso19115="http://www.isotc211.org/2005/gmd" xmlns:xlk="http://www.w3.org/1999/xlink" xsi:schemaLocation="http://www.isotc211.org/2005/gts iso/19139/gts/gts.xsd http://www.isotc211.org/2005/gco iso/19139/gco/gco.xsd http://www.w3.org/2001/XMLSchema http://www.w3.org/2001/XMLSchema.xsd http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/base/gml.xsd http://www.isotc211.org/2005/gss iso/19139/gss/gss.xsd http://www.isotc211.org/2005/gsr iso/19139/gsr/gsr.xsd http://www.aixm.aero/schema/5.0/event/0.1 http://www.aixm.aero/schema/5.0/event/0.1/Event.xsd http://www.isotc211.org/2005/gmd iso/19139/gmd/gmd.xsd http://www.w3.org/1999/xlink http://schemas.opengis.net/xlink/1.0.0/xlinks.xsd ">
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace190">
+      <gml:identifier>airspace190</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace190">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>GRIFFITH-MERRILLVILLE APT,IN</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>E</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">17999.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">700.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace189">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.27583333333334 41.57 -87.23833333333333 41.575 -87.22277777777778 41.509166666666665 -87.26055555555556 41.50416666666667 -87.26288814816498 41.495020422466276 -87.266271327321 41.48606172213083 -87.27067895294094 41.4773586563438 -87.27607713582638 41.468977346214814 -87.28242450687907 41.460981443651654 -87.28967254052651 41.45343165103695 -87.29776593056204 41.446385263840924 -87.30664301534644 41.439895739511456 -87.31623624901694 41.43401229577734 -87.32647271504844 41.428779541253164 -87.3372746783035 41.424237141022274 -87.3485601714376 41.42041951957152 -87.36024361136792 41.41735560320366 -87.37223644133459 41.4150686037542 -87.38444779394774 41.4135758451433 -87.39678517050221 41.41288863398703 -87.40915513175719 41.41301217517946 -87.42146399531804 41.41394553303925 -87.43361853472416 41.41568163829402 -87.44552667533775 41.41820734085315 -87.45709818214456 41.421503507998324 -87.46824533462001 41.42554516730061 -87.47888358388028 41.43030169325707 -87.48893218743196 41.43573703632834 -87.49831481695244 41.441809992754926 -87.5069601346768 41.44847451323697 -87.51480233415919 41.455680048263766 -87.52178164133088 41.463371927643514 -87.52784477207486 41.4714917714731 -87.532945342737 41.47997792959242 -87.53704423031247 41.48876594631928 -87.54010987935409 41.497789047064444 -87.54211855299457 41.50697864324345 -87.54305452584832 41.51626485174343 -87.542910216957 41.525577025069865 -87.5416862613673 41.53484428819223 -87.53939151937601 41.54399607802987 -87.53604302294401 41.552962681471804 -87.53166585926458 41.56167576780768 -87.52629299196745 41.570068911462606 -87.51996502094586 41.57807810097706 -87.51272988230338 41.58564223025456 -87.5046424904255 41.592703568215065 -87.49576432468508 41.59920820314054 -87.48616296377277 41.605106458173985 -87.47591157114108 41.6103532746655 -87.4650883354528 41.61490856026322 -87.45377587039725 41.6187374989613 -87.44206057858342 41.62181082058413 -87.4300319845782 41.62410502751829 -87.41778204245252 41.625602576844436 -87.40540442344728 41.62629201638059 -87.3929937895653 41.62616807352329 -87.38064505903455 41.62523169615845 -87.36845266966827 41.62349004530623 -87.35650984616798 41.62095643956016 -87.34490787737721 41.61765025177658 -87.33373540939448 41.61359675886046 -87.3230777602988 41.608826945877084 -87.31301626202894 41.60337726608884 -87.30362763469535 41.597289358870455 -87.2949833982843 41.59060972779824 -87.28714932637394 41.583389381507374 -87.2801849460647 41.57568344022183 -87.27583333333334 41.57</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace244">
+      <gml:identifier>airspace244</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace244">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>CHICAGO AREA G</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>B</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">10000.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">2500.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace243">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-88.01211111111111 42.13399722222222 -87.9945778679911 42.140408219438434 -87.97635747593039 42.14565461797556 -87.9575894645502 42.1496961999959 -87.95619444444445 42.14994444444444 -87.92375 42.08672222222223 -87.93524977374084 42.08509798202695 -87.94041666666666 42.08411111111111 -87.94019444444444 42.08433333333333 -87.94461111111112 42.08822222222222 -87.97369444444445 42.10863888888889 -88.00127777777777 42.12730555555556 -88.00783333333334 42.132194444444444 -88.01211111111111 42.13399722222222</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace246">
+      <gml:identifier>airspace246</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace246">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>CHICAGO AREA F</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>B</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">10000.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">4000.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace245">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-88.30930555555555 41.70075 -88.34124961671866 41.728148735092155 -88.36991159952154 41.757521518065104 -88.37352777777777 41.76163888888889 -88.29675 41.82786111111111 -88.31396540339733 41.853961472267386 -88.32808578236529 41.88108244095682 -88.33900030056208 41.90901876518848 -88.3466220242686 41.937558754255676 -88.35088869718258 41.966485862007815 -88.3517633415804 41.99558031405002 -88.34923467558383 42.024620767968266 -88.34331733930482 42.05338599438137 -88.33405192390697 42.08165656619693 -88.32150479905974 42.109216543109696 -88.30576773586517 42.135855138140144 -88.30427777777777 42.138083333333334 -88.33614564751905 42.1799212516038 -88.36805555555554 42.22175 -88.3389211424001 42.25096884966414 -88.32741666666666 42.26116666666667 -88.2534938026019 42.19621858258192 -88.17972222222222 42.13122222222222 -88.1954373882087 42.112794545961364 -88.2089269697978 42.09341554654423 -88.22008982496268 42.07323349740696 -88.22884286728913 42.05240267431774 -88.23512163908799 42.03108216018789 -88.23888073532252 42.00943461796033 -88.24009407604419 41.987625040785886 -88.2387550275389 41.965819489337385 -88.2348763736441 41.94418382605804 -88.22849013986921 41.922882456008765 -88.21964727403129 41.90207708377431 -88.20841718809665 41.88192549561701 -88.1948871667976 41.86258037573601 -88.17916164936955 41.84418816510535 -88.16630555555557 41.831388888888895 -88.23787807795588 41.76609206439064 -88.30930555555555 41.70075</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace249">
+      <gml:identifier>airspace249</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace249">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>CHICAGO AREA E</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>B</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">10000.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">2500.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace248">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.85944444444443 42.08336111111112 -87.80158333333333 42.135555555555555 -87.78467877051729 42.12828755791985 -87.76869365584689 42.119948244703416 -87.75375004064963 42.11060148605857 -87.73996185273236 42.10031883867748 -87.72743402365819 42.089178988065534 -87.72163888888889 42.08327777777778 -87.79054162202185 42.083340128963805 -87.85944444444443 42.08336111111112</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace251">
+      <gml:identifier>airspace251</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace251">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>CHICAGO AREA D</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>B</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">10000.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">3600.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace250">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-88.17972222222222 42.13122222222222 -88.2534938026019 42.19621858258192 -88.32741666666666 42.26116666666667 -88.2937892033943 42.28760719837507 -88.2571587566517 42.31175924260475 -88.21780492702538 42.333436297741116 -88.17602931466614 42.3524707923217 -88.13215316099803 42.368715440038635 -88.0865148040689 42.3820444361737 -88.03946696836412 42.392354482953294 -87.9913739138923 42.399565633829305 -87.94260847148202 42.403621948365384 -87.89354899299305 42.40449195124617 -87.84457624646859 42.40216889081373 -87.79607028713318 42.396670794552335 -87.74840733552061 42.38804032096112 -87.7019566939032 42.37634440930233 -87.65707773158923 42.36167373072173 -87.61411696856474 42.34414194621478 -87.57340528543338 42.32388477876565 -87.53525528566213 42.30105890876592 -87.49995883386526 42.275840703419696 -87.4677847912658 42.248424792316676 -87.43897696667779 42.219022502622444 -87.41375229838405 42.18786016843184 -87.39229927923344 42.15517732972204 -87.37477663420921 42.12122483703522 -87.36131225668991 42.086262878514965 -87.35200240669408 42.050558946220406 -87.34691117162006 42.01438575875998 -87.34607018740328 41.97801915722902 -87.3494786156487 41.94173599122165 -87.35710337017827 41.90581201132893 -87.36887958457609 41.870519784052036 -87.38471131072386 41.83612664446497 -87.40447243699128 41.80289270127674 -87.42800781367397 41.77106890818103 -87.45513457243622 41.74089521455929 -87.48564362590017 41.712598807735404 -87.51930133310134 41.686392458077506 -87.55585131627743 41.662472977317414 -87.59501641434525 41.641019799520194 -87.63650075842405 41.62219369319309 -87.67999195484398 41.606135612072165 -87.72516336123941 41.592965691198934 -87.7716764414922 41.582782393946104 -87.81918318550461 41.57566181475142 -87.86732857995683 41.57165714137544 -87.91575311638887 41.57079827962185 -87.96409532307116 41.573091642537875 -88.01199430722514 41.57852010522989 -88.05909229419437 41.58704312553582 -88.10503715015464 41.598597029907516 -88.14948487488803 41.61309546296326 -88.19210205103055 41.63042999827979 -88.2325682360557 41.65047090708153 -88.27057828306863 41.67306808058609 -88.30584457629291 41.698052100837934 -88.30930555555555 41.70075 -88.23787807795588 41.76609206439064 -88.16630555555557 41.831388888888895 -88.14706974726211 41.81497331704619 -88.12600432547742 41.79987048253568 -88.103269489414 41.78619437473201 -88.07903770132162 41.774048146492 -88.05349239062572 41.76352335762889 -88.02682658822144 41.75469930445213 -87.99924149936969 41.74764244029826 -87.9709450247786 41.74240589076741 -87.94215023956377 41.73902906674555 -87.91307383985682 41.737537377641445 -87.88393456687231 41.73794204665035 -87.85495161828288 41.740240029191895 -87.82634305676517 41.74441403503425 -87.79832422558204 41.75043265396184 -87.77110618106335 41.7582505842147 -87.74489415181436 41.767808962249475 -87.71988603445267 41.77903579176542 -87.6962709356103 41.79184646927671 -87.67422776985195 41.80614440288198 -87.65392392305357 41.821821720264694 -87.63551399062257 41.83876006132879 -87.6191385997505 41.85683145027903 -87.60492332463174 41.87589924136193 -87.59297770326712 41.89581913191494 -87.583394364084 41.916440235825426 -87.57624827013721 41.93760620998298 -87.57159608810142 41.95915642582504 -87.56947568861806 41.980927177629944 -87.56990578381482 42.00275291881258 -87.57288570696855 42.024467517129416 -87.57839533833442 42.0459055194092 -87.5863951801152 42.06690341620052 -87.59682658240017 42.08730089657206 -87.60961212067004 42.10694208322343 -87.62465612415353 42.125676738068506 -87.64184535294594 42.143361428543784 -87.66104982037557 42.15986064507603 -87.68212375565182 42.17504786041797 -87.70490670036689 42.18880652193056 -87.72922473097802 42.20103096835362 -87.75489179799196 42.21162726316341 -87.78171117123058 42.22051393726462 -87.80947697931197 42.227622634488945 -87.83797583034013 42.232898654190265 -87.86698849980557 42.23630138609853 -87.89629167085991 42.237804633530715 -87.92565971146415 42.23739682206368 -87.95486647244772 42.23508109176843 -87.9836870902426 42.230875272188335 -88.01189977799673 42.22481174026897 -88.03928758892498 42.2169371625448 -88.06564013610465 42.20731212389063 -88.09075525347792 42.19601064617973 -88.11444058355879 42.18311960115037 -88.13651507825689 42.168738022705014 -88.15681040027381 42.15297632470066 -88.17517221373267 42.13595543108643 -88.17972222222222 42.13122222222222</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace253">
+      <gml:identifier>airspace253</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace253">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>CHICAGO AREA C</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>B</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">10000.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">3000.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace252">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.90472222222223 42.23787799078636 -87.87538978739933 42.23692256615837 -87.84628322016243 42.23406364876 -87.81762658784014 42.22932324942447 -87.78964037351211 42.222737857975034 -87.76253972433607 42.21435815273591 -87.73653274783966 42.2042485975134 -87.71181887121443 42.1924869296694 -87.68858727786383 42.17916354385455 -87.66701543449479 42.16438077687554 -87.64726772096941 42.14825209997766 -87.62949417388394 42.13090122560842 -87.61382935355138 42.11246113637341 -87.60039134266297 42.093073044491206 -87.58928088347109 42.07288529054094 -87.58058065887793 42.0520521906933 -87.57435472135751 42.03073284191684 -87.57064807220472 42.00908989486026 -87.56948639221557 41.98728830422715 -87.57087592357128 41.96549406648853 -87.57480350144426 41.943872954723524 -87.58123673267275 41.922589260244926 -87.5901243177751 41.901804550460966 -87.60139651159749 41.88167645215202 -87.61496571701282 41.862357469009304 -87.63072720531505 41.84399384189728 -87.64855995627786 41.826724459868935 -87.66832761026683 41.81067982948984 -87.6898795243027 41.79598110951866 -87.71305192356407 41.78273921745296 -87.73766913948434 41.77105401388913 -87.76354492531934 41.7610135700524 -87.79048383986492 41.752693523270835 -87.81828268981823 41.74615652453158 -87.84673202116737 41.74145178165029 -87.87561764989631 41.738614700952255 -87.90472222222223 41.737666629707796 -87.93382679454815 41.738614700952255 -87.9627124232771 41.74145178165029 -87.99116175462623 41.746156524531585 -88.01896060457955 41.75269352327083 -88.04589951912513 41.761013570052405 -88.07177530496013 41.77105401388913 -88.0963925208804 41.78273921745296 -88.11956492014177 41.79598110951866 -88.14111683417764 41.81067982948984 -88.1608844881666 41.826724459868935 -88.17871723912941 41.84399384189728 -88.19447872743164 41.862357469009304 -88.20804793284698 41.88167645215203 -88.21932012666936 41.90180455046097 -88.22820771177172 41.922589260244926 -88.2346409430002 41.943872954723524 -88.23856852087319 41.96549406648853 -88.2399580522289 41.98728830422715 -88.23879637223975 42.00908989486027 -88.23508972308696 42.03073284191683 -88.22886378556653 42.05205219069331 -88.22016356097338 42.07288529054094 -88.20905310178149 42.093073044491206 -88.19561509089309 42.11246113637341 -88.17995027056052 42.13090122560842 -88.16217672347506 42.14825209997766 -88.14242900994968 42.16438077687554 -88.12085716658063 42.17916354385455 -88.09762557323003 42.1924869296694 -88.0729116966048 42.2042485975134 -88.0469047201084 42.21435815273591 -88.01980407093235 42.222737857975034 -87.99181785660433 42.22932324942447 -87.96316122428203 42.23406364876 -87.93405465704514 42.23692256615837 -87.90472222222223 42.23787799078636</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace256">
+      <gml:identifier>airspace256</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace256">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>CHICAGO AREA B</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>B</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">10000.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">1900.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace255">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.87619444444444 42.068222222222225 -87.85944444444443 42.08336111111112 -87.79056941483881 42.08335400117918 -87.72169444444445 42.08330555555556 -87.71121842536985 42.07103575420158 -87.7022214299204 42.058131636506246 -87.6947712602885 42.04469176007374 -87.68892379145235 42.03081871192667 -87.68472257216114 42.01661831823651 -87.68219852280357 42.0021988315849 -87.68136973233185 41.98767010175184 -87.6822413547905 41.973142736497294 -87.68480560518914 41.958727258812914 -87.68904185368045 41.944533267078626 -87.69491681627008 41.93066860446818 -87.70238483959328 41.91723854381084 -87.711388276652 41.904344993936085 -87.72185794981463 41.892085733307674 -87.73371369684244 41.88055367649657 -87.74686499521952 41.86983617875138 -87.76121165962839 41.86001438360453 -87.77664460702744 41.85116261810426 -87.79304668345084 41.8433478398935 -87.81029354635263 41.83662913995746 -87.82825459607865 41.831057304465006 -87.8467939498246 41.82667443868724 -87.8501111111111 41.82602777777778 -87.85438701266644 41.81949108247015 -87.85608333333333 41.81641666666666 -87.87623424947745 41.813896249504616 -87.89660115713454 41.81269567087663 -87.91703030215179 41.812823994784324 -87.93736747204143 41.814280252450494 -87.95745913164356 41.81705344950556 -87.97058333333334 41.819611111111115 -87.9701266367714 41.82124615395804 -87.96964804979422 41.82287769129923 -87.96914761745336 41.824505559012024 -87.96862538837141 41.82612959353777 -87.96808333333334 41.82775 -87.98648220955938 41.832477676859895 -88.0042632854609 41.838383883280194 -88.02129200772404 41.84542398413793 -88.03743939034061 41.85354475925072 -88.05258297763612 41.862684797701284 -88.06660776291899 41.87277495337963 -88.07940705612339 41.8837388587229 -88.09088329409815 41.89549349310311 -88.1009487874363 41.90794980192836 -88.10952639805463 41.92101336212549 -88.11655014208112 41.934585089310325 -88.12196571300804 41.948561981610695 -88.12573092051778 41.962837894794944 -88.12781604089083 41.97730434307684 -88.12820407545829 41.99185131972076 -88.12689091416814 42.00636813136167 -88.12388540198995 42.020744239785714 -88.11920930658779 42.03487010479337 -88.112897186439 42.048638021689584 -88.1049961593646 42.06194294691837 -88.09556557225669 42.07468330538418 -88.08467657363323 42.086761773080624 -88.07241159151198 42.098086028782426 -88.05886371996147 42.108569468745756 -88.04413601855002 42.1181318786101 -88.02834072975247 42.126700056989854 -88.01211111111111 42.134 -88.00783333333334 42.132194444444444 -87.9923888888889 42.12086111111111 -87.95694444444445 42.096694444444445 -87.94019444444444 42.08433333333333 -87.94041666666666 42.08411111111111 -87.95156873355504 42.081436254537266 -87.96236431275793 42.07804649394159 -87.9727209511883 42.073967737939775 -87.98255959312098 42.06923115589717 -87.991805189002 42.06387293676638 -88.00038727181777 42.05793400936487 -88.00824049647615 42.05145972632021 -88.01530513798016 42.04449951420959 -88.02152754460575 42.037106492721726 -88.02686054266462 42.02933706586876 -88.03083333333333 42.02213888888889 -88.02921944444445 42.01209722222222 -88.023 41.98074444444445 -88.02822499999999 41.95615 -88.03115277777778 41.95368611111111 -88.02668941275188 41.94561275758718 -88.02130171944349 41.93786027934135 -88.01503093971773 41.93048755190573 -88.0079249741753 41.92355054712069 -88.00003801161668 41.91710191157069 -87.99143011342747 41.91119057040486 -87.98216675541991 41.90586135961922 -87.97231833065932 41.90115468944709 -87.96195961699902 41.897106241299404 -87.95116921329459 41.89374670040993 -87.94002894841584 41.89110152610215 -87.92862326733852 41.889190761311035 -87.91703859872086 41.88802888271101 -87.90536270847038 41.88762469251131 -87.8936840438803 41.88798125268307 -87.88209107296542 41.88909586208272 -87.87067162365193 41.89096007663268 -87.85951222747677 41.893559772417355 -87.84869747242857 41.89687525124885 -87.83830936951327 41.90088138795667 -87.82842673755542 41.90554781835874 -87.81912461064707 41.91083916658033 -87.81047367253497 41.91671531010512 -87.8025397220752 41.92313168065912 -87.79538317373661 41.9300395987871 -87.78905859689215 41.937386639696996 -87.78361429744054 41.945117027738696 -87.77909194502612 41.95317205664728 -87.77552624884504 41.961490532481875 -87.77294468471388 41.97000923600602 -87.77136727573924 41.97866340109302 -87.77080642856313 41.98738720559904 -87.77080555555555 41.98758333333333 -87.79313888888889 41.987611111111114 -87.79354086966285 41.994865973045044 -87.79478912821911 42.002067073539806 -87.79687444452789 42.0091595809087 -87.79978121052746 42.01608947243232 -87.80348754162057 42.022803946844185 -87.80796543596973 42.02925182801275 -87.81318098131621 42.03538395669349 -87.81909460794279 42.04115356730105 -87.82566138601459 42.046516646754036 -87.83283136515323 42.05143227257258 -87.8405499537395 42.05586292755645 -87.848758335074 42.059774788560645 -87.85739391722907 42.063137987054674 -87.8663908130848 42.06592683940067 -87.87568034679319 42.06812004499982 -87.87619444444444 42.068222222222225</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace258">
+      <gml:identifier>airspace258</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace258">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>CHICAGO AREA A</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>B</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">10000.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace257">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.91550000000001 42.07066666666667 -87.90576521202438 42.0710507192028 -87.89602257087164 42.07080033212088 -87.88634651317079 42.06991741837927 -87.87681096090822 42.06840872328304 -87.86748875024102 42.06628577235384 -87.85845106908249 42.06356478228493 -87.84976690798744 42.0602665356953 -87.84150252874187 42.056416220692014 -87.83372095489537 42.05204323653177 -87.82648148827312 42.04718096694074 -87.81983925525572 42.04186652291445 -87.81384478636699 42.03614045703785 -87.80854363237654 42.03004645161415 -87.80397601982693 42.0236309830652 -87.80017654853302 42.016942965257435 -87.79717393324243 42.010033374557096 -87.79499079126839 42.002954859549945 -87.79364347752029 41.99576133846554 -87.79314196796744 41.988507587427016 -87.79313888888889 41.987611111111114 -87.77080555555555 41.98758333333333 -87.77134350878717 41.97885872546647 -87.77289821317574 41.97020227168207 -87.77545743529257 41.96167981212401 -87.77900132136078 41.95335614204776 -87.78350256060165 41.9452945207105 -87.78892660333818 41.93755619264655 -87.79523193274804 41.93019992488926 -87.80237038793518 41.923281563559534 -87.8102875356514 41.91685361307882 -87.81892308768631 41.91096484107979 -87.82821136066411 41.90565991188973 -87.83808177470986 41.90097905122466 -87.84845938725157 41.89695774452511 -87.85926545798038 41.893626471078925 -87.87041804084392 41.89101047583691 -87.88183259878477 41.88912958054302 -87.8934226368148 41.88799803551924 -87.9051003489165 41.887624413154235 -87.9167772741891 41.888011543848386 -87.9283649576087 41.88915649486718 -87.93977561074679 41.891050592252434 -87.9509227677927 41.89367948563637 -87.9617219322488 41.89702325550148 -87.97209120971823 41.90105656212803 -87.98195192227746 41.905748835174826 -87.9912292000262 41.91106450254837 -87.99985254552955 41.916963256933386 -88.00775636703 41.92340035807404 -88.01488047645492 41.930326968656544 -88.02117054849009 41.93769052135702 -88.02657853718581 41.94543511441315 -88.0310630468393 41.95350193284052 -88.03115277777778 41.95368611111111 -88.02822499999999 41.95615 -88.023 41.98074444444445 -88.02921944444445 42.01209722222222 -88.03083333333333 42.02213888888889 -88.02633255128654 42.03019552004487 -88.02090585996302 42.03792877229927 -88.01459432011072 42.04527966430913 -88.00744579057701 42.052192111501455 -87.99951456879074 42.05861335696994 -87.99086098086337 42.06449437752513 -87.98155092360724 42.06979026147125 -87.97165536193175 42.07446055510389 -87.96124978544957 42.07846957512829 -87.9504136285471 42.081786684497835 -87.93922965848611 42.084386529434106 -87.92778333641982 42.08624923570706 -87.92375 42.08672222222223 -87.91550000000001 42.07066666666667</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace532">
+      <gml:identifier>airspace532</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace532">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>KENOSH REGIONAL,WI</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>E</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">17999.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">700.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace531">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.92750000000001 42.711980161777916 -87.91370767487761 42.71153524932247 -87.90002090417964 42.7102039167828 -87.88654442103497 42.70799635215004 -87.87338132278748 42.704929447333086 -87.86063227004938 42.70102666680987 -87.8483947058965 42.69631786526311 -87.83676210160115 42.690839055705474 -87.82582323503274 42.68463213000223 -87.81566150752428 42.67774453409072 -87.80635430464055 42.67022890054147 -87.79797240583402 42.66214264146452 -87.79057944752506 42.653547505052664 -87.78423144362895 42.64450909933864 -87.77897636702309 42.635096386982994 -87.77485379489393 42.62538115511705 -87.77189462033579 42.61543746443678 -87.7701208319982 42.60534108187777 -87.76954536300289 42.59516890129882 -87.77017200978005 42.58499835666265 -87.77199542091371 42.574906832225764 -87.77500115554078 42.56497107423855 -87.77916581032403 42.55526660861053 -87.78445721351777 42.545867168916935 -87.79083468417053 42.53684413901231 -87.7982493540637 42.52826601437688 -87.80664454957002 42.52019788615403 -87.81595623023347 42.51270095164288 -87.82611348052124 42.505832054793764 -87.83703905088153 42.49964326001461 -87.8486499439575 42.49418146234048 -87.86085804154783 42.48948803673448 -87.87357076769807 42.48559852901317 -87.88669178309732 42.48254239056557 -87.9001217058082 42.480342758733 -87.9137588532185 42.47901628438539 -87.92750000000001 42.47857300789701 -87.94124114678152 42.47901628438539 -87.95487829419181 42.480342758732995 -87.9683082169027 42.48254239056557 -87.98142923230195 42.48559852901316 -87.99414195845219 42.48948803673448 -88.00635005604252 42.49418146234048 -88.01796094911849 42.4996432600146 -88.02888651947877 42.50583205479376 -88.03904376976655 42.51270095164288 -88.04835545043 42.52019788615403 -88.05675064593632 42.52826601437688 -88.06416531582948 42.5368441390123 -88.07054278648225 42.54586716891694 -88.07583418967599 42.55526660861053 -88.07999884445924 42.56497107423855 -88.0830045790863 42.574906832225764 -88.08482799021996 42.58499835666265 -88.08545463699713 42.59516890129882 -88.08487916800182 42.60534108187777 -88.08310537966423 42.61543746443677 -88.08014620510609 42.62538115511705 -88.07602363297693 42.635096386982994 -88.07076855637106 42.64450909933865 -88.06442055247496 42.653547505052664 -88.057027594166 42.66214264146452 -88.04864569535947 42.670228900541474 -88.03933849247574 42.67774453409072 -88.02917676496727 42.68463213000223 -88.01823789839887 42.69083905570547 -88.00660529410352 42.69631786526311 -87.99436772995064 42.70102666680987 -87.98161867721254 42.704929447333086 -87.96845557896505 42.70799635215004 -87.95497909582038 42.7102039167828 -87.9412923251224 42.71153524932247 -87.92750000000001 42.711980161777916</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace550">
+      <gml:identifier>airspace550</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace550">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>KENOSHA</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>D</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">3200.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace549">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.92777777777778 42.66418786968463 -87.91970557887421 42.66392747742937 -87.91169501495726 42.663148288825916 -87.9038072458081 42.661856253034045 -87.8961024846018 42.66006123435178 -87.88863953408105 42.657776936191254 -87.88147533400526 42.65502079549746 -87.87466452347297 42.651813848452996 -87.86825902158103 42.64818056853979 -87.86230762972073 42.64414867824521 -87.85685565860567 42.6397489359157 -87.85194458293655 42.63501489943001 -87.84761172632257 42.62998266857776 -87.84388997885293 42.62469060815975 -87.84080754941174 42.61917905398748 -87.83838775453998 42.61349000408017 -87.83664884534204 42.60766679746496 -87.83560387361962 42.60175378307214 -87.83526059809743 42.595795981283516 -87.83562143128427 42.58983874073758 -87.83668342719356 42.58392739301983 -87.83843830983189 42.578106907871366 -87.84087254205458 42.57242155153268 -87.8439674340867 42.566914550804384 -87.84769929071771 42.56162776535237 -87.85203959590076 42.556601370711626 -87.85695523322369 42.5518735543532 -87.86240874047114 42.547480227071695 -87.8683585962649 42.543454751828 -87.87475953656086 42.53982769205028 -87.88156289856701 42.536626581229925 -87.88871698950426 42.533875715517574 -87.89616747743409 42.531595970817484 -87.9038578012666 42.52980464571931 -87.91172959693243 42.52851533140682 -87.91972313660466 42.52773780948667 -87.92777777777778 42.52747797847694 -87.9358324189509 42.52773780948667 -87.94382595862312 42.52851533140682 -87.95169775428896 42.52980464571931 -87.95938807812146 42.531595970817484 -87.9668385660513 42.53387571551757 -87.97399265698854 42.536626581229925 -87.9807960189947 42.53982769205028 -87.98719695929066 42.543454751828 -87.99314681508442 42.54748022707169 -87.99860032233187 42.5518735543532 -88.00351595965479 42.556601370711626 -88.00785626483784 42.56162776535237 -88.01158812146886 42.566914550804384 -88.01468301350097 42.572421551532685 -88.01711724572367 42.57810690787137 -88.01887212836199 42.58392739301983 -88.01993412427129 42.58983874073758 -88.02029495745812 42.595795981283516 -88.01995168193594 42.60175378307214 -88.01890671021351 42.60766679746496 -88.01716780101557 42.61349000408017 -88.01474800614382 42.61917905398748 -88.01166557670263 42.62469060815975 -88.00794382923299 42.62998266857776 -88.003610972619 42.63501489943001 -87.99869989694989 42.639748935915705 -87.99324792583482 42.64414867824521 -87.98729653397453 42.64818056853979 -87.98089103208258 42.651813848452996 -87.9740802215503 42.65502079549746 -87.9669160214745 42.657776936191254 -87.95945307095376 42.66006123435179 -87.95174830974746 42.661856253034045 -87.9438605405983 42.663148288825916 -87.93584997668134 42.66392747742937 -87.92777777777778 42.66418786968463</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="a3e0008a-8eea-4a7b-8435-ac0d4e95c490">
+      <gml:identifier codeSpace="http://www.eurocontrol.int/xnotam">a3e0008a-8eea-4a7b-8435-ac0d4e95c490</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace747">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>POPLAR GROVE-BELVIDERE LTD,IL</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>E</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">17999.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">700.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace746">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-88.83638888888889 42.42948228595995 -88.82383553091798 42.42907556044987 -88.81137819481631 42.427858494879544 -88.79911215687949 42.42584039797627 -88.78713120838663 42.423036703976166 -88.7755269283584 42.41946885285286 -88.76438797446464 42.415164124016734 -88.75379939785087 42.41015542484701 -88.74384198741822 42.40448103578519 -88.73459164880704 42.39818431406556 -88.72611882298342 42.39131335850042 -88.71848794899087 42.38392063800945 -88.71175697495617 42.37606258691261 -88.7059769210413 42.3677991702146 -88.70119149753315 42.35919342235455 -88.69743678077751 42.350310963079146 -88.6947409491552 42.34121949425674 -88.69312408078281 42.33198828157626 -88.69259801410261 42.32268762516662 -88.69316627201141 42.313388323231536 -88.69482404967044 42.30416113282044 -88.69755826564457 42.29507623184975 -88.7013476755393 42.2862026864509 -88.70616304684631 42.27760792765266 -88.7119673932711 42.26935724130893 -88.71871626640517 42.26151327505754 -88.72635810222027 42.25413556594558 -88.73483461950508 42.247280092182045 -88.74408126703585 42.24099885228075 -88.75402771598065 42.235339474645755 -88.7645983937435 42.230344860394766 -88.77571305525954 42.22605286200285 -88.78728738748892 42.222496000037076 -88.79923364271049 42.21970122000348 -88.81146129604701 42.217689691025306 -88.82387772252726 42.216476647772204 -88.83638888888889 42.21607127675331 -88.84890005525052 42.21647664777222 -88.86131648173077 42.217689691025306 -88.87354413506729 42.21970122000348 -88.88549039028887 42.222496000037076 -88.89706472251824 42.22605286200285 -88.90817938403428 42.230344860394766 -88.91875006179713 42.235339474645755 -88.92869651074193 42.24099885228075 -88.9379431582727 42.247280092182045 -88.94641967555751 42.25413556594558 -88.95406151137261 42.26151327505753 -88.96081038450669 42.26935724130892 -88.96661473093147 42.27760792765266 -88.97143010223849 42.2862026864509 -88.97521951213321 42.29507623184975 -88.97795372810734 42.30416113282044 -88.97961150576637 42.313388323231536 -88.98017976367517 42.32268762516662 -88.97965369699497 42.33198828157626 -88.97803682862258 42.34121949425674 -88.97534099700027 42.350310963079146 -88.97158628024464 42.35919342235455 -88.96680085673648 42.3677991702146 -88.96102080282161 42.37606258691261 -88.95428982878691 42.38392063800945 -88.94665895479436 42.391313358500426 -88.93818612897074 42.39818431406556 -88.92893579035956 42.40448103578519 -88.91897837992691 42.41015542484701 -88.90838980331314 42.415164124016734 -88.89725084941938 42.41946885285286 -88.88564656939116 42.423036703976166 -88.8736656208983 42.42584039797627 -88.86139958296147 42.427858494879544 -88.8489422468598 42.42907556044987 -88.83638888888889 42.42948228595995</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace765">
+      <gml:identifier>airspace765</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace765">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>WHEELING</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>D</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">3000.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace764">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.98077777777777 42.07016666666667 -87.98556300217584 42.0754743071599 -87.98970987956413 42.08107231391107 -87.99318672989241 42.08691815292542 -87.99596694150264 42.0929673951861 -87.99802917788163 42.09917405309693 -87.99935754540734 42.10549092892702 -87.99994172032544 42.11186997283102 -87.99977703380861 42.118262647756914 -87.99886451425492 42.1246202984882 -87.99721088629839 42.13089452202365 -87.99482852633156 42.13703753647354 -87.99173537467377 42.143002545650106 -87.98795480485977 42.14874409654906 -87.98351545086406 42.15421842696178 -87.97845099341909 42.159383800521425 -87.97279990692196 42.16420082657289 -87.96660516875637 42.16863276236503 -87.95991393316922 42.17264579518743 -87.95277717216828 42.17620930224099 -87.94524928615554 42.17929608616717 -87.93738768732322 42.18188258438507 -87.92925235905112 42.18394905056287 -87.92090539477164 42.185479706778246 -87.91241051995361 42.18646286515187 -87.90383260100951 42.186891017980756 -87.89523714505106 42.18676089564886 -87.88668979450175 42.18607349185045 -87.87825582062317 42.18483405592421 -87.86999962002103 42.18305205235899 -87.86198421817015 42.18074108779664 -87.85427078393239 42.177918806116956 -87.84691815894094 42.17460675244509 -87.83998240558797 42.17083020716907 -87.83351637718376 42.166617991292526 -87.82756931365786 42.16200224467066 -87.82218646592521 42.15701817890292 -87.81740875183492 42.151703806814936 -87.81327244626999 42.14609965069473 -87.80980890773381 42.14024843156001 -87.80704434341202 42.134194741898924 -87.80499961438382 42.12798470443874 -87.80369008232144 42.1216656195955 -87.80312549867625 42.115285604333714 -87.80330993700835 42.10889322521939 -87.80424176877457 42.102537128480996 -87.80591368255249 42.0962656699029 -87.80831274634691 42.09012654736362 -87.81142051230272 42.084166438798086 -87.8152131628375 42.0784306483089 -87.81966169690918 42.072962763078486 -87.8247321548512 42.06780432364085 -87.83038587994129 42.06299450996188 -87.83657981461981 42.058569845648705 -87.84077777777777 42.055972222222216 -87.84899917713987 42.05987971875709 -87.85764721806198 42.06323772304972 -87.86665591789135 42.066020590859196 -87.87595651011226 42.06820706719576 -87.88547797407973 42.069780450254704 -87.89514758277673 42.07072872040466 -87.90489146433914 42.07104463304761 -87.91463517282811 42.07072577460184 -87.91550000000001 42.07066666666667 -87.92375 42.08672222222223 -87.93525253049535 42.08512103845079 -87.94652317798118 42.08277806347317 -87.95747580867574 42.07971120850903 -87.9680267523108 42.075943915642824 -87.97809544849578 42.07150497629697 -87.98077777777777 42.07016666666667</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace975">
+      <gml:identifier>airspace975</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace975">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>MILWAUKEE MITCHELL INTL</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>C</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">4700.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">2200.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace974">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.89855555555556 43.030055555555556 -87.89861111111112 43.032805555555555 -87.89250000000001 43.04280555555555 -87.87338888888888 43.060027777777776 -87.87863888888889 43.09805555555556 -87.8891388888889 43.11 -87.89191666666667 43.11333333333334 -87.91175947744894 43.11302017804462 -87.93148871349048 43.11143779201516 -87.95095302625059 43.10859831448391 -87.97000314827513 43.10452352610149 -87.98849306397302 43.09924467791452 -88.00628115254233 43.09280224615613 -88.02323129336635 43.08524561493805 -88.03921392461463 43.0766326895473 -88.05410704630653 43.067029443636365 -88.06779715967363 43.05650940411437 -88.08018013536777 43.0451530780801 -88.09116200377939 43.03304732656384 -88.1006596615435 43.020284690265946 -88.10860148914523 43.00696267282696 -88.1149278754052 42.993182987464266 -88.11959164550753 42.97905077305099 -88.12255839011956 42.96467378589911 -88.1238066940314 42.95016157363721 -88.12332826360317 42.93562463764705 -88.12112795314253 42.92117359054222 -88.11722369113252 42.9069183151393 -88.11164630798788 42.892967131289744 -88.10443926772837 42.87942597681074 -88.09565830661828 42.86639760858068 -88.08537098242924 42.85398082965057 -88.0736561385376 42.842269747971834 -88.06060328756739 42.8313530720562 -88.04631191973714 42.82131344856776 -88.03089074146466 42.812226846504274 -88.01445685012366 42.80416199226436 -87.99713485116752 42.797179859488494 -87.97905592404935 42.791333217196865 -87.96035684363294 42.78666623927899 -87.94117896393169 42.78321417798898 -87.92166717117212 42.781003103642895 -87.9019688132889 42.78004971226337 -87.88223261304272 42.780361202456845 -87.86260757200874 42.78193522234418 -87.84324187271525 42.784759886898016 -87.82428178621804 42.788813865571655 -87.80587059237754 42.794066539635374 -87.79047222222222 42.79955555555556 -87.79183333333333 42.80141666666666 -87.8 42.81030555555555 -87.819 42.83058333333334 -87.84349999999999 42.869194444444446 -87.8453611111111 42.8725 -87.85435267349972 42.86947859865196 -87.86366726233133 42.86704436638508 -87.87323422282974 42.86521575989706 -87.882981008914 42.864006642470194 -87.89283372738937 42.86342618016877 -87.90271769168343 42.863478773167785 -87.91255798123541 42.86416402279275 -87.92228000255182 42.865476734506 -87.93181004793281 42.86740695681769 -87.94107584788593 42.86994005584458 -87.95000711327995 42.873056824983905 -87.95853606334892 42.87673362891884 -87.96659793573707 42.88094258092455 -87.97413147487657 42.885651752203835 -87.98107939512698 42.89082541173894 -87.98738881522746 42.89642429494444 -87.9930116608235 42.90240589915731 -87.99790503199225 42.90872480382783 -88.00203153292682 42.91533301306942 -88.00535956117648 42.92218031805583 -88.00786355410402 42.92921467659506 -88.00952419050759 42.936382607069085 -88.01032854566057 42.9436295938063 -88.0102701983493 42.950900500852846 -88.00934928883215 42.95813999102879 -88.00757252700363 42.965292947097964 -88.00495315042087 42.97230489184661 -88.0015108322347 42.97912240385644 -87.99727153946037 42.98569352577321 -87.99226734242139 42.99196816191284 -87.98653617659835 42.99789846211315 -87.98012155851214 43.00343918883171 -87.97307225766033 43.00854806460648 -87.96544192690575 43.01318609713909 -87.95728869407586 43.017317879420816 -87.94867471789223 43.02091186252528 -87.9396657116411 43.0239405988726 -87.93033043832466 43.02638095403165 -87.92074018127104 43.02821428535202 -87.91096819441887 43.02942658598834 -87.90108913668085 43.03000859315504 -87.89855555555556 43.030055555555556</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace976">
+      <gml:identifier>airspace976</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace976">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>MILWAUKEE MITCHELL INTL</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>C</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">4700.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">1900.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace975">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.89855555555556 43.030055555555556 -87.89861111111112 43.032805555555555 -87.89250000000001 43.04280555555555 -87.87338888888888 43.060027777777776 -87.87863888888889 43.09805555555556 -87.8891388888889 43.11 -87.89191666666667 43.11333333333334 -87.8721125221361 43.11237485540456 -87.85249898099788 43.11015209742618 -87.83322648284992 43.106682110436864 -87.8144427889155 43.1019915094381 -87.79629182417526 43.09611626448546 -87.77891255230992 43.08910141857268 -87.76243789293525 43.08100073471549 -87.74699369013999 43.07187627524088 -87.7326977407889 43.06179791683458 -87.71965889039636 43.050842805438364 -87.707976203674 43.03909475555193 -87.69773821607636 43.0266435989318 -87.6890222718493 43.013584488056 -87.68189395323098 43.00001716004919 -87.67640660457825 42.986045167032316 -87.67260095430508 42.97177507907418 -87.67050483663654 42.95731566607915 -87.67013301431034 42.942777065045796 -87.67148710251071 42.928269939176886 -87.67455559350213 42.91390463531372 -87.67931398065262 42.89979034610957 -87.68572497980152 42.886034283250105 -87.6937388452415 42.87274086787672 -87.70329377695018 42.860010944174356 -87.71431641512615 42.84794102185235 -87.72672241755771 42.836622552978106 -87.7404171148796 42.826141248322685 -87.75529623835271 42.816576438047825 -87.77124671443111 42.80800048120843 -87.7881475200622 42.80047822817045 -87.79047222222222 42.79955555555556 -87.79183333333333 42.80141666666666 -87.8 42.81030555555555 -87.819 42.83058333333334 -87.84349999999999 42.869194444444446 -87.8453611111111 42.8725 -87.83676080833268 42.87608565913696 -87.82861706280754 42.880208381137045 -87.82099174505828 42.88483689245683 -87.81394283060129 42.88993607538562 -87.80752396056582 42.89546723213726 -87.80178403364928 42.90138837602777 -87.79676683257937 42.90765454772349 -87.79251068796123 42.9142181542487 -87.78904818215445 42.92102932826899 -87.78640589556396 42.92803630500508 -87.7846041974463 42.93518581398776 -87.78365708302998 42.9424234827401 -87.7835720584257 42.94969424936837 -87.78435007446102 42.95694278095909 -87.78598551021646 42.964113894619366 -87.78846620666896 42.97115297795913 -87.79177355046465 42.97800640580112 -87.79588260745162 42.98462194991512 -87.80076230520561 42.990949178610165 -87.80637566338284 42.99693984307987 -87.812680070336 43.002548247484334 -87.81962760403893 43.00773159986432 -87.82716539498269 43.01245034112235 -87.83523602834458 43.01666844946102 -87.84377798236432 43.02035371787165 -87.8527260995713 43.023478002439134 -87.86201208716717 43.02601743949253 -87.87156504262839 43.02795262984967 -87.88131200034805 43.02926878867427 -87.89117849494113 43.02995585973666 -87.89855555555556 43.030055555555556</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace978">
+      <gml:identifier>airspace978</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace978">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>MILWAUKEE MITCHELL INTL</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>C</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">4700.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace977">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.89694444444446 43.03002062161702 -87.88704204846432 43.029703009024146 -87.87721531980044 43.02875259814552 -87.8675393406021 43.02717665091492 -87.85808802742427 43.02498720815313 -87.84893356023397 43.022200996495236 -87.84014582545566 43.018839299144275 -87.83179187752815 43.01492779149507 -87.82393542327186 43.010496342953076 -87.81663633315517 43.005578786539736 -87.80995018328312 43.000212658143205 -87.80392783169356 42.99443890747526 -87.79861503217245 42.988301583064946 -87.79405208851945 42.981847493770665 -87.7902735518088 42.97512584949267 -87.78730796282537 42.968187883911895 -87.78517764146909 42.961086462209465 -87.78389852452567 42.95387567682387 -87.78348005280364 42.94661043437956 -87.78392510823844 42.93934603697203 -87.78523000116876 42.932137761021124 -87.7873845076017 42.92504043690418 -87.79037195590467 42.91810803255795 -87.79416936199578 42.91139324418984 -87.79874761175354 42.90494709716911 -87.80407168903312 42.89881856007562 -87.81010094736143 42.89305417477094 -87.81678942308879 42.88769770522308 -87.82408618750073 42.88278980766498 -87.83193573515052 42.87836772450489 -87.84027840541775 42.87446500420115 -87.84905083414354 42.87111124915885 -87.8581864319534 42.86833189344822 -87.8676158857594 42.866148011956106 -87.87726767978286 42.86457616233965 -87.88706863232755 42.863628260914396 -87.89694444444446 42.86331149336483 -87.90682025656136 42.86362826091441 -87.91662120910605 42.864576162339645 -87.92627300312951 42.86614801195611 -87.93570245693552 42.86833189344822 -87.94483805474538 42.87111124915885 -87.95361048347117 42.87446500420115 -87.96195315373839 42.87836772450489 -87.96980270138819 42.88278980766498 -87.97709946580012 42.88769770522309 -87.98378794152748 42.89305417477094 -87.98981719985579 42.89881856007562 -87.99514127713537 42.9049470971691 -87.99971952689313 42.91139324418984 -88.00351693298424 42.91810803255795 -88.00650438128721 42.92504043690418 -88.00865888772016 42.932137761021124 -88.00996378065048 42.93934603697203 -88.01040883608528 42.94661043437956 -88.00999036436325 42.95387567682387 -88.00871124741982 42.961086462209465 -88.00658092606355 42.9681878839119 -88.00361533708012 42.97512584949267 -87.99983680036947 42.981847493770665 -87.99527385671647 42.988301583064946 -87.98996105719536 42.99443890747526 -87.9839387056058 43.000212658143205 -87.97725255573374 43.005578786539736 -87.96995346561705 43.010496342953076 -87.96209701136077 43.01492779149507 -87.95374306343325 43.018839299144275 -87.94495532865494 43.022200996495236 -87.93580086146464 43.02498720815313 -87.92634954828682 43.02717665091492 -87.91667356908847 43.02875259814552 -87.90684684042459 43.029703009024146 -87.89694444444446 43.03002062161702</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace1126">
+      <gml:identifier>airspace1126</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace1126">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>ROCKFORD</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>D</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">3200.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace1125">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-89.13880555555556 42.11705555555556 -89.1378888888889 42.12488888888889 -89.14597599490709 42.12779272745286 -89.15369315664655 42.131209675430654 -89.16098175947977 42.13511380740593 -89.16778641117307 42.139475496439594 -89.17405536101694 42.14426163702209 -89.1797408925505 42.149435894307544 -89.18479968685467 42.154958977908045 -89.1891931536834 42.16078893821878 -89.19288772784704 42.16688148311909 -89.19585512852174 42.17319031271021 -89.19807257939557 42.179667469614444 -89.19952298782903 42.186263702233084 -89.20019508149197 42.192928838251376 -89.20008350123983 42.19961216558866 -89.19918884930819 42.20626281792255 -89.19751769223443 42.21283016186654 -89.19508251825604 42.21926418285355 -89.19190164928521 42.22551586677335 -89.18799910791472 42.23153757442949 -89.1834044402697 42.23728340592321 -89.1781524958785 42.242709552136134 -89.17228316609149 42.24777463057143 -89.16584108292616 42.25244000292434 -89.15887528054728 42.256670071880116 -89.15143882193937 42.260432554811764 -89.14358839358692 42.263698732186825 -89.13538387131635 42.26644366872916 -89.12688786067362 42.26864640556379 -89.11816521545819 42.270290121811634 -89.10928253823005 42.27136226433978 -89.10030766677241 42.271854644626956 -89.09130915062256 42.271763501965545 -89.08235572187554 42.27108953249255 -89.07351576451815 42.26983788381547 -89.064856786565 42.26801811527665 -89.05644489924185 42.26564412417559 -89.04834430739625 42.26273403854227 -89.04061681521121 42.25931007732258 -89.03332135115681 42.255398379096675 -89.02651351593775 42.25102880070098 -89.02024515698916 42.24623468735961 -89.01456397281305 42.24105261616672 -89.00951315023214 42.23552211493137 -89.00513103727233 42.229685358638676 -89.0014508541397 42.223586845900726 -88.9985004443933 42.21727305794492 -88.99630206808536 42.210792102805236 -88.99487223828685 42.20419334748687 -88.99422160206018 42.19752704095488 -88.99435486658092 42.190843930855046 -88.99527077075257 42.18419487690918 -88.99696210230339 42.177630463938016 -88.99941576000793 42.17120061745327 -89.00261286033745 42.16495422472605 -89.00652888751807 42.15893876418376 -89.01113388566411 42.153199945910835 -89.01639269135767 42.14778136593344 -89.02226520476752 42.14272417685289 -89.02870669713907 42.13806677726022 -89.0356681522538 42.133844522221736 -89.04309663921254 42.130089456942144 -89.05093571374191 42.12683007557151 -89.05697222222221 42.12475 -89.05847222222222 42.11186111111111 -89.13880555555556 42.11705555555556</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace1348">
+      <gml:identifier>airspace1348</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace1348">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>CHICAGO, WAUKEGAN REGIONAL</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>D</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">3200.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace1347">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.86777777777777 42.48891161234305 -87.85992448458467 42.48865757172917 -87.85213114900297 42.487897389362736 -87.8444572665524 42.48663686872335 -87.83696141226332 42.48488563257613 -87.82970078963385 42.482657048837304 -87.82273079053523 42.47996812761626 -87.81610456956015 42.476839390255 -87.80987263617833 42.47329471140767 -87.80408246790567 42.46936113541458 -87.79877814749598 42.46506866843374 -87.79400002697784 42.460450047959995 -87.7897844210873 42.45554049156753 -87.78616333242417 42.45037742684095 -87.78316421037117 42.445000204616726 -87.78080974553427 42.439449797774955 -87.77911770116502 42.433768487925946 -87.77810078272147 42.42799954242128 -87.77776654641453 42.42218688418352 -87.77811734727557 42.4163747568937 -87.7791503269703 42.4106073881004 -87.7808574412771 42.40492865281894 -87.78322552684723 42.39938174017447 -87.78623640657099 42.394008825608516 -87.78986703259153 42.388850751115804 -87.79408966573742 42.38394671590771 -87.79887208988752 42.379333979810966 -87.8041778595398 42.37504758160623 -87.80996657862855 42.37112007439186 -87.81619420842995 42.36758127992886 -87.82281340218793 42.364458063763216 -87.82977386394951 42.36177413278988 -87.83702272890822 42.35954985672404 -87.8445049624437 42.357802114787944 -87.85216377491845 42.356544168727396 -87.85994104919742 42.355785563079685 -87.86777777777777 42.355532053416304 -87.87561450635813 42.355785563079685 -87.8833917806371 42.356544168727396 -87.89105059311186 42.357802114787944 -87.89853282664733 42.35954985672404 -87.90578169160604 42.36177413278988 -87.91274215336762 42.364458063763216 -87.9193613471256 42.36758127992886 -87.925588976927 42.37112007439186 -87.93137769601574 42.37504758160623 -87.93668346566803 42.379333979810966 -87.94146588981813 42.38394671590771 -87.94568852296402 42.3888507511158 -87.94931914898456 42.394008825608516 -87.95233002870832 42.39938174017447 -87.95469811427844 42.40492865281894 -87.95640522858525 42.4106073881004 -87.95743820827998 42.4163747568937 -87.95778900914102 42.42218688418352 -87.95745477283408 42.42799954242128 -87.95643785439053 42.433768487925946 -87.95474581002128 42.439449797774955 -87.95239134518438 42.445000204616726 -87.94939222313138 42.450377426840944 -87.94577113446825 42.45554049156753 -87.94155552857771 42.460450047959995 -87.93677740805957 42.46506866843373 -87.93147308764988 42.46936113541458 -87.92568291937722 42.47329471140766 -87.9194509859954 42.476839390255 -87.91282476502032 42.47996812761626 -87.9058547659217 42.482657048837304 -87.89859414329223 42.48488563257613 -87.89109828900315 42.48663686872335 -87.88342440655258 42.487897389362736 -87.87563107097088 42.48865757172917 -87.86777777777777 42.48891161234305</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace1363">
+      <gml:identifier>airspace1363</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace1363">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>MADISON DANE COUNTY REGIONAL</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>C</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">4900.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">2300.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace1362">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-89.33722222222222 43.306145498026076 -89.317328145237 43.30550943295483 -89.29758670837893 43.30360611776887 -89.27814935215909 43.300450154204256 -89.25916512816859 43.29606575099289 -89.24077953028231 43.29048653377052 -89.22313335633564 43.283755281234654 -89.20636160989874 43.27592358980762 -89.19059245132517 43.26705146966545 -89.17594620672017 43.257206875551745 -89.16253444283642 43.246465176342426 -89.15045911521368 43.234908567804325 -89.13981179610988 43.22262543344001 -89.13067298795794 43.20970965870095 -89.1231115272304 43.196259904190846 -89.11718408271692 43.18237884376401 -89.11293475132989 43.168172373651664 -89.11039475366482 43.15374879891892 -89.109582230662 43.13921800367011 -89.11050214185872 43.12469061147846 -89.11314626489236 43.11027714252183 -89.11749329512331 43.09608717385931 -89.12350904349833 43.08222850918884 -89.13114673007526 43.06880636428361 -89.14034736998066 43.05592257412145 -89.15104024797697 43.04367482749661 -89.16314347727517 43.032155934642994 -89.17656463774179 43.02145313310488 -89.19120148821601 43.01164743676778 -89.20694274726975 43.00281303261287 -89.22366893641538 42.99501672939112 -89.24125327946017 42.98831746200251 -89.25956265149702 42.98276585499203 -89.2784585707744 42.97840384810744 -89.29779822654983 42.97526438645771 -89.31743553588299 42.97337117735142 -89.33722222222222 42.97273851544277 -89.35700890856145 42.97337117735142 -89.37664621789462 42.97526438645771 -89.39598587367004 42.97840384810744 -89.41488179294743 42.98276585499203 -89.43319116498428 42.98831746200251 -89.45077550802907 42.99501672939112 -89.4675016971747 43.00281303261287 -89.48324295622844 43.01164743676778 -89.49787980670266 43.02145313310488 -89.51130096716928 43.032155934642994 -89.52340419646748 43.0436748274966 -89.53409707446379 43.055922574121446 -89.54329771436919 43.06880636428361 -89.55093540094612 43.08222850918884 -89.55695114932114 43.09608717385931 -89.56129817955208 43.11027714252183 -89.56394230258573 43.12469061147846 -89.56486221378245 43.13921800367011 -89.56404969077963 43.15374879891892 -89.56150969311456 43.168172373651664 -89.55726036172753 43.18237884376401 -89.55133291721404 43.19625990419084 -89.54377145648651 43.209709658700945 -89.53463264833456 43.22262543344001 -89.52398532923077 43.234908567804325 -89.51191000160803 43.24646517634242 -89.49849823772428 43.257206875551745 -89.48385199311927 43.26705146966545 -89.46808283454571 43.27592358980761 -89.45131108810881 43.283755281234654 -89.43366491416214 43.29048653377052 -89.41527931627586 43.29606575099289 -89.39629509228536 43.300450154204256 -89.37685773606552 43.30360611776887 -89.35711629920745 43.30550943295483 -89.33722222222222 43.306145498026076</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace1364">
+      <gml:identifier>airspace1364</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace1364">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>MADISON DANE COUNTY REGIONAL</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>C</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">4900.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace1363">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-89.44780555555556 43.15838888888889 -89.44484333892258 43.15862381318576 -89.44192032668484 43.15904677252057 -89.43905873916886 43.159654551724515 -89.43628033143325 43.16044253058588 -89.43360622840817 43.16140471885082 -89.43105676474191 43.162533801608426 -89.4286513305549 43.16382119472122 -89.42640822425929 43.16525710988687 -89.42434451355257 43.16683062884359 -89.42247590563517 43.16852978616375 -89.42081662764106 43.17034166001647 -89.4193793181666 43.17225247020567 -89.41817493078709 43.174247682775274 -89.41721265023311 43.17631212035757 -89.41649982192784 43.178430077458586 -89.41604189542012 43.180585439800076 -89.4158423821668 43.18276180681722 -89.41590282800813 43.18494261638393 -89.41622280057004 43.18711127081946 -89.41679989171438 43.189251263218615 -89.41762973504406 43.191346303143746 -89.41870603835484 43.19338044072004 -89.42002063081067 43.195338188186106 -89.42055555555557 43.19602777777777 -89.41351010068107 43.201134664997795 -89.40588190593724 43.20577238840687 -89.39772908196377 43.2099055428138 -89.38911378404259 43.21350256844022 -89.38010173554703 43.21653599410583 -89.37076172301607 43.218982649224166 -89.3611650665736 43.22082384272374 -89.35138506991093 43.222045507455555 -89.34149645423965 43.2226383089211 -89.33157478077399 43.22259771744208 -89.32169586640936 43.22192404318776 -89.31193519732906 43.220622433776406 -89.30236734529093 43.21870283447005 -89.29306539131942 43.216179911285 -89.28410036145938 43.21307293764041 -89.27554067913272 43.20940564546073 -89.2674516384834 43.205206041933764 -89.25989490290144 43.20050619339799 -89.25292803267028 43.195341978103606 -89.24660404544534 43.18975280980864 -89.2409710129273 43.18378133443755 -89.23607169680737 43.17747310220047 -89.2319432266915 43.17087621777465 -89.22861682235013 43.16404097130599 -89.22611756225676 43.15701945312657 -89.22446419998671 43.14986515519772 -89.22366902964991 43.14263256237523 -89.2237378011312 43.1353767366568 -89.22466968551417 43.12815289760723 -89.22645729067163 43.12101600217004 -89.22908672662211 43.11402032705996 -89.23253771987974 43.10721905689381 -89.23678377566662 43.10066388115692 -89.24179238651507 43.09440460301884 -89.24752528546392 43.088488762908 -89.2539387417494 43.082961279630915 -89.26098389660827 43.07786411167789 -89.26860713654976 43.073235941196636 -89.27675050121955 43.069111882943325 -89.28535212274676 43.06552322031326 -89.29434669330496 43.06249717037982 -89.30366595741243 43.06005667961993 -89.31323922537698 43.05822025180245 -89.322993904158 43.05700180927212 -89.33285604182029 43.056410588621425 -89.34275088167718 43.05645107149584 -89.35260342216583 43.05712295102604 -89.36233897846627 43.05842113412615 -89.37188374186505 43.06033577964202 -89.38116533287764 43.06285237207722 -89.39011334417849 43.065951830370935 -89.39865986944459 43.069610650950494 -89.40674001429899 43.073801084034855 -89.41429238564062 43.078491341925734 -89.42125955578449 43.08364583778052 -89.42758849795558 43.089225453161355 -89.43323098989319 43.0951878324036 -89.43814398248125 43.101487701677314 -89.44228993055786 43.10807721040813 -89.44563708329254 43.11490629255526 -89.4481597317837 43.12192304508471 -89.44983841181504 43.12907412083564 -89.45066006001468 43.13630513285534 -89.4506181219879 43.143561067177544 -89.44971261133713 43.150786700937594 -89.44795011884356 43.15792702266118 -89.44780555555556 43.15838888888889</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace1488">
+      <gml:identifier>airspace1488</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace1488">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>JANESVILLE-ROCK CO,WI</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>E</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">17999.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">700.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace1487">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-89.10647222222222 42.521166666666666 -89.11783389842552 42.525797142734824 -89.12860855099751 42.531141427269546 -89.1387143754154 42.537159022181186 -89.14807457156552 42.54380431483268 -89.1566179247204 42.551026919714445 -89.16427934678107 42.55877205618434 -89.1710003736048 42.566980959696906 -89.17672961458332 42.57559132356009 -89.18142315091653 42.58453776802395 -89.18504487934077 42.59375233328571 -89.1875667984157 42.60316499279899 -89.1889692348483 42.61270418309997 -89.1892410077359 42.62229734621475 -89.18837952904175 42.63187148058952 -89.18639083907388 42.64135369639196 -89.18328957621804 42.6506717709686 -89.17909888067673 42.659754700211195 -89.17385023248286 42.66853324158628 -89.16758322458666 42.676940444616335 -89.16034527235097 42.68491216467039 -89.15219126132921 42.69238755602508 -89.14318313573635 42.699309540295616 -89.13338943054951 42.70562524650915 -89.12288475067857 42.71128641929226 -89.11174920115869 42.716249791903834 -89.10006777273075 42.72047742107246 -89.08792968765282 42.72393698094025 -89.07542771093203 42.72660201370636 -89.06265743251906 42.728452134921795 -89.04971652629027 42.72947319175125 -89.03670399187361 42.7296573729008 -89.02371938554553 42.729003269306375 -89.01086204653556 42.72751588508237 -88.99823032512187 42.72520659864044 -88.98592081888248 42.72209307429897 -88.97402762338551 42.71819912511128 -88.96264160345699 42.713554528041755 -88.95184969095973 42.708194793007046 -88.94173421475683 42.70216088767341 -88.93237226820793 42.695498920264015 -88.92383511920531 42.68825978294287 -88.91618766731845 42.68049875868057 -88.90948795219698 42.67227509476222 -88.9037867168924 42.66365154636318 -88.89912702926154 42.65469389383406 -88.89554396409439 42.64547043752402 -88.89306434807649 42.636051474124976 -88.89170656915837 42.62650875863763 -88.8914804513652 42.61691495614482 -88.89238719554692 42.60734308762716 -88.89441938604612 42.59786597407139 -88.89752777777778 42.588638888888894 -88.88704696301278 42.58373793888006 -88.87718580172952 42.57817975548615 -88.86801946807844 42.57200680683022 -88.85961776655806 42.56526624526508 -88.8520445996273 42.55800954310586 -88.8453574826481 42.5502920956366 -88.83960710993195 42.54217279441961 -88.83483697506496 42.533713574316735 -88.8310830482084 42.524978937814566 -88.828373512571 42.516035460404474 -88.8267285617416 42.50695128089418 -88.82616025905939 42.49779558061968 -88.82667245969148 42.48863805558699 -88.82826079558586 42.47954838559962 -88.83091272297938 42.47059570442377 -88.83460763166644 42.46184807500704 -88.83931701478045 42.45337197370119 -88.845004697407 42.4452317873451 -88.85162712194068 42.437489326942824 -88.85913368771452 42.4302033615246 -88.8674671420777 42.42342917560815 -88.87656401976903 42.41721815348406 -88.88635512714512 42.411617393342745 -88.89676606752636 42.406669354006205 -88.90771780373612 42.402411536823685 -88.91912725363807 42.39887620497822 -88.93090791433545 42.39609014220996 -88.94297051052477 42.39407445266266 -88.95522366236976 42.392844403266935 -88.9675745681603 42.39240930976994 -88.97992969694414 42.3927724672127 -88.99219548626817 42.39393112534341 -89.00427904014049 42.395876509139036 -89.0160888223228 42.39859388429104 -89.02753534008701 42.402062667196084 -89.03853181361802 42.40625657867799 -89.04899482631936 42.41114384035896 -89.05884495137747 42.41668741229386 -89.06800735006449 42.422845270187 -89.07641233742716 42.42957072021175 -89.08399591115155 42.43681274920878 -89.090700239656 42.44451640772865 -89.09647410565464 42.4526232231762 -89.10127330172388 42.46107164005951 -89.1050609746923 42.469797484138255 -89.10780791599807 42.47873444707049 -89.10949279551056 42.48781458798444 -89.11010233669205 42.49696884825269 -89.10963143138086 42.506127575622315 -89.10808319290801 42.515221053758054 -89.10647222222222 42.521166666666666</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace1498">
+      <gml:identifier>airspace1498</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace1498">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>JANESVILLE</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>D</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">3300.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace1497">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-89.04027777777777 42.68807647248397 -89.03220248649956 42.68781608108101 -89.02418885398758 42.68703689503339 -89.01629806361427 42.68574486349745 -89.0085903517706 42.683949850765046 -89.00112454385642 42.681665560238585 -88.993957601551 42.67890942884875 -88.98714418496333 42.67570249275804 -88.98073623312705 42.67206922542115 -88.97478256614181 42.66803734928942 -88.9693285120568 42.663637622663146 -88.9644155614031 42.65890360336306 -88.96008105199518 42.65387139110761 -88.95635788639648 42.64857935061193 -88.95327428414238 42.6430678175863 -88.95085357052567 42.637378789932455 -88.94911400344164 42.63155560654335 -88.94806863947657 42.625642616198334 -88.94772524010372 42.61968483911192 -88.94808621853076 42.61372762373962 -88.94914862742233 42.60781630146979 -88.95090418740632 42.60199584183365 -88.95333935596221 42.59631051085124 -88.95643543598975 42.59080353509475 -88.96016872306531 42.58551677399633 -88.96451069011651 42.58049040285517 -88.96942820798127 42.57576260890764 -88.97488380007009 42.57136930271839 -88.9808359291175 42.56734384702659 -88.9872393138007 42.563716805050476 -88.99404527278811 42.56051571008666 -89.00120209363956 42.557764858109586 -89.00865542378031 42.55548512486873 -89.0163486806619 42.55369380882329 -89.02422347809222 42.55240450105295 -89.03222006561968 42.551626983088745 -89.04027777777777 42.551367153402786 -89.04833548993587 42.551626983088745 -89.05633207746332 42.55240450105295 -89.06420687489364 42.55369380882328 -89.07190013177524 42.55548512486874 -89.07935346191599 42.55776485810958 -89.08651028276743 42.56051571008666 -89.09331624175485 42.563716805050476 -89.09971962643804 42.56734384702659 -89.10567175548546 42.57136930271839 -89.11112734757428 42.57576260890764 -89.11604486543904 42.58049040285517 -89.12038683249024 42.58551677399633 -89.1241201195658 42.59080353509475 -89.12721619959333 42.59631051085124 -89.12965136814923 42.60199584183365 -89.13140692813322 42.60781630146979 -89.13246933702479 42.61372762373962 -89.13283031545183 42.61968483911192 -89.13248691607897 42.62564261619834 -89.13144155211391 42.63155560654335 -89.12970198502988 42.63737878993245 -89.12728127141317 42.64306781758629 -89.12419766915907 42.64857935061193 -89.12047450356037 42.65387139110761 -89.11613999415245 42.65890360336306 -89.11122704349874 42.663637622663146 -89.10577298941374 42.66803734928942 -89.0998193224285 42.67206922542115 -89.09341137059222 42.67570249275804 -89.08659795400455 42.67890942884875 -89.07943101169913 42.681665560238585 -89.07196520378496 42.68394985076505 -89.06425749194128 42.68574486349745 -89.05636670156797 42.68703689503339 -89.04835306905599 42.68781608108101 -89.04027777777777 42.68807647248397</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace1514">
+      <gml:identifier>airspace1514</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace1514">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>GARY, IN</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>D</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">3100.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace1513">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.41277777777778 41.686422595187324 -87.40463509721829 41.6861558092279 -87.3965545877557 41.685357488260834 -87.38859794121029 41.684033727318706 -87.38082589468452 41.68219463257811 -87.37329776275757 41.679854243481365 -87.36607098104638 41.67703042458001 -87.35920066476068 41.6737447279631 -87.35273918574391 41.670022227367035 -87.34673577132561 41.665891325286616 -87.34123612811888 41.66138353461666 -87.33628209365719 41.656533236563845 -87.3319113185685 41.65137741671731 -87.32815698164885 41.645955381382805 -87.32504753997767 41.640308456387864 -87.32260651588591 41.6344796707191 -87.32085232228994 41.62851342745456 -87.31979812758678 41.62245516454332 -87.31945176098417 41.6163510080532 -87.31981565881647 41.610247420553264 -87.32088685207476 41.60419084732423 -87.32265699506142 41.59822736309414 -87.32511243476722 41.59240232198081 -87.32823432026568 41.586760013286586 -87.33199875112645 41.58134332573484 -87.33637696356978 41.57619342266418 -87.34133555281741 41.57134943060268 -87.34683672984401 41.56684814353557 -87.35283861050857 41.56272374506084 -87.35929553479745 41.55900755046451 -87.36615841377163 41.55572777063636 -87.37337510156465 41.55290929953358 -87.38089078966432 41.550573526754384 -87.38864842055311 41.548738176585054 -87.39658911766472 41.5474171746903 -87.40465262851407 41.54662054341387 -87.41277777777778 41.54635432644755 -87.42090292704148 41.54662054341388 -87.42896643789084 41.5474171746903 -87.43690713500244 41.548738176585054 -87.44466476589123 41.550573526754384 -87.4521804539909 41.55290929953358 -87.45939714178392 41.55572777063635 -87.4662600207581 41.55900755046451 -87.47271694504698 41.56272374506084 -87.47871882571154 41.566848143535566 -87.48422000273814 41.57134943060269 -87.48917859198578 41.576193422664176 -87.4935568044291 41.58134332573484 -87.49732123528987 41.586760013286586 -87.50044312078833 41.59240232198082 -87.50289856049413 41.59822736309414 -87.50466870348079 41.60419084732423 -87.50573989673909 41.610247420553264 -87.50610379457139 41.6163510080532 -87.50575742796877 41.62245516454332 -87.50470323326562 41.62851342745456 -87.50294903966964 41.6344796707191 -87.50050801557788 41.64030845638786 -87.49739857390671 41.645955381382805 -87.49364423698705 41.65137741671731 -87.48927346189836 41.656533236563845 -87.48431942743667 41.66138353461667 -87.47881978422994 41.665891325286616 -87.47281636981164 41.67002222736704 -87.46635489079488 41.6737447279631 -87.45948457450918 41.67703042458001 -87.45225779279798 41.679854243481365 -87.44472966087103 41.68219463257811 -87.43695761434526 41.684033727318706 -87.42900096779985 41.685357488260834 -87.42092045833726 41.6861558092279 -87.41277777777778 41.686422595187324</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace1525">
+      <gml:identifier>airspace1525</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace1525">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>WAUKESHA</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>D</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">3400.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace1524">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-88.19344444444445 43.09963888888889 -88.19482528084816 43.09859538192997 -88.19607670619095 43.097467640798605 -88.19718919882702 43.096264252595404 -88.1981542965523 43.09499437994831 -88.19896466084255 43.0936676911281 -88.19961413248609 43.092294286343474 -88.20009777822403 43.09088462077758 -88.20041192799995 43.08944942493311 -88.2005542025634 43.08799962290312 -88.20052353122419 43.08654624919007 -88.20032015963318 43.085100364707465 -88.1999456475412 43.08367297260391 -88.19940285656496 43.08227493455021 -88.19869592806359 43.080916888125536 -88.19783025130884 43.079609165928495 -88.19681242217614 43.078361717036074 -88.19565019274413 43.07718403138087 -88.1943524121014 43.07608506765256 -88.1929289588894 43.075073185243006 -88.19139066606724 43.07415608075939 -88.18974923847823 43.073340729582874 -88.18801716384492 43.07263333291347 -88.18620761786782 43.07203927069998 -88.18433436414578 43.0715630608097 -88.1824116496739 43.07120832474501 -88.18045409670657 43.07097776016476 -88.17847659180009 43.07087312041712 -88.17649417286917 43.07089520123763 -88.17452191510623 43.071043834712476 -88.17257481662084 43.07131789055235 -88.17066768465804 43.07171528466724 -88.16881502325086 43.07223299497791 -88.16703092315126 43.07286708434497 -88.16532895486793 43.0736127304434 -88.16372206561651 43.07446426235787 -88.16222248095936 43.07541520362338 -88.1608416118783 43.076458321387314 -88.16030555555557 43.07691666666667 -88.15634721347779 43.07187922089636 -88.15300341572555 43.06660792108272 -88.15029948477928 43.06114293903224 -88.14825584905067 43.055525911958405 -88.14688789231109 43.04979962407531 -88.14620584178205 43.044007679918614 -88.14621469589676 43.03819417176568 -88.14691419211128 43.03240334370712 -88.14829881483243 43.02667925493728 -88.15035784322137 43.02106544482468 -88.15307543833313 43.01560460229956 -88.15643076876076 43.01033824205123 -88.16039817367457 43.00530638996635 -88.16494736188037 43.00054728015945 -88.17004364526917 42.99609706585139 -88.17564820479366 42.99198954623806 -88.18171838689821 42.988255911375 -88.18820802809098 42.984924506933766 -88.19506780523167 42.98202062058792 -88.20224560886585 42.979566291563856 -88.2096869368442 42.977580144757546 -88.21733530531766 42.9760772506218 -88.2251326740954 42.97506901184129 -88.23301988326482 42.974563077616594 -88.24093709790424 42.97456328617766 -88.24882425767024 42.97506963594228 -88.25662152801233 42.976078285527976 -88.26426974975755 42.97758158261717 -88.27171088381782 42.979568121467295 -88.27888844780205 42.9820228286496 -88.28574794136347 42.98492707639664 -88.29223725718175 42.98825882273661 -88.29830707456667 42.99199277739737 -88.30391123277465 42.99610059227532 -88.30900708127642 43.00055107506782 -88.31355580430686 43.00531042453389 -88.31752271727098 43.01034248562532 -88.3208775326943 43.01560902263185 -88.32359459364513 43.02107000831511 -88.32565307276371 43.02668392688849 -88.32703713527121 43.03240808858756 -88.32773606458267 43.038198953479174 -88.32774434941432 43.044012462078726 -88.32706173155466 43.049804370281976 -88.32569321375937 43.0555305860752 -88.32364902752936 43.06114750546179 -88.32094456083956 43.06661234503839 -88.31760024619697 43.07188346866797 -88.31364140972171 43.076920705731645 -88.3090980822589 43.081685658495616 -88.30400477383961 43.086141996204205 -88.29840021311564 43.09025573360534 -88.29232705367605 43.09399549171905 -88.28583154947489 43.097332738821734 -88.27896320179491 43.100242009713085 -88.27177438050057 43.102701101559404 -88.26431992250671 43.1046912447481 -88.25665671061178 43.10619724739761 -88.24884323601786 43.10720761237206 -88.24093914800683 43.10771462586708 -88.2330047943581 43.10771441685941 -88.22510075617802 43.10720698694482 -88.21728738086185 43.106196210325855 -88.20962431692621 43.10468980394933 -88.20217005443304 43.10269926803257 -88.19498147467473 43.10023979745387 -88.19344444444445 43.09963888888889</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace1535">
+      <gml:identifier>airspace1535</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace1535">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>BURLINGTON MUNI,WI</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>E</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">17999.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">700.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace1534">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-88.30138888888888 42.8122578847331 -88.28678490591058 42.81178750370602 -88.2722927268916 42.81037996156834 -88.2580232847084 42.80804603309886 -88.24408577732596 42.80480358298985 -88.23058681840328 42.80067742675339 -88.21762960936333 42.795699137611976 -88.20531313973821 42.78990680097466 -88.19373142231353 42.78334471852824 -88.18297276923714 42.77606306438931 -88.17311911486703 42.76811749612807 -88.16424539064764 42.75956872385732 -88.15641895682008 42.75048204088293 -88.14969909521939 42.74092681971461 -88.14413656684222 42.73097597748866 -88.13977323727583 42.720705415071905 -88.13664177246999 42.71019343429642 -88.1347654067196 42.699520137914 -88.13415778411036 42.68876681696016 -88.13482287407244 42.67801533027906 -88.13675496109104 42.667347480982755 -88.13993870804583 42.65684439460381 -88.14434929209602 42.64658590364833 -88.1499526114993 42.63664994317062 -88.15670556125373 42.62711196187105 -88.1645563749848 42.61804435306866 -88.17344503006574 42.60951590972022 -88.18330371256074 42.60159130745153 -88.19405733821662 42.594330619335686 -88.2056241253993 42.58778886589958 -88.21791621558062 42.58201560356897 -88.23084033671144 42.57705455446156 -88.24429850460801 42.57294328014923 -88.25818875726203 42.56971290166679 -88.27240591683652 42.56738786772862 -88.28684237396784 42.56598577276502 -88.30138888888888 42.56551722604123 -88.31593540380992 42.56598577276502 -88.33037186094124 42.56738786772862 -88.34458902051573 42.56971290166679 -88.35847927316975 42.572943280149225 -88.37193744106632 42.57705455446156 -88.38486156219714 42.58201560356897 -88.39715365237846 42.58778886589958 -88.40872043956114 42.594330619335686 -88.41947406521702 42.60159130745152 -88.42933274771202 42.60951590972022 -88.43822140279296 42.61804435306866 -88.44607221652403 42.627111961871044 -88.45282516627846 42.63664994317062 -88.45842848568174 42.64658590364833 -88.46283906973193 42.65684439460381 -88.46602281668672 42.667347480982755 -88.46795490370532 42.67801533027906 -88.4686199936674 42.68876681696016 -88.46801237105817 42.69952013791401 -88.46613600530777 42.71019343429642 -88.46300454050193 42.720705415071905 -88.45864121093554 42.73097597748866 -88.45307868255837 42.740926819714616 -88.44635882095768 42.75048204088293 -88.43853238713012 42.75956872385732 -88.42965866291073 42.76811749612807 -88.41980500854062 42.77606306438931 -88.40904635546423 42.78334471852824 -88.39746463803955 42.78990680097466 -88.38514816841443 42.795699137611976 -88.37219095937448 42.80067742675339 -88.3586920004518 42.80480358298985 -88.34475449306936 42.80804603309886 -88.33048505088615 42.81037996156834 -88.31599287186718 42.81178750370602 -88.30138888888888 42.8122578847331</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace1589">
+      <gml:identifier>airspace1589</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace1589">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>FORT ATKINSON MUNI,WI</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>E</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">17999.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">700.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace1588">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-88.8175 43.10670096223644 -88.8004467103442 43.10615414351896 -88.7835241099404 43.104517877746275 -88.7668618656954 43.10180470328207 -88.75058760846747 43.098035408424 -88.73482593655253 43.09323886890788 -88.71969744472426 43.08745182233561 -88.70531778691796 43.08071858142503 -88.69179678029406 43.073090688484456 -88.67923755797138 43.06462651400737 -88.66773577724243 43.055390802707485 -88.65737888947912 43.045454170769666 -88.6482454773492 43.034892558438266 -88.64040466428433 43.023786642420205 -88.63391560044818 43.01222121286903 -88.62882702873269 43.00028451996614 -88.62517693357586 42.9880675953179 -88.62299227465573 42.9756635535426 -88.6222888067807 42.96316687952974 -88.62307098657449 42.95067270691547 -88.62533196585109 42.93827609333484 -88.62905367089895 42.92607129798277 -88.63420696624863 42.91415106694635 -88.6407519008879 42.90260593166036 -88.64863803431872 42.89152352568999 -88.65780483932038 42.88098792486178 -88.6681821777969 42.87107901554761 -88.67969084564359 42.86187189566134 -88.69224318216747 42.85343631265474 -88.70574373923816 42.84583614250174 -88.72009000503353 42.83912891334526 -88.73517317695386 42.833365377128494 -88.75087897806569 42.82858913220516 -88.7670885112014 42.824836299521465 -88.78367914469445 42.822135254604426 -88.80052542358195 42.82050641719024 -88.8175 42.81996209992827 -88.83447457641805 42.82050641719024 -88.85132085530554 42.822135254604426 -88.8679114887986 42.824836299521465 -88.8841210219343 42.82858913220516 -88.89982682304613 42.833365377128494 -88.91490999496646 42.83912891334526 -88.92925626076183 42.84583614250174 -88.94275681783252 42.85343631265474 -88.9553091543564 42.86187189566134 -88.9668178222031 42.87107901554761 -88.97719516067961 42.88098792486178 -88.98636196568127 42.89152352568998 -88.99424809911208 42.90260593166036 -89.00079303375136 42.91415106694635 -89.00594632910104 42.92607129798277 -89.0096680341489 42.93827609333484 -89.0119290134255 42.95067270691547 -89.01271119321929 42.96316687952974 -89.01200772534426 42.9756635535426 -89.00982306642413 42.98806759531791 -89.0061729712673 43.00028451996614 -89.00108439955181 43.01222121286903 -88.99459533571566 43.023786642420205 -88.98675452265078 43.034892558438266 -88.97762111052087 43.045454170769666 -88.96726422275756 43.055390802707485 -88.95576244202861 43.06462651400737 -88.94320321970594 43.073090688484456 -88.92968221308203 43.08071858142503 -88.91530255527573 43.08745182233561 -88.90017406344747 43.09323886890788 -88.88441239153252 43.098035408424 -88.86813813430459 43.10180470328207 -88.85147589005959 43.104517877746275 -88.83455328965579 43.10615414351896 -88.8175 43.10670096223644</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace1679">
+      <gml:identifier>airspace1679</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace1679">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>EAST TROY MUNI,WI</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>E</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">17999.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">700.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace1678">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-88.37249999999999 42.902528530636275 -88.36004873959145 42.902128192831064 -88.34769272048848 42.90093024153185 -88.33552644447258 42.898943839314164 -88.32364294035848 42.896184178087275 -88.312133042654 42.89267236120149 -88.30108468822282 42.8884352397556 -88.29058223667336 42.883505204445775 -88.28070581996467 42.87791993465621 -88.27153072642838 42.871722106842405 -88.26312682409129 42.86495906456487 -88.25555802778425 42.857682452855975 -88.24888181413138 42.84994781985787 -88.24314878805926 42.841814188929185 -88.23840230399902 42.83334360463291 -88.23467814446477 42.82460065620762 -88.23200425818783 42.81565198227985 -88.23040055947584 42.80656576069936 -88.22987878995089 42.79741118746995 -88.23044244331108 42.7882579488067 -88.23208675325603 42.77917569037526 -88.23479874422674 42.77023348776328 -88.23855734413473 42.761499322196094 -88.2433335578012 42.753039565441476 -88.24909069939301 42.74491847775282 -88.2557846817353 42.73719772257708 -88.26336435999788 42.72993590160546 -88.27177192689904 42.72318811357321 -88.28094335624513 42.71700554002085 -88.29080889132715 42.71143506101521 -88.30129357443117 42.70651890359908 -88.3123178134725 42.70229432548075 -88.32379798157075 42.69879333622979 -88.33564704518126 42.69604245794855 -88.34777521625938 42.694062527118035 -88.36009062380059 42.69286853901448 -88.37249999999999 42.69246953579162 -88.38490937619939 42.69286853901448 -88.3972247837406 42.694062527118035 -88.40935295481871 42.69604245794855 -88.42120201842923 42.69879333622979 -88.43268218652747 42.70229432548076 -88.4437064255688 42.70651890359908 -88.45419110867283 42.71143506101521 -88.46405664375484 42.71700554002084 -88.47322807310094 42.72318811357321 -88.4816356400021 42.72993590160546 -88.48921531826467 42.73719772257708 -88.49590930060697 42.74491847775281 -88.50166644219878 42.753039565441476 -88.50644265586524 42.7614993221961 -88.51020125577324 42.770233487763285 -88.51291324674395 42.77917569037526 -88.5145575566889 42.7882579488067 -88.51512121004909 42.79741118746995 -88.51459944052414 42.80656576069936 -88.51299574181215 42.81565198227985 -88.51032185553521 42.82460065620762 -88.50659769600095 42.83334360463291 -88.50185121194072 42.841814188929185 -88.4961181858686 42.84994781985787 -88.48944197221573 42.857682452855975 -88.48187317590869 42.86495906456488 -88.4734692735716 42.871722106842405 -88.46429418003531 42.87791993465621 -88.45441776332662 42.883505204445775 -88.44391531177716 42.8884352397556 -88.43286695734598 42.89267236120149 -88.4213570596415 42.896184178087275 -88.4094735555274 42.898943839314164 -88.3973072795115 42.90093024153185 -88.38495126040853 42.902128192831064 -88.37249999999999 42.902528530636275</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace1730">
+      <gml:identifier>airspace1730</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace1730">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>CHICAGO, DUPAGE AIRPORT</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>D</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">3300.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace1729">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-88.24833333333333 41.98003156983153 -88.239763834654 41.97975207647705 -88.23125977825217 41.97891573074561 -88.22288610153424 41.9775289191691 -88.21470673621616 41.975602231218716 -88.20678411557016 41.97315037764319 -88.19917869367801 41.97019207706011 -88.19194848052044 41.966749911708206 -88.18514859658885 41.96285015351313 -88.17883085052875 41.958522561853115 -88.17304334310893 41.95380015463971 -88.1678301005963 41.948718954518064 -88.1632307403264 41.943317712209044 -88.15928017100335 41.93763760916631 -88.1560083299498 41.93172194188842 -88.1534399592156 41.92561579035722 -88.15159442212696 41.91936567318806 -88.15048556152276 41.9130191921696 -88.15012160058487 41.9066246689415 -88.15050508682796 41.9002307766062 -88.15163287947453 41.89388616909694 -88.15349618010544 41.887639111128216 -88.15608060614795 41.88153711153718 -88.15936630644472 41.87562656278541 -88.16332811783984 41.869952389331885 -88.16793576142467 41.86455770750847 -88.17315407680834 41.85948349943251 -88.178943292514 41.85476830337445 -88.18525933037009 41.850447922875645 -88.19205414150252 41.84655515673661 -88.19927607139853 41.84311955188617 -88.20687025124703 41.840167180911784 -88.21477901264979 41.8377204458831 -88.22294232263116 41.83579790989236 -88.23129823575344 41.83441415753218 -88.23978336004099 41.83357968532031 -88.24833333333333 41.833300822862235 -88.25688330662568 41.83357968532031 -88.26536843091323 41.83441415753217 -88.27372434403551 41.83579790989234 -88.28188765401688 41.83772044588311 -88.28979641541964 41.840167180911784 -88.29739059526814 41.84311955188617 -88.30461252516415 41.8465551567366 -88.31140733629658 41.850447922875645 -88.31772337415266 41.85476830337445 -88.32351258985832 41.859483499432514 -88.328730905242 41.86455770750847 -88.33333854882683 41.86995238933188 -88.33730036022195 41.87562656278541 -88.34058606051872 41.88153711153718 -88.34317048656123 41.887639111128216 -88.34503378719214 41.89388616909694 -88.34616157983871 41.9002307766062 -88.3465450660818 41.9066246689415 -88.34618110514391 41.9130191921696 -88.34507224453971 41.91936567318806 -88.34322670745107 41.92561579035722 -88.34065833671687 41.93172194188842 -88.33738649566332 41.93763760916631 -88.33343592634027 41.943317712209044 -88.32883656607036 41.948718954518064 -88.32362332355774 41.95380015463971 -88.31783581613792 41.958522561853115 -88.31151807007782 41.96285015351313 -88.30471818614623 41.966749911708206 -88.29748797298866 41.97019207706011 -88.28988255109651 41.97315037764318 -88.28195993045051 41.975602231218716 -88.27378056513243 41.9775289191691 -88.2654068884145 41.97891573074561 -88.25690283201267 41.97975207647705 -88.24833333333333 41.98003156983153</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace1810">
+      <gml:identifier>airspace1810</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace1810">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>LAWRENCE J. TIMMERMAN AIRPORT</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>D</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">3200.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace1809">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-88.07994444444444 43.04547222222222 -88.0875364887537 43.04862214110467 -88.0947261562059 43.05224490609142 -88.10145881402117 43.056313025829525 -88.10768326807785 43.060795623608 -88.1133521510728 43.06565866988311 -88.11842228285457 43.07086523866414 -88.12285500012881 43.076375785974115 -88.12661645299981 43.08214844834065 -88.12967786602341 43.08813935911996 -88.13201576168271 43.09430298031639 -88.13361214445202 43.10059244743367 -88.13445464388697 43.10695992478612 -88.13453661546706 43.11335696860752 -88.13385719822105 43.119734895223274 -88.13242132848315 43.126045151500584 -88.13023970945615 43.13223968475954 -88.1273287365963 43.13827130931892 -88.12371037917845 43.14409406686216 -88.11941201874838 43.14966357784344 -88.11446624551809 43.15493738120996 -88.10891061410564 43.15987525979561 -88.10278736036148 43.164439548841365 -88.09614308135457 43.168595425220765 -88.08902838090329 43.17231117508621 -88.08149748335576 43.17555843783151 -88.0736078185699 43.178312424415424 -88.0654195813407 43.18055210832475 -88.05699526872506 43.18226038764545 -88.04839919892581 43.183424216946705 -88.03969701556483 43.184034707921214 -88.03095518130831 43.184087197973895 -88.02224046490677 43.18358128620806 -88.0136194257728 43.18252083651984 -88.00515790024295 43.18091394777569 -87.99692049365396 43.17877289131312 -87.98897008230996 43.176114016266546 -87.98136732932583 43.17295762347832 -87.97417021820348 43.1693278090058 -87.96743360783758 43.16525227847515 -87.961208812442 43.16076213377106 -87.95554320968712 43.15589163374673 -87.95047988005201 43.150677930870984 -87.94605728014794 43.145160785886 -87.94230895245721 43.139382262730315 -87.93926327362115 43.13338640612384 -87.93694324308196 43.127218904337646 -87.93536631354463 43.120926739776905 -87.93454426438008 43.11455783008702 -87.93441666666666 43.111111111111114 -87.95383676513477 43.10808678754391 -87.97282074910524 43.103830691358944 -87.99122312299279 43.09837546321765 -88.00890295335189 43.09176293028432 -88.02572496837902 43.08404377834835 -88.04156060928034 43.075277154997174 -88.05628902483747 43.06553020718824 -88.06979800109647 43.054877557102756 -88.07994444444444 43.04547222222222</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace2055">
+      <gml:identifier>airspace2055</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace2055">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>LA PORTE MUNI,IN</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>E</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">17999.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">700.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace2054">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-86.73644444444444 41.45102777777778 -86.77258333333333 41.38022222222222 -86.87594444444444 41.41008333333333 -86.83994444444444 41.480611111111116 -86.8501623083129 41.487869609469634 -86.85950228701654 41.49576934578339 -86.86789322881312 41.50425041841284 -86.87527110340568 41.5132484934325 -86.88157949398148 41.52269528808181 -86.88677003453603 41.53251908442526 -86.89080278861957 41.54264526975689 -86.89364656630951 41.552996899801265 -86.89527917660976 41.56349528056718 -86.89568761290714 41.57406056454123 -86.89486816957589 41.58461235676881 -86.89282648831117 41.595070326261755 -86.88957753328899 41.60535481809589 -86.88514549479002 41.61538746152073 -86.87956362148486 41.62509176939896 -86.87287398215241 41.63439372432495 -86.8651271581885 41.64322234684152 -86.85638186884998 41.65151024128296 -86.84670453176652 41.65919411491859 -86.83616876183049 41.66621526625692 -86.82485481213311 41.67252003858871 -86.81284896116794 41.6780602351185 -86.80024285100461 41.68279349230186 -86.78713278163931 41.686683608359495 -86.77361896713265 41.689700824272734 -86.75980475953249 41.69182205495369 -86.74579584689971 41.693031068685634 -86.73169943201472 41.693318613351565 -86.71762339853862 41.69268248840689 -86.70367547153039 41.69112756199987 -86.689962379279 41.68866573309812 -86.67658902339606 41.68531583893486 -86.66365766403024 41.68110350854134 -86.65126712691122 41.676060963576326 -86.63951203871052 41.670226768096235 -86.62848209692196 41.66364552932526 -86.61826138012466 41.656367551877956 -86.60892770407837 41.648448448270166 -86.60055202869415 41.63994870886643 -86.5931979203843 41.63093323476893 -86.58692107381914 41.62147083739496 -86.5817688965468 41.61163370875441 -86.57778015936994 41.60149686664156 -86.57498471479053 41.59113757912656 -86.5734032852463 41.58063477286407 -86.57304732227325 41.57006842983101 -86.57391893714859 41.5595189771602 -86.57601090299738 41.54906667475514 -86.57930672779446 41.53879100535222 -86.58378079716068 41.528770071642285 -86.58939858534639 41.519080004975365 -86.59611693231541 41.5097943900519 -86.60388438439404 41.500983709852534 -86.61264159553191 41.49271481487965 -86.62232178583729 41.485050420577686 -86.63285125369731 41.47804863656926 -86.64414993747975 41.471762531095266 -86.65613202251588 41.46623973376452 -86.66870658883579 41.46152207945011 -86.68177829487945 41.45764529583958 -86.69524809223819 41.45463873684514 -86.70901396631373 41.452525163743374 -86.72297169765359 41.45132057557443 -86.73644444444444 41.45102777777778</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace2292">
+      <gml:identifier>airspace2292</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace2292">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>CHICAGO,IL</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>E</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">17999.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">700.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace2291">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-88.5 42.483333333333334 -88.3875 42.483333333333334 -88.275 42.483333333333334 -88.1625 42.483333333333334 -88.05 42.483333333333334 -88.05 42.54444509860106 -88.05 42.60555620974835 -88.05 42.666666666666664 -87.95 42.71666666666667 -87.85809488705716 42.66261091234848 -87.76634897914214 42.608481040466465 -87.67476191546574 42.55427731542039 -87.58333333333333 42.5 -87.54493631713348 42.4167084391332 -87.50664079988502 42.3334028370656 -87.46844623428814 42.25008326426194 -87.43035207668537 42.16674979110892 -87.39235778685672 42.08340248754144 -87.35446282799253 42.00004142304642 -87.31666666666666 41.916666666666664 -87.31666666666666 41.845834648004555 -87.31666666666666 41.77500175274115 -87.31666666666666 41.70416798110683 -87.31666666666666 41.63333333333333 -87.24161843869874 41.591691280411204 -87.16666666666667 41.55 -87.20002137192382 41.50833831506706 -87.23333333333333 41.46666666666667 -87.34179118946842 41.44181991608304 -87.4501661642643 41.41687088860555 -87.5584580571079 41.391819749918966 -87.66666666666667 41.36666666666667 -87.78571428571429 41.36666666666667 -87.90476190476191 41.36666666666667 -88.02380952380953 41.36666666666667 -88.14285714285714 41.36666666666667 -88.26190476190476 41.36666666666667 -88.38095238095238 41.36666666666667 -88.5 41.36666666666667 -88.5 41.44583497348499 -88.5 41.52500218710346 -88.5 41.604168307167335 -88.5 41.68333333333333 -88.58313924838261 41.73342455839031 -88.66640770488361 41.78345509852372 -88.74980564269353 41.8334247563994 -88.83333333333333 41.88333333333333 -88.83333333333333 41.95000038841945 -88.83333333333333 42.016666666666666 -88.75 42.016666666666666 -88.66666666666667 42.016666666666666 -88.66666666666667 42.09444550248729 -88.66666666666667 42.172223280354444 -88.66666666666667 42.25 -88.58333333333334 42.25 -88.5 42.25 -88.5 42.30000021876388 -88.5 42.35 -88.5 42.41666705573207 -88.5 42.483333333333334</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace2347">
+      <gml:identifier>airspace2347</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace2347">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>CHICAGO, AURORA MUNI AIRPORT</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>D</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">3200.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace2346">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-88.47555555555556 41.84197624828262 -88.46739318425371 41.841709467993475 -88.45929313549189 41.84091116402994 -88.4513172513325 41.83958743140169 -88.44352641672864 41.837748376243745 -88.43598009054952 41.8354080379331 -88.42873584800347 41.83258428092553 -88.42184893809653 41.82929865717577 -88.41537185962738 41.82557624023797 -88.40935395905325 41.82144543236682 -88.40384105336875 41.81693774614876 -88.39887508089816 41.81208756240412 -88.39449378270781 41.80693186624762 -88.39073041700397 41.80150996341449 -88.38761350866471 41.7958631790585 -88.38516663572025 41.790034541384415 -88.38340825429741 41.78406845257735 -88.38235156322581 41.77801034958231 -88.3820044091803 41.771906357354226 -88.38236923291052 41.765802937245915 -88.38344305678544 41.759746533226775 -88.38521751356129 41.75378321862957 -88.38767891596896 41.74795834610696 -88.39080836641229 41.74231620344256 -88.3945819057756 41.73689967780642 -88.39897070005826 41.73174993096966 -88.40394126328702 41.726906087901 -88.40945571490515 41.722404941057384 -88.41547206961275 41.71828067256357 -88.42194455738263 41.714564596310254 -88.42882397124103 41.71128492189325 -88.4360580401509 41.7084665420987 -88.44359182422595 41.706130845496666 -88.4513681293433 41.70429555550621 -88.45932793810593 41.702974597100905 -88.46741085400548 41.70217799212178 -88.47555555555556 41.70191178395536 -88.48370025710564 41.70217799212178 -88.49178317300519 41.702974597100905 -88.49974298176782 41.70429555550621 -88.50751928688517 41.706130845496666 -88.51505307096022 41.7084665420987 -88.52228713987009 41.71128492189325 -88.52916655372849 41.714564596310254 -88.53563904149837 41.718280672563566 -88.54165539620597 41.722404941057384 -88.5471698478241 41.726906087901 -88.55214041105286 41.73174993096966 -88.55652920533552 41.73689967780642 -88.56030274469883 41.74231620344257 -88.56343219514216 41.74795834610696 -88.56589359754983 41.75378321862957 -88.56766805432568 41.759746533226775 -88.5687418782006 41.765802937245915 -88.56910670193082 41.771906357354226 -88.5687595478853 41.77801034958231 -88.56770285681371 41.784068452577344 -88.56594447539086 41.790034541384415 -88.5634976024464 41.7958631790585 -88.56038069410715 41.80150996341448 -88.5566173284033 41.80693186624762 -88.55223603021295 41.81208756240412 -88.54727005774237 41.81693774614876 -88.54175715205787 41.82144543236682 -88.53573925148373 41.82557624023797 -88.52926217301459 41.82929865717576 -88.52237526310765 41.83258428092553 -88.5151310205616 41.83540803793309 -88.50758469438247 41.837748376243745 -88.49979385977862 41.83958743140169 -88.49181797561923 41.84091116402994 -88.48371792685741 41.841709467993475 -88.47555555555556 41.84197624828262</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace2397">
+      <gml:identifier>airspace2397</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace2397">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>CHICAGO MIDWAY AIRPORT</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>C</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">3600.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">1900.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace2396">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.64827777777778 41.75636111111111 -87.56502777777777 41.69597222222222 -87.57623963929419 41.68410005705607 -87.58878500404062 41.673004199996605 -87.60256821181062 41.66276868133142 -87.61748437816665 41.65347097787358 -87.63342019284639 41.645181436464306 -87.65025477552705 41.63796275107357 -87.66786058352814 41.63186949753708 -87.6861043649105 41.6269477291043 -87.70484815025893 41.6232346355595 -87.72395027626976 41.62075826822353 -87.7432664341438 41.61953733269067 -87.76265073569105 41.619581050702145 -87.78195678998661 41.62088909206411 -87.80103878338498 41.62345157708513 -87.81975255567812 41.62724914951598 -87.83795666520673 41.63225311948567 -87.85551343576707 41.63842567549242 -87.872289978226 41.64572016401655 -87.88815917985158 41.65408143486922 -87.90300065449063 41.663446249937884 -87.91670164689295 41.6737437525363 -87.92915788465343 41.6848959941557 -87.9402743715041 41.69681851496674 -87.94996611593646 41.709420974045024 -87.95815878946311 41.72260782489801 -87.96478930918671 41.736279031516176 -87.96980633975551 41.75033081983617 -87.9731707102472 41.764656459198974 -87.97485574203517 41.77914706811261 -87.97484748425723 41.793692438390536 -87.97314485412282 41.808181871537876 -87.97058333333334 41.819611111111115 -87.95073941065324 41.8159748470617 -87.93054900603721 41.81364267067188 -87.91016457348331 41.812632190367935 -87.88973999611308 41.81295103487454 -87.86942945267454 41.81459679708092 -87.85608333333333 41.81641666666666 -87.85921138192971 41.80953123978949 -87.8615248240665 41.802467994160715 -87.86300630691244 41.795280734109056 -87.863644828905 41.788024190860504 -87.86343581456273 41.7807536048758 -87.86238114066714 41.773524305032716 -87.86048911329075 41.766391287696536 -87.8577743961104 41.75940879887633 -87.85425789080716 41.752629922624685 -87.84996657070462 41.7461061787746 -87.84493326913062 41.7398871330217 -87.83919642430295 41.734020022252516 -87.83279978283669 41.72854939789252 -87.82579206424693 41.72351678990131 -87.8182265890703 41.71896039388334 -87.81016087347955 41.71491478358821 -87.80165619344022 41.71141065090983 -87.79277712168715 41.70847457525355 -87.7835910409331 41.706128823945306 -87.77416763687548 41.7043911851195 -87.76457837468391 41.70327483428655 -87.75489596274649 41.702788235537824 -87.74519380752676 41.70293507809481 -87.73554546343347 41.70371424865723 -87.72602408163368 41.70511983974733 -87.71670186174613 41.7071411939909 -87.70764951033473 41.70976298401816 -87.69893571008421 41.7129653274129 -87.69062660347797 41.716723935885696 -87.68278529471507 41.72101029760035 -87.67547137349679 41.725791891341615 -87.66874046418661 41.731032430980996 -87.66264380367792 41.736692138460924 -87.65722785117435 41.74272804333838 -87.65253393282397 41.749094306677975 -87.64859792398536 41.75574256694176 -87.64827777777778 41.75636111111111</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace2398">
+      <gml:identifier>airspace2398</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace2398">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>CHICAGO MIDWAY AIRPORT</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>C</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">3600.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">0.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>SFC</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace2397">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-87.75222222222222 41.86948200267725 -87.74250095791209 41.869164342591 -87.73285396493803 41.86821378920568 -87.72335494062807 41.8666376043875 -87.71407643893214 41.864447828884614 -87.70508931028424 41.86166118931256 -87.69646215520443 41.858298968986354 -87.6882607960193 41.854386843639894 -87.68054777091075 41.84995468335368 -87.67338185429787 41.845036322279036 -87.66681760730525 41.83966929800848 -87.66090496182038 41.83389456265833 -87.65568884130823 41.82775616797659 -87.65120882125167 41.82130092696118 -87.64749883172412 41.8145780546628 -87.64458690424107 41.80763879099422 -87.64249496465908 41.80053600849669 -87.64123867350621 41.79332380811707 -87.64082731473744 41.786057106127146 -87.64126373351847 41.77879121536855 -87.64254432325389 41.77158142403437 -87.64465906169393 41.76448257519952 -87.64759159558275 41.75754865028967 -87.65131937295068 41.750832359632085 -87.65581382180771 41.74438474316123 -87.66104057366648 41.73825478426132 -87.6669597300121 41.73248903961453 -87.67352616954501 41.727131287791615 -87.68068989375249 41.72222219917063 -87.68839640811885 41.71779902960484 -87.69658713604534 41.71389534006645 -87.7051998623715 41.71054074431698 -87.71416920317903 41.70776068641996 -87.72342709842236 41.70557624970803 -87.73290332378626 41.704003998578784 -87.74252601805918 41.70305585425603 -87.75222222222222 41.70273900540707 -87.76191842638525 41.70305585425603 -87.77154112065817 41.704003998578784 -87.78101734602207 41.70557624970802 -87.7902752412654 41.70776068641996 -87.79924458207293 41.71054074431698 -87.8078573083991 41.71389534006645 -87.81604803632558 41.71779902960484 -87.82375455069194 41.72222219917063 -87.83091827489942 41.72713128779161 -87.83748471443234 41.73248903961453 -87.84340387077795 41.73825478426132 -87.84863062263672 41.74438474316123 -87.85312507149375 41.750832359632085 -87.85685284886168 41.75754865028967 -87.8597853827505 41.76448257519952 -87.86190012119054 41.77158142403437 -87.86318071092596 41.77879121536855 -87.863617129707 41.786057106127146 -87.86320577093822 41.79332380811708 -87.86194947978535 41.800536008496685 -87.85985754020336 41.80763879099422 -87.85694561272031 41.8145780546628 -87.85323562319276 41.821300926961186 -87.8487556031362 41.82775616797659 -87.84353948262405 41.83389456265833 -87.83762683713918 41.83966929800848 -87.83106259014656 41.84503632227904 -87.82389667353368 41.84995468335367 -87.81618364842512 41.854386843639894 -87.80798228924 41.858298968986354 -87.7993551341602 41.86166118931256 -87.79036800551229 41.86444782888462 -87.78108950381636 41.8666376043875 -87.7715904795064 41.86821378920568 -87.76194348653235 41.869164342591 -87.75222222222222 41.86948200267725</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+  <msg:hasMember>
+    <aixm5:Airspace gml:id="airspace2835">
+      <gml:identifier>airspace2835</gml:identifier>
+      <aixm5:timeSlice>
+        <aixm5:AirspaceTimeSlice>
+          <gml:validTime>
+            <gml:TimePeriod gml:id="VTairspace2835">
+              <gml:beginPosition>2008-03-23T14:00:00Z</gml:beginPosition>
+              <gml:endPosition indeterminatePosition="unknown"></gml:endPosition>
+            </gml:TimePeriod>
+          </gml:validTime>
+          <aixm5:interpretation>BASELINE</aixm5:interpretation>
+          <aixm5:sequenceNumber>1</aixm5:sequenceNumber>
+          <aixm5:type>CLASS</aixm5:type>
+          <aixm5:name>DELAVAN-LAKE LAWN,WI</aixm5:name>
+          <aixm5:class>
+            <aixm5:AirspaceLayerClass>
+              <aixm5:classification>E</aixm5:classification>
+            </aixm5:AirspaceLayerClass>
+          </aixm5:class>
+          <aixm5:geometryComponent>
+            <aixm5:AirspaceGeometryComponent>
+              <aixm5:theAirspaceVolume>
+                <aixm5:AirspaceVolume>
+                  <aixm5:upperLimit uom="FT">17999.0</aixm5:upperLimit>
+                  <aixm5:upperLimitReference>MSL</aixm5:upperLimitReference>
+                  <aixm5:lowerLimit uom="FT">700.0</aixm5:lowerLimit>
+                  <aixm5:lowerLimitReference>MSL</aixm5:lowerLimitReference>
+                  <aixm5:horizontalProjection>
+                    <aixm5:Surface srsName="urn:ogc:def:crs:OGC:1.3:CRS84" gml:id="Sairspace2834">
+                      <gml:patches>
+                        <gml:PolygonPatch>
+                          <gml:exterior>
+                            <gml:LinearRing>
+                              <gml:posList>-88.60138888888888 42.738643174972964 -88.58877335264623 42.73823646401719 -88.5762543191693 42.73701944216937 -88.56392754175444 42.73500141832976 -88.55188728092723 42.73219782700388 -88.54022557341514 42.728630108503985 -88.52903151937883 42.72432554261105 -88.518390593705 42.7193170370618 -88.50838398692885 42.713642872589205 -88.49908798105757 42.70734640660186 -88.49057336524488 42.70047573790036 -88.48290489586454 42.69308333515709 -88.47614080512993 42.685225632147194 -88.47033236194693 42.67696259298103 -88.46552348821297 42.66835725080728 -88.46175043327803 42.65947522364785 -88.45904150877224 42.65038421118394 -88.45741688548641 42.6411534764384 -88.45688845346965 42.63185331639132 -88.45745974599159 42.622554525624416 -88.45912592750551 42.613327857115266 -88.46187384525211 42.604243484295644 -88.4656821436623 42.59537046844956 -88.47052144025686 42.58677623545817 -88.47635456130261 42.5785260658009 -88.48313683507162 42.57068260159709 -88.49081644016417 42.56330537432156 -88.4993348059983 42.55645035665277 -88.508627062239 42.55016954171415 -88.51862253364882 42.54451055275931 -88.52924527654407 42.53951628609116 -88.54041465285376 42.53522458979919 -88.55204593750523 42.53166798057963 -88.56405095472108 42.52887340065921 -88.57633873863925 42.52686201653896 -88.58881621354338 42.52564906097654 -88.60138888888888 42.52524371931797 -88.61396156423437 42.52564906097654 -88.6264390391385 42.52686201653896 -88.63872682305667 42.5288734006592 -88.65073184027253 42.53166798057963 -88.662363124924 42.53522458979919 -88.67353250123368 42.53951628609116 -88.68415524412893 42.54451055275931 -88.69415071553875 42.55016954171415 -88.70344297177945 42.55645035665277 -88.71196133761359 42.56330537432156 -88.71964094270614 42.57068260159709 -88.72642321647514 42.5785260658009 -88.7322563375209 42.586776235458174 -88.73709563411545 42.595370468449566 -88.74090393252564 42.604243484295644 -88.74365185027224 42.613327857115266 -88.74531803178617 42.622554525624416 -88.74588932430811 42.63185331639132 -88.74536089229134 42.6411534764384 -88.74373626900551 42.65038421118394 -88.74102734449973 42.65947522364785 -88.73725428956479 42.66835725080728 -88.73244541583082 42.67696259298103 -88.72663697264782 42.685225632147194 -88.71987288191322 42.69308333515709 -88.71220441253287 42.70047573790036 -88.70368979672018 42.70734640660186 -88.6943937908489 42.7136428725892 -88.68438718407275 42.71931703706179 -88.67374625839892 42.72432554261105 -88.66255220436261 42.728630108503985 -88.65089049685052 42.73219782700388 -88.63885023602332 42.73500141832976 -88.62652345860846 42.73701944216937 -88.61400442513153 42.73823646401719 -88.60138888888888 42.738643174972964</gml:posList>
+                            </gml:LinearRing>
+                          </gml:exterior>
+                        </gml:PolygonPatch>
+                      </gml:patches>
+                    </aixm5:Surface>
+                  </aixm5:horizontalProjection>
+                </aixm5:AirspaceVolume>
+              </aixm5:theAirspaceVolume>
+            </aixm5:AirspaceGeometryComponent>
+          </aixm5:geometryComponent>
+        </aixm5:AirspaceTimeSlice>
+      </aixm5:timeSlice>
+    </aixm5:Airspace>
+  </msg:hasMember>
+</msg:AIXMBasicMessage>
