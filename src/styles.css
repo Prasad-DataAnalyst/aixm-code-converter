@@ -481,3 +481,11 @@ pre, .xml, .notam-text { text-align: left; }
 [dir="rtl"] .g-track, [dir="rtl"] .g-axis { direction: ltr; }
 [dir="rtl"] .main *, [dir="rtl"] .drawer *, [dir="rtl"] .modal *, [dir="rtl"] .topbar * { unicode-bidi: plaintext; }
 [dir="rtl"] .main svg *, [dir="rtl"] .topbar svg * { unicode-bidi: normal; }
+
+/* ------------------------------------------------------------ business rules */
+.q-tabs { margin: 0 0 12px; }
+.rule-card { padding: 10px 14px; margin-bottom: 10px; }
+.rule-card summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.rule-card .rule-sev { font-size: 12px; text-transform: uppercase; }
+.rule-text { margin: 8px 0 4px; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; font-size: 12.5px; }
+.chip.ok { background: #e3f4ea; color: #1f7a4d; }

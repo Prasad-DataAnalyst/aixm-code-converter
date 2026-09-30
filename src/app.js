@@ -1269,7 +1269,7 @@
     if (!p || typeof p !== 'object') return esc(p);
     var h = '';
     Object.keys(p).forEach(function (k) {
-      if (k === '_t' || k === '_geo' && !p._geo) return;
+      if (k === '_t' || k === '_na' || k === '_geo' && !p._geo) return;
       var v = p[k];
       var def = M.propDef(featureType, k, objType);
       if (k === '_geo') { h += '<div class="p-row"><div class="p-name">Geometry</div><div>' + esc(M.fv(ds, { _geo: v })) + (v.d ? '<div class="muted">' + esc(AIP.lateral ? '' : '') + '</div>' : '') + '</div></div>'; return; }
@@ -1687,11 +1687,103 @@
   }
 
   /* ========================================================= QUALITY */
+  /* ================================================ BUSINESS RULES */
+  function viewRules(v, ds) {
+    var res = S.rules && S.rules.get(ds);
+    var F = S.rulesF || { sev: '', src: '', q: '' };
+    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">The official <b>AIXM 5.1 business rules</b> (' + esc(RULES.source()) + '): minimal data, data consistency, coding rules and ICAO standards. Severities follow the EAD profile. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('rules') +
+      '<div class="toolbar"><button class="btn primary" id="r-run">' + I.check + (res ? ' Run again' : ' Run business rules') + '</button>' +
+      '<select class="inp" id="r-sev"><option value="">All severities</option><option value="Error">Errors</option><option value="Warning">Warnings</option><option value="Info">Other</option></select>' +
+      '<select class="inp" id="r-src"><option value="">All rule sources</option><option value="std">ICAO / standards only</option><option value="ead">EAD-specific only</option></select>' +
+      '<input class="inp" id="r-q" placeholder="Filter rules, features…" value="' + esc(F.q) + '"><span class="sp"></span>' +
+      '<button class="btn small" id="r-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="r-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="r-mail">' + I.mail + ' E-mail</button></div><div id="r-out"></div>';
+    $('#r-sev').value = F.sev; $('#r-src').value = F.src;
+    $('#r-run').onclick = async function () {
+      $('#r-out').innerHTML = '<div class="card card-pad"><span class="spinner"></span> Checking ' + num(ds.recs.length) + ' features against ' + num(RULES.catalogue().length) + ' rules…<div class="progress"><div id="r-bar"></div></div></div>';
+      var r = await RULES.run(ds, function (f) { var b = $('#r-bar'); if (b) b.style.width = (f * 100).toFixed(0) + '%'; });
+      S.rules = S.rules || new Map(); S.rules.set(ds, r); res = r; draw();
+    };
+    function isEad(x) { return /EAD/.test(x.rule.src) || x.rule.k && x.rule.k.t === 'absent'; }
+    function cur() {
+      if (!res || !res.results) return [];
+      var q = F.q.toLowerCase();
+      return res.results.filter(function (x) {
+        if (F.sev && (F.sev === 'Info' ? /Error|Warning/.test(x.rule.s) : x.rule.s !== F.sev)) return false;
+        if (F.src === 'ead' && !isEad(x)) return false;
+        if (F.src === 'std' && isEad(x)) return false;
+        if (q && (x.rule.id + ' ' + x.rule.n + ' ' + x.rule.x + ' ' + x.fails.slice(0, 50).map(function (f) { return M.label(ds, f.rec); }).join(' ')).toLowerCase().indexOf(q) < 0) return false;
+        return true;
+      });
+    }
+    function draw() {
+      var out = $('#r-out');
+      if (!res) { out.innerHTML = '<div class="card card-pad muted">Press <b>Run business rules</b>. ' + num(RULES.catalogue().filter(function (r) { return r.k; }).length) + ' of the ' + num(RULES.catalogue().length) + ' rules can be checked automatically; all of them are listed in the <a href="#" data-qtab="cat">Rule catalogue</a>.</div>'; return; }
+      if (res.error) { out.innerHTML = '<div class="note-box">' + esc(res.error) + '</div>'; return; }
+      var sm = res.summary, list = cur();
+      cellRegistry = [];
+      out.innerHTML = '<div class="stat-row"><div class="card stat"><b>' + num(sm.checked) + '</b><span class="muted">rules applied</span></div><div class="card stat"><b style="color:var(--ok)">' + num(sm.passed) + '</b><span class="muted">passed</span></div>' +
+        '<div class="card stat"><b class="sev-err">' + num(sm.failed) + '</b><span class="muted">rules with findings</span></div><div class="card stat"><b class="sev-err">' + num(sm.err) + '</b><span class="muted">error findings</span></div><div class="card stat"><b class="sev-warn">' + num(sm.warn) + '</b><span class="muted">warnings / other</span></div>' +
+        '<div class="card stat"><b>' + num(sm.na) + '</b><span class="muted">not applicable (no such data)</span></div></div>' +
+        (list.length ? list.slice(0, 300).map(function (x, i) {
+          var r = x.rule, sev = /Error/i.test(r.s) ? 'err' : /Warning/i.test(r.s) ? 'warn' : 'info';
+          var rows = x.fails.slice(0, 200).map(function (f) { var idx = cellRegistry.push({ ds: ds, r: f.rec }) - 1; return '<tr><td><a href="#" data-det="' + idx + '">' + esc(M.label(ds, f.rec)) + '</a><div class="muted" style="font-size:11px">' + esc(f.rec.k) + '</div></td><td>' + esc(f.msg) + (f.n > 1 ? ' <span class="chip">× ' + f.n + '</span>' : '') + '</td><td class="nowrap">' + esc(AIP.sectionOf(ds, f.rec).no) + '</td><td><span class="srcbtn" data-xml="' + idx + '">&lt;/&gt;</span></td></tr>'; }).join('');
+          return '<details class="card rule-card"' + (i < 3 ? ' open' : '') + '><summary><span class="sev-' + sev + ' rule-sev">' + esc(r.s) + '</span> <b>' + esc(r.n || RULES.describe(r.k)) + '</b> <span class="chip">' + num(x.fails.length) + ' finding(s)</span> <span class="muted" style="font-size:11.5px">' + esc(r.id) + ' · ' + esc(r.src || '') + (r.g ? ' · ' + esc(r.g) : '') + '</span></summary>' +
+            '<div class="rule-text">' + esc(r.x) + '</div>' + (r.cm ? '<div class="muted" style="font-size:12px;margin:4px 0 6px">' + esc(r.cm) + '</div>' : '') +
+            '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Feature</th><th>Finding</th><th>AIP section</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' + (x.fails.length > 200 ? '<div class="more-rows muted">Showing 200 of ' + num(x.fails.length) + ' — export for all.</div>' : '') + '</div></details>';
+        }).join('') : '<div class="card card-pad" style="color:var(--ok)">✓ No findings for this filter.</div>');
+    }
+    function upd() { F = { sev: $('#r-sev').value, src: $('#r-src').value, q: $('#r-q').value }; S.rulesF = F; draw(); }
+    $('#r-sev').onchange = upd; $('#r-src').onchange = upd; $('#r-q').oninput = upd;
+    $('#r-out').onclick = function (e) {
+      var a = e.target.closest('[data-det]'), x = e.target.closest('[data-xml]');
+      if (a) { e.preventDefault(); var r1 = cellRegistry[+a.getAttribute('data-det')]; openDetail(r1.ds, r1.r); }
+      if (x) { var r2 = cellRegistry[+x.getAttribute('data-xml')]; openXml(r2.ds, r2.r); }
+    };
+    function scope() {
+      var rows = [];
+      cur().forEach(function (x) { x.fails.forEach(function (f) { rows.push([AIP.C(x.rule.s), AIP.C(x.rule.id), AIP.C(x.rule.n), AIP.C(x.rule.x), AIP.C(M.label(ds, f.rec), f.rec), AIP.C(f.msg + (f.n > 1 ? ' (× ' + f.n + ')' : '')), AIP.C(AIP.sectionOf(ds, f.rec).no)]); }); });
+      return { title: 'AIXM business rules report', sub: ds.state + ' — ' + ds.name, ds: ds, sections: [{ no: 'SBVR', title: 'AIXM 5.1 business rule findings', blocks: [
+        { kind: 'kv', rows: [{ no: '', label: 'Rule set', cells: [AIP.C(RULES.source())] }, { no: '', label: 'Summary', cells: [AIP.C(res.summary.checked + ' rules applied, ' + res.summary.passed + ' passed, ' + res.summary.failed + ' with findings (' + res.summary.fails + ' findings)')] }] },
+        { kind: 'table', cols: ['Severity', 'Rule ID', 'Rule', 'Rule text', 'Feature', 'Finding', 'AIP section'], rows: rows }] }] };
+    }
+    $('#r-pdf').onclick = function () { if (res && res.results) runExport('pdf', scope()); };
+    $('#r-xlsx').onclick = function () { if (res && res.results) runExport('xlsx', scope()); };
+    $('#r-mail').onclick = function () { if (res && res.results) runExport('mail', scope()); };
+    draw();
+  }
+  function viewRuleCatalogue(v) {
+    var all = RULES.catalogue(), q = S.catQ || '', auto = S.catAuto || '';
+    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">All ' + num(all.length) + ' AIXM 5.1 business rules (' + esc(RULES.source()) + '). Rules marked <b>auto</b> are checked by <i>Run business rules</i>; the others are listed for reference.</p>' + qTabs('cat') +
+      '<div class="toolbar"><input class="inp" id="c-q" style="min-width:320px" placeholder="Search rule text, class, ID…" value="' + esc(q) + '"><select class="inp" id="c-auto"><option value="">All rules</option><option value="1">Checked automatically</option><option value="0">Reference only</option></select><span class="sp"></span><button class="btn small" id="c-xlsx">' + I.xls + ' Excel</button></div><div id="c-out"></div>';
+    $('#c-auto').value = auto;
+    function list() { var ql = q.toLowerCase(); return all.filter(function (r) { return (!auto || (auto === '1') === !!r.k) && (!ql || (r.id + ' ' + r.n + ' ' + r.x + ' ' + r.c + ' ' + r.g).toLowerCase().indexOf(ql) >= 0); }); }
+    function draw() {
+      var l = list();
+      $('#c-out').innerHTML = '<div class="muted" style="margin:6px 2px">' + num(l.length) + ' rule(s)</div><div class="tbl-wrap"><table class="aip"><thead><tr><th>ID</th><th>Class</th><th>Severity (EAD)</th><th>Category</th><th>Rule</th><th>Check</th></tr></thead><tbody>' + l.slice(0, 500).map(function (r) {
+        return '<tr><td class="nowrap" style="font-size:11.5px">' + esc(r.id) + '</td><td>' + esc(r.c) + '</td><td class="sev-' + (/Error/.test(r.s) ? 'err' : /Warning/.test(r.s) ? 'warn' : 'info') + '">' + esc(r.s) + '</td><td>' + esc(r.g) + '</td><td><b>' + esc(r.n) + '</b><div style="font-size:12.5px">' + esc(r.x) + '</div></td><td>' + (r.k ? '<span class="chip ok">auto</span><div class="muted" style="font-size:11px">' + esc(RULES.describe(r.k)) + '</div>' : '<span class="muted">reference</span>') + '</td></tr>';
+      }).join('') + '</tbody></table>' + (l.length > 500 ? '<div class="more-rows muted">Showing 500 of ' + num(l.length) + ' — refine the search or export to Excel.</div>' : '') + '</div>';
+    }
+    $('#c-q').oninput = function (e) { q = S.catQ = e.target.value; draw(); };
+    $('#c-auto').onchange = function (e) { auto = S.catAuto = e.target.value; draw(); };
+    $('#c-xlsx').onclick = function () {
+      runExport('xlsx', { title: 'AIXM 5.1 business rules', sub: RULES.source(), ds: dsOf(), sections: [{ no: 'RULES', title: 'AIXM 5.1 business rules', blocks: [{ kind: 'table', cols: ['ID', 'Name', 'Class', 'Severity (EAD)', 'Category', 'Source', 'Reference', 'Rule', 'Comments', 'Checked automatically'],
+        rows: list().map(function (r) { return [AIP.C(r.id), AIP.C(r.n), AIP.C(r.c), AIP.C(r.s), AIP.C(r.g), AIP.C(r.src), AIP.C(r.ref), AIP.C(r.x), AIP.C(r.cm), AIP.C(r.k ? RULES.describe(r.k) : '')]; }) }] }] });
+    };
+    draw();
+  }
+
+
+  function qTabs(active) {
+    return '<div class="pill-tabs q-tabs">' + [['basic', 'Basic checks'], ['rules', 'AIXM business rules (SBVR)'], ['cat', 'Rule catalogue']].map(function (x) { return '<button class="' + (active === x[0] ? 'active' : '') + '" data-qtab="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+  }
   function viewQuality(v) {
     var ds = dsOf();
     if (!ds) { v.innerHTML = emptyState('No data', ''); return; }
+    v.onclick = function (e) { var tb = e.target.closest('[data-qtab]'); if (tb) { S.qTab = tb.getAttribute('data-qtab'); go('quality'); } };
+    if (S.qTab === 'rules') { viewRules(v, ds); return; }
+    if (S.qTab === 'cat') { viewRuleCatalogue(v); return; }
     var iss = S.quality.get(ds);
-    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Checks based on the AIXM schema code lists, AIXM temporality rules and the minimum ICAO AIP data: coordinates, references, frequencies, bearings, missing mandatory AIP items. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' +
+    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Checks based on the AIXM schema code lists, AIXM temporality rules and the minimum ICAO AIP data: coordinates, references, frequencies, bearings, missing mandatory AIP items. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('basic') +
       '<div class="toolbar"><button class="btn primary" id="q-run">' + I.check + (iss ? ' Run again' : ' Run checks') + '</button><select class="inp" id="q-sev"><option value="">All severities</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Info</option></select><input class="inp" id="q-q" placeholder="Filter…"><span class="sp"></span>' +
       '<button class="btn small" id="q-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="q-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="q-mail">' + I.mail + ' E-mail</button></div><div id="q-out"></div>';
     $('#q-run').onclick = async function () {

@@ -490,7 +490,9 @@ var AX = (function () {
       for (var i = 0; i < el.c.length; i++) {
         var ch = el.c[i];
         if (isGml(ch, ctx)) continue;
-        addProp(o, ch.n, convProp(ch, ctx, srs));
+        var cv = convProp(ch, ctx, srs);
+        if (cv === undefined && attr(ch, 'nil') === 'true') o._na = o._na ? o._na + ',' + ch.n : ch.n; // declared not applicable
+        else addProp(o, ch.n, cv);
       }
     } else if (!kind) {
       var t = textOf(el);
@@ -524,7 +526,9 @@ var AX = (function () {
         case 'featureLifetime': pr = period(ch); o.lb = pr[0]; o.le = pr[1]; break;
         default:
           if (isGml(ch, ctx)) break;
-          addProp(o.p, ch.n, convProp(ch, ctx, null));
+          var pv = convProp(ch, ctx, null);
+          if (pv === undefined && attr(ch, 'nil') === 'true') o.p._na = o.p._na ? o.p._na + ',' + ch.n : ch.n;
+          else addProp(o.p, ch.n, pv);
       }
     }
     return o;
@@ -973,7 +977,7 @@ var AX = (function () {
     for (var k in p) {
       if (skipKeys && skipKeys[k]) continue;
       var v = p[k], path = prefix ? prefix + '/' + k : k;
-      if (k === '_t') continue;
+      if (k === '_t' || k === '_na') continue;
       if (k === '_geo') { out[path] = geoSig(v); continue; }
       if (Array.isArray(v)) {
         var items = v.map(function (x) { var o = {}; if (x && typeof x === 'object' && valStr(x) === null) flatten(x, '', o); else o[''] = valStr(x); return o; });
