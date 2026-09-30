@@ -28,6 +28,7 @@
     </div>
     <span class="sp"></span>
     <button class="tb-btn hidden" id="state-btn" title="Switch State / AIRAC cycle"></button>
+    <button class="tb-btn" id="bm-btn" title="Saved views and links (bookmarks)">☆</button>
     <select id="ds-select" title="Active data set" class="hidden"></select>
     <div class="row" title="Show the data valid at this date (AIXM temporality)">
       <select id="asof-mode">
@@ -36,6 +37,7 @@
       </select>
       <input type="date" id="asof-date" class="hidden">
     </div>
+    <select id="lang-sel" class="lang-sel" title="Language / اللغة"><option value="en">EN</option><option value="ar">العربية</option><option value="fr">FR</option><option value="es">ES</option></select>
     <button class="tb-btn" id="theme-btn" title="Light / dark theme"></button>
     <button class="tb-btn" id="help-btn" title="Help">?</button>
   </header>
@@ -67,6 +69,7 @@
 <script>/*@@INLINE_JS:src/exports.js@@*/</script>
 <script>/*@@INLINE_JS:src/convert.js@@*/</script>
 <script>/*@@INLINE_JS:src/review.js@@*/</script>
+<script>/*@@INLINE_JS:src/i18n.js@@*/</script>
 <script>/*@@INLINE_JS:src/app.js@@*/</script>
 </body>
 </html>

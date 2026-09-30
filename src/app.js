@@ -103,6 +103,7 @@
     v.className = 'view' + (view === 'aip' || view === 'map' || view === 'explorer' ? ' full' : '');
     main.appendChild(v);
     ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, timeline: viewTimeline, notam: viewNotam, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport })[view](v, opts || {});
+    updateHash();
   }
 
   /* ------------------------------------------------------------- theme */
@@ -271,7 +272,7 @@
       await extractOne(f);
     }
     renderFileList();
-    if (S.datasets.length) { initSearch(); renderDsSelect(); go('dash'); }
+    if (S.datasets.length) { initSearch(); renderDsSelect(); if (!checkPending()) go('dash'); }
   }
   function cancelExtraction(id) {
     var r = running.get(id);
@@ -459,6 +460,7 @@
     return ds;
   }
   function activate(ds) {
+    if (S.pendingHash && S.pendingHash.f === ds.name && checkPending()) return;
     S.active = S.datasets.indexOf(ds); S.aipSel = null;
     renderDsSelect(); renderStateBtn(); initSearch();
     var v = S.view === 'files' || S.view === 'library' ? 'dash' : S.view;
@@ -588,6 +590,133 @@
   }
   $('#ds-select').addEventListener('change', function (e) { S.active = +e.target.value; S.aipSel = null; renderStateBtn(); go(S.view); });
   $('#state-btn').addEventListener('click', function (e) { e.stopPropagation(); toggleStatePop(); });
+
+  /* ------------------------------------------------ links and bookmarks */
+  // The address (#…) always describes the current view: file, page, AIP section, cycle, date, map position.
+  function secToken(ds, id) {
+    var m = /^(AD[23]\.\d+:|AD:)(\d+)$/.exec(id || '');
+    if (!m) return id || '';
+    var ad = ds.recs[+m[2]];
+    return ad ? m[1].replace(':', '') + '@' + M.shortName(ad) : id;
+  }
+  function secFromToken(ds, tok) {
+    var m = /^(AD[23]\.\d+|AD)@(.+)$/.exec(tok || '');
+    if (!m) return tok || null;
+    var ad = (ds.byType.AirportHeliport || []).filter(function (a) { return M.shortName(a) === m[2]; })[0];
+    return ad ? m[1] + ':' + ad.i : null;
+  }
+  function viewParams() {
+    var ds = dsOf(), p = {};
+    if (!ds) return p;
+    p.v = S.view; p.f = ds.name;
+    if (S.view === 'aip' && S.aipSel) p.s = secToken(ds, S.aipSel);
+    if (ds.hlCycle) p.c = ds.hlCycle.id;
+    if (S.sbs) { var sk = S.sbs.key; if (sk.indexOf('ds:') === 0) { var o = S.datasets[+sk.slice(3)]; if (o) p.x = 'f:' + o.name; } else p.x = sk; }
+    if (S.asOf !== null && S.asOf !== undefined) p.d = new Date(S.asOf).toISOString().slice(0, 10);
+    if (S.view === 'map' && MAPVIEW.isMounted()) { var lm = MAPVIEW.leaflet(), c = lm.getCenter(); p.m = c.lat.toFixed(4) + ',' + c.lng.toFixed(4) + ',' + lm.getZoom(); }
+    return p;
+  }
+  function toHash(p) { return '#' + Object.keys(p).map(function (k) { return k + '=' + encodeURIComponent(p[k]); }).join('&'); }
+  function parseHash(h) {
+    var p = {};
+    String(h || '').replace(/^#/, '').split('&').forEach(function (kv) { var i = kv.indexOf('='); if (i > 0) p[kv.slice(0, i)] = decodeURIComponent(kv.slice(i + 1)); });
+    return p;
+  }
+  var hashT = null;
+  function updateHash() {
+    clearTimeout(hashT);
+    hashT = setTimeout(function () {
+      if (!S.datasets.length) return;
+      try { history.replaceState(null, '', toHash(viewParams())); } catch (e) { /* not allowed here */ }
+    }, 120);
+  }
+  function applyParams(p) {
+    var ds = S.datasets.filter(function (d) { return d.name === p.f; })[0];
+    if (!ds) return false;
+    S.active = S.datasets.indexOf(ds);
+    if (p.d) { var t = Date.parse(p.d + 'T00:00:00Z'); if (!isNaN(t) && t !== S.asOf) { $('#asof-mode').value = 'date'; $('#asof-date').classList.remove('hidden'); $('#asof-date').value = p.d; S.asOf = t; S.datasets.forEach(function (d) { M.setViewDate(d, t); d.catalogue = null; d.searchIdx = null; }); } }
+    if (p.c) { var cy = ANALYSIS.changeCycles(ds).filter(function (x) { return x.cycle.id === p.c; })[0]; ds.hlCycle = cy ? cy.cycle : ds.hlCycle; ds.cyc = null; S.hlOn = true; }
+    S.sbs = null;
+    if (p.x) {
+      if (p.x.indexOf('f:') === 0) { var o = S.datasets.filter(function (d) { return d.name === p.x.slice(2); })[0]; if (o) S.sbs = { key: 'ds:' + S.datasets.indexOf(o) }; }
+      else S.sbs = { key: p.x };
+    }
+    if (p.s) { S.aipSel = secFromToken(ds, p.s); var mm = /^(AD[23]\.\d+|AD):(\d+)$/.exec(S.aipSel || ''); if (mm) S.aipOpen['AD:' + mm[2]] = true; }
+    renderDsSelect(); renderStateBtn(); initSearch();
+    var opts = {};
+    if (p.v === 'map' && p.m) { var q = p.m.split(','); opts.center = [+q[0], +q[1], +q[2]]; }
+    go(p.v && p.v !== 'files' && p.v !== 'library' ? p.v : 'dash', opts);
+    if (opts.center) setTimeout(function () { MAPVIEW.leaflet().setView([opts.center[0], opts.center[1]], opts.center[2], { animate: false }); }, 60);
+    return true;
+  }
+  // a link opened before its file is loaded waits for that file
+  S.pendingHash = (function () { var p = parseHash(location.hash); return p.f ? p : null; })();
+  function checkPending() {
+    if (!S.pendingHash) return false;
+    var f = S.pendingHash.f;
+    if (applyParams(S.pendingHash)) { S.pendingHash = null; toast('Opened the linked view of ' + f); return true; }
+    return false;
+  }
+  async function loadBookmarks() { try { return (await LIBRARY.setting('bookmarks')) || []; } catch (e) { return []; } }
+  async function saveBookmarks(list) { try { await LIBRARY.setting('bookmarks', list); } catch (e) { toast('Could not save bookmarks in this browser.'); } }
+  function linkFor(p) { return location.href.replace(/#.*$/, '') + toHash(p); }
+  async function toggleBmPop() {
+    var old = $('#bm-pop');
+    if (old) { old.remove(); return; }
+    var list = await loadBookmarks(), ds = dsOf();
+    var pop = document.createElement('div');
+    pop.className = 'state-pop bm-pop'; pop.id = 'bm-pop';
+    var cur = ds ? viewParams() : null;
+    var h = '<div class="sp-h">Current view</div>' + (ds ? '<div class="row" style="gap:6px;padding:4px 10px 8px;flex-wrap:wrap"><input class="inp" id="bm-name" style="flex:1;min-width:180px" value="' + esc(bmTitle(cur)) + '"><button class="btn small primary" data-bm="save">☆ Save</button><button class="btn small" data-bm="link">' + I.copy + ' Copy link</button></div>' +
+      '<div class="muted" style="font-size:11.5px;padding:0 10px 6px">A link opens this page, section, cycle and map position. The receiver needs the same AIXM file (in the Library or loaded).</div>' : '<div class="muted" style="padding:6px 10px">Open a data set to save a view.</div>');
+    h += '<div class="sp-h">Saved views (' + list.length + ')</div>' + (list.length ? list.map(function (b, i) {
+      var loaded = S.datasets.some(function (d) { return d.name === b.p.f; });
+      return '<div class="sp-i" data-bmo="' + i + '"><div style="min-width:0"><b>' + esc(b.title) + '</b><div class="muted" style="font-size:11.5px">' + esc(b.p.f) + (loaded ? '' : ' · not loaded') + ' · ' + esc(M.fmtDate(b.at)) + '</div></div><span class="sp"></span><button class="btn small ghost" data-bml="' + i + '" title="Copy link">' + I.copy + '</button><button class="btn small ghost" data-bmd="' + i + '" title="Delete">' + I.trash + '</button></div>';
+    }).join('') : '<div class="muted" style="padding:6px 10px">No saved views yet.</div>');
+    pop.innerHTML = h;
+    pop.style.right = '100px';
+    document.body.appendChild(pop);
+    pop.addEventListener('click', async function (e) {
+      var b = e.target.closest('[data-bm],[data-bmo],[data-bml],[data-bmd]');
+      if (!b) return;
+      e.stopPropagation();
+      if (b.getAttribute('data-bm') === 'save') {
+        var p = viewParams();
+        list.unshift({ title: $('#bm-name').value || bmTitle(p), p: p, at: Date.now(), lib: ds.lib ? { state: ds.lib.state, path: ds.lib.path } : null });
+        await saveBookmarks(list.slice(0, 200)); pop.remove(); toast('View saved — find it under ☆'); return;
+      }
+      if (b.getAttribute('data-bm') === 'link') { copyText(linkFor(viewParams())); return; }
+      if (b.hasAttribute('data-bml')) { copyText(linkFor(list[+b.getAttribute('data-bml')].p)); return; }
+      if (b.hasAttribute('data-bmd')) { list.splice(+b.getAttribute('data-bmd'), 1); await saveBookmarks(list); pop.remove(); toggleBmPop(); return; }
+      var bm = list[+b.getAttribute('data-bmo')];
+      pop.remove();
+      openBookmark(bm);
+    });
+  }
+  function bmTitle(p) {
+    if (!p) return '';
+    var names = { aip: 'AIP', map: 'Map', dash: 'Dashboard', changes: 'Changes', timeline: 'Timeline', compare: 'Compare', notam: 'NOTAM', quality: 'Quality', explorer: 'Explorer', export: 'Export' };
+    var ds = dsOf();
+    return (ds ? ds.state + ' · ' : '') + (p.s ? p.s.replace('@', ' ') : names[p.v] || p.v) + (p.c ? ' · AIRAC ' + p.c : ds && ds.airac ? ' · AIRAC ' + ds.airac.id : '') + (p.x ? ' · side by side' : '');
+  }
+  async function openBookmark(bm) {
+    if (applyParams(bm.p)) return;
+    // not loaded: open it from the library when possible
+    if (bm.lib) {
+      var st = libStates().filter(function (x) { return x.name === bm.lib.state; })[0], f = st && st.files.filter(function (x) { return x.path === bm.lib.path; })[0];
+      if (f) { var ds = await openLibFile(st.name, f, { silent: true }); if (ds && applyParams(bm.p)) return; }
+    }
+    S.pendingHash = bm.p;
+    toast('Load ' + bm.p.f + ' (Files or Library) — the saved view opens automatically.', 7000);
+  }
+  (function () {
+    var ls = $('#lang-sel'), l = I18N.init();
+    ls.value = l;
+    ls.addEventListener('change', function () { I18N.set(ls.value); if (MAPVIEW.isMounted()) MAPVIEW.invalidate(); });
+  })();
+  $('#bm-btn').addEventListener('click', function (e) { e.stopPropagation(); toggleBmPop(); });
+  document.addEventListener('click', function (e) { var p = $('#bm-pop'); if (p && !e.target.closest('#bm-pop') && !e.target.closest('#bm-btn')) p.remove(); });
+  window.addEventListener('hashchange', function () { var p = parseHash(location.hash); if (p.f) { var cur = viewParams(); if (toHash(cur) !== toHash(p) && !applyParams(p)) S.pendingHash = p; } });
 
   /* ------------------------------------------------------------- as of */
   $('#asof-mode').addEventListener('change', function (e) {
@@ -912,6 +1041,7 @@
       h += '</div>';
       host.innerHTML = h;
       if (sbs) sbsSync(host);
+      updateHash();
       var sbsSel = $('[data-sbs]', host);
       if (sbsSel) sbsSel.onchange = function () { S.sbs = sbsSel.value ? { key: sbsSel.value } : null; if (S.sbs && S.sbs.key === 'lib') { sbsFromLibrary(ds); return; } renderSection(ds, S.aipSel); };
       host.scrollTop = 0;
@@ -1228,6 +1358,7 @@
       toast: toast, openAip: openAipFor, openXml: function (ds, r) { openXml(ds, r); }, openDetail: function (ds, r) { openDetail(ds, r); },
       savePng: function (url) { fetch(url).then(function (res) { return res.blob(); }).then(function (b) { EXPORTS.download('aixm-map.png', b); }); }
     }, { ds: opts.ds || dsOf(), cmp: S.cmp, procs: opts.procs });
+    MAPVIEW.leaflet().on('moveend', updateHash);
     if (opts.focus) setTimeout(function () { MAPVIEW.focus(opts.ds || dsOf(), opts.focus); }, 250);
   }
 
