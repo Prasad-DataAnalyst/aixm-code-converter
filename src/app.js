@@ -1380,7 +1380,14 @@
       expCard('print', I.print, 'Print', 'Opens the printer dialog (or "Save as PDF") with print-optimised layout.') +
       expCard('xlsx', I.xls, 'Excel (.xlsx)', 'One sheet per section, with the AIXM line of each row. Very large tables are split automatically.') +
       expCard('json', I.json, 'JSON', 'Structured data with the source reference (feature, UUID, line, byte offset) of every value.') +
-      expCard('mail', I.mail, 'E-mail for Outlook', 'Formatted e-mail you can copy & paste into Outlook, or save as .eml (opens as a draft) / .html.') + '</div>';
+      expCard('mail', I.mail, 'E-mail for Outlook', 'Formatted e-mail you can copy & paste into Outlook, or save as .eml (opens as a draft) / .html.') + '</div>' +
+      '<h3 style="margin:22px 0 10px">3 · Convert AIXM and GIS formats <span class="muted" style="font-weight:400">(whole data set)</span></h3><div class="export-grid">' +
+      (ds.family === '5' ? '<div class="card export-card"><h4>' + I.code + 'Convert AIXM version</h4><div class="muted" style="font-size:13px;flex:1">Rewrites this ' + esc(ds.sniff.versionLabel) + ' file as another AIXM 5 version (namespaces, schema location, renamed 5.2 features). Streams the original file — works for multi-GB files. A conversion report lists items to review.</div>' +
+        '<div class="row"><select class="inp" id="cv-target"><option value="5.2">AIXM 5.2</option><option value="5.1.1">AIXM 5.1.1</option><option value="5.1">AIXM 5.1</option></select><button class="btn primary" data-cv="ver">Convert</button></div></div>' :
+        '<div class="card export-card"><h4>' + I.code + 'AIXM 4.5 → AIXM 5.1.1</h4><div class="muted" style="font-size:13px;flex:1">Writes an AIXM 5.1.1 BasicMessage from this 4.5 data set (aerodromes, runways, declared distances, lighting, navaids, points, airspace with borders, routes, obstacles, units, services, frequencies…). UUIDs are derived from the 4.5 identifiers.</div><button class="btn primary" data-cv="45">Convert to 5.1.1</button></div>') +
+      '<div class="card export-card"><h4>' + I.map + 'GeoJSON</h4><div class="muted" style="font-size:13px;flex:1">All features with geometry (WGS 84) and key attributes, for QGIS, ArcGIS, web maps.</div><button class="btn primary" data-cv="geojson">Export GeoJSON</button></div>' +
+      '<div class="card export-card"><h4>' + I.map + 'KML (Google Earth)</h4><div class="muted" style="font-size:13px;flex:1">Folders per feature type, styled airspace, routes, points and obstacles with attribute tables.</div><button class="btn primary" data-cv="kml">Export KML</button></div>' +
+      '<div class="card export-card"><h4>' + I.map + 'ESRI Shapefile (.zip)</h4><div class="muted" style="font-size:13px;flex:1">Separate point, line and polygon shapefiles with .dbf attributes and WGS 84 .prj.</div><button class="btn primary" data-cv="shp">Export Shapefile</button></div></div>';
     function scope() {
       var sc = $('input[name="scope"]:checked', v).value;
       if (sc === 'features') return { title: ds.state + ' — all AIXM features', ds: ds, sections: [], features: ds.recs };
@@ -1393,6 +1400,24 @@
       if (!sections.length) { toast('Nothing selected'); return null; }
       return { title: ds.state + ' — ' + ({ all: 'AIP data (GEN, ENR, AD)', GEN: 'GEN', ENR: 'ENR', AD: 'AD aerodromes', ads: 'selected aerodromes' })[sc], sub: ds.name, ds: ds, sections: sections };
     }
+    $$('[data-cv]', v).forEach(function (b) {
+      b.onclick = async function () {
+        var k = b.getAttribute('data-cv'), base = EXPORTS.safeName(ds.state + '_' + ds.name.replace(/\.[^.]+$/, ''));
+        try {
+          if (k === 'geojson') EXPORTS.download(base + '.geojson', CONVERT.toGeoJSON(ds));
+          else if (k === 'kml') EXPORTS.download(base + '.kml', CONVERT.toKML(ds));
+          else if (k === 'shp') EXPORTS.download(base + '_shapefile.zip', CONVERT.toShapefile(ds));
+          else if (k === '45') { var r45 = CONVERT.writer45(ds); EXPORTS.download(base + '_AIXM-5.1.1.xml', r45.blob); showReport(r45.report); }
+          else if (k === 'ver') {
+            if (!ds.file) { toast('The original file is not connected — open it again from Files or the Library.'); return; }
+            var tgt = $('#cv-target', v).value, ov = overlay('Converting to AIXM ' + tgt);
+            var res = await CONVERT.convertVersion(ds, tgt, function (f) { var bb = $('#ov-bar'); if (bb) bb.style.width = (f * 100).toFixed(0) + '%'; });
+            ov.remove();
+            EXPORTS.download(base + '_AIXM-' + tgt + '.xml', res.blob); showReport(res.report);
+          }
+        } catch (err) { var o2 = $('#overlay'); if (o2) o2.remove(); toast('Conversion failed: ' + err.message, 7000); }
+      };
+    });
     $$('[data-exp]', v).forEach(function (b) {
       b.onclick = function () {
         var sc = scope();
@@ -1403,6 +1428,14 @@
         runExport(k, sc);
       };
     });
+  }
+  function showReport(rep) {
+    var back = document.createElement('div');
+    back.className = 'modal-back';
+    back.innerHTML = '<div class="modal"><div class="modal-head"><h3>Conversion report — ' + esc(rep.from) + ' → ' + esc(rep.to) + '</h3><span class="sp"></span><button class="btn small ghost" data-close>' + I.x + '</button></div><div class="modal-body">' +
+      '<ul>' + rep.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + (rep.renamed ? '<li>' + rep.renamed + ' element tag(s) renamed.</li>' : '') + '</ul><p class="muted">The converted file has been downloaded.</p></div></div>';
+    document.body.appendChild(back);
+    back.addEventListener('click', function (e) { if (e.target === back || e.target.closest('[data-close]')) back.remove(); });
   }
   function expCard(k, icon, t, d) { return '<div class="card export-card"><h4>' + icon + t + '</h4><div class="muted" style="font-size:13px;flex:1">' + d + '</div><button class="btn primary" data-exp="' + k + '">Export</button></div>'; }
 
