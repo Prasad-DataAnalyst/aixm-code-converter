@@ -236,5 +236,60 @@ var ANALYSIS = (function () {
     return issues;
   }
 
-  return { inFileChanges: inFileChanges, compare: compare, quality: quality, prettyPath: prettyPath, displayVal: displayVal, naturalKey: naturalKey };
+  /* ------------------------------------------------ changes in one AIRAC cycle
+   * Collects everything that changes in the given cycle for data set `ds`:
+   *  - time slices of the file that become effective inside the cycle
+   *  - differences against the previous cycle's file (ds.prevCmp, from compare())
+   * Result: {cycle, byRec: Map(rec -> {props: Map(prop -> [{path, old, neu, src}]), added, kind}), count, list}
+   */
+  function topProp(path) { return String(path).split('/')[0].replace(/\[\d+\]$/, ''); }
+  function cycleChanges(ds, cycle) {
+    if (!cycle) cycle = ds.airac;
+    var res = { cycle: cycle, byRec: new Map(), count: 0, list: [], sources: [] };
+    if (!cycle) return res;
+    function entry(r) { var e = res.byRec.get(r); if (!e) { res.byRec.set(r, e = { props: new Map(), added: false, kinds: new Set() }); } return e; }
+    function addField(r, f, src, kind) {
+      var e = entry(r), tp = topProp(f.path);
+      var l = e.props.get(tp); if (!l) e.props.set(tp, l = []);
+      l.push({ path: f.path, old: f.old, neu: f.neu, src: src });
+      e.kinds.add(kind);
+    }
+    var ev = ds._events || (ds._events = inFileChanges(ds));
+    var inCycle = ev.filter(function (e) { return e.t !== null && e.t >= cycle.date && e.t < cycle.next; });
+    if (inCycle.length) res.sources.push('time slices in the file starting in AIRAC ' + cycle.id);
+    inCycle.forEach(function (e) {
+      if (!e.fields.length) { var en = entry(e.rec); en.kinds.add(e.kind); if (/New|withdrawn|Withdrawn/.test(e.kind)) en.added = /New/.test(e.kind); }
+      e.fields.forEach(function (f) { addField(e.rec, f, 'file', e.kind); });
+    });
+    var cmp = ds.prevCmp;
+    if (cmp && cmp.b === ds) {
+      res.sources.push('comparison with ' + cmp.a.name + (cmp.a.airac ? ' (AIRAC ' + cmp.a.airac.id + ')' : ''));
+      cmp.items.forEach(function (it) {
+        if (it.kind === 'added') { var e2 = entry(it.b); e2.added = true; e2.kinds.add('New (not in previous cycle)'); }
+        else if (it.kind === 'modified') it.fields.forEach(function (f) { addField(it.b, f, 'prev', 'Changed since previous cycle'); });
+      });
+      res.removed = cmp.items.filter(function (it) { return it.kind === 'removed'; });
+    }
+    res.byRec.forEach(function (e, r) { res.count++; res.list.push({ rec: r, e: e, sec: AIP.sectionOf(ds, r) }); });
+    res.list.sort(function (a, b) { return a.sec.no < b.sec.no ? -1 : a.sec.no > b.sec.no ? 1 : 0; });
+    // per-section counters (for the AIP tree badges)
+    res.bySection = {};
+    res.list.forEach(function (x) {
+      if (!x.sec.id) return;
+      res.bySection[x.sec.id] = (res.bySection[x.sec.id] || 0) + 1;
+      if (x.sec.ad) res.bySection['AD:' + x.sec.ad.i] = (res.bySection['AD:' + x.sec.ad.i] || 0) + 1;
+      var grp = x.sec.no.slice(0, 3);
+      res.bySection[grp] = (res.bySection[grp] || 0) + 1;
+    });
+    return res;
+  }
+  // cycles in which the file contains changes (for the cycle selector)
+  function changeCycles(ds) {
+    var ev = ds._events || (ds._events = inFileChanges(ds)), m = new Map();
+    ev.forEach(function (e) { if (e.t === null) return; var a = AX.airac(e.t); if (!a) return; var c = m.get(a.id) || { cycle: a, n: 0 }; c.n++; m.set(a.id, c); });
+    if (ds.airac && !m.has(ds.airac.id)) m.set(ds.airac.id, { cycle: ds.airac, n: 0 });
+    return Array.from(m.values()).sort(function (a, b) { return b.cycle.date - a.cycle.date; });
+  }
+
+  return { cycleChanges: cycleChanges, changeCycles: changeCycles, topProp: topProp, inFileChanges: inFileChanges, compare: compare, quality: quality, prettyPath: prettyPath, displayVal: displayVal, naturalKey: naturalKey };
 })();

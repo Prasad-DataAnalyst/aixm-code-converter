@@ -1033,6 +1033,35 @@ pre.xml .ln.hl { background: var(--hl); }
   .map-panel { width: 220px; }
 }
 
+/* ------------------------------------------------------ cycle changes (red) */
+.src.chg, .chg-badge { background: #c62828 !important; color: #fff !important; border-radius: 4px; padding: 1px 4px; box-shadow: 0 0 0 2px rgba(198, 40, 40, .25); font-weight: 600; }
+.src.chg:hover { background: #a61b1b !important; }
+.src.chg-soft { box-shadow: inset 0 -2px 0 #c62828; }
+tr.chg-row > td:first-child { box-shadow: inset 4px 0 0 #c62828; }
+.tree .cbadge { background: #c62828; color: #fff; border-radius: 9px; font-size: 10.5px; font-weight: 700; padding: 0 6px; margin-left: 4px; flex: none; }
+.cycle-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: #fdeaea; border: 1px solid #f3b8b8; color: #7a1010; margin-top: 8px; font-size: 13px; }
+:root[data-theme="dark"] .cycle-bar { background: #3a1616; border-color: #6b2626; color: #ffc9c9; }
+.cycle-bar select { height: 28px; border-radius: 7px; border: 1px solid #e4a3a3; background: #fff; }
+.cycle-list { max-height: 60vh; overflow: auto; }
+.chg-box { margin: 10px 16px; padding: 10px 12px; border-radius: 10px; background: #c62828; color: #fff; font-size: 12.5px; }
+.chg-box b { display: block; margin-bottom: 4px; }
+.state-pop { position: absolute; top: 48px; right: 150px; width: 420px; max-height: 75vh; overflow: auto; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-lg); z-index: 80; padding: 8px; }
+.state-pop .sp-h { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); padding: 8px 10px 4px; }
+.state-pop .sp-i { display: flex; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 9px; cursor: pointer; }
+.state-pop .sp-i:hover, .state-pop .sp-i.active { background: var(--brand-soft); }
+.state-pop .sp-files { padding-left: 30px; }
+.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
+.lib-card { overflow: hidden; }
+.lib-card.over { outline: 3px dashed var(--brand); }
+.lib-card .lc-head { padding: 14px 16px; background: linear-gradient(110deg, #4a0428, #5c0632 50%, #8e2a5a); color: #fff; display: flex; align-items: center; gap: 10px; }
+.lib-card .lc-head b { font-size: 17px; }
+.lib-file { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 9px 16px; border-top: 1px solid var(--border); align-items: center; }
+.lib-file:hover { background: var(--surface-2); }
+.overlay { position: fixed; inset: 0; background: rgba(20, 5, 12, .45); z-index: 120; display: grid; place-items: center; }
+.overlay .card { width: min(560px, 92vw); padding: 20px; }
+.lib-card .lc-head .btn { color: var(--brand); background: #fff; border-color: #fff; }
+.lib-file .row { flex-wrap: wrap; justify-content: flex-end; }
+
 </style>
 </head>
 <body>
@@ -1051,6 +1080,7 @@ pre.xml .ln.hl { background: var(--hl); }
       <div class="search-results hidden" id="search-results"></div>
     </div>
     <span class="sp"></span>
+    <button class="tb-btn hidden" id="state-btn" title="Switch State / AIRAC cycle"></button>
     <select id="ds-select" title="Active data set" class="hidden"></select>
     <div class="row" title="Show the data valid at this date (AIXM temporality)">
       <select id="asof-mode">
@@ -2805,9 +2835,13 @@ var MODEL = (function () {
   function finalize(ds) {
     var t0 = Date.now();
     // 1) absolute line numbers
-    var pre = [0];
-    for (var i = 0; i < ds.partLines.length; i++) pre[i + 1] = pre[i] + (ds.partLines[i] || 0);
+    var pre = [0], i;
     var recs = ds.recs, byId = new Map(), out = [];
+    if (ds.prepared) { // restored from the saved library cache: lines and merges already done
+      recs.forEach(function (r) { byId.set(r.id || ('@' + r.o), r); });
+      out = recs;
+    } else {
+    for (i = 0; i < (ds.partLines || []).length; i++) pre[i + 1] = pre[i] + (ds.partLines[i] || 0);
     for (i = 0; i < recs.length; i++) {
       var r = recs[i];
       r.line = pre[r.w || 0] + (r.l || 0) + 1;
@@ -2827,6 +2861,7 @@ var MODEL = (function () {
       r.ts.forEach(function (t) { t.occ = 0; });
       byId.set(key, r);
       out.push(r);
+    }
     }
     out.sort(function (a, b) { return a.o - b.o; });
     out.forEach(function (r, idx) { r.i = idx; });
@@ -3486,6 +3521,198 @@ var MODEL = (function () {
     fContact: fContact, fFreq: fFreq, fv: fv, propDef: propDef, featureDef: featureDef, codeDef: codeDef, def45: def45,
     adEffective: adEffective, fmtDate: fmtDate, fmtTs: fmtTs, AD_COMPONENT: AD_COMPONENT, EQUIPMENT: EQUIPMENT, SERVICE: SERVICE, UOM: UOM
   };
+})();
+</script>
+<script>/* =============================================================================
+ * AIXM Code Converter - local State library + persistent cache
+ *  - connects to a folder on the local drive (File System Access API) whose
+ *    sub-folders are States (e.g. Saudi, UAE, India); the folder handle is kept
+ *    in IndexedDB so the library re-opens automatically next time
+ *  - scans State folders for AIXM files, detects new files, can write dropped
+ *    files into a State folder
+ *  - stores extracted data sets in IndexedDB so re-opening / switching States
+ *    is instant (no re-reading of large files)
+ *  Fallback (browsers without the API): pick the folder once per session.
+ * ========================================================================== */
+/* global AX */
+var LIBRARY = (function () {
+  'use strict';
+  var DBN = 'aixm-code-converter', DBV = 2, dbp = null;
+  var EXT = /\.(xml|aixm|gml|zip)$/i;
+
+  function db() {
+    if (dbp) return dbp;
+    dbp = new Promise(function (res, rej) {
+      var rq = indexedDB.open(DBN, DBV);
+      rq.onupgradeneeded = function () {
+        var d = rq.result;
+        ['kv', 'meta', 'chunks', 'sniff'].forEach(function (n) { if (!d.objectStoreNames.contains(n)) d.createObjectStore(n); });
+      };
+      rq.onsuccess = function () { res(rq.result); };
+      rq.onerror = function () { rej(rq.error); };
+    });
+    return dbp;
+  }
+  function tx(store, mode, fn) {
+    return db().then(function (d) {
+      return new Promise(function (res, rej) {
+        var t = d.transaction(store, mode), st = t.objectStore(store), out;
+        var r = fn(st);
+        if (r && 'onsuccess' in r) r.onsuccess = function () { out = r.result; };
+        t.oncomplete = function () { res(out); };
+        t.onerror = function () { rej(t.error); };
+        t.onabort = function () { rej(t.error); };
+      });
+    });
+  }
+  function get(store, key) { return tx(store, 'readonly', function (s) { return s.get(key); }); }
+  function put(store, key, val) { return tx(store, 'readwrite', function (s) { return s.put(val, key); }); }
+  function del(store, key) { return tx(store, 'readwrite', function (s) { return s.delete(key); }); }
+  function keys(store) { return tx(store, 'readonly', function (s) { return s.getAllKeys(); }); }
+  function getAll(store) { return tx(store, 'readonly', function (s) { return s.getAll(); }); }
+
+  /* --------------------------------------------------------------- folder */
+  var supported = typeof window !== 'undefined' && !!window.showDirectoryPicker;
+  var root = null, fallbackFiles = null;
+  async function connect() {
+    if (!supported) throw new Error('This browser cannot keep a folder connected. Use Chrome or Edge, or pick the folder for this session.');
+    var h = await window.showDirectoryPicker({ id: 'aixm-library', mode: 'readwrite' });
+    root = h; fallbackFiles = null;
+    await put('kv', 'root', h);
+    return h;
+  }
+  async function useHandle(h) { root = h; fallbackFiles = null; try { await put('kv', 'root', h); } catch (e) { /* handle not storable */ } }
+  async function restore() {
+    var h = null;
+    try { h = await get('kv', 'root'); } catch (e) { return { state: 'none' }; }
+    if (!h) return { state: 'none' };
+    root = h;
+    var p = 'granted';
+    try { if (h.queryPermission) p = await h.queryPermission({ mode: 'readwrite' }); } catch (e) { p = 'prompt'; }
+    return { state: p === 'granted' ? 'granted' : 'prompt', name: h.name };
+  }
+  async function reconnect() {
+    if (!root) return false;
+    var p = await root.requestPermission({ mode: 'readwrite' });
+    return p === 'granted';
+  }
+  async function forget() { root = null; fallbackFiles = null; await del('kv', 'root'); }
+  function useFallback(fileList) { // <input webkitdirectory>
+    fallbackFiles = Array.prototype.slice.call(fileList);
+    root = null;
+  }
+  function rootName() { return root ? root.name : fallbackFiles && fallbackFiles.length ? (fallbackFiles[0].webkitRelativePath || '').split('/')[0] : null; }
+  function isConnected() { return !!root || !!fallbackFiles; }
+  function fileKey(path, size, mtime) { return path + '|' + size + '|' + mtime; }
+
+  async function scanDir(dir, prefix, depth, out) {
+    for await (var entry of dir.values()) {
+      if (entry.name.charAt(0) === '.' || entry.name === '__MACOSX') continue;
+      if (entry.kind === 'directory') { if (depth < 3) await scanDir(entry, prefix + entry.name + '/', depth + 1, out); }
+      else if (EXT.test(entry.name)) {
+        try {
+          var f = await entry.getFile();
+          out.push({ name: f.name, path: prefix + f.name, size: f.size, mtime: f.lastModified, handle: entry, key: fileKey(prefix + f.name, f.size, f.lastModified) });
+        } catch (e) { /* unreadable file */ }
+      }
+    }
+    return out;
+  }
+  // -> {root, states:[{name, files:[...]}], loose:[...]}
+  async function scan() {
+    var states = new Map(), loose = [];
+    function add(stateName, f) { if (!stateName) { loose.push(f); return; } var s = states.get(stateName); if (!s) states.set(stateName, s = { name: stateName, files: [] }); s.files.push(f); }
+    if (root) {
+      for await (var entry of root.values()) {
+        if (entry.name.charAt(0) === '.') continue;
+        if (entry.kind === 'directory') {
+          var files = await scanDir(entry, entry.name + '/', 1, []);
+          if (!states.has(entry.name)) states.set(entry.name, { name: entry.name, files: [] });
+          files.forEach(function (f) { add(entry.name, f); });
+        } else if (EXT.test(entry.name)) {
+          var ff = await entry.getFile();
+          add(null, { name: ff.name, path: ff.name, size: ff.size, mtime: ff.lastModified, handle: entry, key: fileKey(ff.name, ff.size, ff.lastModified) });
+        }
+      }
+    } else if (fallbackFiles) {
+      fallbackFiles.forEach(function (f) {
+        if (!EXT.test(f.name)) return;
+        var parts = (f.webkitRelativePath || f.name).split('/');
+        var rel = parts.slice(1).join('/');
+        var st = parts.length > 2 ? parts[1] : null;
+        add(st, { name: f.name, path: rel, size: f.size, mtime: f.lastModified, file: f, key: fileKey(rel, f.size, f.lastModified) });
+      });
+    }
+    var list = Array.from(states.values()).sort(function (a, b) { return a.name.localeCompare(b.name); });
+    list.forEach(function (s) { s.files.sort(function (a, b) { return (fileDate(b) || 0) - (fileDate(a) || 0) || b.mtime - a.mtime; }); });
+    return { root: rootName(), states: list, loose: loose };
+  }
+  function fileDate(f) {
+    var m = /(20\d\d|19\d\d)[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\d|3[01])/.exec(f.name);
+    return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : null;
+  }
+  async function fileOf(f) { return f.file || (f.handle ? await f.handle.getFile() : null); }
+  async function writeInto(stateName, file) {
+    if (!root) throw new Error('No writable library folder is connected.');
+    var dir = await root.getDirectoryHandle(stateName, { create: true });
+    var fh = await dir.getFileHandle(file.name, { create: true });
+    var w = await fh.createWritable();
+    await w.write(file);
+    await w.close();
+    return fh;
+  }
+  async function createState(name) { if (!root) throw new Error('No writable library folder is connected.'); await root.getDirectoryHandle(name, { create: true }); }
+
+  /* ---------------------------------------------------------- sniff cache */
+  async function sniffOf(f) {
+    try { var c = await get('sniff', f.key); if (c) return c; } catch (e) { /* ignore */ }
+    var file = await fileOf(f);
+    var head = await file.slice(0, Math.min(file.size, 262144)).text();
+    var sn = AX.sniff(head, f.name);
+    try { await put('sniff', f.key, sn); } catch (e) { /* ignore */ }
+    return sn;
+  }
+
+  /* -------------------------------------------------------- dataset cache */
+  var CH = 4000;
+  function slim(r) {
+    var o = { k: r.k, id: r.id, ts: r.ts, o: r.o, n: r.n, line: r.line };
+    if (r.s45) o.s45 = r.s45;
+    if (r.gid) o.gid = r.gid;
+    if (r.occ) o.occ = r.occ;
+    if (r.raw) o.raw = r.raw;
+    if (r.chg) o.chg = r.chg;
+    if (r.mid) o.mid = r.mid;
+    if (r.err) o.err = r.err;
+    return o;
+  }
+  async function saveDataset(key, ds) {
+    var n = Math.ceil(ds.recs.length / CH);
+    for (var i = 0; i < n; i++) await put('chunks', key + '#' + i, ds.recs.slice(i * CH, (i + 1) * CH).map(slim));
+    await put('meta', key, { key: key, name: ds.name, size: ds.size, sniff: ds.sniff, family: ds.family, version: ds.version, chunks: n, count: ds.recs.length,
+      parseErrors: (ds.parseErrors || []).map(slim), tRead: ds.tRead, errors: ds.errors, savedAt: Date.now(), lib: ds.lib || null, state: ds.state });
+  }
+  async function loadDataset(key) {
+    var m = await get('meta', key);
+    if (!m) return null;
+    var recs = [];
+    for (var i = 0; i < m.chunks; i++) { var c = await get('chunks', key + '#' + i); if (!c) return null; recs = recs.concat(c); }
+    return { name: m.name, size: m.size, sniff: m.sniff, family: m.family, version: m.version, recs: recs, parseErrors: m.parseErrors, tRead: m.tRead, errors: m.errors, prepared: true, lib: m.lib, cachedAt: m.savedAt };
+  }
+  async function cachedKeys() { try { return new Set(await keys('meta')); } catch (e) { return new Set(); } }
+  async function cachedList() { try { return await getAll('meta'); } catch (e) { return []; } }
+  async function removeCached(key) {
+    var m = await get('meta', key);
+    if (m) for (var i = 0; i < m.chunks; i++) await del('chunks', key + '#' + i);
+    await del('meta', key);
+  }
+  async function clearCache() { var list = await cachedList(); for (var i = 0; i < list.length; i++) await removeCached(list[i].key); }
+  async function usage() { try { return navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null; } catch (e) { return null; } }
+  async function setting(k, v) { if (v === undefined) return get('kv', 'set:' + k); return put('kv', 'set:' + k, v); }
+
+  return { supported: supported, connect: connect, useHandle: useHandle, restore: restore, reconnect: reconnect, forget: forget, useFallback: useFallback, isConnected: isConnected,
+    rootName: rootName, scan: scan, fileOf: fileOf, fileDate: fileDate, writeInto: writeInto, createState: createState, sniffOf: sniffOf,
+    saveDataset: saveDataset, loadDataset: loadDataset, cachedKeys: cachedKeys, cachedList: cachedList, removeCached: removeCached, clearCache: clearCache, usage: usage, setting: setting, fileKey: fileKey };
 })();
 </script>
 <script>/* =============================================================================
@@ -4766,7 +4993,62 @@ var ANALYSIS = (function () {
     return issues;
   }
 
-  return { inFileChanges: inFileChanges, compare: compare, quality: quality, prettyPath: prettyPath, displayVal: displayVal, naturalKey: naturalKey };
+  /* ------------------------------------------------ changes in one AIRAC cycle
+   * Collects everything that changes in the given cycle for data set `ds`:
+   *  - time slices of the file that become effective inside the cycle
+   *  - differences against the previous cycle's file (ds.prevCmp, from compare())
+   * Result: {cycle, byRec: Map(rec -> {props: Map(prop -> [{path, old, neu, src}]), added, kind}), count, list}
+   */
+  function topProp(path) { return String(path).split('/')[0].replace(/\[\d+\]$/, ''); }
+  function cycleChanges(ds, cycle) {
+    if (!cycle) cycle = ds.airac;
+    var res = { cycle: cycle, byRec: new Map(), count: 0, list: [], sources: [] };
+    if (!cycle) return res;
+    function entry(r) { var e = res.byRec.get(r); if (!e) { res.byRec.set(r, e = { props: new Map(), added: false, kinds: new Set() }); } return e; }
+    function addField(r, f, src, kind) {
+      var e = entry(r), tp = topProp(f.path);
+      var l = e.props.get(tp); if (!l) e.props.set(tp, l = []);
+      l.push({ path: f.path, old: f.old, neu: f.neu, src: src });
+      e.kinds.add(kind);
+    }
+    var ev = ds._events || (ds._events = inFileChanges(ds));
+    var inCycle = ev.filter(function (e) { return e.t !== null && e.t >= cycle.date && e.t < cycle.next; });
+    if (inCycle.length) res.sources.push('time slices in the file starting in AIRAC ' + cycle.id);
+    inCycle.forEach(function (e) {
+      if (!e.fields.length) { var en = entry(e.rec); en.kinds.add(e.kind); if (/New|withdrawn|Withdrawn/.test(e.kind)) en.added = /New/.test(e.kind); }
+      e.fields.forEach(function (f) { addField(e.rec, f, 'file', e.kind); });
+    });
+    var cmp = ds.prevCmp;
+    if (cmp && cmp.b === ds) {
+      res.sources.push('comparison with ' + cmp.a.name + (cmp.a.airac ? ' (AIRAC ' + cmp.a.airac.id + ')' : ''));
+      cmp.items.forEach(function (it) {
+        if (it.kind === 'added') { var e2 = entry(it.b); e2.added = true; e2.kinds.add('New (not in previous cycle)'); }
+        else if (it.kind === 'modified') it.fields.forEach(function (f) { addField(it.b, f, 'prev', 'Changed since previous cycle'); });
+      });
+      res.removed = cmp.items.filter(function (it) { return it.kind === 'removed'; });
+    }
+    res.byRec.forEach(function (e, r) { res.count++; res.list.push({ rec: r, e: e, sec: AIP.sectionOf(ds, r) }); });
+    res.list.sort(function (a, b) { return a.sec.no < b.sec.no ? -1 : a.sec.no > b.sec.no ? 1 : 0; });
+    // per-section counters (for the AIP tree badges)
+    res.bySection = {};
+    res.list.forEach(function (x) {
+      if (!x.sec.id) return;
+      res.bySection[x.sec.id] = (res.bySection[x.sec.id] || 0) + 1;
+      if (x.sec.ad) res.bySection['AD:' + x.sec.ad.i] = (res.bySection['AD:' + x.sec.ad.i] || 0) + 1;
+      var grp = x.sec.no.slice(0, 3);
+      res.bySection[grp] = (res.bySection[grp] || 0) + 1;
+    });
+    return res;
+  }
+  // cycles in which the file contains changes (for the cycle selector)
+  function changeCycles(ds) {
+    var ev = ds._events || (ds._events = inFileChanges(ds)), m = new Map();
+    ev.forEach(function (e) { if (e.t === null) return; var a = AX.airac(e.t); if (!a) return; var c = m.get(a.id) || { cycle: a, n: 0 }; c.n++; m.set(a.id, c); });
+    if (ds.airac && !m.has(ds.airac.id)) m.set(ds.airac.id, { cycle: ds.airac, n: 0 });
+    return Array.from(m.values()).sort(function (a, b) { return b.cycle.date - a.cycle.date; });
+  }
+
+  return { cycleChanges: cycleChanges, changeCycles: changeCycles, topProp: topProp, inFileChanges: inFileChanges, compare: compare, quality: quality, prettyPath: prettyPath, displayVal: displayVal, naturalKey: naturalKey };
 })();
 </script>
 <script>/* =============================================================================
@@ -5858,7 +6140,8 @@ var EXPORTS = (function () {
     explorerType: null,
     explorerSel: null,
     theme: null,
-    asOf: null
+    asOf: null,
+    hlOn: true
   };
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
@@ -5877,6 +6160,7 @@ var EXPORTS = (function () {
   function ic(path, extra) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" ' + (extra || '') + '>' + path + '</svg>'; }
   var I = {
     upload: ic('<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>'),
+    folder: ic('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
     dash: ic('<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'),
     book: ic('<path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5"/><path d="M8 7h7M8 11h7"/>'),
     map: ic('<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>'),
@@ -5905,7 +6189,7 @@ var EXPORTS = (function () {
 
   /* --------------------------------------------------------------- nav */
   var VIEWS = [
-    ['files', 'Files', I.upload], ['dash', 'Dashboard', I.dash], ['aip', 'AIP', I.book], ['map', 'Map', I.map], null,
+    ['library', 'Library', I.folder], ['files', 'Files', I.upload], ['dash', 'Dashboard', I.dash], ['aip', 'AIP', I.book], ['map', 'Map', I.map], null,
     ['changes', 'Changes', I.changes], ['compare', 'Compare', I.compare], ['quality', 'Quality', I.check], ['explorer', 'Explorer', I.list], null,
     ['export', 'Export', I.export]
   ];
@@ -5913,7 +6197,7 @@ var EXPORTS = (function () {
     var has = S.datasets.length > 0;
     $('#nav').innerHTML = VIEWS.map(function (v) {
       if (!v) return '<div class="nav-sep"></div>';
-      var dis = !has && v[0] !== 'files';
+      var dis = !has && v[0] !== 'files' && v[0] !== 'library';
       return '<button data-view="' + v[0] + '" class="' + (S.view === v[0] ? 'active' : '') + '"' + (dis ? ' disabled' : '') + ' title="' + v[1] + '">' + v[2] + '<span>' + v[1] + '</span></button>';
     }).join('');
   }
@@ -5930,7 +6214,7 @@ var EXPORTS = (function () {
     var v = document.createElement('div');
     v.className = 'view' + (view === 'aip' || view === 'map' || view === 'explorer' ? ' full' : '');
     main.appendChild(v);
-    ({ files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport })[view](v, opts || {});
+    ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport })[view](v, opts || {});
   }
 
   /* ------------------------------------------------------------- theme */
@@ -6060,6 +6344,11 @@ var EXPORTS = (function () {
     var gd = $('#goto-dash'); if (gd) gd.onclick = function () { go('dash'); };
   }
   function updateFileItem(f) {
+    if (f.overlay) {
+      var ob = $('#ov-bar'), od = $('#ov-detail');
+      if (ob) ob.style.width = (f.progress * 100).toFixed(1) + '%';
+      if (od) od.textContent = f.detail || '';
+    }
     var node = $('[data-fid="' + f.id + '"]');
     if (!node) return;
     var bar = $('.progress > div', node);
@@ -6087,7 +6376,12 @@ var EXPORTS = (function () {
   }
   async function extractAll() {
     var list = S.files.filter(function (f) { return f.status === 'ready'; });
-    for (var i = 0; i < list.length; i++) await extractOne(list[i]);
+    for (var i = 0; i < list.length; i++) {
+      var f = list[i], key = dropKey(f.file);
+      var cached = await openFromCache(key, f.file, null);
+      if (cached) { f.status = 'done'; f.detail = 'opened from saved data (instant) · ' + num(cached.recs.length) + ' features · ' + esc(cached.state); renderFileList(); continue; }
+      await extractOne(f);
+    }
     renderFileList();
     if (S.datasets.length) { initSearch(); renderDsSelect(); go('dash'); }
   }
@@ -6152,6 +6446,9 @@ var EXPORTS = (function () {
           try {
             M.finalize(ds);
             ds.tRead = tRead; ds.tTotal = performance.now() - t0; ds.errors = errors;
+            applyLib(ds, f.lib);
+            ds.cacheKey = f.lib ? f.lib.key : dropKey(f.file);
+            saveCache(ds);
             S.datasets = S.datasets.filter(function (x) { return x.id !== ds.id; });
             S.datasets.push(ds);
             f.status = 'done';
@@ -6163,20 +6460,244 @@ var EXPORTS = (function () {
           running.delete(f.id);
           renderFileList();
           renderNav();
-          resolve();
+          resolve(f.status === 'done' ? ds : null);
         }, 30);
       }
     });
   }
 
+  /* ======================================================= LIBRARY */
+  var LIB = { scan: null, status: 'none', cached: new Set(), timer: null, sig: '' };
+  function dropKey(file) { return file ? 'drop:' + file.name + '|' + file.size + '|' + file.lastModified : null; }
+  function applyLib(ds, lib) {
+    if (!lib) return;
+    ds.lib = lib;
+    ds.stateDetected = ds.state;
+    ds.state = lib.state;
+    ds.stateSource = 'library folder "' + lib.state + '"' + (ds.stateDetected && ds.stateDetected !== lib.state ? ' (detected in data: ' + ds.stateDetected + ')' : '');
+  }
+  function saveCache(ds) {
+    if (!ds.cacheKey || typeof LIBRARY === 'undefined') return;
+    LIBRARY.saveDataset(ds.cacheKey, ds).then(function () { LIB.cached.add(ds.cacheKey); if (S.view === 'library') renderLibrary(); })
+      .catch(function (e) { console.warn('cache save failed', e); });
+  }
+  async function openFromCache(key, file, lib) {
+    if (!key || typeof LIBRARY === 'undefined') return null;
+    var hit = S.datasets.filter(function (d) { return d.cacheKey === key; })[0];
+    if (hit) return hit;
+    var ds;
+    try { ds = await LIBRARY.loadDataset(key); } catch (e) { ds = null; }
+    if (!ds) return null;
+    ds.id = ++fileSeq; ds.file = file; ds.viewDate = S.asOf; ds.cacheKey = key;
+    M.finalize(ds);
+    applyLib(ds, lib || ds.lib);
+    S.datasets.push(ds);
+    renderNav(); renderDsSelect(); initSearch();
+    return ds;
+  }
+  async function libInit() {
+    if (typeof LIBRARY === 'undefined') return;
+    LIB.cached = await LIBRARY.cachedKeys();
+    var r = await LIBRARY.restore();
+    LIB.status = r.state;
+    if (r.state === 'granted') await libRescan(true);
+    renderStateBtn();
+    if (S.view === 'library') renderLibrary();
+  }
+  async function libRescan(quiet) {
+    try {
+      var sc = await LIBRARY.scan();
+      var sig = sc.states.map(function (st) { return st.name + ':' + st.files.map(function (f) { return f.key; }).join(','); }).join(';');
+      var before = LIB.scan ? new Set([].concat.apply([], LIB.scan.states.map(function (st) { return st.files.map(function (f) { return f.key; }); }))) : null;
+      LIB.scan = sc; LIB.status = 'granted';
+      if (before && sig !== LIB.sig) {
+        sc.states.forEach(function (st) { st.files.forEach(function (f) { if (!before.has(f.key)) toast('New file in ' + st.name + ': ' + f.name); }); });
+      }
+      LIB.sig = sig;
+      // sniff new files in the background (version badges)
+      sc.states.forEach(function (st) { st.files.forEach(function (f) { if (!f.sniff) LIBRARY.sniffOf(f).then(function (sn) { f.sniff = sn; if (S.view === 'library') scheduleLibRender(); }).catch(function () {}); }); });
+      renderStateBtn();
+      if (S.view === 'library') renderLibrary();
+    } catch (e) {
+      if (!quiet) toast('Cannot read the library folder: ' + e.message, 6000);
+      LIB.status = 'prompt';
+    }
+  }
+  var libRenderT = null;
+  function scheduleLibRender() { clearTimeout(libRenderT); libRenderT = setTimeout(function () { if (S.view === 'library') renderLibrary(); }, 300); }
+  function startWatch() {
+    if (LIB.timer) return;
+    LIB.timer = setInterval(function () { if (LIB.status === 'granted' && LIBRARY.isConnected()) libRescan(true); }, 20000);
+    window.addEventListener('focus', function () { if (LIB.status === 'granted' && LIBRARY.isConnected()) libRescan(true); });
+  }
+  function libStates() { return LIB.scan ? LIB.scan.states : []; }
+  function libFileFor(ds) {
+    if (!ds || !ds.lib) return null;
+    var st = libStates().filter(function (x) { return x.name === ds.lib.state; })[0];
+    return st ? st.files.filter(function (f) { return f.key === ds.lib.key; })[0] : null;
+  }
+  function libPrevFile(ds) {
+    var st = libStates().filter(function (x) { return x.name === ds.lib.state; })[0];
+    if (!st) return null;
+    var i = st.files.findIndex(function (f) { return f.key === ds.lib.key; });
+    return i >= 0 ? st.files[i + 1] || null : null; // files are sorted newest first
+  }
+  function overlay(title) {
+    var o = document.createElement('div');
+    o.className = 'overlay'; o.id = 'overlay';
+    o.innerHTML = '<div class="card"><h3 style="margin:0 0 6px">' + esc(title) + '</h3><div class="progress"><div id="ov-bar"></div></div><div class="muted" id="ov-detail" style="margin-top:8px;font-size:13px">starting…</div></div>';
+    document.body.appendChild(o);
+    return o;
+  }
+  async function openLibFile(stateName, f, opts) {
+    opts = opts || {};
+    var lib = { state: stateName, key: f.key, path: f.path };
+    var loaded = S.datasets.filter(function (d) { return d.cacheKey === f.key; })[0];
+    if (loaded) { applyLib(loaded, lib); if (!opts.silent) activate(loaded); return loaded; }
+    var file = await LIBRARY.fileOf(f);
+    var ds = await openFromCache(f.key, file, lib);
+    if (!ds) {
+      var sn = f.sniff || await LIBRARY.sniffOf(f);
+      if (!sn.family) { toast(f.name + ' is not an AIXM file'); return null; }
+      var item = { id: ++fileSeq, file: file, name: f.name, size: f.size, sniff: sn, status: 'ready', progress: 0, lib: lib, overlay: true, from: 'library ' + stateName };
+      S.files.push(item);
+      var ov = overlay('Reading ' + stateName + ' — ' + f.name);
+      ds = await extractOne(item);
+      ov.remove();
+    }
+    if (ds && !opts.silent) activate(ds);
+    return ds;
+  }
+  function activate(ds) {
+    S.active = S.datasets.indexOf(ds); S.aipSel = null;
+    renderDsSelect(); renderStateBtn(); initSearch();
+    var v = S.view === 'files' || S.view === 'library' ? 'dash' : S.view;
+    go(v);
+  }
+  async function openLatest(stateName) {
+    var st = libStates().filter(function (x) { return x.name === stateName; })[0];
+    if (!st || !st.files.length) { toast('No AIXM file in the ' + stateName + ' folder yet. Drop one on its card.'); return; }
+    await openLibFile(stateName, st.files[0]);
+  }
+  function viewLibrary(v) { v.innerHTML = '<div id="lib-root"></div>'; renderLibrary(); }
+  function renderLibrary() {
+    var host = $('#lib-root');
+    if (!host) return;
+    var sup = typeof LIBRARY !== 'undefined' && LIBRARY.supported;
+    var h = '<h1 class="view-title">State library</h1><p class="view-sub">Keep one folder per State on your drive (for example <b>D:\\AIXM\\Saudi</b>, <b>D:\\AIXM\\UAE</b>, <b>D:\\AIXM\\India</b>). Connect the parent folder once — it is remembered. New files copied into a State folder appear automatically; files dropped on a State card are saved into that folder. Extracted data is kept, so switching States is instant.</p>';
+    if (!LIBRARY.isConnected() || LIB.status !== 'granted') {
+      h += '<div class="card card-pad" style="max-width:820px"><h3>' + (LIB.status === 'prompt' ? 'Reconnect your library' : 'Connect your AIXM library folder') + '</h3>' +
+        (LIB.status === 'prompt' ? '<p>The browser needs your permission again to read <b>' + esc(LIBRARY.rootName() || 'the library folder') + '</b>.</p><button class="btn primary big" id="lib-reconnect">' + I.upload + ' Reconnect to ' + esc(LIBRARY.rootName() || 'folder') + '</button> ' : '') +
+        (sup ? '<button class="btn ' + (LIB.status === 'prompt' ? '' : 'primary big') + '" id="lib-connect">' + I.upload + ' Choose library folder…</button>' : '<div class="note-box">This browser cannot keep a folder connected (use Chrome or Edge for that). You can still pick the folder for this session.</div>') +
+        ' <button class="btn" id="lib-pick">Pick folder for this session only</button><input type="file" id="lib-dir" webkitdirectory multiple class="hidden">' +
+        '<pre class="mono" style="margin-top:14px;background:var(--surface-2);padding:12px;border-radius:10px">AIXM\\            ← connect this folder\n├── Saudi\\       AIRAC files of Saudi Arabia (e.g. OE_AIP_20261029.xml)\n├── UAE\\\n└── India\\</pre></div>';
+    } else {
+      var sc = LIB.scan || { states: [], loose: [] };
+      var nFiles = sc.states.reduce(function (a, st) { return a + st.files.length; }, 0);
+      h += '<div class="toolbar"><span class="chip brand">📁 ' + esc(LIBRARY.rootName() || '') + '</span><span class="chip">' + sc.states.length + ' States</span><span class="chip">' + nFiles + ' files</span><span class="chip ok">' + LIB.cached.size + ' saved extractions</span><span class="sp"></span>' +
+        '<button class="btn small" id="lib-rescan">⟳ Rescan</button><button class="btn small" id="lib-new">＋ New State folder</button>' + (sup ? '<button class="btn small" id="lib-connect">Change folder</button>' : '') + '<button class="btn small" id="lib-clear">Clear saved data</button></div>';
+      if (!sc.states.length) h += '<div class="card card-pad">No State folders yet. Create one with <b>New State folder</b> or in Windows Explorer.</div>';
+      h += '<div class="lib-grid">' + sc.states.map(function (st) {
+        var latest = st.files[0];
+        return '<div class="card lib-card" data-state="' + esc(st.name) + '"><div class="lc-head"><b>' + esc(st.name) + '</b><span class="sp"></span><span class="chip" style="background:rgba(255,255,255,.18);color:#fff">' + st.files.length + ' file(s)</span>' +
+          (latest ? '<button class="btn small" data-open-latest="' + esc(st.name) + '">Open latest</button>' : '') + '</div>' +
+          (st.files.length ? st.files.map(function (f, i) {
+            var d = LIBRARY.fileDate(f), a = d ? AX.airac(d) : null, sn = f.sniff;
+            var loaded = S.datasets.some(function (x) { return x.cacheKey === f.key; });
+            return '<div class="lib-file"><div><div><b>' + esc(f.name) + '</b></div><div class="muted" style="font-size:12px">' + (a ? 'AIRAC ' + a.id + ' · ' + M.fmtDate(d) + ' · ' : '') + fmtSize(f.size) + (sn && sn.versionLabel ? ' · ' + esc(sn.versionLabel) : '') +
+              (LIB.cached.has(f.key) ? ' · <span style="color:var(--ok)">saved ✓</span>' : ' · not read yet') + (loaded ? ' · <b>open</b>' : '') + (f.path.split('/').length > 2 ? ' · ' + esc(f.path) : '') + '</div></div>' +
+              '<div class="row"><button class="btn small primary" data-open="' + esc(st.name) + '|' + i + '">Open</button>' + (st.files[i + 1] ? '<button class="btn small" data-cmpprev="' + esc(st.name) + '|' + i + '" title="Compare with the previous file and highlight changes">Changes vs prev</button>' : '') + '</div></div>';
+          }).join('') : '<div class="lib-file muted">Empty — drop AIXM files here</div>') +
+          '<div class="lib-file muted" style="font-size:12px">⇩ Drop AIXM files on this card to save them into ' + esc(st.name) + '</div></div>';
+      }).join('') + '</div>';
+      if (sc.loose.length) h += '<p class="muted" style="margin-top:16px">' + sc.loose.length + ' file(s) directly in the root folder — move them into a State folder to list them by State.</p>';
+    }
+    host.innerHTML = h;
+    var q = function (id) { return $('#' + id, host); };
+    if (q('lib-connect')) q('lib-connect').onclick = async function () { try { await LIBRARY.connect(); LIB.status = 'granted'; await libRescan(); startWatch(); } catch (e) { if (e.name !== 'AbortError') toast(e.message, 6000); } };
+    if (q('lib-reconnect')) q('lib-reconnect').onclick = async function () { if (await LIBRARY.reconnect()) { LIB.status = 'granted'; await libRescan(); startWatch(); } };
+    if (q('lib-pick')) q('lib-pick').onclick = function () { q('lib-dir').click(); };
+    if (q('lib-dir')) q('lib-dir').onchange = async function (e) { LIBRARY.useFallback(e.target.files); LIB.status = 'granted'; await libRescan(); };
+    if (q('lib-rescan')) q('lib-rescan').onclick = function () { libRescan(); };
+    if (q('lib-clear')) q('lib-clear').onclick = async function () { if (!confirm('Delete all saved extractions from this browser? (Your AIXM files are not touched.)')) return; await LIBRARY.clearCache(); LIB.cached = new Set(); renderLibrary(); toast('Saved data cleared'); };
+    if (q('lib-new')) q('lib-new').onclick = async function () { var n = prompt('Name of the new State folder (e.g. Saudi, UAE, India):'); if (!n) return; try { await LIBRARY.createState(n.trim()); await libRescan(); } catch (e) { toast(e.message, 6000); } };
+    host.onclick = async function (e) {
+      var b = e.target.closest('[data-open],[data-open-latest],[data-cmpprev]');
+      if (!b) return;
+      if (b.hasAttribute('data-open-latest')) { openLatest(b.getAttribute('data-open-latest')); return; }
+      var parts = (b.getAttribute('data-open') || b.getAttribute('data-cmpprev')).split('|');
+      var st = libStates().filter(function (x) { return x.name === parts[0]; })[0], f = st.files[+parts[1]];
+      var ds = await openLibFile(st.name, f, { silent: b.hasAttribute('data-cmpprev') });
+      if (ds && b.hasAttribute('data-cmpprev')) { S.active = S.datasets.indexOf(ds); renderDsSelect(); await pickPrevious(ds, function () {}); S.hlOn = true; go('dash'); }
+    };
+    $$('.lib-card', host).forEach(function (card) {
+      card.addEventListener('dragover', function (e) { e.preventDefault(); e.stopPropagation(); card.classList.add('over'); });
+      card.addEventListener('dragleave', function () { card.classList.remove('over'); });
+      card.addEventListener('drop', async function (e) {
+        e.preventDefault(); e.stopPropagation(); card.classList.remove('over');
+        var st = card.getAttribute('data-state'), files = Array.prototype.slice.call(e.dataTransfer.files);
+        for (var i = 0; i < files.length; i++) {
+          try { await LIBRARY.writeInto(st, files[i]); toast('Saved ' + files[i].name + ' into ' + st); } catch (err) { toast('Could not save into the folder: ' + err.message, 6000); }
+        }
+        await libRescan(true);
+      });
+    });
+  }
+  /* ------------------------------------------------ State switcher (top bar) */
+  function renderStateBtn() {
+    var btn = $('#state-btn');
+    if (!btn) return;
+    var ds = dsOf();
+    btn.innerHTML = '🌐 ' + esc(ds ? ds.state : (libStates().length ? 'Choose State' : 'States')) + (ds && ds.airac ? ' · ' + ds.airac.id : '') + ' ▾';
+    btn.classList.toggle('hidden', !libStates().length && S.datasets.length < 1);
+  }
+  function toggleStatePop() {
+    var old = $('#state-pop');
+    if (old) { old.remove(); return; }
+    var pop = document.createElement('div');
+    pop.className = 'state-pop'; pop.id = 'state-pop';
+    var h = '';
+    if (libStates().length) {
+      h += '<div class="sp-h">Library — ' + esc(LIBRARY.rootName() || '') + '</div>';
+      libStates().forEach(function (st) {
+        var cur = dsOf() && dsOf().lib && dsOf().lib.state === st.name;
+        h += '<div class="sp-i' + (cur ? ' active' : '') + '" data-sps="' + esc(st.name) + '"><b>' + esc(st.name) + '</b><span class="sp"></span><span class="muted">' + st.files.length + ' file(s)</span></div>';
+        if (cur || st.files.length <= 3) h += '<div class="sp-files">' + st.files.slice(0, 8).map(function (f, i) {
+          var d = LIBRARY.fileDate(f), a = d ? AX.airac(d) : null;
+          return '<div class="sp-i" data-spf="' + esc(st.name) + '|' + i + '"><span>' + esc(a ? 'AIRAC ' + a.id + ' · ' + M.fmtDate(d) : f.name) + '</span><span class="sp"></span><span class="muted" style="font-size:11px">' + (LIB.cached.has(f.key) ? 'saved' : '') + '</span></div>';
+        }).join('') + '</div>';
+      });
+    }
+    var loose = S.datasets.filter(function (d) { return !d.lib; });
+    if (loose.length) {
+      h += '<div class="sp-h">Opened files</div>' + loose.map(function (d) { return '<div class="sp-i' + (d === dsOf() ? ' active' : '') + '" data-spd="' + S.datasets.indexOf(d) + '"><b>' + esc(d.state) + '</b><span class="muted">' + esc(d.name) + '</span></div>'; }).join('');
+    }
+    h += '<div class="sp-h"></div><div class="sp-i" data-spl="1">📁 Manage library…</div>';
+    pop.innerHTML = h;
+    document.body.appendChild(pop);
+    pop.addEventListener('click', function (e) {
+      var a = e.target.closest('[data-sps],[data-spf],[data-spd],[data-spl]');
+      if (!a) return;
+      pop.remove();
+      if (a.hasAttribute('data-sps')) openLatest(a.getAttribute('data-sps'));
+      else if (a.hasAttribute('data-spf')) { var p2 = a.getAttribute('data-spf').split('|'); var st = libStates().filter(function (x) { return x.name === p2[0]; })[0]; openLibFile(st.name, st.files[+p2[1]]); }
+      else if (a.hasAttribute('data-spd')) activate(S.datasets[+a.getAttribute('data-spd')]);
+      else go('library');
+    });
+  }
+  document.addEventListener('click', function (e) { var p = $('#state-pop'); if (p && !e.target.closest('#state-pop') && !e.target.closest('#state-btn')) p.remove(); });
+
   /* ---------------------------------------------------- dataset selector */
   function renderDsSelect() {
     var sel = $('#ds-select');
-    if (S.datasets.length < 2) { sel.classList.add('hidden'); return; }
+    renderStateBtn();
+    sel.classList.add('hidden');
+    if (true) return;
     sel.classList.remove('hidden');
     sel.innerHTML = S.datasets.map(function (d, i) { return '<option value="' + i + '"' + (i === S.active ? ' selected' : '') + '>' + esc(d.state + ' · ' + d.name) + '</option>'; }).join('');
   }
-  $('#ds-select').addEventListener('change', function (e) { S.active = +e.target.value; S.aipSel = null; go(S.view); });
+  $('#ds-select').addEventListener('change', function (e) { S.active = +e.target.value; S.aipSel = null; renderStateBtn(); go(S.view); });
+  $('#state-btn').addEventListener('click', function (e) { e.stopPropagation(); toggleStatePop(); });
 
   /* ------------------------------------------------------------- as of */
   $('#asof-mode').addEventListener('change', function (e) {
@@ -6218,6 +6739,7 @@ var EXPORTS = (function () {
           return '<div class="tile" data-type="' + t[0] + '"><b>' + num(ds.byType[t[0]].length) + '</b><span>' + t[1] + '</span></div>';
         }).join('') + '<div class="tile" data-go="changes"><b>' + num(nTs) + '</b><span>features with changes / time slices</span></div>' +
         '<div class="tile" data-go="explorer"><b>' + Object.keys(ds.byType).length + '</b><span>feature types</span></div></div>' +
+        cycleCardHtml(ds) +
         '<div class="ds-body"><div><h3 style="margin:4px 0 8px">Aerodromes and heliports <span class="muted" style="font-weight:400">(effective date of each AD)</span></h3>' +
         (ads.length ? '<div class="tbl-wrap" style="max-height:340px"><table class="mini-table"><thead><tr><th>ICAO</th><th>Name</th><th>Type</th><th>Effective</th><th>AIP</th></tr></thead><tbody>' + ads.map(function (a) {
           var eff = M.adEffective(ds, a);
@@ -6237,6 +6759,9 @@ var EXPORTS = (function () {
         if (t) { S.explorerType = t.getAttribute('data-type'); S.explorerSel = null; go('explorer'); }
         else if (a) { var ad = ds.recs[+a.getAttribute('data-ad')]; S.aipSel = 'AD:' + ad.i; S.aipOpen['AD:' + ad.i] = true; S.aipOpen.AD = true; go('aip'); }
         else if (gg) go(gg.getAttribute('data-go'));
+        else if (e.target.closest('[data-chglist]')) openCycleList(ds);
+        else if (e.target.closest('[data-prev]')) pickPrevious(ds, function () { go('dash'); });
+        else if (e.target.closest('[data-hlaip]')) { S.hlOn = true; var first = getCyc(ds).list[0]; if (first) openAipFor(ds, first.rec); else go('aip'); }
         else if (act) {
           var k = act.getAttribute('data-act');
           if (k === 'aip') go('aip'); else if (k === 'map') go('map'); else if (k === 'export') go('export');
@@ -6245,6 +6770,21 @@ var EXPORTS = (function () {
       });
       g.appendChild(card);
     });
+  }
+  function cycleCardHtml(ds) {
+    var cc = getCyc(ds);
+    if (!cc || !cc.cycle) return '';
+    var top = cc.list.slice(0, 6).map(function (x) {
+      var n = 0; x.e.props.forEach(function (l) { n += l.length; });
+      return '<li><b>' + esc(x.sec.no + (x.sec.ad ? ' ' + M.shortName(x.sec.ad) : '')) + '</b> · ' + esc(M.label(ds, x.rec)) + ' <span class="muted">(' + (x.e.added ? 'new' : n + ' value(s)') + ')</span></li>';
+    }).join('');
+    return '<div style="padding:0 20px 14px"><div class="cycle-bar" style="display:block"><div class="row wrap"><b style="font-size:15px">Changes in AIRAC ' + esc(cc.cycle.id) + ' — effective ' + esc(M.fmtDate(cc.cycle.date)) + '</b>' +
+      '<span class="chg-badge">' + cc.count + ' changed feature(s)</span><span class="sp"></span>' +
+      (cc.count ? '<button class="btn small primary" data-hlaip="1">Show in AIP (red = changed)</button><button class="btn small" data-chglist="1">List all changes</button>' : '') +
+      (!ds.prevCmp && S.datasets.length > 1 ? '<button class="btn small" data-prev="1">Compare with previous cycle</button>' : '') + '</div>' +
+      (cc.count ? '<ul style="margin:8px 0 0 18px;padding:0">' + top + (cc.count > 6 ? '<li class="muted">… and ' + (cc.count - 6) + ' more</li>' : '') + '</ul>' :
+        '<div style="margin-top:6px">No time slice in this file starts in this cycle' + (ds.prevCmp ? ' and nothing differs from ' + esc(ds.prevCmp.a.name) : '. To see every value that changes, add the previous cycle\'s file of this State and press "Compare with previous cycle".') + '</div>') +
+      '<div class="muted" style="margin-top:6px;font-size:12px">Sources: ' + esc(cc.sources.join('; ') || 'none yet') + '</div></div></div>';
   }
   function emptyState(t, d) { return '<div class="empty">' + I.plane + '<h2>' + t + '</h2><p>' + d + '</p></div>'; }
 
@@ -6264,20 +6804,22 @@ var EXPORTS = (function () {
   }
   function renderTree(ds, cat) {
     var side = $('#aip-side');
+    var bs = S.hlOn ? (getCyc(ds) || {}).bySection || {} : {};
+    function bdg(id) { return bs[id] ? '<span class="cbadge" title="' + bs[id] + ' feature(s) change in this AIRAC cycle">' + bs[id] + '</span>' : ''; }
     var h = '<div class="side-head"><input class="inp grow" id="tree-filter" placeholder="Filter sections / aerodromes"></div><ul class="tree">';
     cat.forEach(function (g) {
       var open = S.aipOpen[g.id] !== false;
-      h += '<li class="grp"><div class="node' + (open ? ' open' : '') + '" data-toggle="' + g.id + '">' + I.caret + '<span class="title">' + esc(g.title) + '</span><span class="sp"></span><span class="chip">' + g.children.length + '</span></div>';
+      h += '<li class="grp"><div class="node' + (open ? ' open' : '') + '" data-toggle="' + g.id + '">' + I.caret + '<span class="title">' + esc(g.title) + '</span><span class="sp"></span>' + bdg(g.id === 'AD' ? 'AD ' : g.id) + '<span class="chip">' + g.children.length + '</span></div>';
       if (open) {
         h += '<ul>';
         if (!g.children.length) h += '<li><div class="node muted">No data in this part</div></li>';
         g.children.forEach(function (c) {
           if (c.children) {
             var o = !!S.aipOpen[c.id];
-            h += '<li data-f="' + esc((c.no + ' ' + c.title).toLowerCase()) + '"><div class="node' + (o ? ' open' : '') + (S.aipSel === c.id ? ' active' : '') + '" data-sec="' + c.id + '" data-toggle="' + c.id + '">' + I.caret + '<span class="no">' + esc(c.no.replace(/^AD [23] /, '')) + '</span><span class="title">' + esc(c.title) + '</span></div>';
-            if (o) h += '<ul>' + c.children.map(function (cc) { return '<li><div class="node' + (S.aipSel === cc.id ? ' active' : '') + '" data-sec="' + cc.id + '"><span class="no">' + esc(cc.no) + '</span><span class="title">' + esc(cc.title) + '</span></div></li>'; }).join('') + '</ul>';
+            h += '<li data-f="' + esc((c.no + ' ' + c.title).toLowerCase()) + '"><div class="node' + (o ? ' open' : '') + (S.aipSel === c.id ? ' active' : '') + '" data-sec="' + c.id + '" data-toggle="' + c.id + '">' + I.caret + '<span class="no">' + esc(c.no.replace(/^AD [23] /, '')) + '</span><span class="title">' + esc(c.title) + '</span>' + bdg(c.id) + '</div>';
+            if (o) h += '<ul>' + c.children.map(function (cc) { return '<li><div class="node' + (S.aipSel === cc.id ? ' active' : '') + '" data-sec="' + cc.id + '"><span class="no">' + esc(cc.no) + '</span><span class="title">' + esc(cc.title) + '</span>' + bdg(cc.id) + '</div></li>'; }).join('') + '</ul>';
             h += '</li>';
-          } else h += '<li data-f="' + esc((c.no + ' ' + c.title).toLowerCase()) + '"><div class="node' + (S.aipSel === c.id ? ' active' : '') + '" data-sec="' + c.id + '"><span class="no">' + esc(c.no) + '</span><span class="title">' + esc(c.title) + '</span></div></li>';
+          } else h += '<li data-f="' + esc((c.no + ' ' + c.title).toLowerCase()) + '"><div class="node' + (S.aipSel === c.id ? ' active' : '') + '" data-sec="' + c.id + '"><span class="no">' + esc(c.no) + '</span><span class="title">' + esc(c.title) + '</span>' + bdg(c.id) + '</div></li>';
         });
         h += '</ul>';
       }
@@ -6299,14 +6841,32 @@ var EXPORTS = (function () {
     };
   }
   var cellRegistry = [];
+  /* ---------------------------------------------- cycle change highlighting */
+  function getCyc(ds) {
+    if (!ds) return null;
+    var cyc = ds.hlCycle || ds.airac;
+    var key = (cyc ? cyc.id : '') + '|' + (ds.prevCmp ? ds.prevCmp.a.name : '') + '|' + ds.viewDate;
+    if (!ds.cyc || ds.cycKey !== key) { ds.cyc = ANALYSIS.cycleChanges(ds, cyc); ds.cycKey = key; }
+    return ds.cyc;
+  }
+  function chgInfo(ds, r, p) {
+    if (!S.hlOn || !ds || !r) return null;
+    var cc = getCyc(ds), e = cc && cc.byRec.get(r);
+    if (!e) return null;
+    if (e.added) return { strong: true, lines: ['New in AIRAC ' + cc.cycle.id + ' (' + Array.from(e.kinds).join(', ') + ')'] };
+    if (p && e.props.has(p)) return { strong: true, lines: e.props.get(p).map(function (f) { return ANALYSIS.prettyPath(f.path) + ': ' + (f.old !== undefined ? ANALYSIS.displayVal(ds, f.old) : '—') + '  →  ' + (f.neu !== undefined ? ANALYSIS.displayVal(ds, f.neu) : 'removed'); }) };
+    return { strong: false, lines: ['Other properties of this feature change in AIRAC ' + cc.cycle.id + ': ' + Array.from(e.props.keys()).join(', ')] };
+  }
   function cellHtml(c, ds) {
     if (!c || !c.t) return '<span class="nil">—</span>';
     var t = esc(c.t);
     if (!c.r) return t;
     var idx = cellRegistry.push({ ds: ds, r: c.r, p: c.p }) - 1;
-    var tip = (c.tip ? c.tip + '\n' : '') + M.typeName(c.r) + (c.p ? ' · ' + c.p : '') + ' · line ' + num(c.r.line) + '\nClick to view the AIXM code';
-    return '<span class="src" data-cell="' + idx + '" title="' + esc(tip) + '">' + t + '</span>';
+    var ci = chgInfo(ds, c.r, c.p);
+    var tip = (ci ? '⚠ CHANGE ' + ci.lines.join('\n') + '\n\n' : '') + (c.tip ? c.tip + '\n' : '') + M.typeName(c.r) + (c.p ? ' · ' + c.p : '') + ' · line ' + num(c.r.line) + '\nClick to view the AIXM code';
+    return '<span class="src' + (ci ? (ci.strong ? ' chg' : ' chg-soft') : '') + '" data-cell="' + idx + '" title="' + esc(tip) + '">' + t + '</span>';
   }
+  function rowChanged(ds, cells) { return S.hlOn && cells.some(function (c) { return c && c.r && chgInfo(ds, c.r, c.p) && chgInfo(ds, c.r, c.p).strong; }); }
   function effOf(r) { return r && r.cur ? M.fmtTs(r.cur.b) : ''; }
   function sectionBodyHtml(ds, sec, rowLimit) {
     var h = '';
@@ -6317,7 +6877,7 @@ var EXPORTS = (function () {
         h += '<table class="aip-kv"><tbody>' + b.rows.map(function (r) {
           var cells = r.cells.filter(function (c) { return c && c.t; });
           var src = cells.filter(function (c) { return c.r; })[0];
-          return '<tr><td class="no">' + esc(r.no || '') + '</td><td class="lbl">' + esc(r.label) + '</td><td class="val">' +
+          return '<tr' + (rowChanged(ds, cells) ? ' class="chg-row"' : '') + '><td class="no">' + esc(r.no || '') + '</td><td class="lbl">' + esc(r.label) + '</td><td class="val">' +
             (cells.length ? cells.map(function (c) { return '<div class="vpart">' + cellHtml(c, ds) + '</div>'; }).join('') : '<span class="nil">NIL</span>') +
             (src ? '<div class="eff">Effective ' + esc(effOf(src.r)) + (src.r.ts.length > 1 ? ' · <span class="chip warn" style="height:18px">' + src.r.ts.length + ' time slices</span>' : '') + ' <span class="srcbtn" data-cell="' + (cellRegistry.push({ ds: ds, r: src.r, p: src.p }) - 1) + '" title="View AIXM code">&lt;/&gt;</span></div>' : '') + '</td></tr>';
         }).join('') + '</tbody></table>';
@@ -6337,10 +6897,99 @@ var EXPORTS = (function () {
     return rows.map(function (r) {
       var src = r.filter(function (c) { return c && c.r; })[0];
       var ptRow = r[0] && /^▲/.test(r[0].t);
-      return '<tr>' + r.map(function (c, i) { return '<td' + (ptRow && i === 0 ? ' class="pt"' : '') + '>' + cellHtml(c, ds) + '</td>'; }).join('') +
+      return '<tr' + (rowChanged(ds, r) ? ' class="chg-row"' : '') + '>' + r.map(function (c, i) { return '<td' + (ptRow && i === 0 ? ' class="pt"' : '') + '>' + cellHtml(c, ds) + '</td>'; }).join('') +
         '<td class="eff nowrap">' + (src ? esc(effOf(src.r)) + (src.r.ts.length > 1 ? '<br><span class="chip warn" style="height:18px">Δ ' + src.r.ts.length + '</span>' : '') : '') + '</td>' +
         '<td>' + (src ? '<span class="srcbtn" data-cell="' + (cellRegistry.push({ ds: ds, r: src.r, p: src.p }) - 1) + '" title="View AIXM code">&lt;/&gt;</span>' : '') + '</td></tr>';
     }).join('');
+  }
+  function cycleBarHtml(ds) {
+    var cc = getCyc(ds);
+    if (!cc || !cc.cycle) return '';
+    var cycles = ANALYSIS.changeCycles(ds);
+    var sel = '<select data-cyc="1" title="AIRAC cycle to check">' + cycles.map(function (c) {
+      return '<option value="' + c.cycle.id + '"' + (c.cycle.id === cc.cycle.id ? ' selected' : '') + '>AIRAC ' + c.cycle.id + ' · ' + M.fmtDate(c.cycle.date) + (c.n ? ' · ' + c.n + ' in file' : '') + '</option>';
+    }).join('') + '</select>';
+    var prev = ds.prevCmp ? 'vs <b>' + esc(ds.prevCmp.a.name) + '</b>' : (S.datasets.length > 1 || (ds.lib && libPrevFile(ds)) ? '<button class="btn small" data-prev="1">Compare with previous cycle</button>' : '<span>load the previous cycle file to see every difference</span>');
+    return '<div class="cycle-bar"><label class="chk"><input type="checkbox" data-hl="1"' + (S.hlOn ? ' checked' : '') + '> <b>Highlight changes</b></label> ' + sel +
+      ' <span class="chg-badge">' + cc.count + ' changed feature(s)</span> ' + prev + ' <button class="btn small" data-chglist="1">List all changes</button></div>';
+  }
+  function handleCycleBar(e, ds, rerender) {
+    var t = e.target;
+    if (t.matches && t.matches('[data-hl]')) { S.hlOn = t.checked; rerender(); return true; }
+    if (t.closest && t.closest('[data-chglist]')) { openCycleList(ds); return true; }
+    if (t.closest && t.closest('[data-prev]')) { pickPrevious(ds, rerender); return true; }
+    return false;
+  }
+  document.addEventListener('change', function (e) {
+    if (!e.target.matches || !e.target.matches('[data-cyc]')) return;
+    var ds = dsOf(); if (!ds) return;
+    var c = ANALYSIS.changeCycles(ds).filter(function (x) { return x.cycle.id === e.target.value; })[0];
+    if (c) { ds.hlCycle = c.cycle; ds.cyc = null; toast('Highlighting changes of AIRAC ' + c.cycle.id); if (S.view === 'aip') go('aip'); else if (S.view === 'dash') go('dash'); }
+  });
+  function drawerChgBox(ds, r) {
+    var cc = getCyc(ds), e = cc && cc.byRec.get(r);
+    if (!e) return '';
+    var lines = [];
+    if (e.added) lines.push('New feature in this cycle');
+    e.props.forEach(function (l) { l.forEach(function (f) { lines.push(ANALYSIS.prettyPath(f.path) + ': ' + (f.old !== undefined ? ANALYSIS.displayVal(ds, f.old) : '—') + '  →  ' + (f.neu !== undefined ? ANALYSIS.displayVal(ds, f.neu) : 'removed')); }); });
+    return '<div class="chg-box"><b>⚠ Changes in AIRAC ' + esc(cc.cycle.id) + ' (' + esc(M.fmtDate(cc.cycle.date)) + ')</b>' + lines.slice(0, 30).map(esc).join('<br>') + (lines.length > 30 ? '<br>… ' + (lines.length - 30) + ' more' : '') + '</div>';
+  }
+  function openCycleList(ds) {
+    var cc = getCyc(ds);
+    var back = document.createElement('div');
+    back.className = 'modal-back';
+    cellRegistry = cellRegistry || [];
+    var rows = cc.list.map(function (x) {
+      var idx = cellRegistry.push({ ds: ds, r: x.rec }) - 1;
+      var f = [];
+      if (x.e.added) f.push('<i>new feature</i>');
+      x.e.props.forEach(function (l) { l.forEach(function (fd) { f.push('<span class="muted">' + esc(ANALYSIS.prettyPath(fd.path)) + ':</span> <span class="diff-old">' + esc(ANALYSIS.displayVal(ds, fd.old)) + '</span> → <span class="chg-badge">' + esc(fd.neu !== undefined ? ANALYSIS.displayVal(ds, fd.neu) : 'removed') + '</span>'); }); });
+      return '<tr><td class="nowrap">' + esc(x.sec.no + (x.sec.ad ? ' ' + M.shortName(x.sec.ad) : '')) + '</td><td><a href="#" data-go="' + idx + '">' + esc(M.label(ds, x.rec)) + '</a><div class="muted" style="font-size:11.5px">' + esc(x.rec.k) + '</div></td><td>' + f.slice(0, 12).join('<br>') + (f.length > 12 ? '<br>…' : '') + '</td></tr>';
+    }).join('');
+    var rem = (cc.removed || []).map(function (it) { return '<tr><td>' + esc(it.sec.no) + '</td><td>' + esc(M.label(cc.removed && ds.prevCmp.a, it.a)) + '</td><td><span class="chip del">removed (not in this cycle)</span></td></tr>'; }).join('');
+    back.innerHTML = '<div class="modal" style="width:min(1100px,100%)"><div class="modal-head"><h3>Changes in AIRAC ' + esc(cc.cycle.id) + ' — effective ' + esc(M.fmtDate(cc.cycle.date)) + '</h3><span class="sp"></span><button class="btn small" data-m="pdf">' + I.pdf + ' PDF</button><button class="btn small" data-m="xlsx">' + I.xls + ' Excel</button><button class="btn small ghost" data-m="close">' + I.x + '</button></div>' +
+      '<div class="modal-body cycle-list"><p class="muted">Sources: ' + esc(cc.sources.join('; ') || 'none') + '. Click a feature to open its AIP page with the changed values highlighted in red.</p>' +
+      (rows || rem ? '<table class="aip"><thead><tr><th>AIP section</th><th>Feature</th><th>What changes (old → new)</th></tr></thead><tbody>' + rows + rem + '</tbody></table>' : '<div class="card card-pad">No changes found for this cycle. Load the previous cycle\'s file to compare every value.</div>') + '</div></div>';
+    document.body.appendChild(back);
+    back.addEventListener('click', function (e) {
+      if (e.target === back) { back.remove(); return; }
+      var g = e.target.closest('[data-go]');
+      if (g) { e.preventDefault(); var reg = cellRegistry[+g.getAttribute('data-go')]; back.remove(); openAipFor(reg.ds, reg.r); return; }
+      var m = e.target.closest('[data-m]');
+      if (!m) return;
+      var k = m.getAttribute('data-m');
+      if (k === 'close') { back.remove(); return; }
+      runExport(k, cycleScope(ds));
+    });
+  }
+  function cycleScope(ds) {
+    var cc = getCyc(ds), rows = [];
+    cc.list.forEach(function (x) {
+      var base = [AIP.C(x.sec.no + (x.sec.ad ? ' ' + M.shortName(x.sec.ad) : '')), AIP.C(M.label(ds, x.rec), x.rec), AIP.C(x.rec.k)];
+      if (x.e.added) rows.push(base.concat([AIP.C('(new feature)'), AIP.C(''), AIP.C('')]));
+      x.e.props.forEach(function (l) { l.forEach(function (f) { rows.push(base.concat([AIP.C(ANALYSIS.prettyPath(f.path)), AIP.C(ANALYSIS.displayVal(ds, f.old)), AIP.C(ANALYSIS.displayVal(ds, f.neu))])); }); });
+    });
+    return { title: 'Changes in AIRAC ' + cc.cycle.id + ' (' + M.fmtDate(cc.cycle.date) + ')', sub: ds.state + ' — ' + ds.name, ds: ds,
+      sections: [{ no: 'AIRAC ' + cc.cycle.id, title: 'Data changing in this cycle', blocks: [{ kind: 'note', text: 'Sources: ' + cc.sources.join('; ') }, { kind: 'table', cols: ['AIP section', 'Feature', 'Type', 'Property', 'Old value', 'New value'], rows: rows }] }] };
+  }
+  async function pickPrevious(ds, rerender) {
+    var lp = ds.lib && libPrevFile(ds);
+    if (lp) {
+      toast('Opening the previous cycle of ' + ds.lib.state + ': ' + lp.name + ' …');
+      var prevDs = await openLibFile(ds.lib.state, lp, { silent: true });
+      if (prevDs) {
+        var res0 = await ANALYSIS.compare(prevDs, ds);
+        ds.prevCmp = res0; ds.cyc = null; rerender();
+        toast(res0.stats.added + ' added, ' + res0.stats.modified + ' modified, ' + res0.stats.removed + ' removed since ' + prevDs.name);
+        return;
+      }
+    }
+    var others = S.datasets.filter(function (d) { return d !== ds; });
+    if (!others.length) { toast('Load the previous cycle file (Files or Library) to compare.'); return; }
+    var same = others.filter(function (d) { return d.state === ds.state && (d.effective || 0) < (ds.effective || 0); }).sort(function (a, b) { return (b.effective || 0) - (a.effective || 0); });
+    var prev = same[0] || others[0];
+    toast('Comparing with ' + prev.name + ' …');
+    ANALYSIS.compare(prev, ds).then(function (res) { ds.prevCmp = res; ds.cyc = null; rerender(); toast(res.stats.added + ' added, ' + res.stats.modified + ' modified, ' + res.stats.removed + ' removed since ' + prev.name); });
   }
   function renderSection(ds, id, flashRec) {
     var host = $('#aip-content');
@@ -6359,7 +7008,7 @@ var EXPORTS = (function () {
       secs.forEach(function (x) { (x.blocks || []).forEach(function (b) { (b.rows || []).forEach(function (r) { (r.cells || r).forEach(function (c) { if (c && c.r) { var t = AX.tms(c.r.cur.b); if (t !== null && (effAll === null || t > effAll)) effAll = t; } }); }); }); });
       var h = '<div class="sec-head"><div class="grow"><div class="crumbs">' + esc(ds.state) + ' · ' + esc(ds.name) + ' · ' + esc(ds.sniff.versionLabel) + (ds.airac ? ' · AIRAC ' + ds.airac.id : '') + '</div>' +
         '<h2>' + (code ? '<span class="code">' + esc(code) + '</span> ' : '') + esc(sec.group ? sec.title : (sec.no + ' ' + sec.title)) + '</h2>' +
-        '<div class="eff">' + (effAll !== null ? 'Latest effective date in this section: <b>' + M.fmtDate(effAll, true) + '</b>' : '') + (ds.viewDate !== null && ds.viewDate !== undefined ? ' · data valid on ' + M.fmtDate(ds.viewDate) : ' · latest time slices') + '</div></div>' +
+        '<div class="eff">' + (effAll !== null ? 'Latest effective date in this section: <b>' + M.fmtDate(effAll, true) + '</b>' : '') + (ds.viewDate !== null && ds.viewDate !== undefined ? ' · data valid on ' + M.fmtDate(ds.viewDate) : ' · latest time slices') + '</div>' + cycleBarHtml(ds) + '</div>' +
         '<div class="btn-group">' + (adRec ? '<button class="btn small" data-x="map">' + I.map + ' Map</button>' : '') +
         '<button class="btn small" data-x="print">' + I.print + ' Print</button><button class="btn small" data-x="pdf">' + I.pdf + ' PDF</button><button class="btn small" data-x="xlsx">' + I.xls + ' Excel</button>' +
         '<button class="btn small" data-x="json">' + I.json + ' JSON</button><button class="btn small" data-x="mail">' + I.mail + ' E-mail</button></div></div><div class="sec-body">';
@@ -6382,6 +7031,7 @@ var EXPORTS = (function () {
           if (shown >= blk.rows.length) more.parentNode.remove(); else { more.setAttribute('data-shown', shown); more.textContent = 'Show more (' + num(blk.rows.length - shown) + ' more rows)'; }
           return;
         }
+        if (handleCycleBar(e, ds, function () { renderTree(ds, ds.catalogue); renderSection(ds, S.aipSel); })) return;
         var x = e.target.closest('[data-x]');
         if (!x) return;
         var scope = { title: (code ? code + ' ' : '') + (sec.group ? sec.title : sec.no + ' ' + sec.title), sub: ds.state + ' — ' + ds.name, ds: ds, sections: [sec] };
@@ -6437,7 +7087,7 @@ var EXPORTS = (function () {
       '<div class="loc-grid"><b>File</b><span>' + esc(ds.name) + '</span><b>Location</b><span>line ' + num(occ.line) + ' · byte offset ' + num(occ.o) + ' · length ' + num(occ.n) + ' bytes</span>' +
       '<b>Feature</b><span class="mono">' + esc(r.s45 ? r.s45 + ' (AIXM 4.5) → ' + r.k : r.k) + ' ' + esc(r.id || '') + '</span>' +
       (prop ? '<b>Property</b><span class="mono">' + esc(prop) + (M.propDef(r.k, prop) && M.propDef(r.k, prop).d ? ' — ' + esc(M.propDef(r.k, prop).d) : '') + '</span>' : '') +
-      '<b>Validity</b><span>' + esc(tsSummary(r)) + '</span></div>' +
+      '<b>Validity</b><span>' + esc(tsSummary(r)) + '</span></div>' + drawerChgBox(ds, r) +
       (occs.length > 1 ? '<div class="drawer-tabs">' + occs.map(function (o, i) { return '<button data-occ="' + i + '" class="' + (i === oi ? 'active' : '') + '">Part ' + (i + 1) + ' · line ' + num(o.line) + '</button>'; }).join('') + '</div>' : '') +
       '<div class="drawer-body"><div class="empty"><span class="spinner"></span></div></div>';
     drawer.classList.add('open'); drawer.setAttribute('aria-hidden', 'false');
@@ -6674,6 +7324,7 @@ var EXPORTS = (function () {
       S.cmp = await ANALYSIS.compare(a, b, function (f) { var bar = $('#cmp-bar'); if (bar) bar.style.width = (f * 100).toFixed(0) + '%'; });
       warn();
       MAPVIEW.setCompare(S.cmp);
+      if ((b.effective || 0) >= (a.effective || 0)) { b.prevCmp = S.cmp; b.cyc = null; }
       drawCompare();
     };
     if (S.cmp) drawCompare();
@@ -6982,7 +7633,8 @@ var EXPORTS = (function () {
   window.addEventListener('beforeunload', function (e) { if (S.datasets.length) { e.preventDefault(); e.returnValue = ''; } });
   renderNav();
   go('files');
-  window.__AIXM = { S: S, go: go, addFiles: addFiles, extractAll: extractAll, openXml: openXml, openDetail: openDetail };
+  libInit().then(function () { if (LIB.status !== 'none') { startWatch(); if (!S.datasets.length) go('library'); } });
+  window.__AIXM = { S: S, go: go, LIB: LIB, libRescan: libRescan, openLibFile: openLibFile, openLatest: openLatest, useHandle: async function (h) { await LIBRARY.useHandle(h); LIB.status = 'granted'; await libRescan(); startWatch(); }, addFiles: addFiles, extractAll: extractAll, openXml: openXml, openDetail: openDetail };
 })();
 </script>
 </body>

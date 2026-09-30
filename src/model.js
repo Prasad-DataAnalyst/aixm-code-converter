@@ -37,9 +37,13 @@ var MODEL = (function () {
   function finalize(ds) {
     var t0 = Date.now();
     // 1) absolute line numbers
-    var pre = [0];
-    for (var i = 0; i < ds.partLines.length; i++) pre[i + 1] = pre[i] + (ds.partLines[i] || 0);
+    var pre = [0], i;
     var recs = ds.recs, byId = new Map(), out = [];
+    if (ds.prepared) { // restored from the saved library cache: lines and merges already done
+      recs.forEach(function (r) { byId.set(r.id || ('@' + r.o), r); });
+      out = recs;
+    } else {
+    for (i = 0; i < (ds.partLines || []).length; i++) pre[i + 1] = pre[i] + (ds.partLines[i] || 0);
     for (i = 0; i < recs.length; i++) {
       var r = recs[i];
       r.line = pre[r.w || 0] + (r.l || 0) + 1;
@@ -59,6 +63,7 @@ var MODEL = (function () {
       r.ts.forEach(function (t) { t.occ = 0; });
       byId.set(key, r);
       out.push(r);
+    }
     }
     out.sort(function (a, b) { return a.o - b.o; });
     out.forEach(function (r, idx) { r.i = idx; });
