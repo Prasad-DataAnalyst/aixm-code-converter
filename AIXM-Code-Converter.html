@@ -952,7 +952,7 @@ pre.xml .ln.hl { background: var(--hl); }
 .email-preview { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: #fff; color: #222; max-height: 46vh; overflow: auto; }
 
 /* -------------------------------------------------------------------- map */
-.map-wrap { position: absolute; inset: 0; }
+.map-wrap { isolation: isolate;  position: absolute; inset: 0; }
 #map { position: absolute; inset: 0; background: #cfe3ee; }
 :root[data-theme="dark"] #map { background: #0e1b24; }
 .map-panel { position: absolute; top: 12px; left: 12px; z-index: 500; width: 290px; max-height: calc(100% - 24px); overflow: auto; padding: 12px 14px; }
@@ -2954,6 +2954,20 @@ var MODEL = (function () {
     return ds;
   }
 
+  // a data set whose State comes only from its file name / FIR name takes the State of another
+  // loaded data set with the same ICAO prefix (e.g. a Digital NOTAM file next to the baseline)
+  var locator = null;
+  function setLocator(fn) { locator = fn; }
+  function harmonizeStates(list) {
+    var strong = list.filter(function (d) { return d.icaoPrefix && /OrganisationAuthority|ICAO location|library folder/.test(d.stateSource || ''); });
+    list.forEach(function (d) {
+      if (!/file name|FIR name|header origin|ICAO location|geographic/.test(d.stateSource || '') || d.lib) return;
+      var hit = strong.filter(function (o) { return o !== d && (o.icaoPrefix === d.icaoPrefix || (d.prefixes || []).indexOf(o.icaoPrefix) >= 0) && o.state !== d.state; })[0];
+      if (hit && (/file name|FIR name|header origin|geographic/.test(d.stateSource) || /OrganisationAuthority|library/.test(hit.stateSource))) {
+        d.stateDetected = d.state; d.state = hit.state; d.stateSource = 'same ICAO prefix ' + hit.icaoPrefix + ' as ' + hit.name;
+      }
+    });
+  }
   function setViewDate(ds, t) {
     ds.viewDate = t;
     var recs = ds.recs;
@@ -3524,8 +3538,9 @@ var MODEL = (function () {
     // State: STATE organisation, else majority ICAO prefix of aerodromes, else FIR designator
     var state = null, src = '';
     var orgs = ds.byType.OrganisationAuthority || [];
-    var st = orgs.filter(function (o) { return /^(STATE|S)$/.test(s(o.cur.p.type)); });
-    if (st.length) { state = s(st[0].cur.p.name); src = 'OrganisationAuthority (type STATE)'; }
+    var st = orgs.filter(function (o) { return /^(STATE|S)$/.test(s(o.cur.p.type)) && s(o.cur.p.name); });
+    if (st.length > 1) st.sort(function (a, b) { return (ds.rev && (ds.rev.get(b) || []).length || 0) - (ds.rev && (ds.rev.get(a) || []).length || 0); });
+    if (st.length) { state = s(st[0].cur.p.name); src = 'OrganisationAuthority (type STATE)' + (st.length > 1 ? ', the most referenced of ' + st.length : ''); }
     var ads = ds.byType.AirportHeliport || [];
     var counts = {};
     ads.forEach(function (a) {
@@ -3535,12 +3550,41 @@ var MODEL = (function () {
     });
     var fir = (ds.byType.Airspace || []).filter(function (a) { return /^FIR/.test(s(a.cur.p.type)); });
     fir.forEach(function (a) { var pf = AX.icaoPrefixOf(s(a.cur.p.designator)); if (pf) counts[pf] = (counts[pf] || 0) + 0.5; });
+    function addCode(c, w) { c = String(c || '').toUpperCase(); if (!AX.stateFromICAO(c)) return; var pf = AX.icaoPrefixOf(c); counts[pf] = (counts[pf] || 0) + w; }
+    // Digital NOTAM events: NOTAM location / FIR, concerned aerodromes
+    (ds.byType.Event || []).forEach(function (e) {
+      arr(e.cur.p.notification).forEach(function (n) { if (n && typeof n === 'object') { addCode(s(n.location), 1); addCode(s(n.affectedFIR), 0.5); } });
+      arr(e.cur.p.concernedAirportHeliport).forEach(function (x) { var m = /^([A-Z]{4})\b/.exec(x && x.title || ''); if (m) addCode(m[1], 1); });
+    });
+    // instrument procedure names often end with the aerodrome's location indicator ("… RWY 22L KEWR")
+    ['InstrumentApproachProcedure', 'StandardInstrumentDeparture', 'StandardInstrumentArrival'].forEach(function (k) {
+      (ds.byType[k] || []).slice(0, 500).forEach(function (r) { var m = /\b([A-Z]{4})\s*$/.exec(s(r.cur.p.name)); if (m) addCode(m[1], 0.5); });
+    });
+    // nothing yet: location indicators in xlink:title of references to aerodromes / FIRs
+    if (!Object.keys(counts).length) {
+      var nRef = 0;
+      for (var ri = 0; ri < ds.recs.length && ri < 5000 && nRef < 400; ri++) {
+        eachRef(ds.recs[ri].cur.p, function (ref) { var m = /^([A-Z]{4}) (?!\d)/.exec(ref && ref.title || ''); if (m) { addCode(m[1], 0.3); nRef++; } });
+      }
+    }
     var best = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })[0];
     ds.icaoPrefix = best || null;
     var byPrefix = best ? AX.stateFromICAO(best.length === 1 ? best + 'XXX' : (best + 'XX').slice(0, 4)) : null;
     if (!state && byPrefix) { state = byPrefix; src = 'ICAO location indicator prefix ' + best; }
     else if (state && byPrefix && byPrefix.toUpperCase().indexOf(state.toUpperCase()) < 0) ds.stateAlt = byPrefix;
     if (!state && fir.length) { state = s(fir[0].cur.p.name); src = 'FIR name'; }
+    if (!state && sn.header && sn.header.origin && /[a-z]{3}/i.test(sn.header.origin) && !/^(SDO|EAD|AIXM|OFMX)$/i.test(sn.header.origin)) { state = sn.header.origin; src = 'AIXM 4.5 header origin'; }
+    if (!state && locator) { // geographic position of the data inside a country outline
+      var pts = [], step = Math.max(1, Math.floor(ds.recs.length / 1500));
+      for (var pi = 0; pi < ds.recs.length; pi += step) { var pp = pointOf(ds, ds.recs[pi]); if (pp && typeof pp[0] === 'number') pts.push(pp); }
+      if (pts.length) {
+        var lons = pts.map(function (x) { return x[0]; }).sort(function (a, b) { return a - b; }), lats = pts.map(function (x) { return x[1]; }).sort(function (a, b) { return a - b; });
+        var mid = Math.floor(pts.length / 2), cname = null;
+        try { cname = locator(lons[mid], lats[mid]); } catch (e) { cname = null; }
+        if (!cname) { var votes = {}; pts.slice(0, 300).forEach(function (x) { var n = null; try { n = locator(x[0], x[1]); } catch (e) { n = null; } if (n) votes[n] = (votes[n] || 0) + 1; }); cname = Object.keys(votes).sort(function (a, b) { return votes[b] - votes[a]; })[0] || null; }
+        if (cname) { state = cname; src = 'geographic position of the data'; }
+      }
+    }
     if (!state) { state = ds.name.replace(/\.[^.]+$/, ''); src = 'file name'; }
     ds.state = state; ds.stateSource = src;
     ds.prefixes = Object.keys(counts);
@@ -3594,7 +3638,7 @@ var MODEL = (function () {
   function fmtTs(str) { if (typeof str === 'number') return fmtDate(str, true); var t = AX.tms(str); return t === null ? (str || '') : fmtDate(t, true); }
 
   return {
-    setDict: setDict, dict: dict, finalize: finalize, setViewDate: setViewDate, target: target, eachRef: eachRef,
+    setDict: setDict, dict: dict, finalize: finalize, setViewDate: setViewDate, harmonizeStates: harmonizeStates, setLocator: setLocator, target: target, eachRef: eachRef,
     geometry: geometry, pointOf: pointOf, findGeo: findGeo, segPoint: segPoint, segPointLabel: segPointLabel, segPointRec: segPointRec,
     label: label, shortName: shortName, typeName: typeName, routeDesignator: routeDesignator, s: s,
     fq: fq, fLimit: fLimit, fPoint: fPoint, fElev: fElev, fTimesheet: fTimesheet, fSchedule: fSchedule, noteText: noteText, notesOf: notesOf,
@@ -5453,7 +5497,8 @@ var MAPVIEW = (function () {
     return grp;
   }
   var ONLINE = {
-    osm: { name: 'OpenStreetMap (standard)', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors', maxZoom: 19 },
+    voyager: { name: 'OpenStreetMap – CARTO Voyager (recommended)', url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors © CARTO', maxZoom: 20, sub: 'abcd' },
+    osm: { name: 'OpenStreetMap (standard server – may refuse local files)', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors', maxZoom: 19 },
     osmde: { name: 'OpenStreetMap (German style mirror)', url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors', maxZoom: 18 },
     cartoLight: { name: 'OSM data – CARTO light', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors © CARTO', maxZoom: 20, sub: 'abcd' },
     cartoDark: { name: 'OSM data – CARTO dark', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors © CARTO', maxZoom: 20, sub: 'abcd' },
@@ -5469,12 +5514,27 @@ var MAPVIEW = (function () {
     var d = ONLINE[key];
     if (!base.online[key]) {
       base.online[key] = L.tileLayer(d.url, { attribution: d.attr, maxZoom: d.maxZoom, subdomains: d.sub || 'abc', crossOrigin: true, referrerPolicy: 'strict-origin-when-cross-origin' });
-      var errors = 0;
-      base.online[key].on('tileerror', function () { if (++errors === 6 && hooks) hooks.toast('Online map tiles are not loading (no internet or blocked). Switch back to the offline map or choose another online style.'); });
+      var errors = 0, loaded = 0;
+      base.online[key].on('tileload', function () { loaded++; });
+      base.online[key].on('tileerror', function () {
+        if (++errors !== 5 || loaded) return;
+        // The standard OSM servers refuse requests without a web-site referrer (a local file has none):
+        // fall back to the same OpenStreetMap data served by CARTO, or to the offline map.
+        if (key !== 'voyager' && key !== 'offline') {
+          checkOnline(function (on) {
+            if (base.current !== key) return;
+            var to = on ? 'voyager' : 'offline';
+            setBase(to); var sel = document.getElementById('map-base'); if (sel) sel.value = to;
+            if (hooks) hooks.toast(on ? ONLINE[key].name + ' refused the tiles — switched to OpenStreetMap (CARTO Voyager).' : 'No internet — switched to the offline map.', 6000);
+          });
+        } else if (hooks) hooks.toast('Online map tiles are not loading (no internet or blocked). The offline map always works.');
+      });
     }
     map.addLayer(base.online[key]);
     if (state.showOfflineBorders) { map.addLayer(base.offline); }
   }
+  function saveBase(key) { try { localStorage.setItem('aixm-map-base', key); } catch (e) { /* storage unavailable */ } }
+  function savedBase() { try { return localStorage.getItem('aixm-map-base') || ''; } catch (e) { return ''; } }
   function checkOnline(cb) {
     if (!navigator.onLine) { cb(false); return; }
     var img = new Image(), done = false;
@@ -5624,6 +5684,12 @@ var MAPVIEW = (function () {
       if (on && !map.hasLayer(over[k])) map.addLayer(over[k]);
       if (!on && map.hasLayer(over[k])) map.removeLayer(over[k]);
     });
+  }
+  function currentLayers() {
+    var o = {};
+    LAYER_DEF.forEach(function (x) { o[x[0]] = state.filters[x[0]] !== undefined ? state.filters[x[0]] : x[2]; });
+    AS_CATS.forEach(function (x) { o['as_' + x[0]] = state.filters['as_' + x[0]] !== undefined ? state.filters['as_' + x[0]] : true; });
+    return o;
   }
   function countOf(k) {
     var l = over[k];
@@ -5782,7 +5848,7 @@ var MAPVIEW = (function () {
     h += '<h4>Display</h4><label class="chk"><input type="checkbox" id="map-labels" checked> Labels</label>';
     h += '<label class="chk"><input type="checkbox" id="map-cmp" disabled> Show comparison result (added / removed / modified)</label>';
     h += '</div>';
-    h += '<div class="map-tools"><button class="btn small" id="map-fit" title="Zoom to data">⤢ Fit data</button><button class="btn small" id="map-measure" title="Measure distance and bearing">📏 Measure</button><button class="btn small" id="map-png" title="Save the current view as PNG">🖼 Save PNG</button><button class="btn small" id="map-panel-toggle">☰ Layers</button></div>';
+    h += '<div class="map-tools"><button class="btn small" id="map-fit" title="Zoom to data">⤢ Fit data</button><button class="btn small" id="map-measure" title="Measure distance and bearing">📏 Measure</button><button class="btn small" id="map-png" title="Save the current view as PNG">🖼 Save PNG</button><button class="btn small" id="map-print" title="Print or save the map as PDF: choose area, paper, legend, north arrow">🖨 Print map</button><button class="btn small" id="map-panel-toggle">☰ Layers</button></div>';
     h += '<div class="card map-status" id="map-status">Move the mouse over the map</div>';
     return h;
   }
@@ -5817,14 +5883,15 @@ var MAPVIEW = (function () {
       }
     });
     var q = function (sel) { return container.querySelector(sel); };
-    q('#map-base').addEventListener('change', function (e) { setBase(e.target.value); });
+    q('#map-base').addEventListener('change', function (e) { setBase(e.target.value); saveBase(e.target.value); });
     container.querySelectorAll('[data-layer]').forEach(function (cb) {
       cb.addEventListener('change', function () { state.filters[cb.getAttribute('data-layer')] = cb.checked; applyLayers(); });
     });
     q('#map-labels').addEventListener('change', function (e) { state.labels = e.target.checked; ['pAd', 'pNav', 'pDp', 'pObs', 'pLgt'].forEach(function (k) { if (over[k] && map.hasLayer(over[k])) over[k].redraw(); }); });
     q('#map-fit').addEventListener('click', function () { fit(); });
     q('#map-measure').addEventListener('click', function (e) { toggleMeasure(e.currentTarget); });
-    q('#map-png').addEventListener('click', function () { hooks.savePng(renderImage(state.ds, map.getBounds(), 1600, 1000, { title: state.ds ? state.ds.state : '' })); });
+    q('#map-png').addEventListener('click', function () { hooks.savePng(renderImage(state.ds, map.getBounds(), 1600, 1000, { title: state.ds ? state.ds.state : '', layers: currentLayers() })); });
+    q('#map-print').addEventListener('click', function () { printDialog(null); });
     q('#map-panel-toggle').addEventListener('click', function () { q('#map-panel').classList.toggle('hidden'); });
     var dsSel = q('#map-ds');
     if (dsSel) dsSel.addEventListener('change', function () { show(datasets[+dsSel.value]); fit(); });
@@ -5838,6 +5905,8 @@ var MAPVIEW = (function () {
       if (!c) return;
       c.textContent = on ? 'internet: online' : 'internet: offline';
       c.className = 'chip ' + (on ? 'ok' : 'warn');
+      var sb = savedBase();
+      if (on && sb && ONLINE[sb] && base.current === 'offline') { setBase(sb); var bs = q('#map-base'); if (bs) bs.value = sb; }
     });
     var ds = opts.ds || datasets[0];
     if (dsSel && ds) dsSel.value = String(datasets.indexOf(ds));
@@ -5898,24 +5967,51 @@ var MAPVIEW = (function () {
     else map.fitBounds(b.pad(0.2), { maxZoom: 14 });
     setTimeout(function () { openPopup(ds, r, b.getCenter()); }, 350);
   }
+  // name of the country containing lon/lat (Natural Earth 1:50m), or null
+  var countryIdx = null;
+  function countryAt(lon, lat) {
+    if (!countryIdx) {
+      if (!world50) { var wj = JSON.parse(document.getElementById('data-world50').textContent); world50 = topojson.feature(wj, wj.objects.countries); }
+      countryIdx = world50.features.map(function (f) {
+        var g = f.geometry, polys = !g ? [] : g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+        var bb = [180, 90, -180, -90];
+        polys.forEach(function (p) { p[0].forEach(function (c) { if (c[0] < bb[0]) bb[0] = c[0]; if (c[1] < bb[1]) bb[1] = c[1]; if (c[0] > bb[2]) bb[2] = c[0]; if (c[1] > bb[3]) bb[3] = c[1]; }); });
+        return { name: f.properties && f.properties.name, polys: polys, bb: bb };
+      });
+    }
+    function inRing(r) { var ins = false; for (var i = 0, j = r.length - 1; i < r.length; j = i++) { var xi = r[i][0], yi = r[i][1], xj = r[j][0], yj = r[j][1]; if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) ins = !ins; } return ins; }
+    for (var k = 0; k < countryIdx.length; k++) {
+      var c = countryIdx[k];
+      if (lon < c.bb[0] || lon > c.bb[2] || lat < c.bb[1] || lat > c.bb[3]) continue;
+      for (var q = 0; q < c.polys.length; q++) if (inRing(c.polys[q][0]) && !c.polys[q].slice(1).some(inRing)) return c.name;
+    }
+    return null;
+  }
   function refreshTheme() { if (base.offline && base.offline.restyle) base.offline.restyle(); if (base.offline && base.offline.grat) base.offline.grat.redraw(); }
 
   /* ------------------------------------------------ static map renderer */
   // Renders the offline base map + aeronautical features of `ds` inside `bounds` to a PNG data URL.
+  // opt: {title, sub, procAd, layers:{key:bool}, legend, north, grid, scale, footer}
   function renderImage(ds, bounds, w, h, opt) {
     opt = opt || {};
+    var k = Math.max(1, w / 1600), lay = opt.layers || null;
+    function on(key, def) { return !lay ? def !== false : lay[key] !== undefined ? lay[key] : def !== false; }
     var c = document.createElement('canvas');
     c.width = w; c.height = h;
     var ctx = c.getContext('2d');
     if (!world50) { var wj = JSON.parse(document.getElementById('data-world50').textContent); world50 = topojson.feature(wj, wj.objects.countries); }
     var bw = bounds.getWest ? bounds.getWest() : bounds[0], bs = bounds.getSouth ? bounds.getSouth() : bounds[1], be = bounds.getEast ? bounds.getEast() : bounds[2], bn = bounds.getNorth ? bounds.getNorth() : bounds[3];
     function my(lat) { var r = lat * Math.PI / 180; return Math.log(Math.tan(Math.PI / 4 + r / 2)); }
-    var y0 = my(bn), y1 = my(bs), xs = w / ((be - bw) * Math.PI / 180), ys = h / (y0 - y1), sc = Math.min(xs, ys);
+    function iy(y) { return (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * 180 / Math.PI; }
+    var top = opt.title ? 34 * k : 0;
+    var y0 = my(bn), y1 = my(bs), xs = w / ((be - bw) * Math.PI / 180), ys = (h - top) / (y0 - y1), sc = Math.min(xs, ys);
     var cx = (bw + be) / 2, cy = (y0 + y1) / 2;
-    function P(lon, lat) { return [w / 2 + (lon - cx) * Math.PI / 180 * sc, h / 2 - (my(lat) - cy) * sc]; }
+    function P(lon, lat) { return [w / 2 + (lon - cx) * Math.PI / 180 * sc, top + (h - top) / 2 - (my(lat) - cy) * sc]; }
+    // visible extent after aspect fitting
+    var vw = cx - (w / 2) / sc * 180 / Math.PI, ve = cx + (w / 2) / sc * 180 / Math.PI, vn = iy(cy + ((h - top) / 2) / sc), vs = iy(cy - ((h - top) / 2) / sc);
     ctx.fillStyle = '#cfe3ee'; ctx.fillRect(0, 0, w, h);
     var geo = (sc > 3000 && world10) ? world10 : world50;
-    ctx.fillStyle = '#f3efe9'; ctx.strokeStyle = '#b9aca4'; ctx.lineWidth = 1;
+    ctx.fillStyle = '#f3efe9'; ctx.strokeStyle = '#b9aca4'; ctx.lineWidth = k;
     geo.features.forEach(function (f) {
       var g = f.geometry; if (!g) return;
       var polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
@@ -5925,75 +6021,188 @@ var MAPVIEW = (function () {
         ctx.fill('evenodd'); ctx.stroke();
       });
     });
-    function inView(pt) { return pt[0] >= bw - 2 && pt[0] <= be + 2 && pt[1] >= bs - 2 && pt[1] <= bn + 2; }
+    // coordinate grid
+    var gstep = [30, 10, 5, 2, 1, 0.5, 0.25, 1 / 6, 1 / 12].filter(function (s2) { return (ve - vw) / s2 >= 3; })[0] || 1 / 12;
+    function gl(v, isLon) { var a = Math.abs(v), d = Math.floor(a + 1e-9), m = Math.round((a - d) * 60); if (m === 60) { d++; m = 0; } return d + '°' + (m ? ('0' + m).slice(-2) + "'" : '') + (isLon ? (v < 0 ? 'W' : v > 0 ? 'E' : '') : (v < 0 ? 'S' : v > 0 ? 'N' : '')); }
+    if (opt.grid !== false) {
+      ctx.strokeStyle = 'rgba(60,80,100,.28)'; ctx.lineWidth = k; ctx.fillStyle = '#35505f'; ctx.font = Math.round(11 * k) + 'px Arial';
+      for (var gx = Math.ceil(vw / gstep) * gstep; gx <= ve; gx += gstep) { var qx = P(gx, vn)[0]; ctx.beginPath(); ctx.moveTo(qx, top); ctx.lineTo(qx, h); ctx.stroke(); ctx.fillText(gl(gx, true), qx + 3 * k, top + 13 * k); }
+      for (var gy = Math.ceil(vs / gstep) * gstep; gy <= vn; gy += gstep) { var qy = P(vw, gy)[1]; ctx.beginPath(); ctx.moveTo(0, qy); ctx.lineTo(w, qy); ctx.stroke(); ctx.fillText(gl(gy, false), 4 * k, qy - 3 * k); }
+    }
+    function inView(pt) { return pt[0] >= vw - 2 && pt[0] <= ve + 2 && pt[1] >= vs - 2 && pt[1] <= vn + 2; }
+    function path(cs) { ctx.beginPath(); cs.forEach(function (pt, i) { var q = P(pt[0], pt[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); }); }
+    var used = {};
     if (ds) {
       (ds.byType.Airspace || []).forEach(function (a) {
-        var col = COLORS[asCat(s(a.cur.p.type))];
+        var cat = asCat(s(a.cur.p.type)), col = COLORS[cat];
+        if (!on('as_' + cat)) return;
         shapesOf(M.geometry(ds, a), function (g) {
           if (g.t !== 'A') return;
           var ring = g.c[0].filter(function (p) { return typeof p[0] === 'number'; });
           if (!ring.some(inView)) return;
-          ctx.beginPath(); ring.forEach(function (pt, i) { var q = P(pt[0], pt[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); }); ctx.closePath();
-          ctx.globalAlpha = 0.07; ctx.fillStyle = col; ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+          path(ring); ctx.closePath();
+          ctx.globalAlpha = 0.07; ctx.fillStyle = col; ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = col; ctx.lineWidth = 1.5 * k;
+          ctx.setLineDash(cat === 'prd' || cat === 'mil' ? [6 * k, 4 * k] : []); ctx.stroke(); ctx.setLineDash([]);
+          used['as_' + cat] = 1;
         });
       });
-      (ds.byType.RouteSegment || []).forEach(function (sg) {
+      if (on('routes')) (ds.byType.RouteSegment || []).forEach(function (sg) {
         var g = M.geometry(ds, sg); if (!g || g.t !== 'L' || !g.c.some(inView)) return;
-        ctx.beginPath(); g.c.forEach(function (pt, i) { var q = P(pt[0], pt[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
-        ctx.strokeStyle = COLORS.route; ctx.lineWidth = 1.5; ctx.stroke();
+        var rnav = /RNAV|RNP/.test(s(sg.cur.p.navigationType));
+        path(g.c); ctx.strokeStyle = rnav ? COLORS.rnav : COLORS.route; ctx.lineWidth = 1.5 * k; ctx.stroke(); used[rnav ? 'rnav' : 'route'] = 1;
       });
-      (ds.byType.Runway || []).forEach(function (rw) {
+      if (on('aerodrome')) (ds.byType.Runway || []).forEach(function (rw) {
         shapesOf(M.geometry(ds, rw), function (g) {
           if (g.t !== 'L' || !g.c.some(inView)) return;
-          ctx.beginPath(); g.c.forEach(function (pt, i) { var q = P(pt[0], pt[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
-          ctx.strokeStyle = '#222'; ctx.lineWidth = 5; ctx.stroke();
+          path(g.c); ctx.strokeStyle = '#222'; ctx.lineWidth = 5 * k; ctx.stroke(); used.rwy = 1;
         });
       });
-      if (opt.procAd) {
-        ['StandardInstrumentDeparture', 'StandardInstrumentArrival', 'InstrumentApproachProcedure'].forEach(function (k) {
-          (ds.byType[k] || []).forEach(function (pr) {
-            if (ds.owner.get(pr) !== opt.procAd) return;
+      if (opt.procAd || on('procs', false)) {
+        ['StandardInstrumentDeparture', 'StandardInstrumentArrival', 'InstrumentApproachProcedure'].forEach(function (kk) {
+          (ds.byType[kk] || []).forEach(function (pr) {
+            if (opt.procAd ? ds.owner.get(pr) !== opt.procAd : (state.procAd && ds.owner.get(pr) !== state.procAd)) return;
+            if (state.procKinds && state.procKinds[PROC_K[kk]] === false) return;
             procPaths(ds, pr).forEach(function (sg) {
-              ctx.beginPath(); sg.coords.forEach(function (pt, i) { var q = P(pt[0], pt[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
-              ctx.setLineDash(sg.dashed ? [8, 6] : []); ctx.strokeStyle = PROC_COL[k]; ctx.lineWidth = 2.5; ctx.stroke(); ctx.setLineDash([]);
+              if (!sg.coords.some(inView)) return;
+              path(sg.coords); ctx.setLineDash(sg.dashed ? [8 * k, 6 * k] : []); ctx.strokeStyle = PROC_COL[kk]; ctx.lineWidth = 2.5 * k; ctx.stroke(); ctx.setLineDash([]);
+              used['p' + PROC_K[kk]] = 1;
             });
           });
         });
       }
-      ctx.font = '600 13px "Segoe UI", Arial, sans-serif';
+      ctx.font = '600 ' + Math.round(13 * k) + 'px "Segoe UI", Arial, sans-serif';
       var pts = [];
-      (ds.byType.AirportHeliport || []).forEach(function (a) { var p = M.pointOf(ds, a); if (p) pts.push([p, s(a.cur.p.type) === 'HP' ? 'HP' : 'AD', COLORS.ad, M.shortName(a)]); });
-      (ds.byType.Navaid || []).forEach(function (n) { var p = M.pointOf(ds, n); if (p) pts.push([p, navSym(n), COLORS.nav, s(n.cur.p.designator)]); });
-      (ds.byType.DesignatedPoint || []).forEach(function (d) { var p = M.pointOf(ds, d); if (p) pts.push([p, 'DP', COLORS.dp, s(d.cur.p.designator)]); });
-      var obsList = (ds.byType.VerticalStructure || []);
-      if (obsList.length < 5000) obsList.forEach(function (o) { var p = M.pointOf(ds, o); if (p) pts.push([p, 'OBS', COLORS.obst, '']); });
+      if (on('pAd')) (ds.byType.AirportHeliport || []).forEach(function (a) { var p = M.pointOf(ds, a); if (p) pts.push([p, s(a.cur.p.type) === 'HP' ? 'HP' : 'AD', COLORS.ad, M.shortName(a), 'ad']); });
+      if (on('pNav')) (ds.byType.Navaid || []).forEach(function (n) { var p = M.pointOf(ds, n); if (p) pts.push([p, navSym(n), COLORS.nav, s(n.cur.p.designator), 'nav']); });
+      if (on('pDp')) (ds.byType.DesignatedPoint || []).forEach(function (d) { var p = M.pointOf(ds, d); if (p) pts.push([p, 'DP', COLORS.dp, s(d.cur.p.designator), 'dp']); });
+      var obsList = on('obstacles') ? (ds.byType.VerticalStructure || []) : [];
+      if (obsList.length < 20000) obsList.forEach(function (o) { var p = M.pointOf(ds, o); if (p) pts.push([p, 'OBS', COLORS.obst, '', 'obs']); });
       var visPts = pts.filter(function (x) { return inView(x[0]); });
       visPts.forEach(function (x) {
         var q = P(x[0][0], x[0][1]);
-        sym(ctx, x[1], q[0], q[1], x[2], 7);
-        if (x[3] && visPts.length < 400) { ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.strokeStyle = '#fff'; ctx.strokeText(x[3], q[0] + 10, q[1] - 2); ctx.fillStyle = x[2]; ctx.fillText(x[3], q[0] + 10, q[1] - 2); }
+        sym(ctx, x[1], q[0], q[1], x[2], 7 * k);
+        used[x[4]] = 1;
+        if (x[3] && visPts.length < 400 * k) { ctx.lineWidth = 3 * k; ctx.lineJoin = 'round'; ctx.strokeStyle = '#fff'; ctx.strokeText(x[3], q[0] + 10 * k, q[1] - 2 * k); ctx.fillStyle = x[2]; ctx.fillText(x[3], q[0] + 10 * k, q[1] - 2 * k); }
       });
     }
-    // frame, title, scale
-    ctx.strokeStyle = '#5c0632'; ctx.lineWidth = 4; ctx.strokeRect(2, 2, w - 4, h - 4);
+    // frame and title
+    ctx.strokeStyle = '#5c0632'; ctx.lineWidth = 4 * k; ctx.strokeRect(2 * k, 2 * k, w - 4 * k, h - 4 * k);
     if (opt.title) {
-      ctx.fillStyle = 'rgba(92,6,50,.9)'; ctx.fillRect(0, 0, w, 34);
-      ctx.fillStyle = '#fff'; ctx.font = '600 16px "Segoe UI", Arial, sans-serif'; ctx.fillText(opt.title, 14, 23);
+      ctx.fillStyle = 'rgba(92,6,50,.94)'; ctx.fillRect(0, 0, w, top);
+      ctx.fillStyle = '#fff'; ctx.font = '600 ' + Math.round(16 * k) + 'px "Segoe UI", Arial, sans-serif'; ctx.fillText(opt.title, 14 * k, 23 * k);
+      if (opt.sub) { ctx.font = Math.round(12 * k) + 'px "Segoe UI", Arial, sans-serif'; var tw = ctx.measureText(opt.sub).width; ctx.fillText(opt.sub, w - tw - 14 * k, 22 * k); }
     }
-    if (opt.procAd) {
-      ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.fillRect(w - 170, 44, 158, 78); ctx.strokeStyle = '#999'; ctx.lineWidth = 1; ctx.strokeRect(w - 170, 44, 158, 78);
-      [['SID', PROC_COL.StandardInstrumentDeparture], ['STAR', PROC_COL.StandardInstrumentArrival], ['Approach', PROC_COL.InstrumentApproachProcedure]].forEach(function (x, i) {
-        ctx.fillStyle = x[1]; ctx.fillRect(w - 160, 58 + i * 22, 26, 4); ctx.fillStyle = '#222'; ctx.font = '12px Arial'; ctx.fillText(x[0], w - 126, 64 + i * 22);
-      });
+    // north arrow
+    if (opt.north !== false) {
+      var nx = w - 46 * k, ny = top + 60 * k, r = 20 * k;
+      ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(nx, ny, r + 8 * k, 0, 2 * Math.PI); ctx.fill(); ctx.strokeStyle = '#555'; ctx.lineWidth = k; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(nx, ny - r); ctx.lineTo(nx + r * 0.45, ny + r * 0.6); ctx.lineTo(nx, ny + r * 0.25); ctx.closePath(); ctx.fillStyle = '#5c0632'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(nx, ny - r); ctx.lineTo(nx - r * 0.45, ny + r * 0.6); ctx.lineTo(nx, ny + r * 0.25); ctx.closePath(); ctx.fillStyle = '#c9a0b4'; ctx.fill();
+      ctx.fillStyle = '#222'; ctx.font = '700 ' + Math.round(11 * k) + 'px Arial'; ctx.fillText('N', nx - 4 * k, ny - r - 9 * k);
     }
-    var nmPerPx = AX.distNM([cx, bs], [cx + 1, bs]) / (Math.PI / 180 * sc);
-    var nice = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000].filter(function (v) { return v / nmPerPx < w / 4; }).pop() || 1;
-    var len = nice / nmPerPx;
-    ctx.fillStyle = '#fff'; ctx.fillRect(14, h - 34, len + 70, 22);
-    ctx.fillStyle = '#222'; ctx.fillRect(20, h - 22, len, 4); ctx.font = '12px Arial'; ctx.fillText(nice + ' NM', 26 + len, h - 17);
-    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(w - 250, h - 20, 246, 16); ctx.fillStyle = '#555'; ctx.font = '10px Arial';
-    ctx.fillText('Base map: Natural Earth (public domain)', w - 244, h - 8);
+    // legend
+    if (opt.legend !== false && ds) {
+      var items = [];
+      AS_CATS.forEach(function (cc) { if (used['as_' + cc[0]]) items.push(['area', COLORS[cc[0]], cc[1], cc[0] === 'prd' || cc[0] === 'mil']); });
+      if (used.route) items.push(['line', COLORS.route, 'ATS route']);
+      if (used.rnav) items.push(['line', COLORS.rnav, 'RNAV route']);
+      if (used.pSID) items.push(['line', PROC_COL.StandardInstrumentDeparture, 'SID']);
+      if (used.pSTAR) items.push(['line', PROC_COL.StandardInstrumentArrival, 'STAR']);
+      if (used.pIAP) items.push(['line', PROC_COL.InstrumentApproachProcedure, 'Instrument approach']);
+      if (used.rwy) items.push(['rwy', '#222', 'Runway']);
+      if (used.ad) items.push(['sym', COLORS.ad, 'Aerodrome / heliport', 'AD']);
+      if (used.nav) items.push(['sym', COLORS.nav, 'Radio navigation aid', 'VOR']);
+      if (used.dp) items.push(['sym', COLORS.dp, 'Designated point', 'DP']);
+      if (used.obs) items.push(['sym', COLORS.obst, 'Obstacle', 'OBS']);
+      if (items.length) {
+        ctx.font = Math.round(12 * k) + 'px Arial';
+        var lh = 18 * k, lw = Math.max(170 * k, 50 * k + Math.max.apply(null, items.map(function (it) { return ctx.measureText(it[2]).width; }))), lx = 12 * k, lyy = h - 46 * k - items.length * lh - 22 * k;
+        ctx.fillStyle = 'rgba(255,255,255,.93)'; ctx.fillRect(lx, lyy, lw, items.length * lh + 26 * k); ctx.strokeStyle = '#999'; ctx.lineWidth = k; ctx.strokeRect(lx, lyy, lw, items.length * lh + 26 * k);
+        ctx.fillStyle = '#5c0632'; ctx.font = '700 ' + Math.round(12 * k) + 'px Arial'; ctx.fillText('LEGEND', lx + 8 * k, lyy + 16 * k);
+        items.forEach(function (it, i) {
+          var yy = lyy + 26 * k + i * lh + lh / 2, x0 = lx + 10 * k;
+          if (it[0] === 'area') { ctx.globalAlpha = 0.15; ctx.fillStyle = it[1]; ctx.fillRect(x0, yy - 6 * k, 26 * k, 12 * k); ctx.globalAlpha = 1; ctx.strokeStyle = it[1]; ctx.lineWidth = 1.5 * k; ctx.setLineDash(it[3] ? [4 * k, 3 * k] : []); ctx.strokeRect(x0, yy - 6 * k, 26 * k, 12 * k); ctx.setLineDash([]); }
+          else if (it[0] === 'line' || it[0] === 'rwy') { ctx.strokeStyle = it[1]; ctx.lineWidth = (it[0] === 'rwy' ? 5 : 2.5) * k; ctx.beginPath(); ctx.moveTo(x0, yy); ctx.lineTo(x0 + 26 * k, yy); ctx.stroke(); }
+          else sym(ctx, it[3], x0 + 13 * k, yy, it[1], 6 * k);
+          ctx.fillStyle = '#222'; ctx.font = Math.round(12 * k) + 'px Arial'; ctx.fillText(it[2], x0 + 36 * k, yy + 4 * k);
+        });
+      }
+    }
+    // scale bar
+    var nmPerPx = AX.distNM([cx, (vs + vn) / 2], [cx + 1, (vs + vn) / 2]) / (Math.PI / 180 * sc);
+    var nice = [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000].filter(function (v) { return v / nmPerPx < w / 4; }).pop() || 1;
+    var len = nice / nmPerPx, sx = w / 2 - len / 2;
+    if (opt.scale !== false) {
+      ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillRect(sx - 10 * k, h - 40 * k, len + 110 * k, 26 * k);
+      ctx.fillStyle = '#222'; ctx.fillRect(sx, h - 28 * k, len, 4 * k); ctx.fillRect(sx, h - 33 * k, 2 * k, 14 * k); ctx.fillRect(sx + len - 2 * k, h - 33 * k, 2 * k, 14 * k);
+      ctx.font = Math.round(12 * k) + 'px Arial'; ctx.fillText(nice + ' NM (' + (nice * 1.852).toFixed(nice < 5 ? 1 : 0) + ' km)', sx + len + 8 * k, h - 22 * k);
+    }
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = Math.round(10 * k) + 'px Arial';
+    var foot = (opt.footer ? opt.footer + '  ·  ' : '') + 'Base map: Natural Earth (public domain) · Mercator · not for navigation';
+    var fw = ctx.measureText(foot).width; ctx.fillRect(w - fw - 16 * k, h - 20 * k, fw + 12 * k, 16 * k); ctx.fillStyle = '#555'; ctx.fillText(foot, w - fw - 10 * k, h - 8 * k);
     return c.toDataURL('image/png');
+  }
+
+  /* --------------------------------------------------------- print dialog */
+  var PAPER = { A4L: [297, 210], A4P: [210, 297], A3L: [420, 297], A3P: [297, 420] };
+  function printDialog(bounds) {
+    var old = document.getElementById('map-print-dlg'); if (old) old.remove();
+    var ds = state.ds, b = bounds || map.getBounds();
+    var d = document.createElement('div');
+    d.className = 'modal-back'; d.id = 'map-print-dlg';
+    d.innerHTML = '<div class="modal" style="width:min(560px,100%)"><div class="modal-head"><h3>Print map</h3><span class="sp"></span><button class="btn small ghost" data-p="close">✕</button></div><div class="modal-body">' +
+      '<div class="muted" style="margin-bottom:8px">Area: ' + (bounds ? 'the rectangle you selected' : 'the current map view') + ' — ' + AX.fmtPos([b.getWest(), b.getNorth()], 0) + ' to ' + AX.fmtPos([b.getEast(), b.getSouth()], 0) + '. <a href="#" data-p="area">Select another area on the map</a></div>' +
+      '<label>Title<br><input class="inp" id="mp-title" style="width:100%" value="' + esc(ds ? ds.state + (ds.airac ? ' — AIRAC ' + ds.airac.id : '') : 'Map') + '"></label>' +
+      '<div class="row wrap" style="gap:14px;margin-top:10px"><label>Paper<br><select class="inp" id="mp-paper"><option value="A4L">A4 landscape</option><option value="A4P">A4 portrait</option><option value="A3L">A3 landscape</option><option value="A3P">A3 portrait</option></select></label>' +
+      '<div><br>' + [['legend', 'Legend'], ['north', 'North arrow'], ['grid', 'Coordinate grid'], ['scale', 'Scale bar']].map(function (x) { return '<label class="chk" style="display:inline-flex;margin-right:10px"><input type="checkbox" data-o="' + x[0] + '" checked> ' + x[1] + '</label>'; }).join('') + '</div></div>' +
+      '<div class="muted" style="font-size:12px;margin-top:8px">The layers switched on in the map panel are printed. Procedures are included when the procedure layer is on.</div>' +
+      '<div class="row" style="gap:8px;margin-top:14px;justify-content:flex-end"><button class="btn" data-p="png">Save PNG</button><button class="btn" data-p="print">Print</button><button class="btn primary" data-p="pdf">Save PDF</button></div></div></div>';
+    document.body.appendChild(d);
+    d.addEventListener('click', function (e) {
+      if (e.target === d) { d.remove(); return; }
+      var a = e.target.closest('[data-p]'); if (!a) return;
+      e.preventDefault();
+      var k = a.getAttribute('data-p');
+      if (k === 'close') { d.remove(); return; }
+      if (k === 'area') { d.remove(); selectArea(); return; }
+      var paper = PAPER[d.querySelector('#mp-paper').value], mm = 8, W = paper[0] * mm, H = paper[1] * mm, o = {};
+      d.querySelectorAll('[data-o]').forEach(function (cb) { o[cb.getAttribute('data-o')] = cb.checked; });
+      var layers = {};
+      LAYER_DEF.forEach(function (x) { layers[x[0]] = state.filters[x[0]] !== undefined ? state.filters[x[0]] : x[2]; });
+      AS_CATS.forEach(function (x) { layers['as_' + x[0]] = state.filters['as_' + x[0]] !== undefined ? state.filters['as_' + x[0]] : true; });
+      var title = d.querySelector('#mp-title').value;
+      hooks.toast('Rendering the map…');
+      setTimeout(function () {
+        var url = renderImage(ds, b, W, H, { title: title, sub: ds ? ds.name : '', layers: layers, legend: o.legend, north: o.north, grid: o.grid, scale: o.scale, footer: 'Printed ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z' });
+        if (k === 'png') hooks.savePng(url);
+        else if (k === 'pdf') {
+          var land = paper[0] > paper[1], doc = new window.jspdf.jsPDF({ orientation: land ? 'landscape' : 'portrait', unit: 'mm', format: paper[0] === 420 || paper[1] === 420 ? 'a3' : 'a4' });
+          doc.addImage(url, 'PNG', 0, 0, paper[0], paper[1]);
+          doc.save((title || 'map').replace(/[^\w.-]+/g, '_') + '.pdf');
+        } else {
+          var root = document.getElementById('print-root');
+          root.innerHTML = '<style>@page { size: ' + (paper[0] === 420 || paper[1] === 420 ? 'A3' : 'A4') + ' ' + (paper[0] > paper[1] ? 'landscape' : 'portrait') + '; margin: 0 }</style><img src="' + url + '" style="width:100%;display:block">';
+          setTimeout(function () { window.print(); }, 60);
+        }
+        d.remove();
+      }, 30);
+    });
+  }
+  function selectArea() {
+    hooks.toast('Drag a rectangle on the map to choose the print area (Esc to cancel).', 5000);
+    var start = null, rect = null, cont = map.getContainer();
+    map.dragging.disable(); cont.style.cursor = 'crosshair';
+    function done(ok) {
+      map.off('mousedown', down); map.off('mousemove', move); map.off('mouseup', up); document.removeEventListener('keydown', key);
+      map.dragging.enable(); cont.style.cursor = '';
+      var bb = rect ? rect.getBounds() : null; if (rect) map.removeLayer(rect);
+      if (ok && bb && bb.isValid()) printDialog(bb);
+    }
+    function down(e) { start = e.latlng; rect = L.rectangle([start, start], { color: '#5c0632', weight: 2, dashArray: '6 4', fillOpacity: 0.08 }).addTo(map); }
+    function move(e) { if (start && rect) rect.setBounds([start, e.latlng]); }
+    function up() { if (start) done(true); }
+    function key(e) { if (e.key === 'Escape') done(false); }
+    map.on('mousedown', down); map.on('mousemove', move); map.on('mouseup', up); document.addEventListener('keydown', key);
   }
   function boundsAround(ds, r, nm) {
     var c = M.pointOf(ds, r);
@@ -6003,7 +6212,7 @@ var MAPVIEW = (function () {
   }
   function datasetBounds(ds) { var b = dsBounds(ds); return b ? [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] : null; }
 
-  return { mount: mount, show: show, focus: focus, showProcs: showProcs, procPaths: procPaths, setCompare: setCompare, refreshTheme: refreshTheme, renderImage: renderImage, boundsAround: boundsAround, datasetBounds: datasetBounds,
+  return { countryAt: countryAt, mount: mount, show: show, focus: focus, showProcs: showProcs, procPaths: procPaths, setCompare: setCompare, refreshTheme: refreshTheme, renderImage: renderImage, boundsAround: boundsAround, datasetBounds: datasetBounds,
     isMounted: function () { return !!map; }, leaflet: function () { return map; }, invalidate: function () { if (map) map.invalidateSize(); } };
 })();
 </script>
@@ -7059,6 +7268,7 @@ var REVIEW = (function () {
     setTimeout(function () { t.remove(); }, ms || 3800);
   }
   function dsOf() { return S.datasets[S.active] || null; }
+  try { M.setLocator(MAPVIEW.countryAt); } catch (e) { /* map data missing */ }
   function copyText(txt) { EXPORTS.copyText(txt).then(function (ok) { toast(ok ? 'Copied to the clipboard' : 'Copy failed — select the text manually'); }); }
 
   /* ------------------------------------------------------------- icons */
@@ -7360,6 +7570,7 @@ var REVIEW = (function () {
             saveCache(ds);
             S.datasets = S.datasets.filter(function (x) { return x.id !== ds.id; });
             S.datasets.push(ds);
+            M.harmonizeStates(S.datasets);
             f.status = 'done';
             f.detail = num(ds.recs.length) + ' features · ' + esc(ds.state) + (ds.airac ? ' · AIRAC ' + ds.airac.id : '') + ' · read in ' + (tRead / 1000).toFixed(1) + ' s (' + (size / 1048576 / (tRead / 1000)).toFixed(1) + ' MB/s)';
           } catch (err) {
@@ -7401,6 +7612,7 @@ var REVIEW = (function () {
     M.finalize(ds);
     applyLib(ds, lib || ds.lib);
     S.datasets.push(ds);
+    M.harmonizeStates(S.datasets);
     renderNav(); renderDsSelect(); initSearch();
     return ds;
   }

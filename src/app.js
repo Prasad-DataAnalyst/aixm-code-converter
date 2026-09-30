@@ -37,6 +37,7 @@
     setTimeout(function () { t.remove(); }, ms || 3800);
   }
   function dsOf() { return S.datasets[S.active] || null; }
+  try { M.setLocator(MAPVIEW.countryAt); } catch (e) { /* map data missing */ }
   function copyText(txt) { EXPORTS.copyText(txt).then(function (ok) { toast(ok ? 'Copied to the clipboard' : 'Copy failed — select the text manually'); }); }
 
   /* ------------------------------------------------------------- icons */
@@ -338,6 +339,7 @@
             saveCache(ds);
             S.datasets = S.datasets.filter(function (x) { return x.id !== ds.id; });
             S.datasets.push(ds);
+            M.harmonizeStates(S.datasets);
             f.status = 'done';
             f.detail = num(ds.recs.length) + ' features · ' + esc(ds.state) + (ds.airac ? ' · AIRAC ' + ds.airac.id : '') + ' · read in ' + (tRead / 1000).toFixed(1) + ' s (' + (size / 1048576 / (tRead / 1000)).toFixed(1) + ' MB/s)';
           } catch (err) {
@@ -379,6 +381,7 @@
     M.finalize(ds);
     applyLib(ds, lib || ds.lib);
     S.datasets.push(ds);
+    M.harmonizeStates(S.datasets);
     renderNav(); renderDsSelect(); initSearch();
     return ds;
   }

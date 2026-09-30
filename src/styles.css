@@ -280,7 +280,7 @@ pre.xml .ln.hl { background: var(--hl); }
 .email-preview { border: 1px solid var(--border); border-radius: 10px; padding: 14px; background: #fff; color: #222; max-height: 46vh; overflow: auto; }
 
 /* -------------------------------------------------------------------- map */
-.map-wrap { position: absolute; inset: 0; }
+.map-wrap { isolation: isolate;  position: absolute; inset: 0; }
 #map { position: absolute; inset: 0; background: #cfe3ee; }
 :root[data-theme="dark"] #map { background: #0e1b24; }
 .map-panel { position: absolute; top: 12px; left: 12px; z-index: 500; width: 290px; max-height: calc(100% - 24px); overflow: auto; padding: 12px 14px; }

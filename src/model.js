@@ -84,6 +84,20 @@ var MODEL = (function () {
     return ds;
   }
 
+  // a data set whose State comes only from its file name / FIR name takes the State of another
+  // loaded data set with the same ICAO prefix (e.g. a Digital NOTAM file next to the baseline)
+  var locator = null;
+  function setLocator(fn) { locator = fn; }
+  function harmonizeStates(list) {
+    var strong = list.filter(function (d) { return d.icaoPrefix && /OrganisationAuthority|ICAO location|library folder/.test(d.stateSource || ''); });
+    list.forEach(function (d) {
+      if (!/file name|FIR name|header origin|ICAO location|geographic/.test(d.stateSource || '') || d.lib) return;
+      var hit = strong.filter(function (o) { return o !== d && (o.icaoPrefix === d.icaoPrefix || (d.prefixes || []).indexOf(o.icaoPrefix) >= 0) && o.state !== d.state; })[0];
+      if (hit && (/file name|FIR name|header origin|geographic/.test(d.stateSource) || /OrganisationAuthority|library/.test(hit.stateSource))) {
+        d.stateDetected = d.state; d.state = hit.state; d.stateSource = 'same ICAO prefix ' + hit.icaoPrefix + ' as ' + hit.name;
+      }
+    });
+  }
   function setViewDate(ds, t) {
     ds.viewDate = t;
     var recs = ds.recs;
@@ -654,8 +668,9 @@ var MODEL = (function () {
     // State: STATE organisation, else majority ICAO prefix of aerodromes, else FIR designator
     var state = null, src = '';
     var orgs = ds.byType.OrganisationAuthority || [];
-    var st = orgs.filter(function (o) { return /^(STATE|S)$/.test(s(o.cur.p.type)); });
-    if (st.length) { state = s(st[0].cur.p.name); src = 'OrganisationAuthority (type STATE)'; }
+    var st = orgs.filter(function (o) { return /^(STATE|S)$/.test(s(o.cur.p.type)) && s(o.cur.p.name); });
+    if (st.length > 1) st.sort(function (a, b) { return (ds.rev && (ds.rev.get(b) || []).length || 0) - (ds.rev && (ds.rev.get(a) || []).length || 0); });
+    if (st.length) { state = s(st[0].cur.p.name); src = 'OrganisationAuthority (type STATE)' + (st.length > 1 ? ', the most referenced of ' + st.length : ''); }
     var ads = ds.byType.AirportHeliport || [];
     var counts = {};
     ads.forEach(function (a) {
@@ -665,12 +680,41 @@ var MODEL = (function () {
     });
     var fir = (ds.byType.Airspace || []).filter(function (a) { return /^FIR/.test(s(a.cur.p.type)); });
     fir.forEach(function (a) { var pf = AX.icaoPrefixOf(s(a.cur.p.designator)); if (pf) counts[pf] = (counts[pf] || 0) + 0.5; });
+    function addCode(c, w) { c = String(c || '').toUpperCase(); if (!AX.stateFromICAO(c)) return; var pf = AX.icaoPrefixOf(c); counts[pf] = (counts[pf] || 0) + w; }
+    // Digital NOTAM events: NOTAM location / FIR, concerned aerodromes
+    (ds.byType.Event || []).forEach(function (e) {
+      arr(e.cur.p.notification).forEach(function (n) { if (n && typeof n === 'object') { addCode(s(n.location), 1); addCode(s(n.affectedFIR), 0.5); } });
+      arr(e.cur.p.concernedAirportHeliport).forEach(function (x) { var m = /^([A-Z]{4})\b/.exec(x && x.title || ''); if (m) addCode(m[1], 1); });
+    });
+    // instrument procedure names often end with the aerodrome's location indicator ("… RWY 22L KEWR")
+    ['InstrumentApproachProcedure', 'StandardInstrumentDeparture', 'StandardInstrumentArrival'].forEach(function (k) {
+      (ds.byType[k] || []).slice(0, 500).forEach(function (r) { var m = /\b([A-Z]{4})\s*$/.exec(s(r.cur.p.name)); if (m) addCode(m[1], 0.5); });
+    });
+    // nothing yet: location indicators in xlink:title of references to aerodromes / FIRs
+    if (!Object.keys(counts).length) {
+      var nRef = 0;
+      for (var ri = 0; ri < ds.recs.length && ri < 5000 && nRef < 400; ri++) {
+        eachRef(ds.recs[ri].cur.p, function (ref) { var m = /^([A-Z]{4}) (?!\d)/.exec(ref && ref.title || ''); if (m) { addCode(m[1], 0.3); nRef++; } });
+      }
+    }
     var best = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; })[0];
     ds.icaoPrefix = best || null;
     var byPrefix = best ? AX.stateFromICAO(best.length === 1 ? best + 'XXX' : (best + 'XX').slice(0, 4)) : null;
     if (!state && byPrefix) { state = byPrefix; src = 'ICAO location indicator prefix ' + best; }
     else if (state && byPrefix && byPrefix.toUpperCase().indexOf(state.toUpperCase()) < 0) ds.stateAlt = byPrefix;
     if (!state && fir.length) { state = s(fir[0].cur.p.name); src = 'FIR name'; }
+    if (!state && sn.header && sn.header.origin && /[a-z]{3}/i.test(sn.header.origin) && !/^(SDO|EAD|AIXM|OFMX)$/i.test(sn.header.origin)) { state = sn.header.origin; src = 'AIXM 4.5 header origin'; }
+    if (!state && locator) { // geographic position of the data inside a country outline
+      var pts = [], step = Math.max(1, Math.floor(ds.recs.length / 1500));
+      for (var pi = 0; pi < ds.recs.length; pi += step) { var pp = pointOf(ds, ds.recs[pi]); if (pp && typeof pp[0] === 'number') pts.push(pp); }
+      if (pts.length) {
+        var lons = pts.map(function (x) { return x[0]; }).sort(function (a, b) { return a - b; }), lats = pts.map(function (x) { return x[1]; }).sort(function (a, b) { return a - b; });
+        var mid = Math.floor(pts.length / 2), cname = null;
+        try { cname = locator(lons[mid], lats[mid]); } catch (e) { cname = null; }
+        if (!cname) { var votes = {}; pts.slice(0, 300).forEach(function (x) { var n = null; try { n = locator(x[0], x[1]); } catch (e) { n = null; } if (n) votes[n] = (votes[n] || 0) + 1; }); cname = Object.keys(votes).sort(function (a, b) { return votes[b] - votes[a]; })[0] || null; }
+        if (cname) { state = cname; src = 'geographic position of the data'; }
+      }
+    }
     if (!state) { state = ds.name.replace(/\.[^.]+$/, ''); src = 'file name'; }
     ds.state = state; ds.stateSource = src;
     ds.prefixes = Object.keys(counts);
@@ -724,7 +768,7 @@ var MODEL = (function () {
   function fmtTs(str) { if (typeof str === 'number') return fmtDate(str, true); var t = AX.tms(str); return t === null ? (str || '') : fmtDate(t, true); }
 
   return {
-    setDict: setDict, dict: dict, finalize: finalize, setViewDate: setViewDate, target: target, eachRef: eachRef,
+    setDict: setDict, dict: dict, finalize: finalize, setViewDate: setViewDate, harmonizeStates: harmonizeStates, setLocator: setLocator, target: target, eachRef: eachRef,
     geometry: geometry, pointOf: pointOf, findGeo: findGeo, segPoint: segPoint, segPointLabel: segPointLabel, segPointRec: segPointRec,
     label: label, shortName: shortName, typeName: typeName, routeDesignator: routeDesignator, s: s,
     fq: fq, fLimit: fLimit, fPoint: fPoint, fElev: fElev, fTimesheet: fTimesheet, fSchedule: fSchedule, noteText: noteText, notesOf: notesOf,
