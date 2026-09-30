@@ -927,10 +927,11 @@
   }
   function runExport(kind, scope, adRec) {
     try {
-      if (kind === 'map' && adRec) { go('map', { ds: scope.ds, focus: adRec }); return; }
+      if (kind === 'map' && adRec) { var sn = scope.sections && scope.sections[0] && scope.sections[0].no || ''; go('map', /2\.2[24]$|3\.2[23]$/.test(sn) ? { ds: scope.ds, procs: adRec } : { ds: scope.ds, focus: adRec }); return; }
       if ((kind === 'pdf' || kind === 'print') && adRec && !scope.mapImage) {
-        var b = MAPVIEW.boundsAround(scope.ds, adRec, 12);
-        if (b) scope.mapImage = MAPVIEW.renderImage(scope.ds, b, 1600, 990, { title: M.label(scope.ds, adRec) });
+        var sno = scope.sections && scope.sections[0] && scope.sections[0].no || '', withProcs = /2\.2[24]$|3\.2[23]$/.test(sno);
+        var b = MAPVIEW.boundsAround(scope.ds, adRec, withProcs ? 30 : 12);
+        if (b) scope.mapImage = MAPVIEW.renderImage(scope.ds, b, 1600, 990, { title: M.label(scope.ds, adRec) + (withProcs ? ' — instrument procedures' : ''), procAd: withProcs ? adRec : null });
       }
       if (kind === 'print') EXPORTS.print(scope);
       else if (kind === 'pdf') { toast('Creating PDF…'); setTimeout(function () { EXPORTS.exportPDF(scope); }, 30); }
@@ -1103,7 +1104,7 @@
     MAPVIEW.mount(v, S.datasets, {
       toast: toast, openAip: openAipFor, openXml: function (ds, r) { openXml(ds, r); }, openDetail: function (ds, r) { openDetail(ds, r); },
       savePng: function (url) { fetch(url).then(function (res) { return res.blob(); }).then(function (b) { EXPORTS.download('aixm-map.png', b); }); }
-    }, { ds: opts.ds || dsOf(), cmp: S.cmp });
+    }, { ds: opts.ds || dsOf(), cmp: S.cmp, procs: opts.procs });
     if (opts.focus) setTimeout(function () { MAPVIEW.focus(opts.ds || dsOf(), opts.focus); }, 250);
   }
 

@@ -670,7 +670,7 @@ var AIP = (function () {
     var blocks = rulesBlock(ds, rulesFor(ds, ad, /FLIGHT_PROC|PROCEDURE|HOLDING|APPROACH|DEPARTURE/i));
     var procs = owned(ds, ad, ['StandardInstrumentDeparture', 'StandardInstrumentArrival', 'InstrumentApproachProcedure']);
     var hold = (ds.byType.HoldingPattern || []).filter(function (h) { return s(h.cur.p.type) === 'TER' && ds.owner.get(h) === ad; });
-    if (procs.length) blocks.push(procTable(ds, procs));
+    if (procs.length) { blocks.push(procTable(ds, procs)); procs.slice().sort(byLabel(ds)).forEach(function (pr) { blocks = blocks.concat(procDetail(ds, pr)); }); }
     if (hold.length) blocks.push(holdTable(ds, hold));
     return blocks.length ? blocks : [note('NIL')];
   };
@@ -695,6 +695,65 @@ var AIP = (function () {
       return [C(K[r.k], r), C(s(p.designator), r, 'designator'), C(s(p.name), r, 'name'), C(s(p.RNAV), r, 'RNAV'), C(join([s(p.approachPrefix), s(p.approachType), s(p.multipleIdentification)], ' '), r, 'approachType'), C(M.notesOf(p).join(' '), r, 'annotation')];
     }));
   }
+  /* ------------------------------------------------ procedure details (legs) */
+  var LEG_KINDS = ['DepartureLeg', 'ArrivalLeg', 'ArrivalFeederLeg', 'InitialLeg', 'IntermediateLeg', 'FinalLeg', 'MissedApproachLeg'];
+  var ALT_I = { ABOVE_LOWER: 'at or above', BELOW_UPPER: 'at or below', AT_LOWER: 'at', AT: 'at', BETWEEN: 'between', RECOMMENDED: 'recommended', EXPECT_LOWER: 'expect', AS_ASSIGNED: 'as assigned' };
+  function legAlt(p) {
+    var lo = M.fLimit(p.lowerLimitAltitude, p.lowerLimitReference), up = M.fLimit(p.upperLimitAltitude, p.upperLimitReference), it = s(p.altitudeInterpretation);
+    if (!lo && !up) return '';
+    if (it === 'BETWEEN' || (lo && up)) return 'between ' + lo + ' and ' + up;
+    return (ALT_I[it] || it || '').trim() + ' ' + (lo || up);
+  }
+  function procLegs(ds, proc) {
+    var out = [], seen = new Set();
+    arr(proc.cur.p.flightTransition).forEach(function (tr) {
+      if (!tr || tr.nil !== undefined) return;
+      var legs = arr(tr.transitionLeg).map(function (tl) { return tl && { seq: s(tl.seqNumberARINC), leg: M.target(ds, tl.theSegmentLeg) }; }).filter(function (x) { return x && x.leg; });
+      legs.sort(function (a, b) { return (+a.seq || 0) - (+b.seq || 0); });
+      legs.forEach(function (x) { seen.add(x.leg); out.push({ tr: s(tr.transitionId) + (s(tr.type) ? ' (' + s(tr.type) + ')' : ''), seq: x.seq, leg: x.leg }); });
+    });
+    refsTo(ds, proc, LEG_KINDS).forEach(function (l) { if (!seen.has(l)) out.push({ tr: '', seq: '', leg: l }); });
+    return out;
+  }
+  function procDetail(ds, proc) {
+    var p = proc.cur.p, K = { StandardInstrumentDeparture: 'SID', StandardInstrumentArrival: 'STAR', InstrumentApproachProcedure: 'Instrument approach' }[proc.k];
+    var rw = [];
+    arr(p.flightTransition).forEach(function (tr) { if (tr && tr.departureRunwayTransition) arr(tr.departureRunwayTransition).forEach(function (l) { rw = rw.concat(arr(l.runway).map(function (x) { var t = M.target(ds, x); return t ? M.shortName(t) : ''; })); }); });
+    arr(p.landing).forEach(function (l) { rw = rw.concat(arr(l && l.runway).map(function (x) { var t = M.target(ds, x); return t ? M.shortName(t) : ''; })); });
+    var legs = procLegs(ds, proc), prevEnd = '';
+    var blocks = [{ kind: 'kv', title: K + ' ' + (s(p.designator) || s(p.name)) + (s(p.name) && s(p.designator) ? ' — ' + s(p.name) : ''), rows: [
+      row('', 'Type / RNAV', [C(join([K, s(p.approachPrefix), s(p.approachType), s(p.RNAV) === 'YES' ? 'RNAV' : ''], ' '), proc, 'RNAV')]),
+      row('', 'Runway(s)', [C(uniq(rw).join(', '), proc, proc.k === 'InstrumentApproachProcedure' ? 'landing' : 'flightTransition')]),
+      row('', 'Communication failure / instructions', [C(join([s(p.communicationFailureInstruction), s(p.instruction)], '\n'), proc, 'communicationFailureInstruction')]),
+      row('', 'Remarks', [C(M.notesOf(p).join('\n'), proc, 'annotation')])
+    ] }];
+    var rows = legs.map(function (x) {
+      var lp = x.leg.cur.p, from = M.segPointLabel(ds, arr(lp.startPoint)[0]) || prevEnd, to = M.segPointLabel(ds, arr(lp.endPoint)[0]);
+      prevEnd = to || prevEnd;
+      var crs = s(lp.course) ? s(lp.course) + '°' + ({ TRUE_TRACK: 'T', TRUE_BRG: 'T' }[s(lp.courseType)] || '') : '';
+      return [C(x.seq, x.leg, 'legTypeARINC'), C(x.tr), C(join([s(lp.legTypeARINC), x.leg.k.replace('Leg', '')], ' · '), x.leg, 'legTypeARINC'), C(from, x.leg, 'startPoint'), C(to, x.leg, 'endPoint'),
+        C(join([crs, s(lp.turnDirection) ? 'turn ' + s(lp.turnDirection) : ''], ' '), x.leg, 'course'), C(legAlt(lp), x.leg, 'lowerLimitAltitude'),
+        C(M.fq(lp.speedLimit) ? 'max ' + M.fq(lp.speedLimit) + (s(lp.speedReference) ? ' ' + s(lp.speedReference) : '') : '', x.leg, 'speedLimit'),
+        C(join([M.fq(lp.length), s(lp.verticalAngle) ? 'VA ' + s(lp.verticalAngle) + '°' : '', s(lp.requiredNavigationPerformance) ? 'RNP ' + s(lp.requiredNavigationPerformance) : ''], ' '), x.leg, 'length'),
+        C(M.notesOf(lp).join(' '), x.leg, 'annotation')];
+    });
+    blocks.push(table('Legs', ['Seq', 'Transition', 'Leg (ARINC 424)', 'From', 'To', 'Course / turn', 'Altitude', 'Speed', 'Distance / VA / RNP', 'Remarks'], rows, legs.length ? '' : 'No legs for this procedure in the data set.'));
+    var mins = [];
+    legs.forEach(function (x) {
+      arr(x.leg.cur.p.condition).forEach(function (c) {
+        if (!c || c.nil !== undefined) return;
+        var cats = arr(c.aircraftCategory).map(function (a) { return a && s(a.aircraftLandingCategory); }).filter(Boolean).join(', ');
+        arr(c.minimumSet).forEach(function (m) {
+          if (!m || m.nil !== undefined) return;
+          mins.push([C(cats || 'all', x.leg, 'condition'), C(s(c.finalApproachPath), x.leg, 'condition'), C(join([s(m.altitudeCode), M.fq(m.altitude)], ' '), x.leg, 'condition'),
+            C(join([s(m.heightCode), M.fq(m.height), s(m.heightReference) ? '(' + s(m.heightReference) + ')' : ''], ' '), x.leg, 'condition'), C(join([M.fq(m.visibility), M.fq(m.runwayVisualRange) ? 'RVR ' + M.fq(m.runwayVisualRange) : ''], ' '), x.leg, 'condition')]);
+        });
+      });
+    });
+    if (mins.length) blocks.push(table('Minima', ['Aircraft category', 'Final approach', 'OCA / DA / MDA', 'OCH / DH / MDH', 'Visibility / RVR'], mins));
+    return blocks;
+  }
+
   function holdTable(ds, hold) {
     return table('Holding procedures', ['Holding fix', 'INBD TR (MAG)', 'Direction of PTN', 'Max IAS', 'MNM / MAX HLDG level', 'Time / Distance OUTBD', 'Remarks'], hold.map(function (h) {
       var p = h.cur.p, ib = arr(p.inboundCourse)[0] || {};
@@ -1009,7 +1068,7 @@ var AIP = (function () {
     TouchDownLiftOff: 16, TouchDownLiftOffSafeArea: 16, TouchDownLiftOffLightSystem: 16, Airspace: 17,
     AirTrafficControlService: 18, InformationService: 18, GroundTrafficControlService: 18, RadioCommunicationChannel: 18, Unit: 18, SearchRescueService: 18,
     Navaid: 19, Localizer: 19, Glidepath: 19, MarkerBeacon: 19, DME: 19, VOR: 19, NDB: 19, TACAN: 19, RulesProcedures: 20,
-    StandardInstrumentDeparture: 22, StandardInstrumentArrival: 22, InstrumentApproachProcedure: 22, HoldingPattern: 22, SafeAltitudeArea: 22, TerminalArrivalArea: 22
+    StandardInstrumentDeparture: 22, StandardInstrumentArrival: 22, InstrumentApproachProcedure: 22, HoldingPattern: 22, DepartureLeg: 22, ArrivalLeg: 22, ArrivalFeederLeg: 22, InitialLeg: 22, IntermediateLeg: 22, FinalLeg: 22, MissedApproachLeg: 22, SafeAltitudeArea: 22, TerminalArrivalArea: 22
   };
   var ENR_OF = { Route: 'ENR 3', RouteSegment: 'ENR 3', HoldingPattern: 'ENR 3.4', Navaid: 'ENR 4.1', VOR: 'ENR 4.1', DME: 'ENR 4.1', NDB: 'ENR 4.1', TACAN: 'ENR 4.1',
     DesignatedPoint: 'ENR 4.4', AeronauticalGroundLight: 'ENR 4.5', VerticalStructure: 'ENR 5.4', ObstacleArea: 'ENR 5.4', OrganisationAuthority: 'GEN 1.1', Unit: 'GEN 3.3',
@@ -1034,6 +1093,6 @@ var AIP = (function () {
     return { no: 'Other', id: null };
   }
 
-  return { catalogue: catalogue, findSection: findSection, build: build, sectionOf: sectionOf, lateral: lateral, vertical: vertical, airspaceClass: airspaceClass,
+  return { procLegs: procLegs, LEG_KINDS: LEG_KINDS, catalogue: catalogue, findSection: findSection, build: build, sectionOf: sectionOf, lateral: lateral, vertical: vertical, airspaceClass: airspaceClass,
     AD2_TITLES: AD2_TITLES, isHeliport: isHeliport, pcn: pcn, surface: surface, C: C, directions: directions };
 })();

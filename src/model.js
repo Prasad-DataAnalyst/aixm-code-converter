@@ -23,7 +23,7 @@ var MODEL = (function () {
     'AirportSuppliesService AircraftGroundService PassengerService FireFightingService CheckpointINS CheckpointVOR AltimeterCheckpoint AltimeterSource ' +
     'Navaid ObstacleArea Unit AirTrafficControlService InformationService GroundTrafficControlService SearchRescueService Service ' +
     'StandardInstrumentDeparture StandardInstrumentArrival InstrumentApproachProcedure SafeAltitudeArea MinimumAltitudeArea TerminalArrivalArea ' +
-    'SurveyControlPoint PilotControlledLighting WeatherSource').split(' ').forEach(function (k) { AD_COMPONENT[k] = true; });
+    'SurveyControlPoint PilotControlledLighting WeatherSource DepartureLeg ArrivalLeg ArrivalFeederLeg InitialLeg IntermediateLeg FinalLeg MissedApproachLeg').split(' ').forEach(function (k) { AD_COMPONENT[k] = true; });
   // reverse ownership: when the owner is AD-owned, the referenced features belong to the same AD
   var PASS_DOWN = { Navaid: ['navaidEquipment'], ObstacleArea: ['obstacle'], AirTrafficControlService: ['radioCommunication'],
     InformationService: ['radioCommunication'], GroundTrafficControlService: ['radioCommunication'], AirportSuppliesService: ['radioCommunication'],
@@ -269,7 +269,15 @@ var MODEL = (function () {
     var p = r.cur.p, g;
     switch (r.k) {
       case 'AirportHeliport': g = p.ARP && p.ARP._geo; break;
-      case 'RunwayDirection': g = p._thr && p._thr._geo; break;
+      case 'RunwayDirection': {
+        g = p._thr && p._thr._geo;
+        if (!g && ds.rev) {
+          var rc = (ds.rev.get(r) || []).filter(function (x) { return x[1].k === 'RunwayCentrelinePoint'; }).map(function (x) { return x[1]; });
+          var t1 = rc.filter(function (c) { return s(c.cur.p.role) === 'THR'; })[0] || rc.filter(function (c) { return s(c.cur.p.role) === 'DISTHR'; })[0];
+          if (t1) { var tp = pointOf(ds, t1); if (tp) return tp; }
+        }
+        break;
+      }
       case 'VerticalStructure': g = findGeo(p.part, ['P'], 0); break;
       case 'Unit': g = p.position && p.position._geo; break;
       default: g = (p.location && p.location._geo) || null;
