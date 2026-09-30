@@ -68,6 +68,17 @@ var CONVERT = (function () {
   var POS_SRS = 'urn:ogc:def:crs:EPSG::4326';
   function writer45(ds) {
     var D = M.dict(), idc = 0, parts = [], skipped = {}, written = 0;
+    // 4.5 frequencies point to their service; AIXM 5 services list their channels and call signs
+    var svcExtra = new Map();
+    ds.recs.forEach(function (r) {
+      if (r.k !== 'RadioCommunicationChannel' || !r.cur.p._service) return;
+      var sv = M.target(ds, r.cur.p._service);
+      if (!sv) return;
+      var e = svcExtra.get(sv) || { radioCommunication: [], callSign: [] };
+      e.radioCommunication.push({ ref: r.id });
+      arr(r.cur.p._callsign).forEach(function (c) { if (c && c.txtCallSign && !e.callSign.some(function (x) { return x.callSign === c.txtCallSign; })) e.callSign.push({ _t: 'CallsignDetail', callSign: c.txtCallSign, language: c.codeLang }); });
+      svcExtra.set(sv, e);
+    });
     function gid(p) { return (p || 'ID') + '_' + (++idc); }
     function refId(ref) {
       var t = M.target(ds, ref);
@@ -108,6 +119,12 @@ var CONVERT = (function () {
       var fd = D.v5.features[r.k];
       if (!fd) { skipped[r.k] = (skipped[r.k] || 0) + 1; return ''; }
       var p = r.cur.p, u = uuidFor(r.id);
+      var se = svcExtra.get(r);
+      if (se) { p = Object.assign({}, p); if (fd.p.radioCommunication) p.radioCommunication = se.radioCommunication; if (fd.p['call-sign'] && se.callSign.length) p['call-sign'] = se.callSign; }
+      if (p._ad) { // owning aerodrome of 4.5 relations (Sah, Ful, Pfy …) -> the matching AIXM 5 property
+        var ap = ['airportHeliport', 'clientAirport', 'associatedAirportHeliport'].filter(function (k) { return fd.p[k] && !p[k]; })[0];
+        if (ap) { p = Object.assign({}, p); p[ap] = p._ad; }
+      }
       var keys = Object.keys(p).filter(function (k) { return k.charAt(0) !== '_' && fd.p[k]; });
       var props = ordered(keys, fd.p).map(function (k) { return valXml(k, p[k], '          ', r.k); }).join('');
       written++;

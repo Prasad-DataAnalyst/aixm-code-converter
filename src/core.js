@@ -594,6 +594,38 @@ var AX = (function () {
     if (!u || typeof u !== 'object') return undefined;
     return pt45(u);
   }
+  function contact45(type, addr, rmk) {
+    if (!addr) return null;
+    var t = String(type || '').toUpperCase(), ci = { _t: 'ContactInformation' };
+    if (/^(POST|ADDR|ADDRESS)$/.test(t)) ci.address = { _t: 'PostalAddress', deliveryPoint: addr };
+    else if (/^(PHONE|TEL|TELEPHONE)$/.test(t)) ci.phoneFax = { _t: 'TelephoneContact', voice: addr };
+    else if (/^(FAX|TFAX|TELEFAX)$/.test(t)) ci.phoneFax = { _t: 'TelephoneContact', facsimile: addr };
+    else if (/^(EMAIL|E-MAIL|MAIL)$/.test(t)) ci.networkNode = { _t: 'OnlineContact', eMail: addr };
+    else ci.networkNode = { _t: 'OnlineContact', network: t === 'AFS' || t === 'AFTN' ? 'AFTN' : t === 'URL' || t === 'WEB' ? 'INTERNET' : t, linkage: addr + (rmk ? ' — ' + rmk : '') };
+    return ci;
+  }
+  var RULE45 = { I: 'IFR', V: 'VFR', IV: 'ALL' };
+  function usage45(ul) {
+    var o = { _t: 'AirportHeliportUsage', type: { PERMIT: 'PERMIT', FORBID: 'FORBID', RESERV: 'RESERVATION', CONDITIONAL: 'CONDITIONAL' }[ul.codeUsageLimitation] || ul.codeUsageLimitation };
+    var flight = [], aircraft = [];
+    arr(ul.UsageCondition).forEach(function (c) {
+      arr(c.FlightClass).forEach(function (f) { var x = { _t: 'FlightCharacteristic' }; if (f.codeRule) x.rule = RULE45[f.codeRule] || f.codeRule; if (f.codeMil) x.military = f.codeMil; if (f.codeOrigin) x.origin = f.codeOrigin; if (f.codePurpose) x.purpose = f.codePurpose; flight.push(x); });
+      arr(c.AircraftClass).forEach(function (a) { var x = { _t: 'AircraftCharacteristic' }; if (a.codeType) x.type = a.codeType; if (a.codeEngine) x.engine = a.codeEngine; if (a.codeNavSpec) x.navigationSpecification = a.codeNavSpec; aircraft.push(x); });
+    });
+    if (flight.length || aircraft.length) o.selection = { _t: 'ConditionCombination', logicalOperator: 'AND', flight: flight.length ? flight : undefined, aircraft: aircraft.length ? aircraft : undefined };
+    if (ul.Timetable) o._hours = ul.Timetable;
+    if (ul.txtRmk) o.annotation = note45(ul.txtRmk);
+    return o;
+  }
+  function limitText45(l) {
+    var parts = [];
+    if (l.valAngleFm !== undefined || l.valAngleTo !== undefined) parts.push('sector ' + (l.valAngleFm || '?') + '°–' + (l.valAngleTo || '?') + '°');
+    if (l.valDistInner || l.valDistOuter) parts.push((l.valDistInner ? l.valDistInner + '–' : 'up to ') + (l.valDistOuter || '') + ' ' + (l.uomDist || l.uomDistHorz || 'NM'));
+    if (l.valDistVerUpper) parts.push('below ' + (l.uomDistVerUpper === 'FL' ? 'FL ' + l.valDistVerUpper : l.valDistVerUpper + ' ' + (l.uomDistVerUpper || '')));
+    if (l.valDistVerLower) parts.push('above ' + (l.uomDistVerLower === 'FL' ? 'FL ' + l.valDistVerLower : l.valDistVerLower + ' ' + (l.uomDistVerLower || '')));
+    if (!parts.length) Object.keys(l).forEach(function (k) { if (typeof l[k] === 'string') parts.push(l[k]); });
+    return parts.join(', ') + '.';
+  }
   function note45(txt, propName) {
     if (!txt) return undefined;
     var n = { _t: 'Note', translatedNote: { _t: 'LinguisticNote', note: String(txt) } };
@@ -850,6 +882,99 @@ var AX = (function () {
         if (r.RdnUid) p._runwayDirection = { ref: uidKey('RdnUid', r.RdnUid) };
         p.annotation = [note45(r.txtDescr), note45(r.txtDescrComFail, 'communicationFailureInstruction'), note45(r.txtDescrMiss, 'missedApproach'), rmk].filter(Boolean);
         break;
+      // ---- relations and secondary features, merged into their owner in MODEL.link45
+      case 'Aha': case 'Oaa': case 'Uas': case 'Aga': {
+        k = '45:' + s;
+        var own45 = { Aha: 'AhpUid', Oaa: 'OrgUid', Uas: 'UniUid', Aga: 'AhsUid' }[s];
+        if (u[own45]) p._contactOf = { ref: uidKey(own45, u[own45]) };
+        var ci = contact45(u.codeType, r.txtAddress, r.txtRmk);
+        if (ci) p._contact = ci;
+        break;
+      }
+      case 'Ahu':
+        k = '45:Ahu';
+        if (u.AhpUid) p._usageOf = { ref: uidKey('AhpUid', u.AhpUid) };
+        p._usage = arr(r.UsageLimitation).map(usage45);
+        break;
+      case 'Ana': {
+        k = '45:Ana';
+        var nk = ['VorUid', 'DmeUid', 'NdbUid', 'TcnUid', 'MkrUid'].filter(function (x) { return u[x]; })[0];
+        if (nk) p._navOf = { ref: uidKey(nk, u[nk]) };
+        if (rmk) p.annotation = rmk;
+        break;
+      }
+      case 'Aho': case 'Rdo': case 'Fdo':
+        k = '45:' + s;
+        if (u.ObsUid) p._obsOf = { ref: uidKey('ObsUid', u.ObsUid) };
+        if (s !== 'Aho') p._obsNote = [r.codeTypeOps, r.valDistThr ? 'THR ' + r.valDistThr + ' ' + (r.uomDistHorz || '') : '', r.valDistAlongCline ? 'along CL ' + r.valDistAlongCline + ' ' + (r.uomDistHorz || '') : '',
+          r.valDistToCline ? 'from CL ' + r.valDistToCline + ' ' + (r.uomDistHorz || '') : '', r.valBrgThr ? 'BRG ' + r.valBrgThr + '°' : ''].filter(Boolean).join(', ');
+        if (rmk) p.annotation = rmk;
+        break;
+      case 'Sah':
+        k = '45:Sah';
+        if (u.SerUid) p._svcOf = { ref: uidKey('SerUid', u.SerUid) };
+        if (rmk) p.annotation = rmk;
+        break;
+      case 'Ful': case 'Oil': case 'Oxg': case 'Ntg': {
+        k = 'AirportSuppliesService';
+        var supply = { Ful: ['fuelSupply', 'Fuel'], Oil: ['oilSupply', 'Oil'], Oxg: ['oxygenSupply', 'Oxygen'], Ntg: ['nitrogenSupply', 'Nitrogen'] }[s];
+        p[supply[0]] = { _t: supply[1] }; p[supply[0]][s === 'Ful' || s === 'Oil' ? 'category' : 'type'] = u.codeCat || u.codeType;
+        p.annotation = [note45(r.txtDescr), rmk].filter(Boolean);
+        break;
+      }
+      case 'Pfy':
+        k = 'PassengerService';
+        set('type', u.codeType);
+        p.annotation = [note45(r.txtDescr), rmk].filter(Boolean);
+        break;
+      case 'Rda': case 'Fda':
+        k = 'ApproachLightingSystem';
+        if (u.RdnUid) p.servedRunwayDirection = { ref: uidKey('RdnUid', u.RdnUid) };
+        if (u.FdnUid) p.servedRunwayDirection = { ref: uidKey('FdnUid', u.FdnUid) };
+        set('classICAO', u.codeType); set('length', uv(r.valLen, r.uomLen)); set('intensityLevel', r.codeIntst); set('sequencedFlashing', r.codeSequencedFlash);
+        p.annotation = [note45(r.txtDescrFlash, 'sequencedFlashing'), note45(r.txtDescr), rmk].filter(Boolean);
+        break;
+      case 'Swy': case 'Rpa':
+        k = 'RunwayProtectArea';
+        set('type', s === 'Swy' ? 'STOPWAY' : u.codeType);
+        if (u.RdnUid) p.protectedRunwayDirection = { ref: uidKey('RdnUid', u.RdnUid) };
+        set('length', uv(r.valLen, r.uomDim)); set('width', uv(r.valWid, r.uomDim));
+        if (r.codeComposition || r.codeStrength || r.txtDescrStrength) p.surfaceProperties = { _t: 'SurfaceCharacteristics', composition: r.codeComposition, _strength: [r.codeStrength, r.txtDescrStrength].filter(Boolean).join(' ') || undefined };
+        p.annotation = [note45(r.txtProfile, 'profile'), note45(r.txtMarking, 'marking'), rmk].filter(Boolean);
+        break;
+      case 'Tly':
+        k = 'TaxiwayLightSystem';
+        if (u.TwyUid) p.lightedTaxiway = { ref: uidKey('TwyUid', u.TwyUid) };
+        set('position', u.codePsn); set('colour', r.codeColour); set('intensityLevel', r.codeIntst);
+        p.annotation = [note45(r.txtDescr), note45(r.txtDescrEmerg, 'emergencyLighting'), rmk].filter(Boolean);
+        break;
+      case 'Spd':
+        k = 'SpecialDate';
+        set('type', u.codeType); set('dateDay', u.dateDay); set('dateYear', u.dateYear); set('name', r.txtName);
+        if (u.OrgUid) p.authority = { ref: uidKey('OrgUid', u.OrgUid) };
+        if (rmk) p.annotation = rmk;
+        break;
+      case 'Gsd':
+        k = 'AircraftStand';
+        set('designator', u.txtDesig); set('type', r.codeType);
+        if (u.ApnUid) p.apronLocation = { ref: uidKey('ApnUid', u.ApnUid) };
+        if (r.geoLat && r.geoLong) set('location', pt45(r));
+        if (rmk) p.annotation = rmk;
+        break;
+      case 'Ahc':
+        k = 'AirportHeliportCollocation';
+        if (u.AhpUid1) p.hostAirport = { ref: uidKey('AhpUid', u.AhpUid1) };
+        if (u.AhpUid2) p.dependentAirport = { ref: uidKey('AhpUid', u.AhpUid2) };
+        set('type', r.codeType);
+        p.annotation = [note45(r.txtDescr), rmk].filter(Boolean);
+        break;
+      case 'Vli': case 'Dli': case 'Nli': case 'Tli': {
+        k = '45:' + s;
+        var ek = { Vli: 'VorUid', Dli: 'DmeUid', Nli: 'NdbUid', Tli: 'TcnUid' }[s];
+        if (u[ek]) p._limitOf = { ref: uidKey(ek, u[ek]) };
+        p._limitText = ['Usage limitation' + (u.codeType ? ' (' + u.codeType + ')' : '') + ':'].concat(arr(r.UsageLimit).map(limitText45), r.txtRmk ? [r.txtRmk] : []).join(' ');
+        break;
+      }
       default:
         k = '45:' + s;
     }

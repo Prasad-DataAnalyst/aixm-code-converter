@@ -2220,6 +2220,38 @@ var AX = (function () {
     if (!u || typeof u !== 'object') return undefined;
     return pt45(u);
   }
+  function contact45(type, addr, rmk) {
+    if (!addr) return null;
+    var t = String(type || '').toUpperCase(), ci = { _t: 'ContactInformation' };
+    if (/^(POST|ADDR|ADDRESS)$/.test(t)) ci.address = { _t: 'PostalAddress', deliveryPoint: addr };
+    else if (/^(PHONE|TEL|TELEPHONE)$/.test(t)) ci.phoneFax = { _t: 'TelephoneContact', voice: addr };
+    else if (/^(FAX|TFAX|TELEFAX)$/.test(t)) ci.phoneFax = { _t: 'TelephoneContact', facsimile: addr };
+    else if (/^(EMAIL|E-MAIL|MAIL)$/.test(t)) ci.networkNode = { _t: 'OnlineContact', eMail: addr };
+    else ci.networkNode = { _t: 'OnlineContact', network: t === 'AFS' || t === 'AFTN' ? 'AFTN' : t === 'URL' || t === 'WEB' ? 'INTERNET' : t, linkage: addr + (rmk ? ' — ' + rmk : '') };
+    return ci;
+  }
+  var RULE45 = { I: 'IFR', V: 'VFR', IV: 'ALL' };
+  function usage45(ul) {
+    var o = { _t: 'AirportHeliportUsage', type: { PERMIT: 'PERMIT', FORBID: 'FORBID', RESERV: 'RESERVATION', CONDITIONAL: 'CONDITIONAL' }[ul.codeUsageLimitation] || ul.codeUsageLimitation };
+    var flight = [], aircraft = [];
+    arr(ul.UsageCondition).forEach(function (c) {
+      arr(c.FlightClass).forEach(function (f) { var x = { _t: 'FlightCharacteristic' }; if (f.codeRule) x.rule = RULE45[f.codeRule] || f.codeRule; if (f.codeMil) x.military = f.codeMil; if (f.codeOrigin) x.origin = f.codeOrigin; if (f.codePurpose) x.purpose = f.codePurpose; flight.push(x); });
+      arr(c.AircraftClass).forEach(function (a) { var x = { _t: 'AircraftCharacteristic' }; if (a.codeType) x.type = a.codeType; if (a.codeEngine) x.engine = a.codeEngine; if (a.codeNavSpec) x.navigationSpecification = a.codeNavSpec; aircraft.push(x); });
+    });
+    if (flight.length || aircraft.length) o.selection = { _t: 'ConditionCombination', logicalOperator: 'AND', flight: flight.length ? flight : undefined, aircraft: aircraft.length ? aircraft : undefined };
+    if (ul.Timetable) o._hours = ul.Timetable;
+    if (ul.txtRmk) o.annotation = note45(ul.txtRmk);
+    return o;
+  }
+  function limitText45(l) {
+    var parts = [];
+    if (l.valAngleFm !== undefined || l.valAngleTo !== undefined) parts.push('sector ' + (l.valAngleFm || '?') + '°–' + (l.valAngleTo || '?') + '°');
+    if (l.valDistInner || l.valDistOuter) parts.push((l.valDistInner ? l.valDistInner + '–' : 'up to ') + (l.valDistOuter || '') + ' ' + (l.uomDist || l.uomDistHorz || 'NM'));
+    if (l.valDistVerUpper) parts.push('below ' + (l.uomDistVerUpper === 'FL' ? 'FL ' + l.valDistVerUpper : l.valDistVerUpper + ' ' + (l.uomDistVerUpper || '')));
+    if (l.valDistVerLower) parts.push('above ' + (l.uomDistVerLower === 'FL' ? 'FL ' + l.valDistVerLower : l.valDistVerLower + ' ' + (l.uomDistVerLower || '')));
+    if (!parts.length) Object.keys(l).forEach(function (k) { if (typeof l[k] === 'string') parts.push(l[k]); });
+    return parts.join(', ') + '.';
+  }
   function note45(txt, propName) {
     if (!txt) return undefined;
     var n = { _t: 'Note', translatedNote: { _t: 'LinguisticNote', note: String(txt) } };
@@ -2476,6 +2508,99 @@ var AX = (function () {
         if (r.RdnUid) p._runwayDirection = { ref: uidKey('RdnUid', r.RdnUid) };
         p.annotation = [note45(r.txtDescr), note45(r.txtDescrComFail, 'communicationFailureInstruction'), note45(r.txtDescrMiss, 'missedApproach'), rmk].filter(Boolean);
         break;
+      // ---- relations and secondary features, merged into their owner in MODEL.link45
+      case 'Aha': case 'Oaa': case 'Uas': case 'Aga': {
+        k = '45:' + s;
+        var own45 = { Aha: 'AhpUid', Oaa: 'OrgUid', Uas: 'UniUid', Aga: 'AhsUid' }[s];
+        if (u[own45]) p._contactOf = { ref: uidKey(own45, u[own45]) };
+        var ci = contact45(u.codeType, r.txtAddress, r.txtRmk);
+        if (ci) p._contact = ci;
+        break;
+      }
+      case 'Ahu':
+        k = '45:Ahu';
+        if (u.AhpUid) p._usageOf = { ref: uidKey('AhpUid', u.AhpUid) };
+        p._usage = arr(r.UsageLimitation).map(usage45);
+        break;
+      case 'Ana': {
+        k = '45:Ana';
+        var nk = ['VorUid', 'DmeUid', 'NdbUid', 'TcnUid', 'MkrUid'].filter(function (x) { return u[x]; })[0];
+        if (nk) p._navOf = { ref: uidKey(nk, u[nk]) };
+        if (rmk) p.annotation = rmk;
+        break;
+      }
+      case 'Aho': case 'Rdo': case 'Fdo':
+        k = '45:' + s;
+        if (u.ObsUid) p._obsOf = { ref: uidKey('ObsUid', u.ObsUid) };
+        if (s !== 'Aho') p._obsNote = [r.codeTypeOps, r.valDistThr ? 'THR ' + r.valDistThr + ' ' + (r.uomDistHorz || '') : '', r.valDistAlongCline ? 'along CL ' + r.valDistAlongCline + ' ' + (r.uomDistHorz || '') : '',
+          r.valDistToCline ? 'from CL ' + r.valDistToCline + ' ' + (r.uomDistHorz || '') : '', r.valBrgThr ? 'BRG ' + r.valBrgThr + '°' : ''].filter(Boolean).join(', ');
+        if (rmk) p.annotation = rmk;
+        break;
+      case 'Sah':
+        k = '45:Sah';
+        if (u.SerUid) p._svcOf = { ref: uidKey('SerUid', u.SerUid) };
+        if (rmk) p.annotation = rmk;
+        break;
+      case 'Ful': case 'Oil': case 'Oxg': case 'Ntg': {
+        k = 'AirportSuppliesService';
+        var supply = { Ful: ['fuelSupply', 'Fuel'], Oil: ['oilSupply', 'Oil'], Oxg: ['oxygenSupply', 'Oxygen'], Ntg: ['nitrogenSupply', 'Nitrogen'] }[s];
+        p[supply[0]] = { _t: supply[1] }; p[supply[0]][s === 'Ful' || s === 'Oil' ? 'category' : 'type'] = u.codeCat || u.codeType;
+        p.annotation = [note45(r.txtDescr), rmk].filter(Boolean);
+        break;
+      }
+      case 'Pfy':
+        k = 'PassengerService';
+        set('type', u.codeType);
+        p.annotation = [note45(r.txtDescr), rmk].filter(Boolean);
+        break;
+      case 'Rda': case 'Fda':
+        k = 'ApproachLightingSystem';
+        if (u.RdnUid) p.servedRunwayDirection = { ref: uidKey('RdnUid', u.RdnUid) };
+        if (u.FdnUid) p.servedRunwayDirection = { ref: uidKey('FdnUid', u.FdnUid) };
+        set('classICAO', u.codeType); set('length', uv(r.valLen, r.uomLen)); set('intensityLevel', r.codeIntst); set('sequencedFlashing', r.codeSequencedFlash);
+        p.annotation = [note45(r.txtDescrFlash, 'sequencedFlashing'), note45(r.txtDescr), rmk].filter(Boolean);
+        break;
+      case 'Swy': case 'Rpa':
+        k = 'RunwayProtectArea';
+        set('type', s === 'Swy' ? 'STOPWAY' : u.codeType);
+        if (u.RdnUid) p.protectedRunwayDirection = { ref: uidKey('RdnUid', u.RdnUid) };
+        set('length', uv(r.valLen, r.uomDim)); set('width', uv(r.valWid, r.uomDim));
+        if (r.codeComposition || r.codeStrength || r.txtDescrStrength) p.surfaceProperties = { _t: 'SurfaceCharacteristics', composition: r.codeComposition, _strength: [r.codeStrength, r.txtDescrStrength].filter(Boolean).join(' ') || undefined };
+        p.annotation = [note45(r.txtProfile, 'profile'), note45(r.txtMarking, 'marking'), rmk].filter(Boolean);
+        break;
+      case 'Tly':
+        k = 'TaxiwayLightSystem';
+        if (u.TwyUid) p.lightedTaxiway = { ref: uidKey('TwyUid', u.TwyUid) };
+        set('position', u.codePsn); set('colour', r.codeColour); set('intensityLevel', r.codeIntst);
+        p.annotation = [note45(r.txtDescr), note45(r.txtDescrEmerg, 'emergencyLighting'), rmk].filter(Boolean);
+        break;
+      case 'Spd':
+        k = 'SpecialDate';
+        set('type', u.codeType); set('dateDay', u.dateDay); set('dateYear', u.dateYear); set('name', r.txtName);
+        if (u.OrgUid) p.authority = { ref: uidKey('OrgUid', u.OrgUid) };
+        if (rmk) p.annotation = rmk;
+        break;
+      case 'Gsd':
+        k = 'AircraftStand';
+        set('designator', u.txtDesig); set('type', r.codeType);
+        if (u.ApnUid) p.apronLocation = { ref: uidKey('ApnUid', u.ApnUid) };
+        if (r.geoLat && r.geoLong) set('location', pt45(r));
+        if (rmk) p.annotation = rmk;
+        break;
+      case 'Ahc':
+        k = 'AirportHeliportCollocation';
+        if (u.AhpUid1) p.hostAirport = { ref: uidKey('AhpUid', u.AhpUid1) };
+        if (u.AhpUid2) p.dependentAirport = { ref: uidKey('AhpUid', u.AhpUid2) };
+        set('type', r.codeType);
+        p.annotation = [note45(r.txtDescr), rmk].filter(Boolean);
+        break;
+      case 'Vli': case 'Dli': case 'Nli': case 'Tli': {
+        k = '45:' + s;
+        var ek = { Vli: 'VorUid', Dli: 'DmeUid', Nli: 'NdbUid', Tli: 'TcnUid' }[s];
+        if (u[ek]) p._limitOf = { ref: uidKey(ek, u[ek]) };
+        p._limitText = ['Usage limitation' + (u.codeType ? ' (' + u.codeType + ')' : '') + ':'].concat(arr(r.UsageLimit).map(limitText45), r.txtRmk ? [r.txtRmk] : []).join(' ');
+        break;
+      }
       default:
         k = '45:' + s;
     }
@@ -3106,8 +3231,16 @@ var MODEL = (function () {
 
   /* --------------------------------------------------------- 4.5 linking */
   function link45(ds) {
+    function each(ref, fn) { var t = target(ds, ref); if (t) t.ts.forEach(function (x) { fn(x.p, t); }); return t; }
     ds.recs.forEach(function (r) {
       var p = r.ts[0].p;
+      if (ds.prepared && r.k !== '45:Abd') return; // restored from the cache: merges are already in the data
+      if (p._contactOf && p._contact) each(p._contactOf, function (tp) { tp.contact = arr(tp.contact).concat([p._contact]); });
+      if (p._usageOf && p._usage && p._usage.length) each(p._usageOf, function (tp) { tp.availability = arr(tp.availability).concat([{ _t: 'AirportHeliportAvailability', operationalStatus: 'NORMAL', usage: p._usage }]); });
+      if (p._navOf && p._ad) each(p._navOf, function (tp) { if (!tp._ad) tp._ad = p._ad; });
+      if (p._obsOf && p._ad) each(p._obsOf, function (tp) { if (!tp._ad) tp._ad = p._ad; if (p._obsNote) tp.annotation = arr(tp.annotation).concat([{ _t: 'Note', translatedNote: { _t: 'LinguisticNote', note: p._obsNote } }]); });
+      if (p._svcOf && p._ad) each(p._svcOf, function (tp) { if (!tp._ad) tp._ad = p._ad; });
+      if (p._limitOf && p._limitText) each(p._limitOf, function (tp) { tp.annotation = arr(tp.annotation).concat([{ _t: 'Note', propertyName: 'usageLimitation', translatedNote: { _t: 'LinguisticNote', note: p._limitText } }]); });
       if (r.k === '45:Abd' && p._airspace && p._surface) {
         var as = target(ds, p._airspace);
         if (as) {
@@ -4113,6 +4246,8 @@ var AIP = (function () {
     });
     if (p._traffic) traffic.push(p._traffic);
     traffic = traffic.map(function (t) { return t === 'ALL' ? 'IFR/VFR' : t; });
+    var adContact = M.fContact(p.contact), opLines = operator.split('\n');
+    if (adContact && adContact.split('\n').every(function (l) { return opLines.indexOf(l) >= 0; })) adContact = '';
     var elev = M.fq(p.fieldElevation), temp = M.fq(p.referenceTemperature);
     var gu = p.ARP ? M.fq(arr(p.ARP)[0].geoidUndulation) : '';
     var mv = s(p.magneticVariation);
@@ -4123,7 +4258,7 @@ var AIP = (function () {
       row('4', 'Geoid undulation at AD ELEV PSN', [C(gu, ad, 'ARP')]),
       row('5', 'MAG VAR / Annual change', [C(mv ? join([Math.abs(+mv) + '°' + (+mv < 0 ? 'W' : 'E'), s(p.dateMagneticVariation) ? '(' + s(p.dateMagneticVariation) + ')' : '',
         s(p.magneticVariationChange) ? '/ ' + s(p.magneticVariationChange) + '°' : ''], ' ') : '', ad, 'magneticVariation'), C(n(['magneticVariation']).join('\n'), ad, 'annotation')]),
-      row('6', 'AD operator, address, telephone, telefax, e-mail, AFS, website', [C(operator || M.fContact(p.contact), ad, 'responsibleOrganisation'), C(n(['responsibleOrganisation']).join('\n'), ad, 'annotation')]),
+      row('6', 'AD operator, address, telephone, telefax, e-mail, AFS, website', [C(operator, ad, 'responsibleOrganisation'), C(adContact, ad, 'contact'), C(n(['responsibleOrganisation']).join('\n'), ad, 'annotation')]),
       row('7', 'Types of traffic permitted (IFR/VFR)', [C(uniq(traffic).join('/'), ad, 'availability')]),
       row('8', 'Remarks', [C(n(null).join('\n'), ad, 'annotation')])
     ];
@@ -4174,7 +4309,7 @@ var AIP = (function () {
     var fuels = [], facilities = [];
     sup.forEach(function (r) {
       ['fuelSupply', 'oilSupply', 'nitrogenSupply', 'oxygenSupply'].forEach(function (k) {
-        var cats = arr(r.cur.p[k]).map(function (x) { return x && s(x.category); }).filter(Boolean);
+        var cats = arr(r.cur.p[k]).map(function (x) { return x && (s(x.category) || s(x.type)); }).filter(Boolean);
         if (cats.length) fuels.push(C(k.replace('Supply', '').toUpperCase() + ': ' + cats.join(', '), r, k));
       });
       var nt = M.notesOf(r.cur.p);
@@ -6683,6 +6818,17 @@ var CONVERT = (function () {
   var POS_SRS = 'urn:ogc:def:crs:EPSG::4326';
   function writer45(ds) {
     var D = M.dict(), idc = 0, parts = [], skipped = {}, written = 0;
+    // 4.5 frequencies point to their service; AIXM 5 services list their channels and call signs
+    var svcExtra = new Map();
+    ds.recs.forEach(function (r) {
+      if (r.k !== 'RadioCommunicationChannel' || !r.cur.p._service) return;
+      var sv = M.target(ds, r.cur.p._service);
+      if (!sv) return;
+      var e = svcExtra.get(sv) || { radioCommunication: [], callSign: [] };
+      e.radioCommunication.push({ ref: r.id });
+      arr(r.cur.p._callsign).forEach(function (c) { if (c && c.txtCallSign && !e.callSign.some(function (x) { return x.callSign === c.txtCallSign; })) e.callSign.push({ _t: 'CallsignDetail', callSign: c.txtCallSign, language: c.codeLang }); });
+      svcExtra.set(sv, e);
+    });
     function gid(p) { return (p || 'ID') + '_' + (++idc); }
     function refId(ref) {
       var t = M.target(ds, ref);
@@ -6723,6 +6869,12 @@ var CONVERT = (function () {
       var fd = D.v5.features[r.k];
       if (!fd) { skipped[r.k] = (skipped[r.k] || 0) + 1; return ''; }
       var p = r.cur.p, u = uuidFor(r.id);
+      var se = svcExtra.get(r);
+      if (se) { p = Object.assign({}, p); if (fd.p.radioCommunication) p.radioCommunication = se.radioCommunication; if (fd.p['call-sign'] && se.callSign.length) p['call-sign'] = se.callSign; }
+      if (p._ad) { // owning aerodrome of 4.5 relations (Sah, Ful, Pfy …) -> the matching AIXM 5 property
+        var ap = ['airportHeliport', 'clientAirport', 'associatedAirportHeliport'].filter(function (k) { return fd.p[k] && !p[k]; })[0];
+        if (ap) { p = Object.assign({}, p); p[ap] = p._ad; }
+      }
       var keys = Object.keys(p).filter(function (k) { return k.charAt(0) !== '_' && fd.p[k]; });
       var props = ordered(keys, fd.p).map(function (k) { return valXml(k, p[k], '          ', r.k); }).join('');
       written++;

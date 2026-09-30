@@ -200,8 +200,16 @@ var MODEL = (function () {
 
   /* --------------------------------------------------------- 4.5 linking */
   function link45(ds) {
+    function each(ref, fn) { var t = target(ds, ref); if (t) t.ts.forEach(function (x) { fn(x.p, t); }); return t; }
     ds.recs.forEach(function (r) {
       var p = r.ts[0].p;
+      if (ds.prepared && r.k !== '45:Abd') return; // restored from the cache: merges are already in the data
+      if (p._contactOf && p._contact) each(p._contactOf, function (tp) { tp.contact = arr(tp.contact).concat([p._contact]); });
+      if (p._usageOf && p._usage && p._usage.length) each(p._usageOf, function (tp) { tp.availability = arr(tp.availability).concat([{ _t: 'AirportHeliportAvailability', operationalStatus: 'NORMAL', usage: p._usage }]); });
+      if (p._navOf && p._ad) each(p._navOf, function (tp) { if (!tp._ad) tp._ad = p._ad; });
+      if (p._obsOf && p._ad) each(p._obsOf, function (tp) { if (!tp._ad) tp._ad = p._ad; if (p._obsNote) tp.annotation = arr(tp.annotation).concat([{ _t: 'Note', translatedNote: { _t: 'LinguisticNote', note: p._obsNote } }]); });
+      if (p._svcOf && p._ad) each(p._svcOf, function (tp) { if (!tp._ad) tp._ad = p._ad; });
+      if (p._limitOf && p._limitText) each(p._limitOf, function (tp) { tp.annotation = arr(tp.annotation).concat([{ _t: 'Note', propertyName: 'usageLimitation', translatedNote: { _t: 'LinguisticNote', note: p._limitText } }]); });
       if (r.k === '45:Abd' && p._airspace && p._surface) {
         var as = target(ds, p._airspace);
         if (as) {

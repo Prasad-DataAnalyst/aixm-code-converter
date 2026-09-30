@@ -236,6 +236,8 @@ var AIP = (function () {
     });
     if (p._traffic) traffic.push(p._traffic);
     traffic = traffic.map(function (t) { return t === 'ALL' ? 'IFR/VFR' : t; });
+    var adContact = M.fContact(p.contact), opLines = operator.split('\n');
+    if (adContact && adContact.split('\n').every(function (l) { return opLines.indexOf(l) >= 0; })) adContact = '';
     var elev = M.fq(p.fieldElevation), temp = M.fq(p.referenceTemperature);
     var gu = p.ARP ? M.fq(arr(p.ARP)[0].geoidUndulation) : '';
     var mv = s(p.magneticVariation);
@@ -246,7 +248,7 @@ var AIP = (function () {
       row('4', 'Geoid undulation at AD ELEV PSN', [C(gu, ad, 'ARP')]),
       row('5', 'MAG VAR / Annual change', [C(mv ? join([Math.abs(+mv) + '°' + (+mv < 0 ? 'W' : 'E'), s(p.dateMagneticVariation) ? '(' + s(p.dateMagneticVariation) + ')' : '',
         s(p.magneticVariationChange) ? '/ ' + s(p.magneticVariationChange) + '°' : ''], ' ') : '', ad, 'magneticVariation'), C(n(['magneticVariation']).join('\n'), ad, 'annotation')]),
-      row('6', 'AD operator, address, telephone, telefax, e-mail, AFS, website', [C(operator || M.fContact(p.contact), ad, 'responsibleOrganisation'), C(n(['responsibleOrganisation']).join('\n'), ad, 'annotation')]),
+      row('6', 'AD operator, address, telephone, telefax, e-mail, AFS, website', [C(operator, ad, 'responsibleOrganisation'), C(adContact, ad, 'contact'), C(n(['responsibleOrganisation']).join('\n'), ad, 'annotation')]),
       row('7', 'Types of traffic permitted (IFR/VFR)', [C(uniq(traffic).join('/'), ad, 'availability')]),
       row('8', 'Remarks', [C(n(null).join('\n'), ad, 'annotation')])
     ];
@@ -297,7 +299,7 @@ var AIP = (function () {
     var fuels = [], facilities = [];
     sup.forEach(function (r) {
       ['fuelSupply', 'oilSupply', 'nitrogenSupply', 'oxygenSupply'].forEach(function (k) {
-        var cats = arr(r.cur.p[k]).map(function (x) { return x && s(x.category); }).filter(Boolean);
+        var cats = arr(r.cur.p[k]).map(function (x) { return x && (s(x.category) || s(x.type)); }).filter(Boolean);
         if (cats.length) fuels.push(C(k.replace('Supply', '').toUpperCase() + ': ' + cats.join(', '), r, k));
       });
       var nt = M.notesOf(r.cur.p);
