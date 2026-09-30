@@ -720,7 +720,9 @@ var MODEL = (function () {
         var mid = Math.floor(pts.length / 2), cname = null;
         try { cname = locator(lons[mid], lats[mid]); } catch (e) { cname = null; }
         if (!cname) { var votes = {}; pts.slice(0, 300).forEach(function (x) { var n = null; try { n = locator(x[0], x[1]); } catch (e) { n = null; } if (n) votes[n] = (votes[n] || 0) + 1; }); cname = Object.keys(votes).sort(function (a, b) { return votes[b] - votes[a]; })[0] || null; }
-        if (cname) { state = cname; src = 'geographic position of the data'; }
+        var ALIAS = { 'United States of America': 'United States', Russia: 'Russian Federation', Vietnam: 'Viet Nam', 'South Korea': 'Republic of Korea', 'North Korea': "Democratic People's Republic of Korea",
+          'Dem. Rep. Congo': 'Democratic Republic of the Congo', Laos: "Lao People's Democratic Republic", Tanzania: 'United Republic of Tanzania', Bolivia: 'Bolivia (Plurinational State of)', Venezuela: 'Venezuela (Bolivarian Republic of)', Moldova: 'Republic of Moldova' };
+        if (cname) { state = ALIAS[cname] || cname; src = 'geographic position of the data'; }
       }
     }
     if (!state) { state = ds.name.replace(/\.[^.]+$/, ''); src = 'file name'; }

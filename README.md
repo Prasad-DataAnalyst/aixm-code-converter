@@ -14,7 +14,7 @@ nothing to install, no server and no internet requirement. No data leaves the co
 | Step | What happens |
 |---|---|
 | **1. Add files** | Drag & drop or browse one or many files (`.xml`, `.aixm`, `.gml` or `.zip` archives), one file per State or many. Each file is checked instantly: **AIXM version** (4.5, 5.0, 5.1, 5.1.1, 5.2 and its pre-releases wip/RC), root element, update or snapshot. |
-| **2. Extract** | One button. Files are streamed in 16 MB chunks by **parallel background threads**; the first results appear within about a second. A progress bar shows MB/s, features found, time left and a **Cancel** button. Files **up to 1 GB and beyond** are supported. |
+| **2. Extract** | One button. Files are streamed in 16 MB chunks by **parallel background threads**; the first results appear within about a second. A progress bar shows MB/s, features found, time left and a **Cancel** button. Files of **several GB** are supported (Lite memory mode above 1.5 GB). |
 | **3. Dashboard** | For every file: **State**, **AIXM version**, **AIRAC cycle**, **effective date** (and where it comes from), counts, and the **effective date of each aerodrome**. |
 | **4. AIP** | ICAO specimen layout: **GEN** (1.1, 2.1, 2.4, 2.5, 3.1, 3.3, 3.4, 3.6), **ENR** (1, 2.1, 2.2, 3.1, 3.2, 3.4, 4.1–4.5, 5.1–5.4, 6), **AD 1.3** and, for every aerodrome, **AD 2.1 – AD 2.24** (heliports: **AD 3.1 – 3.23**): ARP, elevation, operator, operational hours, services, aprons and taxiways, obstacles, runway characteristics, declared distances, lighting, ATS airspace with lateral limits (including arcs and circles), frequencies, navaids, procedures… Each row shows its **effective date** and a Δ badge when the feature has several time slices. |
 | **5. See the AIXM code** | Click any value or **`</>`** to open the **exact AIXM fragment**: file, line number, byte offset and length, with the property highlighted. Buttons: **Copy XML**, **Save**, **All data**. This works instantly even in multi-GB files, because only the byte position is stored and the fragment is read back from the file. |
@@ -26,6 +26,30 @@ nothing to install, no server and no internet requirement. No data leaves the co
 | **11. Explorer** | **Every** AIXM feature type and feature, with nothing hidden: properties with the **official AIXM definitions** and decoded code values (for example `AH` — *Airport with heliport landing area*), all time slices, and references to and from other features. For AIXM 4.5 files, the original 4.5 fields are shown with their 4.5 definitions. |
 | **12. Export** | Any single section (buttons on every page) or the whole data set: **JSON** (every value carries its source: feature, UUID, line, byte offset), **Excel** (one sheet per section plus an *AIXM line* column; tables over 1 million rows are split), a **printable PDF** (AIP-style header and footer, AIRAC and source file, map on aerodrome pages), **Print**, and **E-mail**: a formatted message to copy and paste into Outlook, or a `.eml` file that opens as an Outlook draft, or `.html`/`.txt`. No mail program is opened automatically. |
 
+### Review an AIRAC cycle
+
+| Feature | What it does |
+|---|---|
+| **Red highlighting** | Pick the AIRAC cycle (e.g. **2611 — 29 OCT 2026**) in the red bar above any AIP page. Every value that changes in that cycle is shown **white on red**; hover for old → new. Counts appear in the AIP tree. Changes come from the file's own time slices and, when available, from the comparison with the previous cycle's file (*Compare with previous cycle* opens it from the Library). |
+| **AIRAC AMDT report** | From *List all changes*, the *Timeline* or *Compare*: State, AMDT number, publication date (42 days before), effective date, the AIP sections affected and every insert / amend / delete with previous and new value. Print, PDF, Excel, JSON, e-mail. |
+| **Side by side** | *⇆ Side by side* on any section: *before / from AIRAC 2611* of the same file, or against another loaded cycle (or the previous file in the Library). Rows are matched, changed values are red (new) and struck (old); *Only differences*; differences PDF/Excel/e-mail. |
+| **Timeline** | Changes per AIRAC cycle, split GEN / ENR / AD, with the Library files per cycle and a bar chart of temporary changes and NOTAM periods. |
+| **Digital NOTAM** | AIXM 5.1 `event:Event` shown as ICAO NOTAM / SNOWTAM text with the Q-code decoded (subject, condition, traffic, purpose, scope) and the temporary change of each affected feature (base values taken from the other files of the State). |
+| **Instrument procedures** | AD 2.22 lists every SID, STAR and approach with its legs (ARINC 424 type, fixes, course, altitude, speed, distance) and minima. The map draws them per aerodrome (SID blue, STAR green, approach purple, missed approach dashed); AD 2.22/2.24 PDFs include the drawing. |
+
+### More tools
+
+| Feature | What it does |
+|---|---|
+| **State library** | Connect one parent folder with a sub-folder per State (`Saudi`, `UAE`, `India`…). It is remembered; new files are detected; files dropped on a State card are saved into its folder; extracted data is kept in the browser so switching States is instant. |
+| **Convert / GIS** | AIXM 5.1.1 ↔ 5.2, AIXM 4.5 → 5.1.1 (deterministic UUIDs), GeoJSON, KML and ESRI Shapefile (zipped). |
+| **Business rules** | *Quality → AIXM business rules*: the 2,031 official AIXM 5.1 rules (SBVR v0.9, aixm.aero); 1,517 are checked automatically (mandatory/conditional data, annotation property names, flight-level coding, navaid composition, reference targets, accuracy limits, forbidden values, uniqueness), all are searchable in the catalogue. Severities follow the EAD profile; a filter separates EAD-specific rules. |
+| **Saved views and links** | ☆ saves a named view (file, page, AIP section, cycle, side-by-side, date, map position). The address of every view can be copied and shared: opening it and loading the same file restores the view. |
+| **Languages** | English, العربية (right-to-left layout), Français, Español for menus, headings, AIP section titles and common item labels. AIXM values are never translated. |
+| **Map print** | Drag an area, choose A4/A3 portrait/landscape; legend of the layers shown, north arrow, coordinate grid and scale; PDF, PNG or print. |
+| **Online maps** | OpenStreetMap through CARTO Voyager (works from a local file); if a tile server refuses the page, the map switches automatically. The chosen base map is remembered. |
+| **State detection** | STATE authority, ICAO location indicators (aerodromes, FIRs, NOTAM locations, procedure names, reference titles) and, if nothing else, the country under the data; a file with only a weak guess takes the State of a loaded file with the same ICAO prefix. |
+
 Theme: colours inspired by Qatar Airways (burgundy and silver) in light and dark modes. There is **no logo and no airline
 name** anywhere.
 
@@ -33,10 +57,17 @@ name** anywhere.
 
 Measured in headless Chromium on a 4-core container (3 parser threads):
 
-| File | Size | Features | Read + index | First results | Memory after loading |
-|---|---|---|---|---|---|
-| Donlon 2025 baseline (5.1.1) | 11 MB | 1,028 | 0.5 s | instant | — |
-| Synthetic (93 × Donlon, 5.1.1) | **1.0 GB** | **95,604** | **21 s** | **1.1 s** | ~0.7–1.0 GB |
+| File | Size | Features | Memory mode | Read + index | First results | JS heap after loading |
+|---|---|---|---|---|---|---|
+| Donlon 2025 baseline (5.1.1) | 11 MB | 1,028 | Full | 0.5 s | instant | — |
+| Synthetic (93 × Donlon, 5.1.1) | **1.0 GB** | **95,604** | Full | 12.8 s | 2 s | 737 MB |
+| Same file | 1.0 GB | 95,604 | Lite | **10 s** | 1 s | **392 MB** |
+| Synthetic (5.1.1) | **2.7 GB** | **238,214** | Lite (auto) | **25 s** | 1 s | 933 MB |
+
+Times are with the file already in the operating-system cache; the first read of a file from disk depends on the disk.
+**Lite mode** (automatic above 1.5 GB, selectable in *Files*) counts individual light and marking elements instead of
+storing them — more than half of the memory of aerodrome mapping data — so files of 2–5 GB fit in the browser. The full
+XML of every feature is still shown from the file.
 
 Opening an AIP page takes about 0.25 s. Opening the AIXM fragment of the last feature in the 1 GB file takes about 80 ms.
 Machines with more cores run proportionally faster: the parser uses up to 8 threads.
@@ -45,7 +76,7 @@ Machines with more cores run proportionally faster: the parser uses up to 8 thre
 
 | Version | Detected by | Notes |
 |---|---|---|
-| AIXM 4.5 (`AIXM-Snapshot`, `AIXM-Update`) and OFMX | root element and `version` attribute | Header `origin/created/effective` used. All ~112 feature types are read; the main ones are mapped to the AIXM 5 model (Ahp → AirportHeliport, Rwy/Rdn/Rdd/Rcp/Rls, Vor/Dme/Ndb/Tcn/Mkr/Ils, Dpn, Ase + Abd borders with arcs and circles, Rte/Rsg, Obs, Uni/Ser/Fqy, Org, Twy, Apn, Tla/Fto, Sid/Sia/Iap, Gbr …). |
+| AIXM 4.5 (`AIXM-Snapshot`, `AIXM-Update`) and OFMX | root element and `version` attribute | Header `origin/created/effective` used. All ~112 feature types are read; the main ones are mapped to the AIXM 5 model (Ahp → AirportHeliport, Rwy/Rdn/Rdd/Rcp/Rls, Vor/Dme/Ndb/Tcn/Mkr/Ils, Dpn, Ase + Abd borders with arcs and circles, Rte/Rsg, Obs, Uni/Ser/Fqy, Org, Twy, Apn, Tla/Fto, Sid/Sia/Iap, Gbr, addresses Aha/Oaa/Uas/Aga, usage Ahu, Ana/Aho/Rdo/Sah relations, Ful/Oil/Oxg/Ntg, Pfy, Rda/Fda, Swy/Rpa, Tly, Spd, Gsd, Ahc, navaid usage limitations …). |
 | AIXM 5.0 / 5.1 / 5.1.1 | `http://www.aixm.aero/schema/5.x` namespace, any prefix | Basic message, WFS / feature collections, Digital NOTAM `event:Event`. |
 | AIXM 5.2 (5.2.0, `wip`, RC) | namespace and `schemaLocation` | New 5.2 features (AirportSign, GBAS, Gangway, RVR equipment, SatelliteSystem…). |
 | GML | `EPSG:4326/4269` (lat/lon) and `CRS84` (lon/lat) axis order | Point, LineString, GeodesicString, Geodesic, ArcByCenterPoint, CircleByCenterPoint, Arc (3-point), Polygon, Surface/patches, Ring/curveMember, and `xlink` border-following to GeoBorder curves. |
@@ -74,10 +105,16 @@ aixm-code-converter/
 │   ├── analysis.js             in-file changes, comparison of two data sets, quality checks
 │   ├── mapview.js              Leaflet map, offline base map, canvas symbols, measure tool, snapshot renderer
 │   ├── exports.js              JSON, Excel, PDF, print, e-mail (.eml / clipboard)
+│   ├── library.js              State folders (File System Access API) and the IndexedDB cache
+│   ├── convert.js              AIXM version conversion, 4.5 → 5.1.1 writer, GeoJSON / KML / Shapefile
+│   ├── review.js               AMDT report, side-by-side diff, Digital NOTAM text and Q-codes, timeline
+│   ├── rules.js                AIXM 5.1 business rule (SBVR) checks
+│   ├── i18n.js                 interface languages (Arabic RTL, French, Spanish)
 │   └── app.js                  user interface and extraction orchestration
-├── schemas/                    official AIXM XSDs (4.5, 5.1, 5.1.1, 5.2) from aixm.aero
-├── data/                       compiled dictionary, Natural Earth places
-├── testdata/                   public sample files (Donlon, Chicago O'Hare, AIXM 4.5, 5.2, temporality cases)
+├── schemas/                    official AIXM XSDs (4.5, 5.1, 5.1.1, 5.2) and business rules (rules/) from aixm.aero
+├── data/                       compiled dictionary and business rules, Natural Earth places
+├── testdata/                   public sample files (Donlon, Chicago O'Hare, AIXM 4.5, 5.2, temporality cases, Digital NOTAM)
+│                               and synthetic test files (Donlon_EADD_changes_AIRAC2611.xml, sample_aixm45_extra.xml)
 └── tools/                      build and test scripts
 ```
 
@@ -86,11 +123,13 @@ aixm-code-converter/
 ```bash
 cd aixm-code-converter/tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core
 cd .. && python3 tools/build_dictionary.py            # schemas/ -> data/aixm_dictionary.json
+node tools/build_rules.js                             # schemas/rules/*.xlsx -> data/aixm_rules.json
 node tools/build.js                                   # -> AIXM-Code-Converter.html
 node tools/test_parse.js testdata/Donlon_ALL_Baseline_2025.xml 4   # parser: offsets/lines across 4 parallel parts
 node tools/test_aip.js testdata/Donlon_ALL_Baseline_2025.xml "^AD 2\.1[23]$"   # AIP sections as text
+EVAL='return JSON.stringify((await RULES.run(ds)).summary)' node tools/test_aip.js testdata/Donlon_ALL_Baseline_2025.xml   # any expression
 node tools/e2e.js                                     # full UI test in headless Chromium + exports
-node tools/e2e_big.js /path/to/1gb.xml                # large-file timing and memory
+node tools/e2e_big.js /path/to/1gb.xml                # large-file timing and memory (MEM=lite to force Lite mode)
 ```
 
 ## Limits worth knowing
@@ -99,8 +138,13 @@ node tools/e2e_big.js /path/to/1gb.xml                # large-file timing and me
 - Online base maps need internet. Some tile servers (e.g. the standard OSM server) may refuse requests from a local
   `file://` page; the OSM-based CARTO/OpenTopoMap styles are offered as alternatives, and the offline map always works.
 - AIXM does not contain charts. ENR 6 and AD 2.24 point to the map and list the procedures that are in the data.
-- The EUROCONTROL AIXM Coding Guidelines site is protected against automated access. The AIP ↔ AIXM mapping here follows
-  the official Donlon data sets and the AIXM ADM/SDO report templates.
+- The EUROCONTROL AIXM Coding Guidelines site is protected against automated access, so its content is not built in. The
+  AIP ↔ AIXM mapping here follows the official Donlon data sets and the AIXM ADM/SDO report templates. If you download the
+  guidelines (PDF or HTML) and add them to `schemas/`, they can be compiled in the same way as the business rules.
+- Business rules: 514 of the 2,031 rules use wording that is not recognised automatically (mostly GML coordinate-system
+  and precision rules); they are listed in the catalogue for reference. Rules marked EAD are the EAD profile, not ICAO.
+- Interface translations cover the menus, headings, AIP section titles and the most common item labels; the rest of the
+  text stays in English.
 - For PDF, very large tables (e.g. hundreds of thousands of obstacles) are truncated to 5,000 rows per table with a note.
   Excel and JSON always contain everything.
 
