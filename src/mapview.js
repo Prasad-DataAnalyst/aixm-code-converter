@@ -1227,7 +1227,7 @@ var MAPVIEW = (function () {
       ctx.font = Math.round(12 * k) + 'px Arial'; ctx.fillText(nice + ' NM (' + (nice * 1.852).toFixed(nice < 5 ? 1 : 0) + ' km)', sx + len + 8 * k, h - 22 * k);
     }
     ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = Math.round(10 * k) + 'px Arial';
-    var foot = (opt.footer ? opt.footer + '  ·  ' : '') + 'AIXM Code Converter © 2026 Prasad Selvaraj (prasad2t@gmail.com)  ·  Base map: Natural Earth (public domain) · Mercator · not for navigation';
+    var foot = (opt.footer ? opt.footer + '  ·  ' : '') + 'AIXM Code Converter © 2026 Prasad Selvaraj (prasad2t@gmail.com)  ·  Base map: Natural Earth (public domain) · Mercator';
     var fw = ctx.measureText(foot).width; ctx.fillRect(w - fw - 16 * k, h - 20 * k, fw + 12 * k, 16 * k); ctx.fillStyle = '#555'; ctx.fillText(foot, w - fw - 10 * k, h - 8 * k);
     // author signature (Apache-2.0 NOTICE): near-invisible micro text in the bottom-left corner of every image
     ctx.save(); ctx.globalAlpha = 0.02; ctx.fillStyle = '#000'; ctx.font = Math.max(6, Math.round(6 * k)) + 'px Arial';

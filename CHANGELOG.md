@@ -2,9 +2,23 @@
 
 AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.0
 
-## 1.2.0 — 2026-10-01
+## Planned — 2.0
 
-Safety and integrity checks, approach profiles, continuous integration.
+- **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
+  exported to PDF / PNG (the *Digital charts* tab shows the plan).
+
+## 1.0.0 — 2026-10-01 — first public release
+
+Everything below is part of version 1.0 (built in three development stages).
+
+- AIP change highlighting: changed values are white on red also when the previous cycle's file is not loaded (the whole
+  amended feature is marked); with the previous file, only the values that really differ.
+- *View AIXM code*: the value is highlighted in the time slice shown in the AIP, AIXM 4.5 element names are recognised,
+  and values assembled from the data are found by their text; a note explains values that are not one AIXM element.
+  Test `xml_reference.js` checks every feature position and every AIP value.
+- *Digital charts* tab (coming in version 2), version shown in the top bar.
+
+### Stage 3 — safety and integrity checks, approach profiles, continuous integration
 
 - **Obstacle limitation surfaces** (new `ols.js`): ICAO Annex 14 approach (Table 4-1), take-off climb (Table 4-2), transitional,
   inner horizontal and conical surfaces per runway from the data (code number from the length, precision / non-precision /
@@ -21,9 +35,7 @@ Safety and integrity checks, approach profiles, continuous integration.
 - Test: `ols_integrity_profile.js`.
 - **Not for operational use** notice (text in `config.js`) on the About page and in Help.
 
-## 1.1.0 — 2026-10-01
-
-Map, airport chart, terrain and 3D.
+### Stage 2 — map, airport chart, terrain and 3D
 
 - **Airport chart** (new `adchart.js`): runways to scale with threshold, piano-key, aiming-point, touchdown-zone, centreline and
   displaced-threshold markings, painted designators, magnetic bearings and THR elevations at the ends, dimensions / surface /
@@ -48,9 +60,7 @@ Map, airport chart, terrain and 3D.
 - PNG / PDF map output draws the airport chart and avoids overlapping labels.
 - Tests: `airport_chart.js`, `map_window.js`, `view3d.js`.
 
-## 1.0.0 — 2026-10-01
-
-First public release.
+### Stage 1 — AIXM reading, ICAO AIP, changes, map, exports
 
 - Reads AIXM 4.5, 5.0, 5.1, 5.1.1 and 5.2 (also in .zip), files of several GB (Lite memory mode), in parallel threads.
 - ICAO AIP layout: GEN, ENR, AD 2 / AD 3 with every value linked to its exact AIXM code; instrument procedures with legs and minima.

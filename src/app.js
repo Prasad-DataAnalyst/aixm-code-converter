@@ -57,6 +57,7 @@
   }
   // Author of the AIXM Code Converter (Apache-2.0: this attribution must be kept in redistributions, see NOTICE)
   var AUTHOR = APP_INFO.author, AUTHOR_EMAIL = APP_INFO.email;
+  try { document.getElementById('ver-badge').textContent = 'v' + APP_INFO.version.split('.').slice(0, 2).join('.'); } catch (e) { /* no badge */ }
   try { Object.defineProperty(window, '__aixmAuthor', { value: APP_INFO.credit, enumerable: false }); } catch (e) { /* already defined */ }
   var AUTHOR_LINE = APP_INFO.name + ' ' + APP_INFO.version + ' — © ' + APP_INFO.year + ' ' + AUTHOR + ' · ' + AUTHOR_EMAIL + ' · Apache-2.0';
   try { console.info('%c AIXM Code Converter %c © 2026 ' + AUTHOR + ' <' + AUTHOR_EMAIL + '> · Apache-2.0 ', 'background:#0b2a4a;color:#fff;font-weight:bold;padding:2px 6px', 'color:#0b2a4a'); } catch (e) { /* no console */ }
@@ -93,6 +94,7 @@
     plane: ic('<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>'),
     caret: ic('<path d="m9 18 6-6-6-6"/>', 'class="caret"'),
     info: ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
+    charts: ic('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 17l3-5 3 3 2-4"/><path d="M8 7h8"/>'),
     trash: ic('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'),
     play: ic('<path d="M6 4l14 8-14 8z"/>'),
     timeline: ic('<path d="M3 12h18"/><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><path d="M6 5v3M12 16v3M18 5v3"/>'),
@@ -105,13 +107,13 @@
   var VIEWS = [
     ['library', 'Library', I.folder], ['files', 'Files', I.upload], ['dash', 'Dashboard', I.dash], ['aip', 'AIP', I.book], ['map', 'Map', I.map], null,
     ['changes', 'Changes', I.changes], ['timeline', 'Timeline', I.timeline], ['compare', 'Compare', I.compare], ['notam', 'NOTAM', I.notam], ['quality', 'Quality', I.check], ['explorer', 'Explorer', I.list], null,
-    ['export', 'Export', I.export], ['about', 'About', I.info]
+    ['export', 'Export', I.export], ['charts', 'Digital charts', I.charts], ['about', 'About', I.info]
   ];
   function renderNav() {
     var has = S.datasets.length > 0;
     $('#nav').innerHTML = VIEWS.map(function (v) {
       if (!v) return '<div class="nav-sep"></div>';
-      var dis = !has && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about';
+      var dis = !has && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about' && v[0] !== 'charts';
       return '<button data-view="' + v[0] + '" class="' + (S.view === v[0] ? 'active' : '') + '"' + (dis ? ' disabled' : '') + ' title="' + v[1] + '">' + v[2] + '<span>' + v[1] + '</span></button>';
     }).join('') + '<div class="nav-credit" data-about="1" title="' + AUTHOR_LINE + '">© 2026<br>Prasad Selvaraj</div>';
   }
@@ -131,7 +133,7 @@
     var v = document.createElement('div');
     v.className = 'view' + (view === 'aip' || view === 'map' || view === 'explorer' ? ' full' : '');
     main.appendChild(v);
-    ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, timeline: viewTimeline, notam: viewNotam, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport, about: viewAbout })[view](v, opts || {});
+    ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, timeline: viewTimeline, notam: viewNotam, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport, about: viewAbout, charts: viewCharts })[view](v, opts || {});
     MAPWIN.sync(S.datasets, S.cmp);
     updateHash();
   }
@@ -734,7 +736,7 @@
   }
   function bmTitle(p) {
     if (!p) return '';
-    var names = { aip: 'AIP', map: 'Map', dash: 'Dashboard', changes: 'Changes', timeline: 'Timeline', compare: 'Compare', notam: 'NOTAM', quality: 'Quality', explorer: 'Explorer', export: 'Export' };
+    var names = { charts: 'Digital charts', aip: 'AIP', map: 'Map', dash: 'Dashboard', changes: 'Changes', timeline: 'Timeline', compare: 'Compare', notam: 'NOTAM', quality: 'Quality', explorer: 'Explorer', export: 'Export' };
     var ds = dsOf();
     return (ds ? ds.state + ' · ' : '') + (p.s ? p.s.replace('@', ' ') : names[p.v] || p.v) + (p.c ? ' · AIRAC ' + p.c : ds && ds.airac ? ' · AIRAC ' + ds.airac.id : '') + (p.x ? ' · side by side' : '');
   }
@@ -912,14 +914,18 @@
     if (!e) return null;
     if (e.added) return { strong: true, lines: ['New in AIRAC ' + cc.cycle.id + ' (' + Array.from(e.kinds).join(', ') + ')'] };
     if (p && e.props.has(p)) return { strong: true, lines: e.props.get(p).map(function (f) { return ANALYSIS.prettyPath(f.path) + ': ' + (f.old !== undefined ? ANALYSIS.displayVal(ds, f.old) : '—') + '  →  ' + (f.neu !== undefined ? ANALYSIS.displayVal(ds, f.neu) : 'removed'); }) };
-    if (!e.props.size && e.amended) return { strong: false, amended: true, lines: ['Amended in AIRAC ' + cc.cycle.id + ' (new baseline from ' + M.fmtDate(cc.cycle.date) + '). ' + (ds.prevCmp ? 'No value differs from ' + ds.prevCmp.a.name + '.' : 'Load the previous cycle\'s file (Compare with previous cycle) to see exactly which values changed.')] };
+    // amended without a comparison with the previous cycle: which values changed is unknown, so the whole feature is
+    // shown as changed (white on red); with a comparison, only the values that really differ are red
+    if (!e.props.size && e.amended) return { strong: !ds.prevCmp, amended: true, lines: ['Amended in AIRAC ' + cc.cycle.id + ' (new baseline from ' + M.fmtDate(cc.cycle.date) + '). ' + (ds.prevCmp ? 'No value differs from ' + ds.prevCmp.a.name + '.' : 'Load the previous cycle\'s file (Compare with previous cycle) to see exactly which values changed.')] };
+    // a value built from the whole feature (no single property) of a changed feature
+    if (!p && e.props.size) return { strong: true, lines: ['Changed in AIRAC ' + cc.cycle.id + ': ' + Array.from(e.props.keys()).join(', ')] };
     return { strong: false, lines: ['Other properties of this feature change in AIRAC ' + cc.cycle.id + ': ' + Array.from(e.props.keys()).join(', ')] };
   }
   function cellHtml(c, ds) {
     if (!c || !c.t) return '<span class="nil">—</span>';
     var t = esc(c.t);
     if (!c.r) return t;
-    var idx = cellRegistry.push({ ds: ds, r: c.r, p: c.p }) - 1;
+    var idx = cellRegistry.push({ ds: ds, r: c.r, p: c.p, t: c.t }) - 1;
     var ci = chgInfo(ds, c.r, c.p);
     var tip = (ci ? '⚠ CHANGE ' + ci.lines.join('\n') + '\n\n' : '') + (c.tip ? c.tip + '\n' : '') + M.typeName(c.r) + (c.p ? ' · ' + c.p : '') + ' · line ' + num(c.r.line) + '\nClick to view the AIXM code';
     return '<span class="src' + (ci ? (ci.strong ? ' chg' : ' chg-soft') : '') + '" data-cell="' + idx + '" title="' + esc(tip) + '">' + t + '</span>';
@@ -1087,7 +1093,7 @@
       host.scrollTop = 0;
       host.onclick = function (e) {
         var c = e.target.closest('[data-cell]');
-        if (c) { var reg = cellRegistry[+c.getAttribute('data-cell')]; openXml(reg.ds, reg.r, reg.p); return; }
+        if (c) { var reg = cellRegistry[+c.getAttribute('data-cell')]; openXml(reg.ds, reg.r, reg.p, undefined, reg.t); return; }
         var more = e.target.closest('[data-more]');
         if (more) {
           var bi = +more.getAttribute('data-more'), shown = +more.getAttribute('data-shown'), secEl = more.closest('.aip-sec');
@@ -1253,7 +1259,60 @@
     var buf = await ds.file.slice(occ.o, occ.o + occ.n).arrayBuffer();
     return new TextDecoder('utf-8').decode(buf);
   }
-  async function openXml(ds, r, prop, occIdx) {
+  // AIXM 4.5 element names of the AIXM 5 properties used by the AIP pages (for highlighting in 4.5 files)
+  var PROP45 = { designator: ['codeId', 'txtDesig'], name: ['txtName'], type: ['codeType'], frequency: ['valFreq'], channel: ['codeChannel'],
+    location: ['geoLat', 'geoLong'], ARP: ['geoLat', 'geoLong'], annotation: ['txtRmk'], trueBearing: ['valTrueBrg'], magneticBearing: ['valMagBrg'],
+    fieldElevation: ['valElev'], elevation: ['valElev'], magneticVariation: ['valMagVar'], locationIndicatorICAO: ['codeIcao', 'codeId'],
+    designatorIATA: ['codeIata'], nominalLength: ['valLen'], nominalWidth: ['valWid'], surfaceProperties: ['codeComposition', 'valPcnClass'],
+    transitionAltitude: ['valTransitionAlt'], referenceTemperature: ['valRefT'], availability: ['Timetable', 'codeWorkHr'], part: ['valHgt', 'valElev'],
+    upperLimit: ['valDistVerUpper'], lowerLimit: ['valDistVerLower'], geometryComponent: ['Avx', 'Abd'], activation: ['Att', 'codeWorkHr'], course: ['valCrs'] };
+  // Lines of an AIXM fragment to highlight for a value: the property element inside the current time slice; else (AIXM 4.5)
+  // the 4.5 element; else the lines where the value's own text appears. -> {hl: Set of line indexes, how: 'prop'|'text'|''}
+  function locateValue(lines, prop, valueText, slice) {
+    var lo = 0, hi = lines.length - 1, hl = new Set();
+    if (slice) { lo = slice[0]; hi = slice[1]; }
+    function esc2(x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+    function element(name) {
+      var re = new RegExp('<([\\w.-]+:)?' + esc2(name) + '[\\s>/]'), depth = 0, inProp = false, tag = null, found = false;
+      for (var i = lo; i <= hi; i++) {
+        if (!inProp && re.test(lines[i])) { inProp = true; found = true; var m = /<([\w.-]+:)?[\w.-]+/.exec(lines[i].slice(lines[i].search(re))); tag = m ? m[0].slice(1) : name; depth = 0; }
+        if (inProp) {
+          hl.add(i);
+          var et = esc2(tag), opens = (lines[i].match(new RegExp('<' + et + '[\\s>]', 'g')) || []).length;
+          var selfc = new RegExp('<' + et + '[^>]*/>').test(lines[i]), closes = (lines[i].match(new RegExp('</' + et + '>', 'g')) || []).length;
+          depth += opens - closes - (selfc ? 1 : 0);
+          if (depth <= 0) { inProp = false; if (hl.size > 400) break; }
+        }
+      }
+      return found;
+    }
+    if (prop && element(prop)) return { hl: hl, how: 'prop' };
+    if (prop && PROP45[prop] && PROP45[prop].some(function (n) { return element(n); })) return { hl: hl, how: 'prop' };
+    // the value's own words (numbers, codes, names) in the element texts of the fragment
+    var words = String(valueText || '').split(/[\s\n/·,;:()]+/).filter(function (w) { return w.length >= 2 && !/^(—|NIL|M|FT|KM|NM|AND|THE|OF|TO|IN|ON|AT|BY|FOR|WITH|FROM|x)$/i.test(w); }).slice(0, 12);
+    if (words.length) {
+      var res = words.map(function (w) { return new RegExp('(^|[^\\w])' + esc2(w) + '($|[^\\w])', 'i'); });
+      for (var j = lo; j <= hi; j++) {
+        var inner = lines[j].replace(/<[^>]*>/g, ' ');
+        if (res.some(function (rx) { return rx.test(inner); })) hl.add(j);
+      }
+      if (hl.size && hl.size <= 80) return { hl: hl, how: 'text' };
+      hl.clear();
+    }
+    return { hl: hl, how: '' };
+  }
+  // line range [first, last] of the n-th time slice in a fragment, or null
+  function sliceRange(lines, n) {
+    var ranges = [], open = -1, depth = 0;
+    for (var i = 0; i < lines.length; i++) {
+      var o = (lines[i].match(/<([\w.-]+:)?timeSlice[\s>]/g) || []).length, c = (lines[i].match(/<\/([\w.-]+:)?timeSlice>/g) || []).length;
+      if (o && depth === 0) open = i;
+      depth += o - c;
+      if (c && depth === 0 && open >= 0) { ranges.push([open, i]); open = -1; }
+    }
+    return ranges.length > 1 && ranges[n] ? ranges[n] : null;
+  }
+  async function openXml(ds, r, prop, occIdx, valueText) {
     if (r.k === '#error') { toast('This fragment could not be parsed.'); }
     var occs = occList(r), oi = occIdx || 0;
     if (r.cur && r.cur.idx !== undefined && r.ts[r.cur.idx] && r.ts[r.cur.idx].occ !== undefined && occIdx === undefined) oi = r.ts[r.cur.idx].occ || 0;
@@ -1269,31 +1328,19 @@
     drawer.classList.add('open'); drawer.setAttribute('aria-hidden', 'false');
     $('#dx-close').onclick = closeDrawer;
     $('#dx-detail').onclick = function () { openDetail(ds, r); };
-    $$('[data-occ]', drawer).forEach(function (b) { b.onclick = function () { openXml(ds, r, prop, +b.getAttribute('data-occ')); }; });
+    $$('[data-occ]', drawer).forEach(function (b) { b.onclick = function () { openXml(ds, r, prop, +b.getAttribute('data-occ'), valueText); }; });
     var txt;
     try { txt = await readFragment(ds, occ); } catch (err) { $('.drawer-body', drawer).innerHTML = '<div class="note-box">Cannot read the file: ' + esc(err.message) + '</div>'; return; }
-    var lines = txt.split('\n'), hl = new Set();
-    if (prop) {
-      var re = new RegExp('<([\\w.-]+:)?' + prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\s>/]');
-      var depth = 0, inProp = false, tag = null;
-      for (var i = 0; i < lines.length; i++) {
-        if (!inProp && re.test(lines[i])) {
-          inProp = true; var m = /<([\w.-]+:)?[\w.-]+/.exec(lines[i].slice(lines[i].search(re)));
-          tag = m ? m[0].slice(1) : prop; depth = 0;
-        }
-        if (inProp) {
-          hl.add(i);
-          var opens = (lines[i].match(new RegExp('<' + tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\s>]', 'g')) || []).length;
-          var selfc = new RegExp('<' + tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[^>]*/>').test(lines[i]);
-          var closes = (lines[i].match(new RegExp('</' + tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '>', 'g')) || []).length;
-          depth += opens - closes - (selfc ? 1 : 0);
-          if (depth <= 0) { inProp = false; if (hl.size > 400) break; }
-        }
-      }
-    }
+    var lines = txt.split('\n');
+    // the time slice shown in the AIP (several time slices of one feature can be in the same fragment)
+    var cur = r.cur && r.cur.idx !== undefined ? r.cur.idx : 0, nth = 0;
+    for (var k = 0; k < cur; k++) if ((r.ts[k].occ || 0) === oi) nth++;
+    var loc = prop || valueText ? locateValue(lines, prop, valueText, sliceRange(lines, nth)) : { hl: new Set(), how: '' }, hl = loc.hl;
+    var locNote = !prop && !valueText ? '' : loc.how === 'text' ? 'Highlighted where the value appears: it is assembled from the data of this feature, not one AIXM element.' :
+      loc.how === '' ? 'This value is derived by the converter (from related data or a default), so it is not a single element of this feature; the feature\'s AIXM code is shown in full.' : '';
     var first = -1;
     var html = lines.map(function (l, i) { if (hl.has(i) && first < 0) first = i; return '<span class="ln' + (hl.has(i) ? ' hl' : '') + '" data-n="' + (occ.line + i) + '">' + highlightXml(l) + '</span>'; }).join('');
-    $('.drawer-body', drawer).innerHTML = '<pre class="xml">' + html + '</pre>';
+    $('.drawer-body', drawer).innerHTML = (locNote ? '<div class="note-box" style="margin:8px 12px">' + esc(locNote) + '</div>' : '') + '<pre class="xml">' + html + '</pre>';
     if (first > 0) { var n = $$('.ln', drawer)[first]; if (n) n.scrollIntoView({ block: 'center' }); }
     $('#dx-copy').onclick = function () { EXPORTS.copyText(txt).then(function (ok) { toast(ok ? 'AIXM XML copied to the clipboard' : 'Copy failed — select the text manually'); }); };
     $('#dx-dl').onclick = function () { EXPORTS.download(EXPORTS.safeName(M.label(ds, r)) + '.xml', new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n<!-- extracted from ' + ds.name + ', line ' + occ.line + ' -->\n' + txt], { type: 'text/xml' })); };
@@ -1389,6 +1436,23 @@
     S.aipOpen.GEN = true; S.aipOpen.ENR = true; S.aipOpen.AD = true;
     if (sec.ad) S.aipOpen['AD:' + sec.ad.i] = true;
     go('aip', { flash: r });
+  }
+
+  /* ================================================= DIGITAL CHARTS */
+  // planned for version 2: aeronautical charts generated from the AIXM data
+  function viewCharts(v) {
+    var plan = [['Aerodrome / heliport charts', 'ICAO-style aerodrome charts from the AMDB and AIP data: runways, taxiways, aprons, stands, lighting, frequencies and the information box.'],
+      ['Instrument approach charts', 'Plan view, profile and minima of every approach in one printable chart, built on the approach profile of version 1.'],
+      ['SID and STAR charts', 'Departure and arrival routes with fixes, altitude and speed constraints, transitions and frequencies.'],
+      ['En-route charts', 'ATS routes with MEA / MOCA, navaids, significant points, airspace and grid MORA at chosen scales.'],
+      ['Obstacle charts (Type A / B)', 'Obstacles and the take-off flight path areas from the obstacle data and the Annex 14 surfaces.'],
+      ['Chart export', 'PDF and high-resolution PNG at A4 / A3, with AIRAC date, amendment notes and change marks.']];
+    v.innerHTML = '<div class="about-page"><section class="ab-hero"><div class="ab-kicker">Coming soon · version 2</div><h1>Digital charts</h1>' +
+      '<p class="ab-lead">Version 2 of the AIXM Code Converter will draw aeronautical charts directly from the AIXM data: the charts follow the data of every AIRAC cycle automatically, and changed items can be marked on them.</p>' +
+      '<div class="ab-facts"><span>Current version ' + esc(APP_INFO.version) + '</span><span>Planned for version 2.0</span></div></section>' +
+      '<section><h2>Planned charts</h2><div class="ab-grid ab-grid-2">' + plan.map(function (x) { return '<div class="ab-card"><b>' + esc(x[0]) + '</b><p>' + esc(x[1]) + '</p></div>'; }).join('') + '</div></section>' +
+      '<section><h2>Available today</h2><p>The map already shows the airport chart (Airport view), approach profiles are in AD 2.22, and maps print to A4 / A3 from the Map view. Ideas and requests for the charts are welcome: ' +
+      '<a href="mailto:' + esc(APP_INFO.email) + '">' + esc(APP_INFO.email) + '</a>.</p></section></div>';
   }
 
   /* ========================================================== ABOUT */
@@ -1603,7 +1667,7 @@
     back.addEventListener('click', function (e) {
       if (e.target === back) { back.remove(); return; }
       var c = e.target.closest('[data-cell]');
-      if (c) { var reg = cellRegistry[+c.getAttribute('data-cell')]; openXml(reg.ds, reg.r, reg.p); return; }
+      if (c) { var reg = cellRegistry[+c.getAttribute('data-cell')]; openXml(reg.ds, reg.r, reg.p, undefined, reg.t); return; }
       var m = e.target.closest('[data-m]');
       if (!m) return;
       e.preventDefault();
@@ -2200,7 +2264,6 @@
     var back = document.createElement('div');
     back.className = 'modal-back';
     back.innerHTML = '<div class="modal"><div class="modal-head">' + I.info.replace('<svg', '<svg width="20" height="20"') + '<h3>AIXM Code Converter — help</h3><span class="sp"></span><button class="btn small ghost" data-close>' + I.x + '</button></div><div class="modal-body">' +
-      '<div class="nfo-box"><b>⚠ Not for operational use.</b> ' + esc(APP_INFO.disclaimer.replace(/^NOT FOR OPERATIONAL USE\. /, '')) + '</div>' +
       '<p><b>What it does.</b> Reads AIXM files of any version (4.5 Snapshot/Update, 5.0, 5.1, 5.1.1, 5.2 including pre-releases), detects the version, extracts the aeronautical data and presents it like the <b>ICAO specimen AIP</b> (GEN, ENR 1–6, AD 2 / AD 3 for every aerodrome and heliport). Everything runs offline inside this single HTML file — no data is uploaded anywhere.</p>' +
       '<p><b>Large files.</b> Files are streamed in 16 MB chunks by parallel background threads; only the extracted values are kept in memory. The exact position (line, byte offset) of each feature is remembered, so <span class="kbd">&lt;/&gt;</span> opens the original AIXM code instantly, even for multi-GB files.</p>' +
       '<p><b>Effective dates.</b> The header shows the State, AIXM version, AIRAC cycle and effective date. Every row shows the effective date of its feature. Use <b>Latest data / Valid on date</b> (top bar) to see the data valid on any date (AIXM temporality: BASELINE, PERMDELTA, TEMPDELTA).</p>' +
@@ -2224,5 +2287,5 @@
   renderNav();
   go('files');
   libInit().then(function () { if (LIB.status !== 'none') { startWatch(); if (!S.datasets.length) go('library'); } });
-  window.__AIXM = { S: S, go: go, LIB: LIB, libRescan: libRescan, openLibFile: openLibFile, openLatest: openLatest, useHandle: async function (h) { await LIBRARY.useHandle(h); LIB.status = 'granted'; await libRescan(); startWatch(); }, addFiles: addFiles, extractAll: extractAll, openXml: openXml, openDetail: openDetail };
+  window.__AIXM = { S: S, go: go, locateValue: locateValue, sliceRange: sliceRange, LIB: LIB, libRescan: libRescan, openLibFile: openLibFile, openLatest: openLatest, useHandle: async function (h) { await LIBRARY.useHandle(h); LIB.status = 'granted'; await libRescan(); startWatch(); }, addFiles: addFiles, extractAll: extractAll, openXml: openXml, openDetail: openDetail };
 })();

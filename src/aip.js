@@ -18,6 +18,8 @@ var AIP = (function () {
 
   /* ---------------------------------------------------------------- cells */
   function C(t, r, p, tip) { return { t: t === undefined || t === null ? '' : String(t), r: r || null, p: p || null, tip: tip || '' }; }
+  // first of the properties that the feature really has (the AIXM code viewer highlights that element)
+  function has(r, props) { var q = r && r.cur && r.cur.p; for (var i = 0; q && i < props.length; i++) if (q[props[i]] !== undefined && q[props[i]] !== null) return props[i]; return props[0]; }
   function codeCell(r, prop, obj, objType) {
     var v = s((obj || r.cur.p)[prop]);
     return C(v, r, prop, M.codeDef(r.k, prop, v, objType));
@@ -264,11 +266,11 @@ var AIP = (function () {
       row('8', 'Remarks', [C(n(null).join('\n'), ad, 'annotation')])
     ];
     var extra = [
-      row('', 'ICAO location indicator / AD designator', [C(join([s(p.locationIndicatorICAO), s(p.designator) !== s(p.locationIndicatorICAO) ? s(p.designator) : ''], ' / '), ad, 'locationIndicatorICAO')]),
+      row('', 'ICAO location indicator / AD designator', [C(join([s(p.locationIndicatorICAO), s(p.designator) !== s(p.locationIndicatorICAO) ? s(p.designator) : ''], ' / '), ad, has(ad, ['locationIndicatorICAO', 'designator']))]),
       row('', 'IATA designator', [C(s(p.designatorIATA), ad, 'designatorIATA')]),
       row('', 'Aerodrome type', [codeCell(ad, 'type')]),
       row('', 'Control type (civil / military / joint)', [codeCell(ad, 'controlType')]),
-      row('', 'Certified (ICAO) / certification date', [C(join([s(p.certifiedICAO), s(p.certificationDate), s(p.certificationExpirationDate) ? 'exp. ' + s(p.certificationExpirationDate) : ''], ' / '), ad, 'certifiedICAO')]),
+      row('', 'Certified (ICAO) / certification date', [C(join([s(p.certifiedICAO), s(p.certificationDate), s(p.certificationExpirationDate) ? 'exp. ' + s(p.certificationExpirationDate) : ''], ' / '), ad, has(ad, ['certifiedICAO', 'certificationDate', 'certificationExpirationDate']))]),
       row('', 'Transition altitude', [C(M.fq(p.transitionAltitude), ad, 'transitionAltitude')]),
       row('', 'Field elevation accuracy', [C(M.fq(p.fieldElevationAccuracy), ad, 'fieldElevationAccuracy')])
     ].filter(function (r) { return r.cells.some(function (c) { return c.t; }); });
@@ -481,7 +483,7 @@ var AIP = (function () {
         C(pa('RESA')),
         C(ag.join('\n')),
         C(pa('OFZ') || pa('IOFZ')),
-        C(remarks.join('\n'), d, 'annotation')
+        C(remarks.join('\n'), M.notesOf(dp).length || !rw ? d : rw, 'annotation') // remarks of the direction, else of the runway
       ];
     });
     return [table('', ['Designations RWY NR', 'True BRG', 'Dimensions of RWY', 'Strength (PCN / PCR) and surface of RWY and SWY', 'THR coordinates / RWY end coordinates / THR geoid undulation',
@@ -608,7 +610,7 @@ var AIP = (function () {
         row('3', 'Airspace classification', [C(airspaceClass(a), a, 'class')]),
         row('4', 'ATS unit call sign / language(s)', [C(callSigns(ds, svcs), svcs[0] || a, svcs[0] ? 'call-sign' : null)]),
         row('5', 'Transition altitude', [C(M.fq(ad.cur.p.transitionAltitude), ad, 'transitionAltitude')]),
-        row('6', 'Hours of applicability', [C(activation(a), a, 'activation')]),
+        row('6', 'Hours of applicability', [C(activation(a), a, has(a, ['activation', 'annotation']))]),
         row('7', 'Remarks', [noteCell(a)])
       ] };
     });
@@ -811,12 +813,12 @@ var AIP = (function () {
       var freq = [].concat.apply([], svcs.map(function (v) { return channelsOf(ds, v).map(M.fFreq); }));
       return [C(join([M.label(ds, a), lateral(ds, a)], '\n'), a, 'geometryComponent'), C(vertical(ds, a), a, 'geometryComponent'), C(airspaceClass(a), a, 'class'),
         C(join([uniq(svcs.map(function (v) { var u = M.target(ds, v.cur.p.serviceProvider); return u ? M.label(ds, u) : ''; })).join(', '), callSigns(ds, svcs), uniq(freq).join(', ')], '\n'), svcs[0] || a),
-        C(join([activation(a), M.notesOf(a.cur.p).join(' ')], '\n'), a, 'activation')];
+        C(join([activation(a), M.notesOf(a.cur.p).join(' ')], '\n'), a, has(a, ['activation', 'annotation']))];
     }));
   }
   function restrictedTable(ds, list) {
     return table('', ['Identification, name and lateral limits', 'Upper limit / Lower limit', 'Remarks (time of activity, type of restriction, nature of hazard)'], list.sort(byLabel(ds)).map(function (a) {
-      return [C(join([M.label(ds, a), lateral(ds, a)], '\n'), a, 'geometryComponent'), C(vertical(ds, a), a, 'geometryComponent'), C(join([activation(a), M.notesOf(a.cur.p).join(' ')], '\n'), a, 'activation')];
+      return [C(join([M.label(ds, a), lateral(ds, a)], '\n'), a, 'geometryComponent'), C(vertical(ds, a), a, 'geometryComponent'), C(join([activation(a), M.notesOf(a.cur.p).join(' ')], '\n'), a, has(a, ['activation', 'annotation']))];
     }));
   }
   function airspacesIn(ds, group) {
@@ -956,7 +958,7 @@ var AIP = (function () {
       build: function (ds) {
         return [table('', ['Location', 'Indicator', 'Type', 'State'], (ds.byType.AirportHeliport || []).slice().sort(function (a, b) { return s(a.cur.p.name) < s(b.cur.p.name) ? -1 : 1; }).map(function (a) {
           var code = s(a.cur.p.locationIndicatorICAO) || s(a.cur.p.designator);
-          return [C(s(a.cur.p.name), a, 'name'), C(code, a, 'locationIndicatorICAO'), C(s(a.cur.p.type), a, 'type', M.codeDef('AirportHeliport', 'type', s(a.cur.p.type))), C(AX.stateFromICAO(code) || '')];
+          return [C(s(a.cur.p.name), a, 'name'), C(code, a, has(a, ['locationIndicatorICAO', 'designator'])), C(s(a.cur.p.type), a, 'type', M.codeDef('AirportHeliport', 'type', s(a.cur.p.type))), C(AX.stateFromICAO(code) || '')];
         }))];
       } },
     { id: 'GEN 2.5', title: 'LIST OF RADIO NAVIGATION AIDS', has: function (ds) { return (ds.byType.Navaid || []).length || (ds.byType.VOR || []).length || (ds.byType.NDB || []).length; },
@@ -1039,7 +1041,7 @@ var AIP = (function () {
     if (ads.length) ad.push({ id: 'AD 1.3', no: 'AD 1.3', title: 'INDEX TO AERODROMES AND HELIPORTS', build: function () {
       return { id: 'AD 1.3', no: 'AD 1.3', title: 'INDEX TO AERODROMES AND HELIPORTS', blocks: [table('', ['Aerodrome / heliport', 'Location indicator', 'Type', 'Runways', 'Effective', 'AIP'], ads.map(function (a) {
         var rw = owned(ds, a, ['Runway']).map(function (r) { return s(r.cur.p.designator); }).join(', ');
-        return [C(s(a.cur.p.name), a, 'name'), C(M.shortName(a), a, 'locationIndicatorICAO'), C(s(a.cur.p.type), a, 'type'), C(rw), C(M.fmtDate(M.adEffective(ds, a))), C(isHeliport(a) ? 'AD 3' : 'AD 2')];
+        return [C(s(a.cur.p.name), a, 'name'), C(M.shortName(a), a, has(a, ['locationIndicatorICAO', 'designator'])), C(s(a.cur.p.type), a, 'type'), C(rw), C(M.fmtDate(M.adEffective(ds, a))), C(isHeliport(a) ? 'AD 3' : 'AD 2')];
       }))] };
     } });
     ads.forEach(function (a) {

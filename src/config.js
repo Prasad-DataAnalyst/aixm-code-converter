@@ -9,13 +9,13 @@
  * ========================================================================== */
 var APP_INFO = Object.freeze({
   name: 'AIXM Code Converter',
-  version: '1.2.0',
+  version: '1.0.0',
   year: '2026',
   author: 'Prasad Selvaraj',
   email: 'prasad2t@gmail.com',
   license: 'Apache-2.0',
   credit: 'AIXM Code Converter (c) 2026 Prasad Selvaraj <prasad2t@gmail.com>, Apache-2.0',
-  // safety notice, shown on the About page and in Help
+  // safety notice, shown on the About page
   disclaimer: 'NOT FOR OPERATIONAL USE. The AIXM Code Converter is a tool for checking, studying and visualising aeronautical data. ' +
     'It must not be used for flight planning, navigation, flight operations, aerodrome or instrument procedure design decisions, ' +
     'obstacle assessment or any other operational or safety-related purpose. Always use the official AIP, AIP amendments and ' +

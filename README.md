@@ -141,7 +141,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.2.0, set in `src/config.js`).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.0.0, set in `src/config.js`; version 2 will add digital charts).
 
 ```bash
 cd aixm-code-converter/tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core

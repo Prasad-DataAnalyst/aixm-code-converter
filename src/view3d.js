@@ -18,7 +18,7 @@
  * Instrument procedures of the aerodrome are drawn at their published
  * altitudes (interpolated between constraints) with a curtain to the ground.
  * Local east-north-up frame in metres; vertical exaggeration selectable.
- * Indicative visualisation - not for navigation.
+ * Indicative visualisation.
  * ========================================================================== */
 /* global THREE, AX, MODEL, AIP, ADCHART, TERRAIN, MAPVIEW, OLS, topojson */
 var VIEW3D = (function () {
@@ -451,7 +451,7 @@ var VIEW3D = (function () {
   }
   function foot() {
     q('foot').textContent = 'Terrain: ' + V.terrainSrc + ' · vertical ×' + V.ex + (V.capped ? ' · area limited to 6° × 4.5° around the map centre' : '') +
-      ' · drag to rotate, right-drag to pan, wheel to zoom · indicative, not for navigation';
+      ' · drag to rotate, right-drag to pan, wheel to zoom';
   }
 
   /* ------------------------------------------------------------- events */

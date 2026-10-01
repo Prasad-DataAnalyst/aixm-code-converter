@@ -597,3 +597,4 @@ pre, .xml, .notam-text { text-align: left; }
 /* -------------------------------------------------- not for operational use */
 .nfo-box { border: 1px solid var(--err); border-left: 5px solid var(--err); background: var(--err-soft); color: var(--text); border-radius: 8px; padding: 10px 12px; margin: 8px 0 12px; font-size: 13px; line-height: 1.5; }
 .nfo-box h2 { color: var(--err) !important; border: 0 !important; margin: 0 0 6px !important; padding: 0 !important; }
+.ver-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--brand-3); color: #fff; font-size: 10.5px; font-weight: 700; vertical-align: 2px; letter-spacing: .3px; }

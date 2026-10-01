@@ -37,7 +37,8 @@ var ABOUT = (function () {
     ['Approach profile', 'The vertical profile of each instrument approach, as on an approach chart: fixes, distances, altitude constraints, glide path, minima, missed approach, rate-of-descent and timing table.'],
     ['Exports and conversions', 'JSON, Excel, PDF, print, e-mail; AIXM 5.1 ↔ 5.1.1 ↔ 5.2, AIXM 4.5 → 5.1.1, GeoJSON, KML, Shapefile.'],
     ['State library', 'One folder per State on your disk; extracted data is cached for instant reopening. Bookmarks and shareable links.'],
-    ['Languages', 'English, العربية (right-to-left), Français and Español; light and dark themes.']
+    ['Languages', 'English, العربية (right-to-left), Français and Español; light and dark themes.'],
+    ['Coming in version 2: digital charts', 'Aerodrome, approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data - see the Digital charts tab.']
   ];
   var STEPS = [
     ['Open', 'Drop one or more AIXM files (or a .zip) on the Files page, or connect a State library folder.'],
@@ -78,7 +79,6 @@ var ABOUT = (function () {
       '<li><b>Privacy:</b> everything runs in your browser. Only the optional online map tiles use the internet.</li>' +
       '<li><b>Time:</b> AIXM times are UTC; “Latest data / Valid on date” shows the data valid on any day (BASELINE, PERMDELTA, TEMPDELTA).</li>' +
       '<li><b>Large files:</b> files over 1.5 GB use the Lite memory mode automatically.</li>' +
-      '<li><b>Not for operational use:</b> everything is drawn and computed automatically from the data, for checking, study and training. Use the official AIP, NOTAM and approved charts for flight planning and flight.</li>' +
       '<li><b>Sources:</b> AIXM schemas, code lists and business rules from aixm.aero (EUROCONTROL, FAA); base map Natural Earth; terrain from the Terrain Tiles (Mapzen / AWS Open Data: SRTM, GMTED2010, ETOPO1); libraries Leaflet, three.js, SheetJS, jsPDF, fflate, topojson.</li></ul></section>';
     h += '<section class="ab-author"><h2>Author</h2><p>Created by <b>' + esc(APP_INFO.author) + '</b> · <a href="mailto:' + esc(APP_INFO.email) + '">' + esc(APP_INFO.email) + '</a></p>' +
       '<p class="muted">© ' + esc(APP_INFO.year) + ' ' + esc(APP_INFO.author) + '. Open source under the Apache License 2.0 — redistributions and modified versions must keep this attribution (LICENSE and NOTICE).</p>' +
