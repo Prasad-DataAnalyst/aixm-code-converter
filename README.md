@@ -7,8 +7,11 @@
 ICAO specimen AIP presents it: GEN, ENR and AD, with a map, effective dates, AIRAC cycle, change detection,
 comparison and exports. The user does not need to read AIXM/XML.
 
-➡ **Open [`AIXM-Code-Converter.html`](AIXM-Code-Converter.html) in Chrome or Edge** (double-click the file). There is
-nothing to install, no server and no internet requirement. No data leaves the computer.
+### ⬇ [Download AIXM-Code-Converter.html](https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases/latest/download/AIXM-Code-Converter.html)
+
+➡ **Download the file above, then double-click it to open it in Chrome or Edge.** There is nothing to install, no server
+and no internet requirement. No data leaves the computer. (Also as a [ZIP](https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases/latest/download/AIXM-Code-Converter.zip)
+with the licence, or from the [releases page](https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases).)
 
 ---
 

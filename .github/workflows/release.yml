@@ -1,0 +1,54 @@
+# AIXM Code Converter - Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com> - Apache-2.0
+# Release: pushing a version tag (v1.0.0, v1.1.0, ...) publishes a GitHub release with the single HTML file and a ZIP
+# attached, so users get a real download (the raw file link only shows the code).
+# Latest download: https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases/latest/download/AIXM-Code-Converter.html
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build and check the committed HTML matches the sources
+        run: |
+          node tools/build.js
+          git diff --exit-code --stat -- AIXM-Code-Converter.html
+
+      - name: Tag matches the version in src/config.js
+        run: |
+          v=$(grep -oP "version: '\K[^']+" src/config.js)
+          test "v$v" = "$GITHUB_REF_NAME" || { echo "::error::Tag $GITHUB_REF_NAME does not match version $v"; exit 1; }
+
+      - name: Package
+        run: zip -j AIXM-Code-Converter.zip AIXM-Code-Converter.html LICENSE NOTICE README.md CHANGELOG.md
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          **AIXM Code Converter** turns AIXM 4.5 / 5.x data into a readable ICAO-style AIP (GEN, ENR, AD) with a map,
+          airport charts, terrain and 3D approach / departure views, AIRAC change detection, Annex 14 obstacle surfaces
+          and CRC32Q integrity checks.
+
+          **How to use:** download `AIXM-Code-Converter.html` below and double-click it (Chrome or Edge).
+          No installation, no server, works offline; your data never leaves your computer.
+
+          ⚠️ For study, analysis and data review — not for operational use.
+
+          © 2026 Prasad Selvaraj · Apache License 2.0 · see CHANGELOG.md for the full list of features.
+          EOF
+          gh release create "$GITHUB_REF_NAME" AIXM-Code-Converter.html AIXM-Code-Converter.zip \
+            --title "AIXM Code Converter $GITHUB_REF_NAME" --notes-file notes.md --latest
