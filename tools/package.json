@@ -1,14 +1,14 @@
 {
-  "name": "tools",
+  "name": "aixm-code-converter-tools",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Build and test tools for the AIXM Code Converter",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "node build.js",
+    "test": "node e2e.js"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Prasad <prasad2t@gmail.com>",
+  "license": "Apache-2.0",
   "dependencies": {
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",

@@ -1,4 +1,8 @@
-/* =============================================================================
+/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - AIXM 5.1 business rules (SBVR, aixm.aero)
  * Evaluates the rules compiled by tools/build_rules.js on a data set:
  * mandatory and conditional properties, allowed annotation property names,

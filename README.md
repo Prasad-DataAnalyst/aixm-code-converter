@@ -1,5 +1,8 @@
 # AIXM Code Converter
 
+**Created by Prasad · [prasad2t@gmail.com](mailto:prasad2t@gmail.com)** · © 2026 Prasad · Open source under the
+[Apache License 2.0](LICENSE) — redistributions must keep this attribution ([NOTICE](NOTICE)).
+
 **One offline HTML file** that reads AIXM files of any version and shows the aeronautical data the way an
 ICAO specimen AIP presents it: GEN, ENR and AD, with a map, effective dates, AIRAC cycle, change detection,
 comparison and exports. The user does not need to read AIXM/XML.
@@ -50,8 +53,7 @@ nothing to install, no server and no internet requirement. No data leaves the co
 | **Online maps** | OpenStreetMap through CARTO Voyager (works from a local file); if a tile server refuses the page, the map switches automatically. The chosen base map is remembered. |
 | **State detection** | STATE authority, ICAO location indicators (aerodromes, FIRs, NOTAM locations, procedure names, reference titles) and, if nothing else, the country under the data; a file with only a weak guess takes the State of a loaded file with the same ICAO prefix. |
 
-Theme: colours inspired by Qatar Airways (burgundy and silver) in light and dark modes. There is **no logo and no airline
-name** anywhere.
+Theme: dark purple and white, in light and dark modes.
 
 ## Performance (measured)
 
@@ -96,6 +98,8 @@ All of this comes from **aixm.aero** and the AIXM GitHub organisation, and is co
 ```
 aixm-code-converter/
 ├── AIXM-Code-Converter.html   ← the single-file application (built)
+├── LICENSE                     Apache License 2.0
+├── NOTICE                      attribution that redistributions must keep (author: Prasad, prasad2t@gmail.com)
 ├── src/                        ← sources
 │   ├── index.html              HTML shell (placeholders are filled by the build)
 │   ├── styles.css              design system (light/dark, print)
@@ -149,8 +153,18 @@ node tools/e2e_big.js /path/to/1gb.xml                # large-file timing and me
 - For PDF, very large tables (e.g. hundreds of thousands of obstacles) are truncated to 5,000 rows per table with a note.
   Excel and JSON always contain everything.
 
-## Credits and licences
+## Author and licence
 
-AIXM schemas and sample data © EUROCONTROL & FAA (see the notices in the files). Base map: Natural Earth (public domain).
+**AIXM Code Converter** was created by **Prasad** — [prasad2t@gmail.com](mailto:prasad2t@gmail.com).
+
+Copyright 2026 Prasad. Licensed under the [Apache License, Version 2.0](LICENSE). Under section 4(d) of the licence, anyone
+who redistributes this work or a work derived from it must keep the attribution notices of the [NOTICE](NOTICE) file. The
+author's name and e-mail appear in the application (top bar, side menu, Files view, Help → About), in every exported file
+(PDF properties and footer, Excel properties and *About* sheet, JSON metadata, e-mail text, map images, converted AIXM,
+GeoJSON, KML and Shapefile) and in the header of every source file.
+
+## Third-party credits
+
+AIXM schemas, business rules and sample data © EUROCONTROL & FAA (see the notices in the files). Base map: Natural Earth (public domain).
 Libraries embedded in the HTML: Leaflet (BSD-2), SheetJS Community Edition (Apache-2.0), jsPDF and jsPDF-AutoTable (MIT),
 fflate (MIT), TopoJSON client (ISC), world-atlas (ISC).

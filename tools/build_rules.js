@@ -1,3 +1,5 @@
+// AIXM Code Converter - Copyright 2026 Prasad <prasad2t@gmail.com>
+// SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 // Compiles the AIXM 5.1 business rules (SBVR, aixm.aero, aixm-br-sbvr-0.9.xlsx) into data/aixm_rules.json.
 // Every rule is kept for the rule catalogue; rules whose wording matches a known pattern also get a
 // machine-checkable form ("k") that the application evaluates. Also stores the feature type hierarchy

@@ -1,3 +1,5 @@
+// AIXM Code Converter - Copyright 2026 Prasad <prasad2t@gmail.com>
+// SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 // Node harness: parse a file, finalize the model and print every AIP section as text.
 // Usage: node tools/test_aip.js <file.xml> [sectionFilterRegex]
 const fs = require('fs');

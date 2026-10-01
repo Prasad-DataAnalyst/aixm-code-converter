@@ -1,12 +1,21 @@
 <!doctype html>
+<!--
+  AIXM Code Converter
+  Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+  Licensed under the Apache License, Version 2.0 (see LICENSE and NOTICE).
+  Redistributions must keep this notice and the attribution in the NOTICE file.
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AIXM Code Converter</title>
-<meta name="generator" content="AIXM Code Converter build 2026-09-30">
+<meta name="generator" content="AIXM Code Converter build 2026-10-01">
+<meta name="author" content="Prasad <prasad2t@gmail.com>">
+<meta name="copyright" content="Copyright 2026 Prasad <prasad2t@gmail.com> - Apache-2.0">
+<meta name="generator" content="AIXM Code Converter by Prasad (prasad2t@gmail.com)">
 <meta name="description" content="Offline desktop viewer and converter for AIXM 4.5, 5.1, 5.1.1 and 5.2 files: ICAO AIP layout, map, change detection, comparison and JSON/Excel/PDF/e-mail export.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%235c0632'/%3E%3Cpath d='M14 38l36-14-10 26-6-10-10 6z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%233d1a6e'/%3E%3Cpath d='M14 38l36-14-10 26-6-10-10 6z' fill='%23fff'/%3E%3C/svg%3E">
 <style>
 /* required styles */
 
@@ -671,23 +680,24 @@ svg.leaflet-image-layer.leaflet-interactive path {
 	}
 
 /* =============================================================================
- * AIXM Code Converter - styles (Qatar Airways-inspired palette, no branding)
+ * AIXM Code Converter - styles (dark purple and white)
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - SPDX-License-Identifier: Apache-2.0
  * ========================================================================== */
 :root {
-  --brand: #5c0632;
-  --brand-2: #7a1043;
-  --brand-3: #9b2c61;
-  --brand-soft: #f6e9ef;
+  --brand: #3d1a6e;
+  --brand-2: #56298f;
+  --brand-3: #7a4fc0;
+  --brand-soft: #efe9f8;
   --brand-ink: #ffffff;
-  --silver: #a7a9ac;
-  --bg: #f5f3f4;
+  --silver: #b9b4c4;
+  --bg: #f6f4fa;
   --surface: #ffffff;
-  --surface-2: #faf8f9;
-  --surface-3: #f1edf0;
-  --text: #221a1f;
-  --muted: #6d6268;
-  --border: #e5dde2;
-  --border-strong: #cfc3ca;
+  --surface-2: #faf9fd;
+  --surface-3: #f0ecf7;
+  --text: #1d1828;
+  --muted: #625c70;
+  --border: #e3deec;
+  --border-strong: #cbc3d8;
   --ok: #1f7a4d;
   --ok-soft: #e4f4ec;
   --warn: #9a6400;
@@ -699,35 +709,35 @@ svg.leaflet-image-layer.leaflet-interactive path {
   --added: #1f7a4d;
   --removed: #b3261e;
   --modified: #b76e00;
-  --shadow: 0 1px 2px rgba(60, 20, 40, .06), 0 4px 16px rgba(60, 20, 40, .06);
-  --shadow-lg: 0 10px 40px rgba(40, 10, 25, .22);
+  --shadow: 0 1px 2px rgba(40, 20, 70, .06), 0 4px 16px rgba(40, 20, 70, .06);
+  --shadow-lg: 0 10px 40px rgba(30, 10, 60, .22);
   --radius: 12px;
   --radius-sm: 8px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
-  --xml-tag: #7a1043;
+  --xml-tag: #56298f;
   --xml-attr: #1d5f99;
   --xml-val: #1f7a4d;
-  --xml-text: #221a1f;
-  --xml-com: #8a8088;
+  --xml-text: #1d1828;
+  --xml-com: #847d92;
   --hl: #fff3c4;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --brand: #c2447a; --brand-2: #d05a8c; --brand-3: #e27aa7; --brand-soft: #3a1a2a; --brand-ink: #ffffff;
-    --bg: #140d11; --surface: #1e151b; --surface-2: #241a21; --surface-3: #2c2029; --text: #f2ecef; --muted: #b3a6ae;
-    --border: #3a2c35; --border-strong: #4d3b47; --ok: #5bc48f; --ok-soft: #173326; --warn: #e3b14c; --warn-soft: #3a2d12;
+    --brand: #a98cf0; --brand-2: #b9a0f5; --brand-3: #cab6fa; --brand-soft: #2b2046; --brand-ink: #ffffff;
+    --bg: #100c18; --surface: #18131f; --surface-2: #1e1827; --surface-3: #261f31; --text: #f0edf6; --muted: #aba3ba;
+    --border: #332a42; --border-strong: #463b58; --ok: #5bc48f; --ok-soft: #173326; --warn: #e3b14c; --warn-soft: #3a2d12;
     --err: #ff8a80; --err-soft: #3d1b19; --info: #7fb6ea; --info-soft: #172a3d; --added: #5bc48f; --removed: #ff8a80; --modified: #e3b14c;
-    --xml-tag: #e27aa7; --xml-attr: #7fb6ea; --xml-val: #7fd3a4; --xml-text: #f2ecef; --xml-com: #8d7f88; --hl: #4a3a14; color-scheme: dark;
+    --xml-tag: #cab6fa; --xml-attr: #7fb6ea; --xml-val: #7fd3a4; --xml-text: #f0edf6; --xml-com: #8a8399; --hl: #4a3a14; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --brand: #c2447a; --brand-2: #d05a8c; --brand-3: #e27aa7; --brand-soft: #3a1a2a; --brand-ink: #ffffff;
-  --bg: #140d11; --surface: #1e151b; --surface-2: #241a21; --surface-3: #2c2029; --text: #f2ecef; --muted: #b3a6ae;
-  --border: #3a2c35; --border-strong: #4d3b47; --ok: #5bc48f; --ok-soft: #173326; --warn: #e3b14c; --warn-soft: #3a2d12;
+  --brand: #a98cf0; --brand-2: #b9a0f5; --brand-3: #cab6fa; --brand-soft: #2b2046; --brand-ink: #ffffff;
+  --bg: #100c18; --surface: #18131f; --surface-2: #1e1827; --surface-3: #261f31; --text: #f0edf6; --muted: #aba3ba;
+  --border: #332a42; --border-strong: #463b58; --ok: #5bc48f; --ok-soft: #173326; --warn: #e3b14c; --warn-soft: #3a2d12;
   --err: #ff8a80; --err-soft: #3d1b19; --info: #7fb6ea; --info-soft: #172a3d; --added: #5bc48f; --removed: #ff8a80; --modified: #e3b14c;
-  --xml-tag: #e27aa7; --xml-attr: #7fb6ea; --xml-val: #7fd3a4; --xml-text: #f2ecef; --xml-com: #8d7f88; --hl: #4a3a14; color-scheme: dark;
+  --xml-tag: #cab6fa; --xml-attr: #7fb6ea; --xml-val: #7fd3a4; --xml-text: #f0edf6; --xml-com: #8a8399; --hl: #4a3a14; color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -748,7 +758,7 @@ a { color: var(--brand); }
 /* ---------------------------------------------------------------- app shell */
 .app { display: grid; grid-template-rows: 56px 1fr; grid-template-columns: 76px 1fr; height: 100vh; }
 .topbar { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 0 16px;
-  background: linear-gradient(100deg, #3d0421 0%, #5c0632 45%, #7a1043 100%); color: #fff; box-shadow: 0 2px 10px rgba(40, 5, 20, .25); z-index: 30; }
+  background: linear-gradient(100deg, #1f0b40 0%, #3d1a6e 50%, #56298f 100%); color: #fff; box-shadow: 0 2px 10px rgba(25, 8, 50, .25); z-index: 30; }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand-mark { width: 34px; height: 34px; border-radius: 9px; background: rgba(255, 255, 255, .14); display: grid; place-items: center; }
 .brand-title { font-weight: 700; letter-spacing: .3px; font-size: 16px; white-space: nowrap; }
@@ -833,7 +843,7 @@ label.chk input { accent-color: var(--brand); width: 15px; height: 15px; }
 .drop { border: 2px dashed var(--border-strong); border-radius: 18px; background: var(--surface); padding: 40px 30px; text-align: center; transition: .15s;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 260px; cursor: pointer; }
 .drop:hover, .drop.over { border-color: var(--brand); background: var(--brand-soft); }
-.drop .drop-icon { width: 64px; height: 64px; border-radius: 18px; background: var(--brand); color: #fff; display: grid; place-items: center; box-shadow: 0 8px 24px rgba(92, 6, 50, .3); }
+.drop .drop-icon { width: 64px; height: 64px; border-radius: 18px; background: var(--brand); color: #fff; display: grid; place-items: center; box-shadow: 0 8px 24px rgba(61, 26, 110, .3); }
 .drop h2 { margin: 6px 0 0; font-size: 20px; }
 .how { display: grid; gap: 10px; }
 .how .step { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; }
@@ -849,7 +859,7 @@ label.chk input { accent-color: var(--brand); width: 15px; height: 15px; }
 /* --------------------------------------------------------------- dashboard */
 .ds-grid { display: grid; gap: 18px; }
 .ds-card { overflow: hidden; }
-.ds-head { background: linear-gradient(110deg, #4a0428 0%, #5c0632 45%, #8e2a5a 100%); color: #fff; padding: 18px 20px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.ds-head { background: linear-gradient(110deg, #2a0f52 0%, #3d1a6e 50%, #6a3bb0 100%); color: #fff; padding: 18px 20px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
 .ds-head .state { font-size: 22px; font-weight: 700; }
 .ds-head .meta { opacity: .9; font-size: 13px; }
 .ds-head .kpis { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; }
@@ -943,7 +953,7 @@ pre.xml .ln.hl { background: var(--hl); }
 .ts-item { padding: 10px 16px; border-bottom: 1px solid var(--border); }
 
 /* ------------------------------------------------------------------ modal */
-.modal-back { position: fixed; inset: 0; background: rgba(20, 5, 12, .45); z-index: 90; display: grid; place-items: center; padding: 20px; }
+.modal-back { position: fixed; inset: 0; background: rgba(15, 6, 30, .45); z-index: 90; display: grid; place-items: center; padding: 20px; }
 .modal { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-lg); width: min(820px, 100%); max-height: 90vh; display: flex; flex-direction: column; }
 .modal-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
 .modal-head h3 { margin: 0; font-size: 16px; }
@@ -965,12 +975,12 @@ pre.xml .ln.hl { background: var(--hl); }
 .leaflet-container { font: 13px var(--sans); }
 .leaflet-popup-content-wrapper { border-radius: 12px; }
 .leaflet-popup-content { margin: 12px 14px; min-width: 220px; }
-.pop-title { font-weight: 700; color: #5c0632; margin-bottom: 4px; }
+.pop-title { font-weight: 700; color: #3d1a6e; margin-bottom: 4px; }
 .pop-kv { font-size: 12px; color: #444; }
 .pop-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .pop-actions button { border: 1px solid #cfc3ca; background: #fff; border-radius: 7px; padding: 3px 8px; cursor: pointer; font-size: 12px; }
-.pop-actions button:hover { border-color: #5c0632; color: #5c0632; }
-.map-label { background: transparent; border: 0; box-shadow: none; font: 600 11px var(--sans); color: #3d0421; text-shadow: 0 0 3px #fff, 0 0 3px #fff; white-space: nowrap; }
+.pop-actions button:hover { border-color: #3d1a6e; color: #3d1a6e; }
+.map-label { background: transparent; border: 0; box-shadow: none; font: 600 11px var(--sans); color: #24104a; text-shadow: 0 0 3px #fff, 0 0 3px #fff; white-space: nowrap; }
 .nav-icon { background: transparent; border: 0; }
 
 /* ---------------------------------------------------------- misc views */
@@ -1002,12 +1012,12 @@ pre.xml .ln.hl { background: var(--hl); }
   body { overflow: visible; background: #fff; color: #000; }
   .app, .drawer, .toast-host, .modal-back { display: none !important; }
   #print-root { display: block; font: 10pt/1.35 "Segoe UI", Arial, sans-serif; color: #000; }
-  #print-root .p-head { border-bottom: 3px solid #5c0632; padding-bottom: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; }
-  #print-root .p-head b { color: #5c0632; }
-  #print-root h2 { font-size: 13pt; margin: 14px 0 6px; color: #5c0632; page-break-after: avoid; }
+  #print-root .p-head { border-bottom: 3px solid #3d1a6e; padding-bottom: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; }
+  #print-root .p-head b { color: #3d1a6e; }
+  #print-root h2 { font-size: 13pt; margin: 14px 0 6px; color: #3d1a6e; page-break-after: avoid; }
   #print-root h3 { font-size: 11pt; margin: 10px 0 4px; page-break-after: avoid; }
   #print-root table { border-collapse: collapse; width: 100%; margin-bottom: 8px; page-break-inside: auto; }
-  #print-root th { background: #f1e6ec !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #print-root th { background: #ece6f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   #print-root th, #print-root td { border: 1px solid #999; padding: 3px 5px; vertical-align: top; text-align: left; font-size: 8.5pt; white-space: pre-wrap; }
   #print-root tr { page-break-inside: avoid; }
   #print-root .p-foot { margin-top: 12px; font-size: 8pt; color: #555; border-top: 1px solid #999; padding-top: 4px; }
@@ -1041,7 +1051,7 @@ tr.chg-row > td:first-child { box-shadow: inset 4px 0 0 #c62828; }
 .tree .cbadge { background: #c62828; color: #fff; border-radius: 9px; font-size: 10.5px; font-weight: 700; padding: 0 6px; margin-left: 4px; flex: none; }
 .cycle-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: #fdeaea; border: 1px solid #f3b8b8; color: #7a1010; margin-top: 8px; font-size: 13px; }
 :root[data-theme="dark"] .cycle-bar { background: #3a1616; border-color: #6b2626; color: #ffc9c9; }
-.cycle-bar select { height: 28px; border-radius: 7px; border: 1px solid #e4a3a3; background: #fff; }
+.cycle-bar select { height: 28px; border-radius: 7px; border: 1px solid #e4a3a3; background: #fff; color: #1d1828; }
 .cycle-list { max-height: 60vh; overflow: auto; }
 .chg-box { margin: 10px 16px; padding: 10px 12px; border-radius: 10px; background: #c62828; color: #fff; font-size: 12.5px; }
 .chg-box b { display: block; margin-bottom: 4px; }
@@ -1053,11 +1063,11 @@ tr.chg-row > td:first-child { box-shadow: inset 4px 0 0 #c62828; }
 .lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
 .lib-card { overflow: hidden; }
 .lib-card.over { outline: 3px dashed var(--brand); }
-.lib-card .lc-head { padding: 14px 16px; background: linear-gradient(110deg, #4a0428, #5c0632 50%, #8e2a5a); color: #fff; display: flex; align-items: center; gap: 10px; }
+.lib-card .lc-head { padding: 14px 16px; background: linear-gradient(110deg, #2a0f52, #3d1a6e 50%, #6a3bb0); color: #fff; display: flex; align-items: center; gap: 10px; }
 .lib-card .lc-head b { font-size: 17px; }
 .lib-file { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 9px 16px; border-top: 1px solid var(--border); align-items: center; }
 .lib-file:hover { background: var(--surface-2); }
-.overlay { position: fixed; inset: 0; background: rgba(20, 5, 12, .45); z-index: 120; display: grid; place-items: center; }
+.overlay { position: fixed; inset: 0; background: rgba(15, 6, 30, .45); z-index: 120; display: grid; place-items: center; }
 .overlay .card { width: min(560px, 92vw); padding: 20px; }
 .lib-card .lc-head .btn { color: var(--brand); background: #fff; border-color: #fff; }
 .lib-file .row { flex-wrap: wrap; justify-content: flex-end; }
@@ -1070,7 +1080,7 @@ tr.chg-row > td:first-child { box-shadow: inset 4px 0 0 #c62828; }
 .sbs-col { min-width: 0; }
 .sbs-head { position: sticky; top: 0; z-index: 2; padding: 8px 12px; border-radius: 9px; font-weight: 700; font-size: 13px; margin-bottom: 8px; }
 .sbs-head.old { background: #eceff1; color: #37474f; }
-.sbs-head.new { background: #5c0632; color: #fff; }
+.sbs-head.new { background: #3d1a6e; color: #fff; }
 :root[data-theme="dark"] .sbs-head.old { background: #2b3236; color: #cfd8dc; }
 .sbs .sbs-new, .sbs .src.sbs-new { background: #c62828 !important; color: #fff !important; border-radius: 4px; padding: 1px 4px; font-weight: 600; }
 .sbs .sbs-old, .sbs .src.sbs-old { background: #fff3cd; color: #6d4c00; border-radius: 4px; padding: 1px 4px; text-decoration: line-through; text-decoration-color: rgba(109, 76, 0, .55); }
@@ -1084,7 +1094,7 @@ tr.chg-row > td:first-child { box-shadow: inset 4px 0 0 #c62828; }
 @media (max-width: 1100px) { .sbs { grid-template-columns: 1fr; } }
 
 /* ------------------------------------------------------------ AMDT report */
-.amdt-banner { display: flex; flex-wrap: wrap; gap: 26px; align-items: center; padding: 14px 18px; margin-bottom: 14px; border-radius: 12px; background: linear-gradient(110deg, #4a0428, #5c0632 55%, #8e2a5a); color: #fff; }
+.amdt-banner { display: flex; flex-wrap: wrap; gap: 26px; align-items: center; padding: 14px 18px; margin-bottom: 14px; border-radius: 12px; background: linear-gradient(110deg, #2a0f52, #3d1a6e 55%, #6a3bb0); color: #fff; }
 .amdt-banner .muted { color: rgba(255, 255, 255, .72); font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; }
 .amdt-banner .amdt-id { font-size: 22px; font-weight: 800; }
 .amdt-banner b { font-size: 16px; }
@@ -1107,7 +1117,7 @@ tr.chg-row > td:first-child { box-shadow: inset 4px 0 0 #c62828; }
 .tl-id { font-weight: 700; font-size: 13px; }
 .tl-date { font-size: 11px; color: var(--muted); }
 .tl-tag { font-size: 10px; border-radius: 6px; padding: 0 5px; color: #fff; }
-.tl-tag.now { background: #2e7d32; } .tl-tag.file { background: #5c0632; }
+.tl-tag.now { background: #2e7d32; } .tl-tag.file { background: #3d1a6e; }
 .tl-doc { position: absolute; top: 2px; right: 4px; font-size: 11px; }
 .tl-legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); padding: 6px 4px 0; }
 .tl-legend i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; vertical-align: -1px; }
@@ -1162,16 +1172,23 @@ pre, .xml, .notam-text { text-align: left; }
 .rule-text { margin: 8px 0 4px; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; font-size: 12.5px; }
 .chip.ok { background: #e3f4ea; color: #1f7a4d; }
 
+/* ------------------------------------------------------------ author credit */
+.nav-credit { margin-top: auto; padding: 10px 2px 6px; font-size: 10px; line-height: 1.25; text-align: center; color: var(--muted); cursor: pointer; }
+.nav-credit:hover { color: var(--brand); }
+.credit-line { margin: 18px 4px 6px; font-size: 12.5px; color: var(--muted); text-align: center; }
+.credit-line a, .about-box a { color: var(--brand); }
+.about-box { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--brand-soft); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
+
 </style>
 </head>
 <body>
 <div class="app" id="app">
   <header class="topbar">
-    <div class="brand">
+    <div class="brand" title="AIXM Code Converter — © 2026 Prasad · prasad2t@gmail.com · Apache-2.0">
       <div class="brand-mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></div>
       <div>
         <div class="brand-title">AIXM Code Converter</div>
-        <div class="brand-sub">AIXM 4.5 · 5.1 · 5.1.1 · 5.2 → ICAO AIP</div>
+        <div class="brand-sub">AIXM 4.5 · 5.1 · 5.1.1 · 5.2 → ICAO AIP · by Prasad</div>
       </div>
     </div>
     <div class="search" id="search-wrap">
@@ -1624,7 +1641,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
  *
  */
 !function(t,e){if("object"==typeof exports&&"object"==typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var n=e();for(var o in n)("object"==typeof exports?exports:t)[o]=n[o]}}(Object("undefined"!=typeof globalThis?globalThis:void 0!==this?this:"undefined"!=typeof window?window:"undefined"!=typeof self?self:global),function(){return function(){"use strict";var t={d:function(e,n){for(var o in n)t.o(n,o)&&!t.o(e,o)&&Object.defineProperty(e,o,{enumerable:!0,get:n[o]})},o:function(t,e){return Object.prototype.hasOwnProperty.call(t,e)},r:function(t){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(t,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(t,"__esModule",{value:!0})}},e={};function n(t,e,n,o,i){o=o||{};var r=i.internal.scaleFactor,l=i.internal.getFontSize()/r,a=l*(i.getLineHeightFactor?i.getLineHeightFactor():1.15),s="",u=1;if("middle"!==o.valign&&"bottom"!==o.valign&&"center"!==o.halign&&"right"!==o.halign||(u=(s="string"==typeof t?t.split(/\r\n|\r|\n/g):t).length||1),n+=l*(2-1.15),"middle"===o.valign?n-=u/2*a:"bottom"===o.valign&&(n-=u*a),"center"===o.halign||"right"===o.halign){var h=l;if("center"===o.halign&&(h*=.5),s&&u>=1){for(var c=0;c<s.length;c++)i.text(s[c],e-i.getStringUnitWidth(s[c])*h,n),n+=a;return i}e-=i.getStringUnitWidth(t)*h}return"justify"===o.halign?i.text(t,e,n,{maxWidth:o.maxWidth||100,align:"justify"}):i.text(t,e,n),i}t.r(e),t.d(e,{Cell:function(){return F},CellHookData:function(){return P},Column:function(){return H},HookData:function(){return W},Row:function(){return D},Table:function(){return C},__createTable:function(){return Q},__drawTable:function(){return V},applyPlugin:function(){return U},autoTable:function(){return $},default:function(){return tt}}),Object.defineProperty(n,"name",{value:"default",configurable:!0});var o,i={},r=function(){function t(t){this.jsPDFDocument=t,this.userStyles={textColor:t.getTextColor?this.jsPDFDocument.getTextColor():0,fontSize:t.internal.getFontSize(),fontStyle:t.internal.getFont().fontStyle,font:t.internal.getFont().fontName,lineWidth:t.getLineWidth?this.jsPDFDocument.getLineWidth():0,lineColor:t.getDrawColor?this.jsPDFDocument.getDrawColor():0}}return t.setDefaults=function(t,e){void 0===e&&(e=null),e?e.__autoTableDocumentDefaults=t:i=t},t.unifyColor=function(t){return Array.isArray(t)?t:"number"==typeof t?[t,t,t]:"string"==typeof t?[t]:null},t.prototype.applyStyles=function(e,n){var o,i,r;void 0===n&&(n=!1),e.fontStyle&&this.jsPDFDocument.setFontStyle&&this.jsPDFDocument.setFontStyle(e.fontStyle);var l=this.jsPDFDocument.internal.getFont(),a=l.fontStyle,s=l.fontName;if(e.font&&(s=e.font),e.fontStyle){a=e.fontStyle;var u=this.getFontList()[s];u&&-1===u.indexOf(a)&&this.jsPDFDocument.setFontStyle&&(this.jsPDFDocument.setFontStyle(u[0]),a=u[0])}if(this.jsPDFDocument.setFont(s,a),e.fontSize&&this.jsPDFDocument.setFontSize(e.fontSize),!n){var h=t.unifyColor(e.fillColor);h&&(o=this.jsPDFDocument).setFillColor.apply(o,h),(h=t.unifyColor(e.textColor))&&(i=this.jsPDFDocument).setTextColor.apply(i,h),(h=t.unifyColor(e.lineColor))&&(r=this.jsPDFDocument).setDrawColor.apply(r,h),"number"==typeof e.lineWidth&&this.jsPDFDocument.setLineWidth(e.lineWidth)}},t.prototype.splitTextToSize=function(t,e,n){return this.jsPDFDocument.splitTextToSize(t,e,n)},t.prototype.rect=function(t,e,n,o,i){return this.jsPDFDocument.rect(t,e,n,o,i)},t.prototype.getLastAutoTable=function(){return this.jsPDFDocument.lastAutoTable||null},t.prototype.getTextWidth=function(t){return this.jsPDFDocument.getTextWidth(t)},t.prototype.getDocument=function(){return this.jsPDFDocument},t.prototype.setPage=function(t){this.jsPDFDocument.setPage(t)},t.prototype.addPage=function(){return this.jsPDFDocument.addPage()},t.prototype.getFontList=function(){return this.jsPDFDocument.getFontList()},t.prototype.getGlobalOptions=function(){return i||{}},t.prototype.getDocumentOptions=function(){return this.jsPDFDocument.__autoTableDocumentDefaults||{}},t.prototype.pageSize=function(){var t=this.jsPDFDocument.internal.pageSize;return null==t.width&&(t={width:t.getWidth(),height:t.getHeight()}),t},t.prototype.scaleFactor=function(){return this.jsPDFDocument.internal.scaleFactor},t.prototype.getLineHeightFactor=function(){var t=this.jsPDFDocument;return t.getLineHeightFactor?t.getLineHeightFactor():1.15},t.prototype.getLineHeight=function(t){return t/this.scaleFactor()*this.getLineHeightFactor()},t.prototype.pageNumber=function(){var t=this.jsPDFDocument.internal.getCurrentPageInfo();return t?t.pageNumber:this.jsPDFDocument.internal.getNumberOfPages()},t}(),l=(o=function(t,e){return o=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(t,e){t.__proto__=e}||function(t,e){for(var n in e)Object.prototype.hasOwnProperty.call(e,n)&&(t[n]=e[n])},o(t,e)},function(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Class extends value "+String(e)+" is not a constructor or null");function n(){this.constructor=t}o(t,e),t.prototype=null===e?Object.create(e):(n.prototype=e.prototype,new n)}),a=function(t){function e(e){var n=t.call(this)||this;return n._element=e,n}return l(e,t),e}(Array);function s(t,e,n){return n.applyStyles(e,!0),(Array.isArray(t)?t:[t]).map(function(t){return n.getTextWidth(t)}).reduce(function(t,e){return Math.max(t,e)},0)}function u(t,e,n,o){var i=e.settings.tableLineWidth,r=e.settings.tableLineColor;t.applyStyles({lineWidth:i,lineColor:r});var l=h(i,!1);l&&t.rect(n.x,n.y,e.getWidth(t.pageSize().width),o.y-n.y,l)}function h(t,e){var n=t>0,o=e||0===e;return n&&o?"DF":n?"S":o?"F":null}function c(t,e){var n,o,i,r;if(t=t||e,Array.isArray(t)){if(t.length>=4)return{top:t[0],right:t[1],bottom:t[2],left:t[3]};if(3===t.length)return{top:t[0],right:t[1],bottom:t[2],left:t[1]};if(2===t.length)return{top:t[0],right:t[1],bottom:t[0],left:t[1]};t=1===t.length?t[0]:e}return"object"==typeof t?("number"==typeof t.vertical&&(t.top=t.vertical,t.bottom=t.vertical),"number"==typeof t.horizontal&&(t.right=t.horizontal,t.left=t.horizontal),{left:null!==(n=t.left)&&void 0!==n?n:e,top:null!==(o=t.top)&&void 0!==o?o:e,right:null!==(i=t.right)&&void 0!==i?i:e,bottom:null!==(r=t.bottom)&&void 0!==r?r:e}):("number"!=typeof t&&(t=e),{top:t,right:t,bottom:t,left:t})}function d(t,e){var n=c(e.settings.margin,0);return t.pageSize().width-(n.left+n.right)}function f(t,e,n,o,i){var r={},l=96/72,a=g(e,function(t){return i.getComputedStyle(t).backgroundColor});null!=a&&(r.fillColor=a);var s=g(e,function(t){return i.getComputedStyle(t).color});null!=s&&(r.textColor=s);var u=function(t,e){var n=[t.paddingTop,t.paddingRight,t.paddingBottom,t.paddingLeft],o=96/(72/e),i=(parseInt(t.lineHeight)-parseInt(t.fontSize))/e/2,r=n.map(function(t){return parseInt(t||"0")/o}),l=c(r,0);i>l.top&&(l.top=i);i>l.bottom&&(l.bottom=i);return l}(o,n);u&&(r.cellPadding=u);var h="borderTopColor",d=l*n,f=o.borderTopWidth;if(o.borderBottomWidth===f&&o.borderRightWidth===f&&o.borderLeftWidth===f){var p=(parseFloat(f)||0)/d;p&&(r.lineWidth=p)}else r.lineWidth={top:(parseFloat(o.borderTopWidth)||0)/d,right:(parseFloat(o.borderRightWidth)||0)/d,bottom:(parseFloat(o.borderBottomWidth)||0)/d,left:(parseFloat(o.borderLeftWidth)||0)/d},r.lineWidth.top||(r.lineWidth.right?h="borderRightColor":r.lineWidth.bottom?h="borderBottomColor":r.lineWidth.left&&(h="borderLeftColor"));var y=g(e,function(t){return i.getComputedStyle(t)[h]});null!=y&&(r.lineColor=y);var v=["left","right","center","justify"];-1!==v.indexOf(o.textAlign)&&(r.halign=o.textAlign),-1!==(v=["middle","bottom","top"]).indexOf(o.verticalAlign)&&(r.valign=o.verticalAlign);var m=parseInt(o.fontSize||"");isNaN(m)||(r.fontSize=m/l);var w=function(t){var e="";("bold"===t.fontWeight||"bolder"===t.fontWeight||parseInt(t.fontWeight)>=700)&&(e="bold");"italic"!==t.fontStyle&&"oblique"!==t.fontStyle||(e+="italic");return e}(o);w&&(r.fontStyle=w);var b=(o.fontFamily||"").toLowerCase();return-1!==t.indexOf(b)&&(r.font=b),r}function g(t,e){var n=p(t,e);if(!n)return null;var o=n.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d*\.?\d*))?\)$/);if(!o||!Array.isArray(o))return null;var i=[parseInt(o[1]),parseInt(o[2]),parseInt(o[3])];return 0===parseInt(o[4])||isNaN(i[0])||isNaN(i[1])||isNaN(i[2])?null:i}function p(t,e){var n=e(t);return"rgba(0, 0, 0, 0)"===n||"transparent"===n||"initial"===n||"inherit"===n?null==t.parentElement?null:p(t.parentElement,e):n}function y(t,e,n,o,i){var r,l,a;void 0===o&&(o=!1),void 0===i&&(i=!1),a="string"==typeof e?n.document.querySelector(e):e;var s=Object.keys(t.getFontList()),u=t.scaleFactor(),h=[],c=[],d=[];if(!a)return console.error("Html table could not be found with input: ",e),{head:h,body:c,foot:d};for(var f=0;f<a.rows.length;f++){var g=a.rows[f],p=null===(l=null===(r=null==g?void 0:g.parentElement)||void 0===r?void 0:r.tagName)||void 0===l?void 0:l.toLowerCase(),y=v(s,u,n,g,o,i);y&&("thead"===p?h.push(y):"tfoot"===p?d.push(y):c.push(y))}return{head:h,body:c,foot:d}}function v(t,e,n,o,i,r){for(var l=new a(o),s=0;s<o.cells.length;s++){var u=o.cells[s],h=n.getComputedStyle(u);if(i||"none"!==h.display){var c=void 0;r&&(c=f(t,u,e,h,n)),l.push({rowSpan:u.rowSpan,colSpan:u.colSpan,styles:c,_element:u,content:m(u)})}}var d=n.getComputedStyle(o);if(l.length>0&&(i||"none"!==d.display))return l}function m(t){var e=t.cloneNode(!0);return e.innerHTML=e.innerHTML.replace(/\n/g,"").replace(/ +/g," "),e.innerHTML=e.innerHTML.split(/<br.*?>/).map(function(t){return t.trim()}).join("\n"),e.innerText||e.textContent||""}function w(t,e,n,o,i){if(null==t)throw new TypeError("Cannot convert undefined or null to object");for(var r=Object(t),l=1;l<arguments.length;l++){var a=arguments[l];if(null!=a)for(var s in a)Object.prototype.hasOwnProperty.call(a,s)&&(r[s]=a[s])}return r}function b(t,e){var n=new r(t),o=n.getDocumentOptions(),i=n.getGlobalOptions();!function(t,e,n){for(var o=0,i=[t,e,n];o<i.length;o++){var r=i[o];r&&"object"!=typeof r&&console.error("The options parameter should be of type object, is: "+typeof r),r.startY&&"number"!=typeof r.startY&&(console.error("Invalid value for startY option",r.startY),delete r.startY)}}(i,o,e);var l,a=w({},i,o,e);"undefined"!=typeof window&&(l=window);var s=function(t,e,n){for(var o={styles:{},headStyles:{},bodyStyles:{},footStyles:{},alternateRowStyles:{},columnStyles:{}},i=function(i){if("columnStyles"===i){var r=t[i],l=e[i],a=n[i];o.columnStyles=w({},r,l,a)}else{var s=[t,e,n].map(function(t){return t[i]||{}});o[i]=w({},s[0],s[1],s[2])}},r=0,l=Object.keys(o);r<l.length;r++){i(l[r])}return o}(i,o,e),u=function(t,e,n){for(var o={didParseCell:[],willDrawCell:[],didDrawCell:[],willDrawPage:[],didDrawPage:[]},i=0,r=[t,e,n];i<r.length;i++){var l=r[i];l.didParseCell&&o.didParseCell.push(l.didParseCell),l.willDrawCell&&o.willDrawCell.push(l.willDrawCell),l.didDrawCell&&o.didDrawCell.push(l.didDrawCell),l.willDrawPage&&o.willDrawPage.push(l.willDrawPage),l.didDrawPage&&o.didDrawPage.push(l.didDrawPage)}return o}(i,o,e),h=function(t,e){var n,o,i,r,l,a,s,u,h,d,f,g,p,y,v=c(e.margin,40/t.scaleFactor()),m=null!==(n=function(t,e){var n=t.getLastAutoTable(),o=t.scaleFactor(),i=t.pageNumber(),r=!1;if(n&&n.startPageNumber){r=n.startPageNumber+n.pageNumber-1===i}if("number"==typeof e)return e;if((null==e||!1===e)&&r&&null!=(null==n?void 0:n.finalY))return n.finalY+20/o;return null}(t,e.startY))&&void 0!==n?n:v.top;p=!0===e.showFoot?"everyPage":!1===e.showFoot?"never":null!==(o=e.showFoot)&&void 0!==o?o:"everyPage";y=!0===e.showHead?"everyPage":!1===e.showHead?"never":null!==(i=e.showHead)&&void 0!==i?i:"everyPage";var w=null!==(r=e.useCss)&&void 0!==r&&r,b=e.theme||(w?"plain":"striped"),x=!!e.horizontalPageBreak,S=null!==(l=e.horizontalPageBreakRepeat)&&void 0!==l?l:null;return{includeHiddenHtml:null!==(a=e.includeHiddenHtml)&&void 0!==a&&a,useCss:w,theme:b,startY:m,margin:v,pageBreak:null!==(s=e.pageBreak)&&void 0!==s?s:"auto",rowPageBreak:null!==(u=e.rowPageBreak)&&void 0!==u?u:"auto",tableWidth:null!==(h=e.tableWidth)&&void 0!==h?h:"auto",showHead:y,showFoot:p,tableLineWidth:null!==(d=e.tableLineWidth)&&void 0!==d?d:0,tableLineColor:null!==(f=e.tableLineColor)&&void 0!==f?f:200,horizontalPageBreak:x,horizontalPageBreakRepeat:S,horizontalPageBreakBehaviour:null!==(g=e.horizontalPageBreakBehaviour)&&void 0!==g?g:"afterAllRows"}}(n,a),d=function(t,e,n){var o=e.head||[],i=e.body||[],r=e.foot||[];if(e.html){var l=e.includeHiddenHtml;if(n){var a=y(t,e.html,n,l,e.useCss)||{};o=a.head||o,i=a.body||o,r=a.foot||o}else console.error("Cannot parse html in non browser environment")}var s=e.columns||function(t,e,n){var o=t[0]||e[0]||n[0]||[],i=[];return Object.keys(o).filter(function(t){return"_element"!==t}).forEach(function(t){var e,n=1;"object"!=typeof(e=Array.isArray(o)?o[parseInt(t)]:o[t])||Array.isArray(e)||(n=(null==e?void 0:e.colSpan)||1);for(var r=0;r<n;r++){var l={dataKey:Array.isArray(o)?i.length:t+(r>0?"_".concat(r):"")};i.push(l)}}),i}(o,i,r);return{columns:s,head:o,body:i,foot:r}}(n,a,l);return{id:e.tableId,content:d,hooks:u,styles:s,settings:h}}var x,S=function(){var t=function(e,n){return t=Object.setPrototypeOf||{__proto__:[]}instanceof Array&&function(t,e){t.__proto__=e}||function(t,e){for(var n in e)Object.prototype.hasOwnProperty.call(e,n)&&(t[n]=e[n])},t(e,n)};return function(e,n){if("function"!=typeof n&&null!==n)throw new TypeError("Class extends value "+String(n)+" is not a constructor or null");function o(){this.constructor=e}t(e,n),e.prototype=null===n?Object.create(n):(o.prototype=n.prototype,new o)}}(),W=function(t,e,n){this.table=e,this.pageNumber=e.pageNumber,this.settings=e.settings,this.cursor=n,this.doc=t.getDocument()},P=function(t){function e(e,n,o,i,r,l){var a=t.call(this,e,n,l)||this;return a.cell=o,a.row=i,a.column=r,a.section=i.section,a}return S(e,t),e}(W),C=function(){function t(t,e){this.pageNumber=1,this.id=t.id,this.settings=t.settings,this.styles=t.styles,this.hooks=t.hooks,this.columns=e.columns,this.head=e.head,this.body=e.body,this.foot=e.foot}return t.prototype.getHeadHeight=function(t){return this.head.reduce(function(e,n){return e+n.getMaxCellHeight(t)},0)},t.prototype.getFootHeight=function(t){return this.foot.reduce(function(e,n){return e+n.getMaxCellHeight(t)},0)},t.prototype.allRows=function(){return this.head.concat(this.body).concat(this.foot)},t.prototype.callCellHooks=function(t,e,n,o,i,r){for(var l=0,a=e;l<a.length;l++){var s=!1===(0,a[l])(new P(t,this,n,o,i,r));if(n.text=Array.isArray(n.text)?n.text:[n.text],s)return!1}return!0},t.prototype.callEndPageHooks=function(t,e){t.applyStyles(t.userStyles);for(var n=0,o=this.hooks.didDrawPage;n<o.length;n++){(0,o[n])(new W(t,this,e))}},t.prototype.callWillDrawPageHooks=function(t,e){for(var n=0,o=this.hooks.willDrawPage;n<o.length;n++){(0,o[n])(new W(t,this,e))}},t.prototype.getWidth=function(t){if("number"==typeof this.settings.tableWidth)return this.settings.tableWidth;if("wrap"===this.settings.tableWidth)return this.columns.reduce(function(t,e){return t+e.wrappedWidth},0);var e=this.settings.margin;return t-e.left-e.right},t}(),D=function(){function t(t,e,n,o,i){void 0===i&&(i=!1),this.height=0,this.raw=t,t instanceof a&&(this.raw=t._element,this.element=t._element),this.index=e,this.section=n,this.cells=o,this.spansMultiplePages=i}return t.prototype.getMaxCellHeight=function(t){var e=this;return t.reduce(function(t,n){var o;return Math.max(t,(null===(o=e.cells[n.index])||void 0===o?void 0:o.height)||0)},0)},t.prototype.hasRowSpan=function(t){var e=this;return t.filter(function(t){var n=e.cells[t.index];return!!n&&n.rowSpan>1}).length>0},t.prototype.canEntireRowFit=function(t,e){return this.getMaxCellHeight(e)<=t},t.prototype.getMinimumRowHeight=function(t,e){var n=this;return t.reduce(function(t,o){var i=n.cells[o.index];if(!i)return 0;var r=e.getLineHeight(i.styles.fontSize),l=i.padding("vertical")+r;return l>t?l:t},0)},t}(),F=function(){function t(t,e,n){var o;this.contentHeight=0,this.contentWidth=0,this.wrappedWidth=0,this.minReadableWidth=0,this.minWidth=0,this.width=0,this.height=0,this.x=0,this.y=0,this.styles=e,this.section=n,this.raw=t;var i=t;null==t||"object"!=typeof t||Array.isArray(t)?(this.rowSpan=1,this.colSpan=1):(this.rowSpan=t.rowSpan||1,this.colSpan=t.colSpan||1,i=null!==(o=t.content)&&void 0!==o?o:t,t._element&&(this.raw=t._element));var r=null!=i?""+i:"";this.text=r.split(/\r\n|\r|\n/g)}return t.prototype.getTextPos=function(){var t,e;if("top"===this.styles.valign)t=this.y+this.padding("top");else if("bottom"===this.styles.valign)t=this.y+this.height-this.padding("bottom");else{var n=this.height-this.padding("vertical");t=this.y+n/2+this.padding("top")}if("right"===this.styles.halign)e=this.x+this.width-this.padding("right");else if("center"===this.styles.halign){var o=this.width-this.padding("horizontal");e=this.x+o/2+this.padding("left")}else e=this.x+this.padding("left");return{x:e,y:t}},t.prototype.getContentHeight=function(t,e){void 0===e&&(e=1.15);var n=(Array.isArray(this.text)?this.text.length:1)*(this.styles.fontSize/t*e)+this.padding("vertical");return Math.max(n,this.styles.minCellHeight)},t.prototype.padding=function(t){var e=c(this.styles.cellPadding,0);return"vertical"===t?e.top+e.bottom:"horizontal"===t?e.left+e.right:e[t]},t}(),H=function(){function t(t,e,n){this.wrappedWidth=0,this.minReadableWidth=0,this.minWidth=0,this.width=0,this.dataKey=t,this.raw=e,this.index=n}return t.prototype.getMaxCustomCellWidth=function(t){for(var e=0,n=0,o=t.allRows();n<o.length;n++){var i=o[n].cells[this.index];i&&"number"==typeof i.styles.cellWidth&&(e=Math.max(e,i.styles.cellWidth))}return e},t}();function j(t,e){!function(t,e){var n=t.scaleFactor(),o=e.settings.horizontalPageBreak,i=d(t,e);e.allRows().forEach(function(r){for(var l=0,a=e.columns;l<a.length;l++){var u=a[l],h=r.cells[u.index];if(h){var c=e.hooks.didParseCell;e.callCellHooks(t,c,h,r,u,null);var d=h.padding("horizontal");h.contentWidth=s(h.text,h.styles,t)+d;var f=s(h.text.join(" ").split(/[^\S\u00A0]+/),h.styles,t);if(h.minReadableWidth=f+h.padding("horizontal"),"number"==typeof h.styles.cellWidth)h.minWidth=h.styles.cellWidth,h.wrappedWidth=h.styles.cellWidth;else if("wrap"===h.styles.cellWidth||!0===o)h.contentWidth>i?(h.minWidth=i,h.wrappedWidth=i):(h.minWidth=h.contentWidth,h.wrappedWidth=h.contentWidth);else{var g=10/n;h.minWidth=h.styles.minCellWidth||g,h.wrappedWidth=h.contentWidth,h.minWidth>h.wrappedWidth&&(h.wrappedWidth=h.minWidth)}}}}),e.allRows().forEach(function(t){for(var n=0,o=e.columns;n<o.length;n++){var i=o[n],r=t.cells[i.index];if(r&&1===r.colSpan)i.wrappedWidth=Math.max(i.wrappedWidth,r.wrappedWidth),i.minWidth=Math.max(i.minWidth,r.minWidth),i.minReadableWidth=Math.max(i.minReadableWidth,r.minReadableWidth);else{var l=e.styles.columnStyles[i.dataKey]||e.styles.columnStyles[i.index]||{},a=l.cellWidth||l.minCellWidth;a&&"number"==typeof a&&(i.minWidth=a,i.wrappedWidth=a)}r&&(r.colSpan>1&&!i.minWidth&&(i.minWidth=r.minWidth),r.colSpan>1&&!i.wrappedWidth&&(i.wrappedWidth=r.minWidth))}})}(t,e);var n=[],o=0;e.columns.forEach(function(t){var i=t.getMaxCustomCellWidth(e);i?t.width=i:(t.width=t.wrappedWidth,n.push(t)),o+=t.width});var i=e.getWidth(t.pageSize().width)-o;i&&(i=T(n,i,function(t){return Math.max(t.minReadableWidth,t.minWidth)})),i&&(i=T(n,i,function(t){return t.minWidth})),i=Math.abs(i),!e.settings.horizontalPageBreak&&i>.1/t.scaleFactor()&&(i=i<1?i:Math.round(i),console.log("Of the table content, ".concat(i," units width could not fit page"))),function(t){for(var e=t.allRows(),n=0;n<e.length;n++)for(var o=e[n],i=null,r=0,l=0,a=0;a<t.columns.length;a++){var s=t.columns[a];if((l-=1)>1&&t.columns[a+1])r+=s.width,delete o.cells[s.index];else if(i){var u=i;delete o.cells[s.index],i=null,u.width=s.width+r}else{if(!(u=o.cells[s.index]))continue;if(l=u.colSpan,r=0,u.colSpan>1){i=u,r+=s.width;continue}u.width=s.width+r}}}(e),function(t,e){for(var n={count:0,height:0},o=0,i=t.allRows();o<i.length;o++){for(var r=i[o],l=0,a=t.columns;l<a.length;l++){var s=a[l],u=r.cells[s.index];if(u){e.applyStyles(u.styles,!0);var h=u.width-u.padding("horizontal");if("linebreak"===u.styles.overflow)u.text=e.splitTextToSize(u.text,h+1/e.scaleFactor(),{fontSize:u.styles.fontSize});else if("ellipsize"===u.styles.overflow)u.text=k(u.text,h,u.styles,e,"...");else if("hidden"===u.styles.overflow)u.text=k(u.text,h,u.styles,e,"");else if("function"==typeof u.styles.overflow){var c=u.styles.overflow(u.text,h);u.text="string"==typeof c?[c]:c}u.contentHeight=u.getContentHeight(e.scaleFactor(),e.getLineHeightFactor());var d=u.contentHeight/u.rowSpan;u.rowSpan>1&&n.count*n.height<d*u.rowSpan?n={height:d,count:u.rowSpan}:n&&n.count>0&&n.height>d&&(d=n.height),d>r.height&&(r.height=d)}}n.count--}}(e,t),function(t){for(var e={},n=1,o=t.allRows(),i=0;i<o.length;i++)for(var r=o[i],l=0,a=t.columns;l<a.length;l++){var s=a[l],u=e[s.index];if(n>1)n--,delete r.cells[s.index];else if(u)u.cell.height+=r.height,n=u.cell.colSpan,delete r.cells[s.index],u.left--,u.left<=1&&delete e[s.index];else{var h=r.cells[s.index];if(!h)continue;if(h.height=r.height,h.rowSpan>1){var c=o.length-i,d=h.rowSpan>c?c:h.rowSpan;e[s.index]={cell:h,left:d,row:r}}}}}(e)}function T(t,e,n){for(var o=e,i=t.reduce(function(t,e){return t+e.wrappedWidth},0),r=0;r<t.length;r++){var l=t[r],a=o*(l.wrappedWidth/i),s=l.width+a,u=n(l),h=s<u?u:s;e-=h-l.width,l.width=h}if(e=Math.round(1e10*e)/1e10){var c=t.filter(function(t){return!(e<0)||t.width>n(t)});c.length&&(e=T(c,e,n))}return e}function k(t,e,n,o,i){return t.map(function(t){return function(t,e,n,o,i){var r=1e4*o.scaleFactor();if(e=Math.ceil(e*r)/r,e>=s(t,n,o))return t;for(;e<s(t+i,n,o)&&!(t.length<=1);)t=t.substring(0,t.length-1);return t.trim()+i}(t,e,n,o,i)})}function z(t,e){var n=new r(t),o=function(t,e){var n=t.content,o=function(t){return t.map(function(t,e){var n,o;return o="object"==typeof t&&null!==(n=t.dataKey)&&void 0!==n?n:e,new H(o,t,e)})}(n.columns);if(0===n.head.length){(i=R(o,"head"))&&n.head.push(i)}if(0===n.foot.length){var i;(i=R(o,"foot"))&&n.foot.push(i)}var r=t.settings.theme,l=t.styles;return{columns:o,head:A("head",n.head,o,l,r,e),body:A("body",n.body,o,l,r,e),foot:A("foot",n.foot,o,l,r,e)}}(e,n.scaleFactor()),i=new C(e,o);return j(n,i),n.applyStyles(n.userStyles),i}function A(t,e,n,o,i,r){var l={};return e.map(function(e,a){for(var s=0,u={},h=0,c=0,d=0,f=n;d<f.length;d++){var g=f[d];if(null==l[g.index]||0===l[g.index].left)if(0===c){var p=void 0,y={};"object"!=typeof(p=Array.isArray(e)?e[g.index-h-s]:e[g.dataKey])||Array.isArray(p)||(y=(null==p?void 0:p.styles)||{});var v=L(t,g,a,i,o,r,y),m=new F(p,v,t);u[g.dataKey]=m,u[g.index]=m,c=m.colSpan-1,l[g.index]={left:m.rowSpan-1,times:c}}else c--,h++;else l[g.index].left--,c=l[g.index].times,s++}return new D(e,a,t,u)})}function R(t,e){var n={};return t.forEach(function(t){if(null!=t.raw){var o=function(t,e){if("head"===t){if("object"==typeof e)return e.header||null;if("string"==typeof e||"number"==typeof e)return e}else if("foot"===t&&"object"==typeof e)return e.footer;return null}(e,t.raw);null!=o&&(n[t.dataKey]=o)}}),Object.keys(n).length>0?n:null}function L(t,e,n,o,i,r,l){var a,s={striped:{table:{fillColor:255,textColor:80,fontStyle:"normal"},head:{textColor:255,fillColor:[41,128,185],fontStyle:"bold"},body:{},foot:{textColor:255,fillColor:[41,128,185],fontStyle:"bold"},alternateRow:{fillColor:245}},grid:{table:{fillColor:255,textColor:80,fontStyle:"normal",lineWidth:.1},head:{textColor:255,fillColor:[26,188,156],fontStyle:"bold",lineWidth:0},body:{},foot:{textColor:255,fillColor:[26,188,156],fontStyle:"bold",lineWidth:0},alternateRow:{}},plain:{head:{fontStyle:"bold"},foot:{fontStyle:"bold"}}}[o];"head"===t?a=i.headStyles:"body"===t?a=i.bodyStyles:"foot"===t&&(a=i.footStyles);var u=w({},s.table,s[t],i.styles,a),h=i.columnStyles[e.dataKey]||i.columnStyles[e.index]||{},c="body"===t?h:{},d="body"===t&&n%2==0?w({},s.alternateRow,i.alternateRowStyles):{},f=function(t){return{font:"helvetica",fontStyle:"normal",overflow:"linebreak",fillColor:!1,textColor:20,halign:"left",valign:"top",fontSize:10,cellPadding:5/t,lineColor:200,lineWidth:0,cellWidth:"auto",minCellHeight:0,minCellWidth:0}}(r),g=w({},f,u,d,c);return w(g,l)}function M(t,e,n){var o;void 0===n&&(n={});var i=d(t,e),r=new Map,l=[],a=[],s=[];Array.isArray(e.settings.horizontalPageBreakRepeat)?s=e.settings.horizontalPageBreakRepeat:"string"!=typeof e.settings.horizontalPageBreakRepeat&&"number"!=typeof e.settings.horizontalPageBreakRepeat||(s=[e.settings.horizontalPageBreakRepeat]),s.forEach(function(t){var n=e.columns.find(function(e){return e.dataKey===t||e.index===t});n&&!r.has(n.index)&&(r.set(n.index,!0),l.push(n.index),a.push(e.columns[n.index]),i-=n.wrappedWidth)});for(var u=!0,h=null!==(o=null==n?void 0:n.start)&&void 0!==o?o:0;h<e.columns.length;)if(r.has(h))h++;else{var c=e.columns[h].wrappedWidth;if(!(u||i>=c))break;u=!1,l.push(h),a.push(e.columns[h]),i-=c,h++}return{colIndexes:l,columns:a,lastIndex:h-1}}function O(t,e){var n=e.settings,o=n.startY,i=n.margin,l={x:i.left,y:o},a=e.getHeadHeight(e.columns)+e.getFootHeight(e.columns),s=o+i.bottom+a;"avoid"===n.pageBreak&&(s+=e.body.reduce(function(t,e){return t+e.height},0));var h=new r(t);("always"===n.pageBreak||null!=n.startY&&s>h.pageSize().height)&&(J(h),l.y=i.top),e.callWillDrawPageHooks(h,l);var c=w({},l);e.startPageNumber=h.pageNumber(),n.horizontalPageBreak?function(t,e,n,o){var i=function(t,e){for(var n=[],o=0;o<e.columns.length;o++){var i=M(t,e,{start:o});i.columns.length&&(n.push(i),o=i.lastIndex)}return n}(t,e),r=e.settings;if("afterAllRows"===r.horizontalPageBreakBehaviour)i.forEach(function(i,r){t.applyStyles(t.userStyles),r>0?G(t,e,n,o,i.columns,!0):_(t,e,o,i.columns),function(t,e,n,o,i){t.applyStyles(t.userStyles),e.body.forEach(function(r,l){var a=l===e.body.length-1;I(t,e,r,a,n,o,i)})}(t,e,n,o,i.columns),E(t,e,o,i.columns)});else for(var l=-1,a=i[0],s=function(){var r=l;if(a){t.applyStyles(t.userStyles);var s=a.columns;l>=0?G(t,e,n,o,s,!0):_(t,e,o,s),r=B(t,e,l+1,o,s),E(t,e,o,s)}var u=r-l;i.slice(1).forEach(function(i){t.applyStyles(t.userStyles),G(t,e,n,o,i.columns,!0),B(t,e,l+1,o,i.columns,u),E(t,e,o,i.columns)}),l=r};l<e.body.length-1;)s()}(h,e,c,l):(h.applyStyles(h.userStyles),"firstPage"!==n.showHead&&"everyPage"!==n.showHead||e.head.forEach(function(t){return Y(h,e,t,l,e.columns)}),h.applyStyles(h.userStyles),e.body.forEach(function(t,n){var o=n===e.body.length-1;I(h,e,t,o,c,l,e.columns)}),h.applyStyles(h.userStyles),"lastPage"!==n.showFoot&&"everyPage"!==n.showFoot||e.foot.forEach(function(t){return Y(h,e,t,l,e.columns)})),u(h,e,c,l),e.callEndPageHooks(h,l),e.finalY=l.y,t.lastAutoTable=e,h.applyStyles(h.userStyles)}function _(t,e,n,o){var i=e.settings;t.applyStyles(t.userStyles),"firstPage"!==i.showHead&&"everyPage"!==i.showHead||e.head.forEach(function(i){return Y(t,e,i,n,o)})}function B(t,e,n,o,i,r){t.applyStyles(t.userStyles),r=null!=r?r:e.body.length;for(var l=Math.min(n+r,e.body.length),a=-1,s=e.body.slice(n,l),u=0;u<s.length;u++){var h=s[u],c=q(t,e,n+u===e.body.length-1,o);if(!h.canEntireRowFit(c,i))break;Y(t,e,h,o,i),a=n+u}return a}function E(t,e,n,o){var i=e.settings;t.applyStyles(t.userStyles),"lastPage"!==i.showFoot&&"everyPage"!==i.showFoot||e.foot.forEach(function(i){return Y(t,e,i,n,o)})}function N(t,e,n){var o=n.getLineHeight(t.styles.fontSize),i=t.padding("vertical"),r=Math.floor((e-i)/o);return Math.max(0,r)}function I(t,e,n,o,i,r,l){var a=q(t,e,o,r);if(n.canEntireRowFit(a,l))Y(t,e,n,r,l);else if(function(t,e,n,o){var i=t.pageSize().height,r=o.settings.margin,l=i-(r.top+r.bottom);"body"===e.section&&(l-=o.getHeadHeight(o.columns)+o.getFootHeight(o.columns));var a=e.getMinimumRowHeight(o.columns,t),s=a<n;if(a>l)return console.log("Will not be able to print row ".concat(e.index," correctly since it's minimum height is larger than page height")),!0;if(!s)return!1;var u=e.hasRowSpan(o.columns);return e.getMaxCellHeight(o.columns)>l?(u&&console.log("The content of row ".concat(e.index," will not be drawn correctly since drawing rows with a height larger than the page height and has cells with rowspans is not supported.")),!0):!u&&"avoid"!==o.settings.rowPageBreak}(t,n,a,e)){var s=function(t,e,n,o){var i={};t.spansMultiplePages=!0,t.height=0;for(var r=0,l=0,a=n.columns;l<a.length;l++){var s=a[l];if(y=t.cells[s.index]){Array.isArray(y.text)||(y.text=[y.text]),(p=w(p=new F(y.raw,y.styles,y.section),y)).text=[];var u=N(y,e,o);y.text.length>u&&(p.text=y.text.splice(u,y.text.length));var h=o.scaleFactor(),c=o.getLineHeightFactor();y.contentHeight=y.getContentHeight(h,c),y.contentHeight>=e&&(y.contentHeight=e,p.styles.minCellHeight-=e),y.contentHeight>t.height&&(t.height=y.contentHeight),p.contentHeight=p.getContentHeight(h,c),p.contentHeight>r&&(r=p.contentHeight),i[s.index]=p}}var d=new D(t.raw,-1,t.section,i,!0);d.height=r;for(var f=0,g=n.columns;f<g.length;f++){var p,y;s=g[f],(p=d.cells[s.index])&&(p.height=d.height),(y=t.cells[s.index])&&(y.height=t.height)}return d}(n,a,e,t);Y(t,e,n,r,l),G(t,e,i,r,l),I(t,e,s,o,i,r,l)}else G(t,e,i,r,l),I(t,e,n,o,i,r,l)}function Y(t,e,o,i,r){i.x=e.settings.margin.left;for(var l=0,a=r;l<a.length;l++){var s=a[l],u=o.cells[s.index];if(u)if(t.applyStyles(u.styles),u.x=i.x,u.y=i.y,!1!==e.callCellHooks(t,e.hooks.willDrawCell,u,o,s,i)){K(t,u,i);var h=u.getTextPos();n(u.text,h.x,h.y,{halign:u.styles.halign,valign:u.styles.valign,maxWidth:Math.ceil(u.width-u.padding("left")-u.padding("right"))},t.getDocument()),e.callCellHooks(t,e.hooks.didDrawCell,u,o,s,i),i.x+=s.width}else i.x+=s.width;else i.x+=s.width}i.y+=o.height}function K(t,e,n){var o=e.styles;if(t.getDocument().setFillColor(t.getDocument().getFillColor()),"number"==typeof o.lineWidth){var i=h(o.lineWidth,o.fillColor);i&&t.rect(e.x,n.y,e.width,e.height,i)}else"object"==typeof o.lineWidth&&(o.fillColor&&t.rect(e.x,n.y,e.width,e.height,"F"),function(t,e,n,o){var i,r,l,a;o.top&&(i=n.x,r=n.y,l=n.x+e.width,a=n.y,o.right&&(l+=.5*o.right),o.left&&(i-=.5*o.left),s(o.top,i,r,l,a));o.bottom&&(i=n.x,r=n.y+e.height,l=n.x+e.width,a=n.y+e.height,o.right&&(l+=.5*o.right),o.left&&(i-=.5*o.left),s(o.bottom,i,r,l,a));o.left&&(i=n.x,r=n.y,l=n.x,a=n.y+e.height,o.top&&(r-=.5*o.top),o.bottom&&(a+=.5*o.bottom),s(o.left,i,r,l,a));o.right&&(i=n.x+e.width,r=n.y,l=n.x+e.width,a=n.y+e.height,o.top&&(r-=.5*o.top),o.bottom&&(a+=.5*o.bottom),s(o.right,i,r,l,a));function s(e,n,o,i,r){t.getDocument().setLineWidth(e),t.getDocument().line(n,o,i,r,"S")}}(t,e,n,o.lineWidth))}function q(t,e,n,o){var i=e.settings.margin.bottom,r=e.settings.showFoot;return("everyPage"===r||"lastPage"===r&&n)&&(i+=e.getFootHeight(e.columns)),t.pageSize().height-o.y-i}function G(t,e,n,o,i,r){void 0===i&&(i=[]),void 0===r&&(r=!1),t.applyStyles(t.userStyles),"everyPage"!==e.settings.showFoot||r||e.foot.forEach(function(n){return Y(t,e,n,o,i)}),e.callEndPageHooks(t,o);var l=e.settings.margin;u(t,e,n,o),J(t),e.pageNumber++,o.x=l.left,o.y=l.top,n.y=l.top,e.callWillDrawPageHooks(t,o),"everyPage"===e.settings.showHead&&(e.head.forEach(function(n){return Y(t,e,n,o,i)}),t.applyStyles(t.userStyles))}function J(t){var e=t.pageNumber();return t.setPage(e+1),t.pageNumber()===e&&(t.addPage(),!0)}function U(t){t.API.autoTable=function(){for(var t=[],e=0;e<arguments.length;e++)t[e]=arguments[e];return O(this,z(this,b(this,t[0]))),this},t.API.lastAutoTable=!1,t.API.autoTableText=function(t,e,o,i){n(t,e,o,i,this)},t.API.autoTableSetDefaults=function(t){return r.setDefaults(t,this),this},t.autoTableSetDefaults=function(t,e){r.setDefaults(t,e)},t.API.autoTableHtmlToJson=function(t,e){var n;if(void 0===e&&(e=!1),"undefined"==typeof window)return console.error("Cannot run autoTableHtmlToJson in non browser environment"),null;var o=y(new r(this),t,window,e,!1),i=o.head,l=o.body;return{columns:(null===(n=i[0])||void 0===n?void 0:n.map(function(t){return t.content}))||[],rows:l,data:l}}}function $(t,e){O(t,z(t,b(t,e)))}function Q(t,e){return z(t,b(t,e))}function V(t,e){O(t,e)}try{if("undefined"!=typeof window&&window){var X=window,Z=X.jsPDF||(null===(x=X.jspdf)||void 0===x?void 0:x.jsPDF);Z&&U(Z)}}catch(t){console.error("Could not apply autoTable plugin",t)}var tt=$;return e}()});</script>
-<script id="src-core">/* =============================================================================
+<script id="src-core">/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - core engine
  * Shared by the main thread and the background parser workers.
  *  - version sniffing (AIXM 4.5 / 5.0 / 5.1 / 5.1.1 / 5.2 / 5.2 pre-releases)
@@ -2836,7 +2857,11 @@ var AX = (function () {
 })();
 if (typeof module !== 'undefined') module.exports = AX;
 </script>
-<script type="text/plain" id="src-worker">/* =============================================================================
+<script type="text/plain" id="src-worker">/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - streaming parser worker
  * Scans one byte range of a (possibly multi-GB) AIXM file without loading it
  * into memory: 16 MB chunks are decoded 1:1 (windows-1252) for fast native
@@ -3047,7 +3072,11 @@ if (typeof module !== 'undefined') module.exports = AX;
   };
 })();
 </script>
-<script>/* =============================================================================
+<script>/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - data model
  * Dataset finalisation (indexes, references, owners, geometry, temporality),
  * value formatting with AIXM dictionary look-ups, state / AIRAC detection.
@@ -3836,7 +3865,11 @@ var MODEL = (function () {
   };
 })();
 </script>
-<script>/* =============================================================================
+<script>/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - local State library + persistent cache
  *  - connects to a folder on the local drive (File System Access API) whose
  *    sub-folders are States (e.g. Saudi, UAE, India); the folder handle is kept
@@ -4028,7 +4061,11 @@ var LIBRARY = (function () {
     saveDataset: saveDataset, loadDataset: loadDataset, cachedKeys: cachedKeys, cachedList: cachedList, removeCached: removeCached, clearCache: clearCache, usage: usage, setting: setting, fileKey: fileKey };
 })();
 </script>
-<script>/* =============================================================================
+<script>/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - ICAO AIP (specimen) section builders
  * Each builder returns a section {id, title, blocks[], recs[]} where blocks are
  *   {kind:'kv', rows:[{no,label,cells:[cell]}]}
@@ -5136,7 +5173,11 @@ var AIP = (function () {
     AD2_TITLES: AD2_TITLES, isHeliport: isHeliport, pcn: pcn, surface: surface, C: C, directions: directions };
 })();
 </script>
-<script>/* =============================================================================
+<script>/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - analysis: in-file changes (temporality), comparison of
  * two data sets (same State, any versions) and data quality checks.
  * ========================================================================== */
@@ -5449,7 +5490,11 @@ var ANALYSIS = (function () {
   return { cycleChanges: cycleChanges, changeCycles: changeCycles, topProp: topProp, inFileChanges: inFileChanges, compare: compare, quality: quality, prettyPath: prettyPath, displayVal: displayVal, naturalKey: naturalKey };
 })();
 </script>
-<script>/* =============================================================================
+<script>/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - map view (Leaflet)
  * Offline vector base map (Natural Earth, built in), optional online layers
  * (OpenStreetMap and OSM-based styles), aeronautical overlays drawn on canvas
@@ -5465,8 +5510,8 @@ var MAPVIEW = (function () {
   var over = {}, vec = null, state = { ds: null, cmp: null, labels: true, measure: null, filters: {} };
 
   var COLORS = {
-    fir: '#5c0632', cta: '#1d5f99', ctr: '#b3261e', atz: '#d9480f', prd: '#c2185b', mil: '#7b1fa2', other: '#546e7a',
-    route: '#2e7d32', rnav: '#00838f', rwy: '#212121', apron: '#8d6e63', obst: '#d32f2f', dp: '#1d5f99', nav: '#5c0632', ad: '#5c0632'
+    fir: '#3d1a6e', cta: '#1d5f99', ctr: '#b3261e', atz: '#d9480f', prd: '#c2185b', mil: '#8d6e00', other: '#546e7a',
+    route: '#2e7d32', rnav: '#00838f', rwy: '#212121', apron: '#8d6e63', obst: '#d32f2f', dp: '#1d5f99', nav: '#3d1a6e', ad: '#3d1a6e'
   };
   function asCat(t) {
     if (/^(FIR|UIR|NAS|OCA|UTA)/.test(t)) return 'fir';
@@ -5607,8 +5652,8 @@ var MAPVIEW = (function () {
         vis.push(p);
       }
       var minZ = opt.minZoom || 0;
-      if (z < minZ && vis.length > (opt.maxBelow || 300)) return drawCluster(ctx, m, vis, opt.color || '#5c0632');
-      if (vis.length > (opt.cluster || 6000)) return drawCluster(ctx, m, vis, opt.color || '#5c0632');
+      if (z < minZ && vis.length > (opt.maxBelow || 300)) return drawCluster(ctx, m, vis, opt.color || '#3d1a6e');
+      if (vis.length > (opt.cluster || 6000)) return drawCluster(ctx, m, vis, opt.color || '#3d1a6e');
       var showLabels = state.labels && vis.length <= (opt.maxLabels || 700) && z >= (opt.labelZoom || 0);
       ctx.font = '600 11px "Segoe UI", system-ui, sans-serif';
       ctx.textBaseline = 'middle';
@@ -6029,11 +6074,11 @@ var MAPVIEW = (function () {
       return;
     }
     var pts = [], layer = L.layerGroup().addTo(map);
-    var line = L.polyline([], { color: '#5c0632', weight: 3, dashArray: '6 6' }).addTo(layer);
+    var line = L.polyline([], { color: '#3d1a6e', weight: 3, dashArray: '6 6' }).addTo(layer);
     function onClick(e) {
       pts.push([e.latlng.lng, e.latlng.lat]);
       line.setLatLngs(pts.map(ll));
-      L.circleMarker(e.latlng, { radius: 4, color: '#5c0632', fillOpacity: 1 }).addTo(layer);
+      L.circleMarker(e.latlng, { radius: 4, color: '#3d1a6e', fillOpacity: 1 }).addTo(layer);
       var tot = 0, legs = [];
       for (var i = 1; i < pts.length; i++) { var d = AX.distNM(pts[i - 1], pts[i]); tot += d; legs.push(AX.bearing(pts[i - 1], pts[i]).toFixed(0).padStart(3, '0') + '°T ' + d.toFixed(1) + ' NM'); }
       el.status.textContent = pts.length < 2 ? 'Click the next point…' : 'Total ' + tot.toFixed(2) + ' NM / ' + (tot * 1.852).toFixed(2) + ' km  |  ' + legs.slice(-3).join('  ·  ');
@@ -6301,9 +6346,9 @@ var MAPVIEW = (function () {
       });
     }
     // frame and title
-    ctx.strokeStyle = '#5c0632'; ctx.lineWidth = 4 * k; ctx.strokeRect(2 * k, 2 * k, w - 4 * k, h - 4 * k);
+    ctx.strokeStyle = '#3d1a6e'; ctx.lineWidth = 4 * k; ctx.strokeRect(2 * k, 2 * k, w - 4 * k, h - 4 * k);
     if (opt.title) {
-      ctx.fillStyle = 'rgba(92,6,50,.94)'; ctx.fillRect(0, 0, w, top);
+      ctx.fillStyle = 'rgba(61,26,110,.95)'; ctx.fillRect(0, 0, w, top);
       ctx.fillStyle = '#fff'; ctx.font = '600 ' + Math.round(16 * k) + 'px "Segoe UI", Arial, sans-serif'; ctx.fillText(opt.title, 14 * k, 23 * k);
       if (opt.sub) { ctx.font = Math.round(12 * k) + 'px "Segoe UI", Arial, sans-serif'; var tw = ctx.measureText(opt.sub).width; ctx.fillText(opt.sub, w - tw - 14 * k, 22 * k); }
     }
@@ -6311,8 +6356,8 @@ var MAPVIEW = (function () {
     if (opt.north !== false) {
       var nx = w - 46 * k, ny = top + 60 * k, r = 20 * k;
       ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(nx, ny, r + 8 * k, 0, 2 * Math.PI); ctx.fill(); ctx.strokeStyle = '#555'; ctx.lineWidth = k; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(nx, ny - r); ctx.lineTo(nx + r * 0.45, ny + r * 0.6); ctx.lineTo(nx, ny + r * 0.25); ctx.closePath(); ctx.fillStyle = '#5c0632'; ctx.fill();
-      ctx.beginPath(); ctx.moveTo(nx, ny - r); ctx.lineTo(nx - r * 0.45, ny + r * 0.6); ctx.lineTo(nx, ny + r * 0.25); ctx.closePath(); ctx.fillStyle = '#c9a0b4'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(nx, ny - r); ctx.lineTo(nx + r * 0.45, ny + r * 0.6); ctx.lineTo(nx, ny + r * 0.25); ctx.closePath(); ctx.fillStyle = '#3d1a6e'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(nx, ny - r); ctx.lineTo(nx - r * 0.45, ny + r * 0.6); ctx.lineTo(nx, ny + r * 0.25); ctx.closePath(); ctx.fillStyle = '#b8a6dc'; ctx.fill();
       ctx.fillStyle = '#222'; ctx.font = '700 ' + Math.round(11 * k) + 'px Arial'; ctx.fillText('N', nx - 4 * k, ny - r - 9 * k);
     }
     // legend
@@ -6333,7 +6378,7 @@ var MAPVIEW = (function () {
         ctx.font = Math.round(12 * k) + 'px Arial';
         var lh = 18 * k, lw = Math.max(170 * k, 50 * k + Math.max.apply(null, items.map(function (it) { return ctx.measureText(it[2]).width; }))), lx = 12 * k, lyy = h - 46 * k - items.length * lh - 22 * k;
         ctx.fillStyle = 'rgba(255,255,255,.93)'; ctx.fillRect(lx, lyy, lw, items.length * lh + 26 * k); ctx.strokeStyle = '#999'; ctx.lineWidth = k; ctx.strokeRect(lx, lyy, lw, items.length * lh + 26 * k);
-        ctx.fillStyle = '#5c0632'; ctx.font = '700 ' + Math.round(12 * k) + 'px Arial'; ctx.fillText('LEGEND', lx + 8 * k, lyy + 16 * k);
+        ctx.fillStyle = '#3d1a6e'; ctx.font = '700 ' + Math.round(12 * k) + 'px Arial'; ctx.fillText('LEGEND', lx + 8 * k, lyy + 16 * k);
         items.forEach(function (it, i) {
           var yy = lyy + 26 * k + i * lh + lh / 2, x0 = lx + 10 * k;
           if (it[0] === 'area') { ctx.globalAlpha = 0.15; ctx.fillStyle = it[1]; ctx.fillRect(x0, yy - 6 * k, 26 * k, 12 * k); ctx.globalAlpha = 1; ctx.strokeStyle = it[1]; ctx.lineWidth = 1.5 * k; ctx.setLineDash(it[3] ? [4 * k, 3 * k] : []); ctx.strokeRect(x0, yy - 6 * k, 26 * k, 12 * k); ctx.setLineDash([]); }
@@ -6353,7 +6398,7 @@ var MAPVIEW = (function () {
       ctx.font = Math.round(12 * k) + 'px Arial'; ctx.fillText(nice + ' NM (' + (nice * 1.852).toFixed(nice < 5 ? 1 : 0) + ' km)', sx + len + 8 * k, h - 22 * k);
     }
     ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = Math.round(10 * k) + 'px Arial';
-    var foot = (opt.footer ? opt.footer + '  ·  ' : '') + 'Base map: Natural Earth (public domain) · Mercator · not for navigation';
+    var foot = (opt.footer ? opt.footer + '  ·  ' : '') + 'AIXM Code Converter © 2026 Prasad (prasad2t@gmail.com)  ·  Base map: Natural Earth (public domain) · Mercator · not for navigation';
     var fw = ctx.measureText(foot).width; ctx.fillRect(w - fw - 16 * k, h - 20 * k, fw + 12 * k, 16 * k); ctx.fillStyle = '#555'; ctx.fillText(foot, w - fw - 10 * k, h - 8 * k);
     return c.toDataURL('image/png');
   }
@@ -6413,7 +6458,7 @@ var MAPVIEW = (function () {
       var bb = rect ? rect.getBounds() : null; if (rect) map.removeLayer(rect);
       if (ok && bb && bb.isValid()) printDialog(bb);
     }
-    function down(e) { start = e.latlng; rect = L.rectangle([start, start], { color: '#5c0632', weight: 2, dashArray: '6 4', fillOpacity: 0.08 }).addTo(map); }
+    function down(e) { start = e.latlng; rect = L.rectangle([start, start], { color: '#3d1a6e', weight: 2, dashArray: '6 4', fillOpacity: 0.08 }).addTo(map); }
     function move(e) { if (start && rect) rect.setBounds([start, e.latlng]); }
     function up() { if (start) done(true); }
     function key(e) { if (e.key === 'Escape') done(false); }
@@ -6431,7 +6476,11 @@ var MAPVIEW = (function () {
     isMounted: function () { return !!map; }, leaflet: function () { return map; }, invalidate: function () { if (map) map.invalidateSize(); } };
 })();
 </script>
-<script>/* =============================================================================
+<script>/*!
+ * AIXM Code Converter - exports: JSON, Excel (.xlsx), PDF, print, e-mail
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - exports: JSON, Excel (.xlsx), PDF, print, e-mail
  * A "scope" is {title, sub, ds, sections:[section], features?:[rec], mapImage?}
  * where each section is the structure produced by AIP.build (or converted
@@ -6442,6 +6491,9 @@ var EXPORTS = (function () {
   'use strict';
   var M = MODEL;
   var APP = 'AIXM Code Converter';
+  // Author credit written into every exported file (Apache-2.0 NOTICE: must be kept by redistributors)
+  var AUTHOR = 'Prasad', AUTHOR_EMAIL = 'prasad2t@gmail.com';
+  var CREDIT = APP + ' - (c) 2026 ' + AUTHOR + ' <' + AUTHOR_EMAIL + '>';
 
   function flatSections(list) {
     var out = [];
@@ -6494,7 +6546,8 @@ var EXPORTS = (function () {
   function toJSON(scope) {
     var ds = scope.ds;
     var out = {
-      generator: APP, generatedAt: new Date().toISOString(), title: scope.title,
+      generator: APP, generatorAuthor: AUTHOR, generatorAuthorEmail: AUTHOR_EMAIL, generatorLicense: 'Apache-2.0', generatorCredit: CREDIT,
+      generatedAt: new Date().toISOString(), title: scope.title,
       dataset: ds ? { state: ds.state, stateSource: ds.stateSource, file: ds.name, sizeBytes: ds.size, aixmVersion: (ds.sniff && ds.sniff.versionLabel) || ds.version,
         airacCycle: ds.airac ? ds.airac.id : null, airacCycleDate: ds.airac ? new Date(ds.airac.date).toISOString().slice(0, 10) : null,
         effectiveDate: ds.effective !== null ? new Date(ds.effective).toISOString() : null, effectiveSource: ds.effectiveSource,
@@ -6595,6 +6648,8 @@ var EXPORTS = (function () {
         }
       });
     }
+    wb.Props = { Title: String(scope.title || APP), Subject: String(scope.sub || ''), Author: AUTHOR + ' <' + AUTHOR_EMAIL + '>', Company: APP, Comments: CREDIT, CreatedDate: new Date() };
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[APP], ['Author', AUTHOR], ['E-mail', AUTHOR_EMAIL], ['Licence', 'Apache-2.0'], ['Generated', new Date().toISOString()], ['Title', String(scope.title || '')]]), sheetName('About'));
     XLSX.writeFile(wb, safeName(scope.title) + '.xlsx', { compression: true });
   }
 
@@ -6609,11 +6664,13 @@ var EXPORTS = (function () {
     var secs = flatSections(scope.sections);
     var wide = secs.some(function (s) { return (s.blocks || []).some(function (b) { return b.kind === 'table' && b.cols.length > 6; }); });
     var doc = new jspdf.jsPDF({ orientation: wide ? 'landscape' : 'portrait', unit: 'mm', format: 'a4', compress: true });
+    doc.setProperties({ title: pdfText(scope.title || APP), subject: pdfText(scope.sub || ''), author: AUTHOR + ' <' + AUTHOR_EMAIL + '>', creator: CREDIT, keywords: 'AIXM, AIP, ' + APP });
     var W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
     var ds = scope.ds;
     var head = pdfText([ds ? ds.state + ' AIP DATA' : APP, ds && ds.airac ? 'AIRAC ' + ds.airac.id : ''].filter(Boolean).join('  •  '));
-    var foot = pdfText('Generated by ' + APP + ' from ' + (ds ? ds.name : 'AIXM data') + ' on ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z');
-    var BR = [92, 6, 50];
+    var foot = pdfText((ds ? ds.name : 'AIXM data') + ' - ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z');
+    var credit = pdfText(APP + ' (c) 2026 ' + AUTHOR + ' - ' + AUTHOR_EMAIL);
+    var BR = [61, 26, 110];
     function decorate() {
       var n = doc.internal.getNumberOfPages();
       for (var i = 1; i <= n; i++) {
@@ -6624,6 +6681,7 @@ var EXPORTS = (function () {
         doc.text(pdfText(scope.title).slice(0, 110), W - 10, 6, { align: 'right' });
         doc.setTextColor(110, 100, 105); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
         doc.text(foot, 10, H - 5);
+        doc.text(credit, W / 2, H - 5, { align: 'center' });
         doc.text('Page ' + i + ' / ' + n, W - 10, H - 5, { align: 'right' });
       }
     }
@@ -6662,9 +6720,9 @@ var EXPORTS = (function () {
         doc.autoTable({
           startY: y, head: [br.cols.map(pdfText)], body: rows.map(function (r) { return r.map(pdfText); }),
           theme: 'grid', margin: { left: 10, right: 10, top: 14 },
-          styles: { fontSize: br.cols.length > 10 ? 6.2 : br.cols.length > 6 ? 7 : 8, cellPadding: 1.3, overflow: 'linebreak', lineColor: [210, 200, 206], lineWidth: 0.15, valign: 'top' },
-          headStyles: { fillColor: [241, 230, 236], textColor: [60, 20, 40], fontStyle: 'bold' },
-          alternateRowStyles: { fillColor: [251, 248, 250] }, columnStyles: kvStyles,
+          styles: { fontSize: br.cols.length > 10 ? 6.2 : br.cols.length > 6 ? 7 : 8, cellPadding: 1.3, overflow: 'linebreak', lineColor: [205, 198, 218], lineWidth: 0.15, valign: 'top' },
+          headStyles: { fillColor: [236, 230, 246], textColor: [36, 16, 74], fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [249, 248, 252] }, columnStyles: kvStyles,
           showHead: b.kind === 'kv' ? 'never' : 'everyPage'
         });
         y = doc.lastAutoTable.finalY + 4;
@@ -6684,10 +6742,10 @@ var EXPORTS = (function () {
   /* ----------------------------------------------------------------- print */
   function sectionsHtml(secs, maxRows, inline) {
     var st = inline ? {
-      h2: 'style="font:600 15px Segoe UI,Arial,sans-serif;color:#5c0632;margin:18px 0 6px"',
-      h3: 'style="font:600 13px Segoe UI,Arial,sans-serif;color:#7a1043;margin:10px 0 4px"',
+      h2: 'style="font:600 15px Segoe UI,Arial,sans-serif;color:#3d1a6e;margin:18px 0 6px"',
+      h3: 'style="font:600 13px Segoe UI,Arial,sans-serif;color:#56298f;margin:10px 0 4px"',
       table: 'style="border-collapse:collapse;width:100%;font:12px Segoe UI,Arial,sans-serif;margin-bottom:10px" border="1" cellpadding="4"',
-      th: 'style="background:#f1e6ec;color:#3d0421;text-align:left;border:1px solid #cdbfc7;padding:4px 6px;vertical-align:bottom"',
+      th: 'style="background:#ece6f6;color:#24104a;text-align:left;border:1px solid #cbc3d8;padding:4px 6px;vertical-align:bottom"',
       td: 'style="border:1px solid #d9ced4;padding:4px 6px;vertical-align:top;white-space:pre-wrap"',
       tdl: 'style="border:1px solid #d9ced4;padding:4px 6px;vertical-align:top;color:#6d6268;background:#faf6f8;width:32%"',
       note: 'style="font:italic 12px Segoe UI,Arial,sans-serif;color:#555;margin:4px 0 10px"'
@@ -6718,7 +6776,7 @@ var EXPORTS = (function () {
     if (ds) h += '<table>' + metaLines(ds).map(function (l) { return '<tr><td style="width:30%"><b>' + esc(l[0]) + '</b></td><td>' + esc(l[1]) + '</td></tr>'; }).join('') + '</table>';
     if (scope.mapImage) h += '<img src="' + scope.mapImage + '" style="width:100%;max-height:120mm;object-fit:contain;margin:6px 0">';
     h += sectionsHtml(flatSections(scope.sections), 20000, false);
-    h += '<div class="p-foot">Generated by ' + APP + ' from ' + esc(ds ? ds.name : '') + ' — ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z</div>';
+    h += '<div class="p-foot">Generated by ' + APP + ' (© 2026 ' + AUTHOR + ', ' + AUTHOR_EMAIL + ') from ' + esc(ds ? ds.name : '') + ' — ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z</div>';
     root.innerHTML = h;
     setTimeout(function () { window.print(); }, 60);
   }
@@ -6731,7 +6789,7 @@ var EXPORTS = (function () {
     var meta = metaLines(ds);
     var intro = opt.intro || 'Please find below the aeronautical data extracted from the AIXM file.';
     var html = '<div style="font:14px Segoe UI,Arial,sans-serif;color:#222;max-width:1000px">' +
-      '<div style="background:#5c0632;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0"><div style="font-size:17px;font-weight:700">' + esc(scope.title) + '</div>' +
+      '<div style="background:#3d1a6e;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0"><div style="font-size:17px;font-weight:700">' + esc(scope.title) + '</div>' +
       '<div style="font-size:12.5px;opacity:.9">' + esc(ds ? ds.state : '') + (ds && ds.airac ? ' · AIRAC ' + esc(ds.airac.id) : '') + '</div></div>' +
       '<div style="border:1px solid #e5dde2;border-top:0;padding:14px 16px;border-radius:0 0 8px 8px">' +
       '<p style="margin:0 0 10px">' + esc(intro) + '</p>' +
@@ -6739,14 +6797,14 @@ var EXPORTS = (function () {
         return '<tr><td style="padding:2px 12px 2px 0;color:#6d6268"><b>' + esc(l[0]) + '</b></td><td style="padding:2px 0">' + esc(l[1]) + '</td></tr>';
       }).join('') + '</table>' +
       sectionsHtml(flatSections(scope.sections), opt.maxRows || 300, true) +
-      '<p style="font-size:11.5px;color:#777;margin-top:16px">Generated by ' + APP + ' on ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z. Source file: ' + esc(ds ? ds.name : '') + '</p></div></div>';
+      '<p style="font-size:11.5px;color:#777;margin-top:16px">Generated by ' + APP + ' (© 2026 ' + AUTHOR + ', ' + AUTHOR_EMAIL + ') on ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z. Source file: ' + esc(ds ? ds.name : '') + '</p></div></div>';
     var text = subject + '\n\n' + intro + '\n\n' + meta.map(function (l) { return l[0] + ': ' + l[1]; }).join('\n') + '\n\n' +
       flatSections(scope.sections).map(function (s) {
         return secTitle(s) + '\n' + (s.blocks || []).map(function (b) {
           var br = blockRows(b);
           return (b.title ? b.title + '\n' : '') + (b.kind === 'table' ? br.cols.join(' | ') + '\n' : '') + br.rows.slice(0, opt.maxRows || 300).map(function (r) { return r.join(' | ').replace(/\n/g, ' / '); }).join('\n');
         }).join('\n\n');
-      }).join('\n\n') + '\n\n— Generated by ' + APP;
+      }).join('\n\n') + '\n\n— Generated by ' + APP + ' (© 2026 ' + AUTHOR + ', ' + AUTHOR_EMAIL + ')';
     return { subject: subject, html: html, text: text };
   }
   function b64(str) {
@@ -6788,12 +6846,15 @@ var EXPORTS = (function () {
     }
   }
 
-  return { exportJSON: exportJSON, exportExcel: exportExcel, exportPDF: exportPDF, print: print, emailContent: emailContent, emlBlob: emlBlob, copyRich: copyRich, copyText: copyText,
+  return { CREDIT: CREDIT, AUTHOR: AUTHOR, AUTHOR_EMAIL: AUTHOR_EMAIL, exportJSON: exportJSON, exportExcel: exportExcel, exportPDF: exportPDF, print: print, emailContent: emailContent, emlBlob: emlBlob, copyRich: copyRich, copyText: copyText,
     download: download, safeName: safeName, flatSections: flatSections, fmtSize: fmtSize, toJSON: toJSON, blockRows: blockRows, secTitle: secTitle };
 })();
 </script>
-<script>/* =============================================================================
+<script>/*!
  * AIXM Code Converter - conversions
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  *  - AIXM 5.x version conversion (5.1 <-> 5.1.1 <-> 5.2), streamed, keeps the
  *    original XML text; namespaces / schema locations rewritten, renamed
  *    5.2 features handled, a conversion report lists items needing review
@@ -6804,6 +6865,7 @@ var EXPORTS = (function () {
 var CONVERT = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
+  var CREDIT = 'AIXM Code Converter (c) 2026 Prasad <prasad2t@gmail.com>, Apache-2.0';
 
   function xesc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function uuidFor(key) {
@@ -6845,7 +6907,7 @@ var CONVERT = (function () {
         out = out.replace(/(schemaLocation\s*=\s*")([^"]*)"/, function (m, a, v) {
           return a + v.replace(/(http:\/\/www\.aixm\.aero\/schema\/5[^\s]*\s+)(\S*AIXM_BasicMessage\.xsd)/, function (x, ns) { return ns + LOCFILE[target]; }) + '"';
         });
-        out = out.replace(/(<\?xml[^>]*\?>)/, '$1\n<\!-- Converted from ' + xesc(report.from) + ' to ' + report.to + ' by AIXM Code Converter on ' + new Date().toISOString().slice(0, 10) + '. Review the conversion report. -->');
+        out = out.replace(/(<\?xml[^>]*\?>)/, '$1\n<\!-- Converted from ' + xesc(report.from) + ' to ' + report.to + ' by ' + CREDIT + ' on ' + new Date().toISOString().slice(0, 10) + '. Review the conversion report. -->');
         first = false;
       }
       if (renRe) out = out.replace(renRe, function (m, p, n, sfx) { report.renamed++; return p + ren[n] + (sfx || ''); });
@@ -6928,7 +6990,7 @@ var CONVERT = (function () {
         '          <aixm:interpretation>BASELINE</aixm:interpretation>\n          <aixm:sequenceNumber>1</aixm:sequenceNumber>\n          <aixm:correctionNumber>0</aixm:correctionNumber>\n' +
         props + '        </aixm:' + r.k + 'TimeSlice>\n      </aixm:timeSlice>\n    </aixm:' + r.k + '>\n  </message:hasMember>\n';
     }
-    parts.push('<?xml version="1.0" encoding="UTF-8"?>\n<\!-- Converted from ' + xesc(ds.sniff.versionLabel) + ' (' + xesc(ds.name) + ') to AIXM 5.1.1 by AIXM Code Converter on ' + new Date().toISOString().slice(0, 10) + '.\n     UUIDs are derived deterministically from the AIXM 4.5 identifiers (same input = same UUIDs). -->\n' +
+    parts.push('<?xml version="1.0" encoding="UTF-8"?>\n<\!-- Converted from ' + xesc(ds.sniff.versionLabel) + ' (' + xesc(ds.name) + ') to AIXM 5.1.1 by ' + CREDIT + ' on ' + new Date().toISOString().slice(0, 10) + '.\n     UUIDs are derived deterministically from the AIXM 4.5 identifiers (same input = same UUIDs). -->\n' +
       '<message:AIXMBasicMessage xmlns:message="http://www.aixm.aero/schema/5.1.1/message" xmlns:aixm="http://www.aixm.aero/schema/5.1.1" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
       'xsi:schemaLocation="http://www.aixm.aero/schema/5.1.1/message http://www.aixm.aero/schema/5.1.1/message/AIXM_BasicMessage.xsd" gml:id="MSG_' + uuidFor(ds.name).slice(0, 8) + '">\n');
     for (var i = 0; i < ds.recs.length; i++) parts.push(feature(ds.recs[i]));
@@ -6966,14 +7028,14 @@ var CONVERT = (function () {
     return { type: 'GeometryCollection', geometries: g.parts.map(geojsonGeom) };
   }
   function toGeoJSON(ds, filter) {
-    var parts = ['{"type":"FeatureCollection","name":' + JSON.stringify(ds.state + ' — ' + ds.name) + ',"features":[\n'];
+    var parts = ['{"type":"FeatureCollection","name":' + JSON.stringify(ds.state + ' — ' + ds.name) + ',"generator":' + JSON.stringify(CREDIT) + ',"author":"Prasad","authorEmail":"prasad2t@gmail.com","features":[\n'];
     gisFeatures(ds, filter).forEach(function (f, i) {
       parts.push((i ? ',\n' : '') + JSON.stringify({ type: 'Feature', id: f.r.id, geometry: geojsonGeom(f.g), properties: f.props }));
     });
     parts.push('\n]}\n');
     return new Blob(parts, { type: 'application/geo+json' });
   }
-  var KML_COL = { Airspace: 'ff32065c', RouteSegment: 'ff327d2e', AirportHeliport: 'ff32065c', Runway: 'ff212121', VerticalStructure: 'ff2f2fd3', DesignatedPoint: 'ff995f1d', Navaid: 'ff32065c' };
+  var KML_COL = { Airspace: 'ff6e1a3d', RouteSegment: 'ff327d2e', AirportHeliport: 'ff6e1a3d', Runway: 'ff212121', VerticalStructure: 'ff2f2fd3', DesignatedPoint: 'ff995f1d', Navaid: 'ff6e1a3d' };
   function kmlCoords(c) { return c.filter(function (p) { return typeof p[0] === 'number'; }).map(function (p) { return p[0].toFixed(7) + ',' + p[1].toFixed(7) + ',0'; }).join(' '); }
   function kmlGeom(g) {
     if (g.t === 'P') return '<Point><coordinates>' + kmlCoords([g.c]) + '</coordinates></Point>';
@@ -6985,7 +7047,7 @@ var CONVERT = (function () {
   function toKML(ds, filter) {
     var feats = gisFeatures(ds, filter), byType = {};
     feats.forEach(function (f) { (byType[f.r.k] || (byType[f.r.k] = [])).push(f); });
-    var parts = ['<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>' + xesc(ds.state + ' — ' + ds.name) + '</name>\n'];
+    var parts = ['<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>' + xesc(ds.state + ' — ' + ds.name) + '</name><description>' + xesc('Exported by ' + CREDIT) + '</description>\n'];
     Object.keys(byType).forEach(function (k) {
       var col = KML_COL[k] || 'ff546e7a';
       parts.push('<Style id="s' + k + '"><LineStyle><color>' + col + '</color><width>2</width></LineStyle><PolyStyle><color>33' + col.slice(2) + '</color></PolyStyle><IconStyle><color>' + col + '</color><scale>0.8</scale></IconStyle></Style>\n');
@@ -7088,14 +7150,18 @@ var CONVERT = (function () {
       files[base + '_' + k + '.dbf'] = dbf(st.a); files[base + '_' + k + '.prj'] = new TextEncoder().encode(PRJ);
       files[base + '_' + k + '.cpg'] = new TextEncoder().encode('ISO-8859-1');
     });
-    files['README.txt'] = new TextEncoder().encode('ESRI Shapefiles exported by AIXM Code Converter from ' + ds.name + ' (' + ds.state + ').\nCRS: WGS 84 (EPSG:4326). Attribute AIXMID = AIXM gml:identifier / 4.5 key, LINE = line in the AIXM file.\n');
+    files['README.txt'] = new TextEncoder().encode('ESRI Shapefiles exported by ' + CREDIT + ' from ' + ds.name + ' (' + ds.state + ').\nCRS: WGS 84 (EPSG:4326). Attribute AIXMID = AIXM gml:identifier / 4.5 key, LINE = line in the AIXM file.\n');
     return new Blob([fflate.zipSync(files, { level: 6 })], { type: 'application/zip' });
   }
 
   return { convertVersion: convertVersion, writer45: writer45, toGeoJSON: toGeoJSON, toKML: toKML, toShapefile: toShapefile, uuidFor: uuidFor, gisFeatures: gisFeatures };
 })();
 </script>
-<script>/* =============================================================================
+<script>/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - review tools (no DOM)
  *  - AIRAC AIP amendment (AMDT) report from the changes of a cycle
  *  - side-by-side alignment of two builds of one AIP section (row matching,
@@ -7461,7 +7527,11 @@ var REVIEW = (function () {
     SCENARIO: SCENARIO, Q_SUBJ: Q_SUBJ, Q_COND: Q_COND, ymd: ymd };
 })();
 </script>
-<script>/* =============================================================================
+<script>/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - AIXM 5.1 business rules (SBVR, aixm.aero)
  * Evaluates the rules compiled by tools/build_rules.js on a data set:
  * mandatory and conditional properties, allowed annotation property names,
@@ -7709,7 +7779,11 @@ var RULES = (function () {
   return { run: run, catalogue: catalogue, source: source, describe: describe, setData: function (d) { data = d; } };
 })();
 </script>
-<script>/* =============================================================================
+<script>/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - interface languages (English, Arabic, French, Spanish)
  * The interface text (menus, buttons, headings, AIP section titles and item
  * labels) is translated in place: every text node that exactly matches an
@@ -7900,7 +7974,11 @@ var I18N = (function () {
   return { LANGS: LANGS, set: set, init: init, t: function (s) { return tr(s) || s; }, lang: function () { return lang; }, count: T.length };
 })();
 </script>
-<script>/* =============================================================================
+<script>/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - application (UI, extraction orchestration)
  * ========================================================================== */
 /* global AX, MODEL, AIP, ANALYSIS, MAPVIEW, EXPORTS, fflate */
@@ -7938,6 +8016,10 @@ var I18N = (function () {
     $('#toasts').appendChild(t);
     setTimeout(function () { t.remove(); }, ms || 3800);
   }
+  // Author of the AIXM Code Converter (Apache-2.0: this attribution must be kept in redistributions, see NOTICE)
+  var AUTHOR = 'Prasad', AUTHOR_EMAIL = 'prasad2t@gmail.com';
+  var AUTHOR_LINE = 'AIXM Code Converter — © 2026 ' + AUTHOR + ' · ' + AUTHOR_EMAIL + ' · Apache-2.0';
+  try { console.info('%c AIXM Code Converter %c © 2026 ' + AUTHOR + ' <' + AUTHOR_EMAIL + '> · Apache-2.0 ', 'background:#3d1a6e;color:#fff;font-weight:bold;padding:2px 6px', 'color:#3d1a6e'); } catch (e) { /* no console */ }
   function dsOf() { return S.datasets[S.active] || null; }
   var LITE_AUTO = 1.5 * 1024 * 1024 * 1024;
   try { S.memMode = localStorage.getItem('aixm-mem') || 'auto'; } catch (e) { S.memMode = 'auto'; }
@@ -7991,9 +8073,10 @@ var I18N = (function () {
       if (!v) return '<div class="nav-sep"></div>';
       var dis = !has && v[0] !== 'files' && v[0] !== 'library';
       return '<button data-view="' + v[0] + '" class="' + (S.view === v[0] ? 'active' : '') + '"' + (dis ? ' disabled' : '') + ' title="' + v[1] + '">' + v[2] + '<span>' + v[1] + '</span></button>';
-    }).join('');
+    }).join('') + '<div class="nav-credit" data-about="1" title="' + AUTHOR_LINE + '">© 2026<br>Prasad</div>';
   }
   $('#nav').addEventListener('click', function (e) {
+    if (e.target.closest('[data-about]')) { showHelp(true); return; }
     var b = e.target.closest('button[data-view]');
     if (b && !b.disabled) go(b.getAttribute('data-view'));
   });
@@ -8038,7 +8121,8 @@ var I18N = (function () {
       step(3, 'Read like the ICAO AIP', 'GEN / ENR / AD pages, map, effective dates, AIRAC cycle, changes. Every value links to its exact AIXM code.') +
       step(4, 'Share', 'Export any section or everything to JSON, Excel, PDF, print, or a ready e-mail for Outlook.') + '</div></div>' +
       '<div class="filelist" id="filelist"></div>' +
-      '<div class="extract-bar card" id="extract-bar"></div>';
+      '<div class="extract-bar card" id="extract-bar"></div>' +
+      '<div class="credit-line">AIXM Code Converter · created by <b>Prasad</b> · <a href="mailto:prasad2t@gmail.com">prasad2t@gmail.com</a> · © 2026 · open source (Apache-2.0)</div>';
     var drop = $('#drop', v);
     drop.addEventListener('click', function () { $('#file-input').click(); });
     ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
@@ -9951,7 +10035,8 @@ var I18N = (function () {
   document.addEventListener('click', function (e) { if (!e.target.closest('#search-wrap')) closeSearch(); });
 
   /* ------------------------------------------------------------- help */
-  $('#help-btn').addEventListener('click', function () {
+  $('#help-btn').addEventListener('click', function () { showHelp(false); });
+  function showHelp(about) {
     var back = document.createElement('div');
     back.className = 'modal-back';
     back.innerHTML = '<div class="modal"><div class="modal-head">' + I.info.replace('<svg', '<svg width="20" height="20"') + '<h3>AIXM Code Converter — help</h3><span class="sp"></span><button class="btn small ghost" data-close>' + I.x + '</button></div><div class="modal-body">' +
@@ -9965,10 +10050,13 @@ var I18N = (function () {
       '<p><b>Library, links and languages.</b> Connect a folder with one sub-folder per State; extracted data is kept for instant reopening. ☆ saves views; the address (#…) of any view can be shared. The interface is available in English, العربية (right-to-left), Français and Español. Files over 1.5 GB use the Lite memory mode automatically.</p>' +
       '<p><b>Exports.</b> Any single section or the whole data set: JSON (with source references), Excel, printable PDF, print, or an e-mail to paste into Outlook (.eml opens as a draft).</p>' +
       '<p><b>Sources.</b> AIXM schemas, code lists and definitions from aixm.aero (4.5 r2, 5.1, 5.1.1, 5.2), AIXM temporality and feature-identification concepts, ICAO Annex 15 / PANS-AIM AIP structure. Base map: Natural Earth (public domain). Libraries: Leaflet, SheetJS, jsPDF, fflate, topojson.</p>' +
-      '<p class="muted">Keyboard: <span class="kbd">Ctrl</span>+<span class="kbd">K</span> search · <span class="kbd">Esc</span> close panels.</p></div></div>';
+      '<p class="muted">Keyboard: <span class="kbd">Ctrl</span>+<span class="kbd">K</span> search · <span class="kbd">Esc</span> close panels.</p>' +
+      '<div class="about-box" id="about"><b>About</b><div>AIXM Code Converter — created by <b>Prasad</b> (<a href="mailto:prasad2t@gmail.com">prasad2t@gmail.com</a>).</div><div>© 2026 Prasad. Open source under the Apache License 2.0; redistributions must keep this attribution (see the NOTICE file).</div>' +
+      '<div class="muted" style="font-size:12px">Includes Leaflet (BSD-2), SheetJS CE (Apache-2.0), jsPDF and jsPDF-AutoTable (MIT), fflate (MIT), TopoJSON client and world-atlas (ISC), Natural Earth data (public domain), AIXM schemas and business rules © EUROCONTROL & FAA (aixm.aero).</div></div></div></div>';
     document.body.appendChild(back);
     back.addEventListener('click', function (e) { if (e.target === back || e.target.closest('[data-close]')) back.remove(); });
-  });
+    if (about) { var ab = back.querySelector('#about'); if (ab) ab.scrollIntoView({ block: 'center' }); }
+  }
 
   /* ------------------------------------------------------------ start */
   window.addEventListener('beforeunload', function (e) { if (S.datasets.length) { e.preventDefault(); e.returnValue = ''; } });

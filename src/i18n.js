@@ -1,4 +1,8 @@
-/* =============================================================================
+/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - interface languages (English, Arabic, French, Spanish)
  * The interface text (menus, buttons, headings, AIP section titles and item
  * labels) is translated in place: every text node that exactly matches an

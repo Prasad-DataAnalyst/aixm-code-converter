@@ -1,4 +1,8 @@
-/* =============================================================================
+/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - core engine
  * Shared by the main thread and the background parser workers.
  *  - version sniffing (AIXM 4.5 / 5.0 / 5.1 / 5.1.1 / 5.2 / 5.2 pre-releases)

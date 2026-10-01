@@ -1,4 +1,8 @@
-/* =============================================================================
+/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - ICAO AIP (specimen) section builders
  * Each builder returns a section {id, title, blocks[], recs[]} where blocks are
  *   {kind:'kv', rows:[{no,label,cells:[cell]}]}

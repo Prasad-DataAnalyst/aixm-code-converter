@@ -1,4 +1,8 @@
-/* =============================================================================
+/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - application (UI, extraction orchestration)
  * ========================================================================== */
 /* global AX, MODEL, AIP, ANALYSIS, MAPVIEW, EXPORTS, fflate */
@@ -36,6 +40,10 @@
     $('#toasts').appendChild(t);
     setTimeout(function () { t.remove(); }, ms || 3800);
   }
+  // Author of the AIXM Code Converter (Apache-2.0: this attribution must be kept in redistributions, see NOTICE)
+  var AUTHOR = 'Prasad', AUTHOR_EMAIL = 'prasad2t@gmail.com';
+  var AUTHOR_LINE = 'AIXM Code Converter — © 2026 ' + AUTHOR + ' · ' + AUTHOR_EMAIL + ' · Apache-2.0';
+  try { console.info('%c AIXM Code Converter %c © 2026 ' + AUTHOR + ' <' + AUTHOR_EMAIL + '> · Apache-2.0 ', 'background:#3d1a6e;color:#fff;font-weight:bold;padding:2px 6px', 'color:#3d1a6e'); } catch (e) { /* no console */ }
   function dsOf() { return S.datasets[S.active] || null; }
   var LITE_AUTO = 1.5 * 1024 * 1024 * 1024;
   try { S.memMode = localStorage.getItem('aixm-mem') || 'auto'; } catch (e) { S.memMode = 'auto'; }
@@ -89,9 +97,10 @@
       if (!v) return '<div class="nav-sep"></div>';
       var dis = !has && v[0] !== 'files' && v[0] !== 'library';
       return '<button data-view="' + v[0] + '" class="' + (S.view === v[0] ? 'active' : '') + '"' + (dis ? ' disabled' : '') + ' title="' + v[1] + '">' + v[2] + '<span>' + v[1] + '</span></button>';
-    }).join('');
+    }).join('') + '<div class="nav-credit" data-about="1" title="' + AUTHOR_LINE + '">© 2026<br>Prasad</div>';
   }
   $('#nav').addEventListener('click', function (e) {
+    if (e.target.closest('[data-about]')) { showHelp(true); return; }
     var b = e.target.closest('button[data-view]');
     if (b && !b.disabled) go(b.getAttribute('data-view'));
   });
@@ -136,7 +145,8 @@
       step(3, 'Read like the ICAO AIP', 'GEN / ENR / AD pages, map, effective dates, AIRAC cycle, changes. Every value links to its exact AIXM code.') +
       step(4, 'Share', 'Export any section or everything to JSON, Excel, PDF, print, or a ready e-mail for Outlook.') + '</div></div>' +
       '<div class="filelist" id="filelist"></div>' +
-      '<div class="extract-bar card" id="extract-bar"></div>';
+      '<div class="extract-bar card" id="extract-bar"></div>' +
+      '<div class="credit-line">AIXM Code Converter · created by <b>Prasad</b> · <a href="mailto:prasad2t@gmail.com">prasad2t@gmail.com</a> · © 2026 · open source (Apache-2.0)</div>';
     var drop = $('#drop', v);
     drop.addEventListener('click', function () { $('#file-input').click(); });
     ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
@@ -2049,7 +2059,8 @@
   document.addEventListener('click', function (e) { if (!e.target.closest('#search-wrap')) closeSearch(); });
 
   /* ------------------------------------------------------------- help */
-  $('#help-btn').addEventListener('click', function () {
+  $('#help-btn').addEventListener('click', function () { showHelp(false); });
+  function showHelp(about) {
     var back = document.createElement('div');
     back.className = 'modal-back';
     back.innerHTML = '<div class="modal"><div class="modal-head">' + I.info.replace('<svg', '<svg width="20" height="20"') + '<h3>AIXM Code Converter — help</h3><span class="sp"></span><button class="btn small ghost" data-close>' + I.x + '</button></div><div class="modal-body">' +
@@ -2063,10 +2074,13 @@
       '<p><b>Library, links and languages.</b> Connect a folder with one sub-folder per State; extracted data is kept for instant reopening. ☆ saves views; the address (#…) of any view can be shared. The interface is available in English, العربية (right-to-left), Français and Español. Files over 1.5 GB use the Lite memory mode automatically.</p>' +
       '<p><b>Exports.</b> Any single section or the whole data set: JSON (with source references), Excel, printable PDF, print, or an e-mail to paste into Outlook (.eml opens as a draft).</p>' +
       '<p><b>Sources.</b> AIXM schemas, code lists and definitions from aixm.aero (4.5 r2, 5.1, 5.1.1, 5.2), AIXM temporality and feature-identification concepts, ICAO Annex 15 / PANS-AIM AIP structure. Base map: Natural Earth (public domain). Libraries: Leaflet, SheetJS, jsPDF, fflate, topojson.</p>' +
-      '<p class="muted">Keyboard: <span class="kbd">Ctrl</span>+<span class="kbd">K</span> search · <span class="kbd">Esc</span> close panels.</p></div></div>';
+      '<p class="muted">Keyboard: <span class="kbd">Ctrl</span>+<span class="kbd">K</span> search · <span class="kbd">Esc</span> close panels.</p>' +
+      '<div class="about-box" id="about"><b>About</b><div>AIXM Code Converter — created by <b>Prasad</b> (<a href="mailto:prasad2t@gmail.com">prasad2t@gmail.com</a>).</div><div>© 2026 Prasad. Open source under the Apache License 2.0; redistributions must keep this attribution (see the NOTICE file).</div>' +
+      '<div class="muted" style="font-size:12px">Includes Leaflet (BSD-2), SheetJS CE (Apache-2.0), jsPDF and jsPDF-AutoTable (MIT), fflate (MIT), TopoJSON client and world-atlas (ISC), Natural Earth data (public domain), AIXM schemas and business rules © EUROCONTROL & FAA (aixm.aero).</div></div></div></div>';
     document.body.appendChild(back);
     back.addEventListener('click', function (e) { if (e.target === back || e.target.closest('[data-close]')) back.remove(); });
-  });
+    if (about) { var ab = back.querySelector('#about'); if (ab) ab.scrollIntoView({ block: 'center' }); }
+  }
 
   /* ------------------------------------------------------------ start */
   window.addEventListener('beforeunload', function (e) { if (S.datasets.length) { e.preventDefault(); e.returnValue = ''; } });

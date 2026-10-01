@@ -1,3 +1,5 @@
+// AIXM Code Converter - Copyright 2026 Prasad <prasad2t@gmail.com>
+// SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 // Assembles src/index.html + libraries + data into ONE self-contained offline HTML file.
 // Usage: node tools/build.js   ->  AIXM-Code-Converter.html
 const fs = require('fs');

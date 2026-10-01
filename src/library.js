@@ -1,4 +1,8 @@
-/* =============================================================================
+/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - local State library + persistent cache
  *  - connects to a folder on the local drive (File System Access API) whose
  *    sub-folders are States (e.g. Saudi, UAE, India); the folder handle is kept

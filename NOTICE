@@ -1,0 +1,28 @@
+AIXM Code Converter
+Copyright 2026 Prasad <prasad2t@gmail.com>
+
+This product was created by Prasad (prasad2t@gmail.com).
+
+Under section 4(d) of the Apache License 2.0, any redistribution of this
+work or of a derivative work must include a readable copy of the
+attribution notices in this NOTICE file. Please keep the author's name and
+e-mail address in the application (About, side menu, Files view), in the
+exported files (PDF, Excel, JSON, e-mail, map images, converted AIXM,
+GeoJSON, KML, Shapefile) and in the source file headers.
+
+----------------------------------------------------------------------------
+Third-party components included in AIXM-Code-Converter.html
+----------------------------------------------------------------------------
+Leaflet                      BSD-2-Clause    (c) Volodymyr Agafonkin, CloudMade
+SheetJS Community Edition    Apache-2.0      (c) SheetJS LLC
+jsPDF                        MIT             (c) James Hall, yWorks GmbH and contributors
+jsPDF-AutoTable              MIT             (c) Simon Bengtsson
+fflate                       MIT             (c) Arjun Barrett
+TopoJSON client              ISC             (c) Michael Bostock
+world-atlas                  ISC             (c) Michael Bostock; data from Natural Earth (public domain)
+
+Aeronautical reference material
+AIXM XML Schemas (4.5, 5.1, 5.1.1, 5.2), AIXM code-list definitions, the
+AIXM 5.1 business rules (SBVR) and the Donlon / Digital NOTAM sample data
+are published by EUROCONTROL and the US FAA at https://aixm.aero and remain
+subject to their own copyright and terms.

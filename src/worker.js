@@ -1,4 +1,8 @@
-/* =============================================================================
+/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
  * AIXM Code Converter - streaming parser worker
  * Scans one byte range of a (possibly multi-GB) AIXM file without loading it
  * into memory: 16 MB chunks are decoded 1:1 (windows-1252) for fast native
