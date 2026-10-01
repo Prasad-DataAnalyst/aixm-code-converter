@@ -1,6 +1,6 @@
 # AIXM Code Converter
 
-**Created by Prasad · [prasad2t@gmail.com](mailto:prasad2t@gmail.com)** · © 2026 Prasad · Open source under the
+**Created by Prasad Selvaraj · [prasad2t@gmail.com](mailto:prasad2t@gmail.com)** · © 2026 Prasad Selvaraj · Open source under the
 [Apache License 2.0](LICENSE) — redistributions must keep this attribution ([NOTICE](NOTICE)).
 
 **One offline HTML file** that reads AIXM files of any version and shows the aeronautical data the way an
@@ -53,7 +53,7 @@ nothing to install, no server and no internet requirement. No data leaves the co
 | **Online maps** | OpenStreetMap through CARTO Voyager (works from a local file); if a tile server refuses the page, the map switches automatically. The chosen base map is remembered. |
 | **State detection** | STATE authority, ICAO location indicators (aerodromes, FIRs, NOTAM locations, procedure names, reference titles) and, if nothing else, the country under the data; a file with only a weak guess takes the State of a loaded file with the same ICAO prefix. |
 
-Theme: dark purple and white, in light and dark modes.
+Theme: navy blue and white with magenta accents (the colours of ICAO aeronautical charts), in light and dark modes.
 
 ## Performance (measured)
 
@@ -99,7 +99,7 @@ All of this comes from **aixm.aero** and the AIXM GitHub organisation, and is co
 aixm-code-converter/
 ├── AIXM-Code-Converter.html   ← the single-file application (built)
 ├── LICENSE                     Apache License 2.0
-├── NOTICE                      attribution that redistributions must keep (author: Prasad, prasad2t@gmail.com)
+├── NOTICE                      attribution that redistributions must keep (author: Prasad Selvaraj, prasad2t@gmail.com)
 ├── src/                        ← sources
 │   ├── index.html              HTML shell (placeholders are filled by the build)
 │   ├── styles.css              design system (light/dark, print)
@@ -155,9 +155,9 @@ node tools/e2e_big.js /path/to/1gb.xml                # large-file timing and me
 
 ## Author and licence
 
-**AIXM Code Converter** was created by **Prasad** — [prasad2t@gmail.com](mailto:prasad2t@gmail.com).
+**AIXM Code Converter** was created by **Prasad Selvaraj** — [prasad2t@gmail.com](mailto:prasad2t@gmail.com).
 
-Copyright 2026 Prasad. Licensed under the [Apache License, Version 2.0](LICENSE). Under section 4(d) of the licence, anyone
+Copyright 2026 Prasad Selvaraj. Licensed under the [Apache License, Version 2.0](LICENSE). Under section 4(d) of the licence, anyone
 who redistributes this work or a work derived from it must keep the attribution notices of the [NOTICE](NOTICE) file. The
 author's name and e-mail appear in the application (top bar, side menu, Files view, Help → About), in every exported file
 (PDF properties and footer, Excel properties and *About* sheet, JSON metadata, e-mail text, map images, converted AIXM,

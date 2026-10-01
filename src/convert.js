@@ -1,6 +1,6 @@
 /*!
  * AIXM Code Converter - conversions
- * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com> - author of the AIXM Code Converter
  * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
  * ==========================================================================
  *  - AIXM 5.x version conversion (5.1 <-> 5.1.1 <-> 5.2), streamed, keeps the
@@ -13,7 +13,7 @@
 var CONVERT = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
-  var CREDIT = 'AIXM Code Converter (c) 2026 Prasad <prasad2t@gmail.com>, Apache-2.0';
+  var CREDIT = 'AIXM Code Converter (c) 2026 Prasad Selvaraj <prasad2t@gmail.com>, Apache-2.0';
 
   function xesc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function uuidFor(key) {
@@ -176,14 +176,14 @@ var CONVERT = (function () {
     return { type: 'GeometryCollection', geometries: g.parts.map(geojsonGeom) };
   }
   function toGeoJSON(ds, filter) {
-    var parts = ['{"type":"FeatureCollection","name":' + JSON.stringify(ds.state + ' — ' + ds.name) + ',"generator":' + JSON.stringify(CREDIT) + ',"author":"Prasad","authorEmail":"prasad2t@gmail.com","features":[\n'];
+    var parts = ['{"type":"FeatureCollection","name":' + JSON.stringify(ds.state + ' — ' + ds.name) + ',"generator":' + JSON.stringify(CREDIT) + ',"author":"Prasad Selvaraj","authorEmail":"prasad2t@gmail.com","features":[\n'];
     gisFeatures(ds, filter).forEach(function (f, i) {
       parts.push((i ? ',\n' : '') + JSON.stringify({ type: 'Feature', id: f.r.id, geometry: geojsonGeom(f.g), properties: f.props }));
     });
     parts.push('\n]}\n');
     return new Blob(parts, { type: 'application/geo+json' });
   }
-  var KML_COL = { Airspace: 'ff6e1a3d', RouteSegment: 'ff327d2e', AirportHeliport: 'ff6e1a3d', Runway: 'ff212121', VerticalStructure: 'ff2f2fd3', DesignatedPoint: 'ff995f1d', Navaid: 'ff6e1a3d' };
+  var KML_COL = { Airspace: 'ff4a2a0b', RouteSegment: 'ff327d2e', AirportHeliport: 'ff4a2a0b', Runway: 'ff212121', VerticalStructure: 'ff2f2fd3', DesignatedPoint: 'ff995f1d', Navaid: 'ff4a2a0b' };
   function kmlCoords(c) { return c.filter(function (p) { return typeof p[0] === 'number'; }).map(function (p) { return p[0].toFixed(7) + ',' + p[1].toFixed(7) + ',0'; }).join(' '); }
   function kmlGeom(g) {
     if (g.t === 'P') return '<Point><coordinates>' + kmlCoords([g.c]) + '</coordinates></Point>';

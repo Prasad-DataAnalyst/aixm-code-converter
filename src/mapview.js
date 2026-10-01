@@ -1,6 +1,6 @@
 /*!
  * AIXM Code Converter
- * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com> - author of the AIXM Code Converter
  * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
  * ==========================================================================
  * AIXM Code Converter - map view (Leaflet)
@@ -18,8 +18,8 @@ var MAPVIEW = (function () {
   var over = {}, vec = null, state = { ds: null, cmp: null, labels: true, measure: null, filters: {} };
 
   var COLORS = {
-    fir: '#3d1a6e', cta: '#1d5f99', ctr: '#b3261e', atz: '#d9480f', prd: '#c2185b', mil: '#8d6e00', other: '#546e7a',
-    route: '#2e7d32', rnav: '#00838f', rwy: '#212121', apron: '#8d6e63', obst: '#d32f2f', dp: '#1d5f99', nav: '#3d1a6e', ad: '#3d1a6e'
+    fir: '#0b2a4a', cta: '#1d5f99', ctr: '#b3261e', atz: '#d9480f', prd: '#c2185b', mil: '#8d6e00', other: '#546e7a',
+    route: '#2e7d32', rnav: '#00838f', rwy: '#212121', apron: '#8d6e63', obst: '#d32f2f', dp: '#1d5f99', nav: '#0b2a4a', ad: '#0b2a4a'
   };
   function asCat(t) {
     if (/^(FIR|UIR|NAS|OCA|UTA)/.test(t)) return 'fir';
@@ -160,8 +160,8 @@ var MAPVIEW = (function () {
         vis.push(p);
       }
       var minZ = opt.minZoom || 0;
-      if (z < minZ && vis.length > (opt.maxBelow || 300)) return drawCluster(ctx, m, vis, opt.color || '#3d1a6e');
-      if (vis.length > (opt.cluster || 6000)) return drawCluster(ctx, m, vis, opt.color || '#3d1a6e');
+      if (z < minZ && vis.length > (opt.maxBelow || 300)) return drawCluster(ctx, m, vis, opt.color || '#0b2a4a');
+      if (vis.length > (opt.cluster || 6000)) return drawCluster(ctx, m, vis, opt.color || '#0b2a4a');
       var showLabels = state.labels && vis.length <= (opt.maxLabels || 700) && z >= (opt.labelZoom || 0);
       ctx.font = '600 11px "Segoe UI", system-ui, sans-serif';
       ctx.textBaseline = 'middle';
@@ -582,11 +582,11 @@ var MAPVIEW = (function () {
       return;
     }
     var pts = [], layer = L.layerGroup().addTo(map);
-    var line = L.polyline([], { color: '#3d1a6e', weight: 3, dashArray: '6 6' }).addTo(layer);
+    var line = L.polyline([], { color: '#0b2a4a', weight: 3, dashArray: '6 6' }).addTo(layer);
     function onClick(e) {
       pts.push([e.latlng.lng, e.latlng.lat]);
       line.setLatLngs(pts.map(ll));
-      L.circleMarker(e.latlng, { radius: 4, color: '#3d1a6e', fillOpacity: 1 }).addTo(layer);
+      L.circleMarker(e.latlng, { radius: 4, color: '#0b2a4a', fillOpacity: 1 }).addTo(layer);
       var tot = 0, legs = [];
       for (var i = 1; i < pts.length; i++) { var d = AX.distNM(pts[i - 1], pts[i]); tot += d; legs.push(AX.bearing(pts[i - 1], pts[i]).toFixed(0).padStart(3, '0') + '°T ' + d.toFixed(1) + ' NM'); }
       el.status.textContent = pts.length < 2 ? 'Click the next point…' : 'Total ' + tot.toFixed(2) + ' NM / ' + (tot * 1.852).toFixed(2) + ' km  |  ' + legs.slice(-3).join('  ·  ');
@@ -854,9 +854,9 @@ var MAPVIEW = (function () {
       });
     }
     // frame and title
-    ctx.strokeStyle = '#3d1a6e'; ctx.lineWidth = 4 * k; ctx.strokeRect(2 * k, 2 * k, w - 4 * k, h - 4 * k);
+    ctx.strokeStyle = '#0b2a4a'; ctx.lineWidth = 4 * k; ctx.strokeRect(2 * k, 2 * k, w - 4 * k, h - 4 * k);
     if (opt.title) {
-      ctx.fillStyle = 'rgba(61,26,110,.95)'; ctx.fillRect(0, 0, w, top);
+      ctx.fillStyle = 'rgba(11,42,74,.95)'; ctx.fillRect(0, 0, w, top);
       ctx.fillStyle = '#fff'; ctx.font = '600 ' + Math.round(16 * k) + 'px "Segoe UI", Arial, sans-serif'; ctx.fillText(opt.title, 14 * k, 23 * k);
       if (opt.sub) { ctx.font = Math.round(12 * k) + 'px "Segoe UI", Arial, sans-serif'; var tw = ctx.measureText(opt.sub).width; ctx.fillText(opt.sub, w - tw - 14 * k, 22 * k); }
     }
@@ -864,8 +864,8 @@ var MAPVIEW = (function () {
     if (opt.north !== false) {
       var nx = w - 46 * k, ny = top + 60 * k, r = 20 * k;
       ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(nx, ny, r + 8 * k, 0, 2 * Math.PI); ctx.fill(); ctx.strokeStyle = '#555'; ctx.lineWidth = k; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(nx, ny - r); ctx.lineTo(nx + r * 0.45, ny + r * 0.6); ctx.lineTo(nx, ny + r * 0.25); ctx.closePath(); ctx.fillStyle = '#3d1a6e'; ctx.fill();
-      ctx.beginPath(); ctx.moveTo(nx, ny - r); ctx.lineTo(nx - r * 0.45, ny + r * 0.6); ctx.lineTo(nx, ny + r * 0.25); ctx.closePath(); ctx.fillStyle = '#b8a6dc'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(nx, ny - r); ctx.lineTo(nx + r * 0.45, ny + r * 0.6); ctx.lineTo(nx, ny + r * 0.25); ctx.closePath(); ctx.fillStyle = '#0b2a4a'; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(nx, ny - r); ctx.lineTo(nx - r * 0.45, ny + r * 0.6); ctx.lineTo(nx, ny + r * 0.25); ctx.closePath(); ctx.fillStyle = '#a9bfdc'; ctx.fill();
       ctx.fillStyle = '#222'; ctx.font = '700 ' + Math.round(11 * k) + 'px Arial'; ctx.fillText('N', nx - 4 * k, ny - r - 9 * k);
     }
     // legend
@@ -886,7 +886,7 @@ var MAPVIEW = (function () {
         ctx.font = Math.round(12 * k) + 'px Arial';
         var lh = 18 * k, lw = Math.max(170 * k, 50 * k + Math.max.apply(null, items.map(function (it) { return ctx.measureText(it[2]).width; }))), lx = 12 * k, lyy = h - 46 * k - items.length * lh - 22 * k;
         ctx.fillStyle = 'rgba(255,255,255,.93)'; ctx.fillRect(lx, lyy, lw, items.length * lh + 26 * k); ctx.strokeStyle = '#999'; ctx.lineWidth = k; ctx.strokeRect(lx, lyy, lw, items.length * lh + 26 * k);
-        ctx.fillStyle = '#3d1a6e'; ctx.font = '700 ' + Math.round(12 * k) + 'px Arial'; ctx.fillText('LEGEND', lx + 8 * k, lyy + 16 * k);
+        ctx.fillStyle = '#0b2a4a'; ctx.font = '700 ' + Math.round(12 * k) + 'px Arial'; ctx.fillText('LEGEND', lx + 8 * k, lyy + 16 * k);
         items.forEach(function (it, i) {
           var yy = lyy + 26 * k + i * lh + lh / 2, x0 = lx + 10 * k;
           if (it[0] === 'area') { ctx.globalAlpha = 0.15; ctx.fillStyle = it[1]; ctx.fillRect(x0, yy - 6 * k, 26 * k, 12 * k); ctx.globalAlpha = 1; ctx.strokeStyle = it[1]; ctx.lineWidth = 1.5 * k; ctx.setLineDash(it[3] ? [4 * k, 3 * k] : []); ctx.strokeRect(x0, yy - 6 * k, 26 * k, 12 * k); ctx.setLineDash([]); }
@@ -906,7 +906,7 @@ var MAPVIEW = (function () {
       ctx.font = Math.round(12 * k) + 'px Arial'; ctx.fillText(nice + ' NM (' + (nice * 1.852).toFixed(nice < 5 ? 1 : 0) + ' km)', sx + len + 8 * k, h - 22 * k);
     }
     ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = Math.round(10 * k) + 'px Arial';
-    var foot = (opt.footer ? opt.footer + '  ·  ' : '') + 'AIXM Code Converter © 2026 Prasad (prasad2t@gmail.com)  ·  Base map: Natural Earth (public domain) · Mercator · not for navigation';
+    var foot = (opt.footer ? opt.footer + '  ·  ' : '') + 'AIXM Code Converter © 2026 Prasad Selvaraj (prasad2t@gmail.com)  ·  Base map: Natural Earth (public domain) · Mercator · not for navigation';
     var fw = ctx.measureText(foot).width; ctx.fillRect(w - fw - 16 * k, h - 20 * k, fw + 12 * k, 16 * k); ctx.fillStyle = '#555'; ctx.fillText(foot, w - fw - 10 * k, h - 8 * k);
     return c.toDataURL('image/png');
   }
@@ -966,7 +966,7 @@ var MAPVIEW = (function () {
       var bb = rect ? rect.getBounds() : null; if (rect) map.removeLayer(rect);
       if (ok && bb && bb.isValid()) printDialog(bb);
     }
-    function down(e) { start = e.latlng; rect = L.rectangle([start, start], { color: '#3d1a6e', weight: 2, dashArray: '6 4', fillOpacity: 0.08 }).addTo(map); }
+    function down(e) { start = e.latlng; rect = L.rectangle([start, start], { color: '#0b2a4a', weight: 2, dashArray: '6 4', fillOpacity: 0.08 }).addTo(map); }
     function move(e) { if (start && rect) rect.setBounds([start, e.latlng]); }
     function up() { if (start) done(true); }
     function key(e) { if (e.key === 'Escape') done(false); }

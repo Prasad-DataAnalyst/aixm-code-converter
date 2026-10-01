@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# AIXM Code Converter - Copyright 2026 Prasad <prasad2t@gmail.com>
+# AIXM Code Converter - Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com>
 # SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 """Compile the official AIXM XML schemas (schemas/<version>/*.xsd) into a compact
 JSON dictionary that is embedded in the single-file application.

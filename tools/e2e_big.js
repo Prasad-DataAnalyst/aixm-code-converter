@@ -1,4 +1,4 @@
-// AIXM Code Converter - Copyright 2026 Prasad <prasad2t@gmail.com>
+// AIXM Code Converter - Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com>
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 // Large-file test: extract a (multi-)GB AIXM file in headless Chromium and report timings / memory.
 // Usage: node tools/e2e_big.js <file.xml> [outdir]

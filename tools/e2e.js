@@ -1,4 +1,4 @@
-// AIXM Code Converter - Copyright 2026 Prasad <prasad2t@gmail.com>
+// AIXM Code Converter - Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com>
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 // End-to-end test in headless Chromium: load the single HTML file, extract the
 // sample files, visit every view, take screenshots and exercise the exports.

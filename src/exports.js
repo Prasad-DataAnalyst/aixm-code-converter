@@ -1,6 +1,6 @@
 /*!
  * AIXM Code Converter - exports: JSON, Excel (.xlsx), PDF, print, e-mail
- * Copyright 2026 Prasad <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com> - author of the AIXM Code Converter
  * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
  * ==========================================================================
  * AIXM Code Converter - exports: JSON, Excel (.xlsx), PDF, print, e-mail
@@ -14,7 +14,7 @@ var EXPORTS = (function () {
   var M = MODEL;
   var APP = 'AIXM Code Converter';
   // Author credit written into every exported file (Apache-2.0 NOTICE: must be kept by redistributors)
-  var AUTHOR = 'Prasad', AUTHOR_EMAIL = 'prasad2t@gmail.com';
+  var AUTHOR = 'Prasad Selvaraj', AUTHOR_EMAIL = 'prasad2t@gmail.com';
   var CREDIT = APP + ' - (c) 2026 ' + AUTHOR + ' <' + AUTHOR_EMAIL + '>';
 
   function flatSections(list) {
@@ -192,7 +192,7 @@ var EXPORTS = (function () {
     var head = pdfText([ds ? ds.state + ' AIP DATA' : APP, ds && ds.airac ? 'AIRAC ' + ds.airac.id : ''].filter(Boolean).join('  •  '));
     var foot = pdfText((ds ? ds.name : 'AIXM data') + ' - ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z');
     var credit = pdfText(APP + ' (c) 2026 ' + AUTHOR + ' - ' + AUTHOR_EMAIL);
-    var BR = [61, 26, 110];
+    var BR = [11, 42, 74];
     function decorate() {
       var n = doc.internal.getNumberOfPages();
       for (var i = 1; i <= n; i++) {
@@ -242,9 +242,9 @@ var EXPORTS = (function () {
         doc.autoTable({
           startY: y, head: [br.cols.map(pdfText)], body: rows.map(function (r) { return r.map(pdfText); }),
           theme: 'grid', margin: { left: 10, right: 10, top: 14 },
-          styles: { fontSize: br.cols.length > 10 ? 6.2 : br.cols.length > 6 ? 7 : 8, cellPadding: 1.3, overflow: 'linebreak', lineColor: [205, 198, 218], lineWidth: 0.15, valign: 'top' },
-          headStyles: { fillColor: [236, 230, 246], textColor: [36, 16, 74], fontStyle: 'bold' },
-          alternateRowStyles: { fillColor: [249, 248, 252] }, columnStyles: kvStyles,
+          styles: { fontSize: br.cols.length > 10 ? 6.2 : br.cols.length > 6 ? 7 : 8, cellPadding: 1.3, overflow: 'linebreak', lineColor: [195, 204, 216], lineWidth: 0.15, valign: 'top' },
+          headStyles: { fillColor: [230, 237, 245], textColor: [6, 26, 51], fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: [248, 250, 252] }, columnStyles: kvStyles,
           showHead: b.kind === 'kv' ? 'never' : 'everyPage'
         });
         y = doc.lastAutoTable.finalY + 4;
@@ -264,10 +264,10 @@ var EXPORTS = (function () {
   /* ----------------------------------------------------------------- print */
   function sectionsHtml(secs, maxRows, inline) {
     var st = inline ? {
-      h2: 'style="font:600 15px Segoe UI,Arial,sans-serif;color:#3d1a6e;margin:18px 0 6px"',
-      h3: 'style="font:600 13px Segoe UI,Arial,sans-serif;color:#56298f;margin:10px 0 4px"',
+      h2: 'style="font:600 15px Segoe UI,Arial,sans-serif;color:#0b2a4a;margin:18px 0 6px"',
+      h3: 'style="font:600 13px Segoe UI,Arial,sans-serif;color:#1d4e89;margin:10px 0 4px"',
       table: 'style="border-collapse:collapse;width:100%;font:12px Segoe UI,Arial,sans-serif;margin-bottom:10px" border="1" cellpadding="4"',
-      th: 'style="background:#ece6f6;color:#24104a;text-align:left;border:1px solid #cbc3d8;padding:4px 6px;vertical-align:bottom"',
+      th: 'style="background:#e6edf5;color:#061a33;text-align:left;border:1px solid #c3ccd8;padding:4px 6px;vertical-align:bottom"',
       td: 'style="border:1px solid #d9ced4;padding:4px 6px;vertical-align:top;white-space:pre-wrap"',
       tdl: 'style="border:1px solid #d9ced4;padding:4px 6px;vertical-align:top;color:#6d6268;background:#faf6f8;width:32%"',
       note: 'style="font:italic 12px Segoe UI,Arial,sans-serif;color:#555;margin:4px 0 10px"'
@@ -311,7 +311,7 @@ var EXPORTS = (function () {
     var meta = metaLines(ds);
     var intro = opt.intro || 'Please find below the aeronautical data extracted from the AIXM file.';
     var html = '<div style="font:14px Segoe UI,Arial,sans-serif;color:#222;max-width:1000px">' +
-      '<div style="background:#3d1a6e;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0"><div style="font-size:17px;font-weight:700">' + esc(scope.title) + '</div>' +
+      '<div style="background:#0b2a4a;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0"><div style="font-size:17px;font-weight:700">' + esc(scope.title) + '</div>' +
       '<div style="font-size:12.5px;opacity:.9">' + esc(ds ? ds.state : '') + (ds && ds.airac ? ' · AIRAC ' + esc(ds.airac.id) : '') + '</div></div>' +
       '<div style="border:1px solid #e5dde2;border-top:0;padding:14px 16px;border-radius:0 0 8px 8px">' +
       '<p style="margin:0 0 10px">' + esc(intro) + '</p>' +
