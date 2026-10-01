@@ -609,3 +609,28 @@ pre, .xml, .notam-text { text-align: left; }
 .mem-chip.warn { background: #b26a00; }
 .mem-chip.bad { background: #c62828; }
 @media (max-width: 900px) { .mem-chip { display: none; } }
+/* custom data export (Export page) */
+.xp { border-top: 3px solid var(--brand-3); margin-bottom: 18px; }
+.xp h4 { margin: 0 0 8px; font-size: 13.5px; }
+.xp-h2 { font-size: 15px; margin: 22px 0 10px; color: var(--muted); font-weight: 600; }
+.xp-dss { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+.xp-grid { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(320px, 2fr); gap: 18px; margin-top: 14px; }
+.xp-col { min-width: 0; }
+.xp-btns { gap: 6px; margin: 6px 0; }
+.xp-list { max-height: 360px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; }
+.xp-list .chk { display: flex; gap: 6px; align-items: center; padding: 2px 0; }
+.xp-quick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+.xp-grp { border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; margin-bottom: 8px; }
+.xp-grp > summary { cursor: pointer; font-weight: 600; padding: 2px 0; }
+.xp-secs { max-height: 380px; overflow: auto; margin-top: 6px; }
+.xp-sec { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 2px 0; border-bottom: 1px dashed var(--border); }
+.xp-sec > .chk { flex: 1; min-width: 0; }
+.xp-rows { flex-basis: 100%; padding: 2px 0 6px 26px; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0 12px; font-size: 12.5px; }
+.xp-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0 14px; margin-top: 6px; }
+.xp-opts, .xp-foot, .xp-fmt { gap: 8px 16px; margin-top: 12px; align-items: center; }
+.xp-sum { font-weight: 600; }
+.xp-sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
+.xp-modal { max-width: min(1100px, 96vw); width: 96vw; }
+.xp-prev { overflow: auto; max-height: 300px; }
+@media (max-width: 860px) { .xp-grid { grid-template-columns: 1fr; } }
+.xp-cols b, .xp-sec b { white-space: nowrap; }

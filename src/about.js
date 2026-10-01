@@ -35,7 +35,8 @@ var ABOUT = (function () {
     ['Obstacle limitation surfaces', 'The ICAO Annex 14 surfaces of every runway built from the data and every obstacle checked against them: penetrations listed with the surface and the height above it, and shown in 3D.'],
     ['Data integrity (CRC32Q)', 'Critical, essential and routine data classified as in PANS-AIM with the required and declared accuracy, a CRC32Q fingerprint for each item, and verification of a new delivery against a saved CRC list.'],
     ['Approach profile', 'The vertical profile of each instrument approach, as on an approach chart: fixes, distances, altitude constraints, glide path, minima, missed approach, rate-of-descent and timing table.'],
-    ['Exports and conversions', 'JSON, Excel, PDF, print, e-mail; AIXM 5.1 ↔ 5.1.1 ↔ 5.2, AIXM 4.5 → 5.1.1, GeoJSON, KML, Shapefile.'],
+    ['Custom data export', 'Choose aerodromes and exactly which data — single AD items such as the magnetic variation, runways, declared distances, operational hours, rescue and firefighting, airspace by type (P, R, D, TMA, CTR …), ENR / GEN sections — for one or several files, in Excel, CSV, JSON, PDF, e-mail, GeoJSON, KML or Shapefile.'],
+    ['Exports and conversions', 'JSON, Excel, CSV, PDF, print, e-mail; AIXM 5.1 ↔ 5.1.1 ↔ 5.2, AIXM 4.5 → 5.1.1, GeoJSON, KML, Shapefile.'],
     ['State library', 'One folder per State on your disk; extracted data is cached for instant reopening. Bookmarks and shareable links.'],
     ['Languages', 'English, العربية (right-to-left), Français and Español; light and dark themes.']
   ];

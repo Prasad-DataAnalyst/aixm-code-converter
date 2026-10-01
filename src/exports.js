@@ -85,6 +85,28 @@ var EXPORTS = (function () {
     };
     return out;
   }
+  // CSV: one file per table (UTF-8 with BOM so Excel shows accents); several tables are put in a ZIP
+  function csvCell(v) { v = v === undefined || v === null ? '' : String(v); return /[",\n\r;]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function exportCSV(scope) {
+    var files = [], used = {};
+    flatSections(scope.sections).forEach(function (sec) {
+      (sec.blocks || []).forEach(function (b, bi) {
+        if (b.kind === 'note') return;
+        var br = blockRows(b), lines = [br.cols.concat(['AIXM line']).map(csvCell).join(',')];
+        br.rows.forEach(function (r, i) { lines.push(r.concat([br.recs[i] ? br.recs[i].line : '']).map(csvCell).join(',')); });
+        var name = safeName([sec.no, sec.code, sec.title, b.title || (sec.blocks.length > 1 ? String(bi + 1) : '')].filter(Boolean).join(' ')).slice(0, 90), n = name, k = 2;
+        while (used[n]) n = name + '_' + k++;
+        used[n] = 1;
+        files.push({ name: n + '.csv', text: '\ufeff' + lines.join('\r\n') + '\r\n' });
+      });
+    });
+    if (!files.length) throw new Error('nothing to export as CSV (no tables)');
+    if (files.length === 1) { download(files[0].name, new Blob([files[0].text], { type: 'text/csv;charset=utf-8' })); return; }
+    var z = {};
+    files.forEach(function (f) { z[f.name] = fflate.strToU8(f.text); });
+    z['README.txt'] = fflate.strToU8(scope.title + '\r\n' + (scope.sub || '') + '\r\nExported by ' + CREDIT + '\r\nColumn "AIXM line": line of the source feature in the AIXM file.\r\n');
+    download(safeName(scope.title) + '_csv.zip', new Blob([fflate.zipSync(z, { level: 6 })], { type: 'application/zip' }));
+  }
   function exportJSON(scope) {
     var parts = [];
     var obj = toJSON(scope);
@@ -370,6 +392,6 @@ var EXPORTS = (function () {
     }
   }
 
-  return { CREDIT: CREDIT, AUTHOR: AUTHOR, AUTHOR_EMAIL: AUTHOR_EMAIL, exportJSON: exportJSON, exportExcel: exportExcel, exportPDF: exportPDF, print: print, emailContent: emailContent, emlBlob: emlBlob, copyRich: copyRich, copyText: copyText,
+  return { CREDIT: CREDIT, AUTHOR: AUTHOR, AUTHOR_EMAIL: AUTHOR_EMAIL, exportJSON: exportJSON, exportCSV: exportCSV, exportExcel: exportExcel, exportPDF: exportPDF, print: print, emailContent: emailContent, emlBlob: emlBlob, copyRich: copyRich, copyText: copyText,
     download: download, safeName: safeName, flatSections: flatSections, fmtSize: fmtSize, toJSON: toJSON, blockRows: blockRows, secTitle: secTitle };
 })();

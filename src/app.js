@@ -1305,6 +1305,7 @@
       else if (kind === 'pdf') { toast('Creating PDF…'); setTimeout(function () { EXPORTS.exportPDF(scope); }, 30); }
       else if (kind === 'xlsx') { toast('Creating Excel workbook…'); setTimeout(function () { EXPORTS.exportExcel(scope); }, 30); }
       else if (kind === 'json') EXPORTS.exportJSON(scope);
+      else if (kind === 'csv') EXPORTS.exportCSV(scope);
       else if (kind === 'mail') openEmail(scope);
     } catch (err) { console.error(err); toast('Export failed: ' + err.message, 7000); }
   }
@@ -2159,6 +2160,8 @@
     var cat = ds.catalogue || (ds.catalogue = AIP.catalogue(ds));
     var ads = cat[2].children.filter(function (x) { return x.ad; });
     v.innerHTML = '<h1 class="view-title">Export</h1><p class="view-sub">' + esc(ds.state) + ' · ' + esc(ds.name) + (ds.airac ? ' · AIRAC ' + ds.airac.id : '') + '. Choose what to export, then the format. Every section page also has its own Print / PDF / Excel / JSON / E-mail buttons.</p>' +
+      customExportHtml(ds) +
+      '<h2 class="xp-h2">Complete AIP sections</h2>' +
       '<div class="card card-pad"><h3>1 · What</h3><div class="col">' +
       '<label class="chk"><input type="radio" name="scope" value="all" checked> Complete AIP data (GEN + ENR + AD)</label>' +
       '<label class="chk"><input type="radio" name="scope" value="GEN"> GEN only</label><label class="chk"><input type="radio" name="scope" value="ENR"> ENR only</label><label class="chk"><input type="radio" name="scope" value="AD"> AD — all aerodromes and heliports</label>' +
@@ -2217,6 +2220,173 @@
         runExport(k, sc);
       };
     });
+    bindCustomExport(v, ds);
+  }
+  /* ------------------------------------------------------- custom data export */
+  // Pick data sets, aerodromes and exactly which data (any AD 2 section or single items of it, airspace by type, ENR /
+  // GEN sections); EXTRACT.build turns the choice into export sections, so every format works. The choice is kept
+  // (aerodromes by location indicator) for the next AIRAC cycle.
+  var XSEL = null;
+  function xsel() {
+    if (XSEL) return XSEL;
+    var o = {};
+    try { o = JSON.parse(localStorage.getItem('aixm-xsel') || '{}'); } catch (e) { o = {}; }
+    XSEL = { keys: new Set(o.keys || []), adCodes: new Set(o.adCodes || []), layout: o.layout || 'table', raw: !!o.raw, dss: null };
+    return XSEL;
+  }
+  function xselSave() { try { localStorage.setItem('aixm-xsel', JSON.stringify({ keys: Array.from(XSEL.keys), adCodes: Array.from(XSEL.adCodes), layout: XSEL.layout, raw: XSEL.raw })); } catch (e) { /* storage unavailable */ } }
+  function xpDatasets(ds) {
+    var X = xsel();
+    var list = S.datasets.filter(function (d) { return X.dss ? X.dss.has(d.id) : d === ds; });
+    return list.length ? list : [ds];
+  }
+  function customExportHtml(ds) {
+    var X = xsel(), list = xpDatasets(ds), cat = EXTRACT.catalog(list);
+    function ck(k, label, extra) { return '<label class="chk"><input type="checkbox" data-k="' + esc(k) + '"' + (X.keys.has(k) ? ' checked' : '') + '> ' + label + (extra ? ' <span class="muted">' + extra + '</span>' : '') + '</label>'; }
+    var h = '<div class="card card-pad xp" id="xp"><div class="row wrap"><h3 style="margin:0">Custom data export</h3><span class="muted">Choose aerodromes and exactly which data — e.g. only the magnetic variation, runways and declared distances of three aerodromes, or only the danger areas — then any format.</span></div>';
+    if (S.datasets.length > 1) h += '<div class="xp-dss"><b>Data sets</b> ' + S.datasets.map(function (d) { return '<label class="chk"><input type="checkbox" data-xds="' + d.id + '"' + (list.indexOf(d) >= 0 ? ' checked' : '') + '> ' + esc(d.state + ' · ' + d.name) + '</label>'; }).join('') + '</div>';
+    h += '<div class="xp-grid"><div class="xp-col"><h4>1 · Aerodromes <span class="muted" id="xp-adn"></span></h4>' +
+      '<input class="inp" id="xp-adq" placeholder="Filter by code or name…">' +
+      '<div class="row wrap xp-btns"><button class="btn small" data-xa="all">All</button><button class="btn small" data-xa="none">None</button><button class="btn small" data-xa="ad">Aerodromes</button><button class="btn small" data-xa="hp">Heliports</button></div>' +
+      '<div class="xp-list" id="xp-ads">' + (cat.ads.length ? cat.ads.map(function (a) {
+        return '<label class="chk" data-q="' + esc((a.code + ' ' + a.name).toLowerCase()) + '"><input type="checkbox" data-ad="' + a.key + '" data-code="' + esc(a.code) + '" data-hp="' + (a.heli ? 1 : 0) + '"' + (X.adCodes.has(a.code) ? ' checked' : '') + '> <b>' + esc(a.code) + '</b> ' + esc(a.name) + (a.heli ? ' <span class="chip">HP</span>' : '') + (list.length > 1 ? ' <span class="muted">' + esc(a.ds.state) + '</span>' : '') + '</label>';
+      }).join('') : '<div class="muted">No aerodromes in this data set.</div>') + '</div></div>';
+    h += '<div class="xp-col"><h4>2 · Data</h4><div class="xp-quick"><span class="muted">Quick picks:</span> ' + cat.quick.map(function (q, i) { return '<button class="btn small xp-qp" data-qp="' + i + '">' + esc(q.label) + '</button>'; }).join('') + '</div>';
+    h += '<details class="xp-grp" open><summary>Aerodrome data (AD 2 / AD 3) <span class="muted" data-cnt="ad"></span></summary><div class="xp-secs">' + cat.ad.map(function (sct) {
+      return '<div class="xp-sec">' + ck(sct.key, '<b>' + sct.no + '</b> ' + esc(sct.title)) +
+        (sct.rows.length > 1 ? '<button class="btn small ghost xp-more" type="button">items ▾</button><div class="xp-rows hidden">' + sct.rows.map(function (r) { return ck(r.key, (r.no ? r.no + ' · ' : '') + esc(r.label)); }).join('') + '</div>' : '') + '</div>';
+    }).join('') + '</div></details>';
+    h += '<details class="xp-grp"' + (Array.from(X.keys).some(function (k) { return k.indexOf('as:') === 0; }) ? ' open' : '') + '><summary>Airspace by type <span class="muted" data-cnt="as"></span></summary><div class="xp-cols">' +
+      (cat.airspace.length ? cat.airspace.map(function (a) { return ck(a.key, esc(a.label), '(' + a.n + ')'); }).join('') : '<div class="muted">No airspace in this data set.</div>') + '</div></details>';
+    h += '<details class="xp-grp"' + (Array.from(X.keys).some(function (k) { return /^sec:ENR/.test(k); }) ? ' open' : '') + '><summary>En-route (ENR) sections <span class="muted" data-cnt="enr"></span></summary><div class="xp-cols">' + cat.enr.map(function (x) { return ck(x.key, '<b>' + esc(x.no) + '</b> ' + esc(x.title)); }).join('') + '</div></details>';
+    h += '<details class="xp-grp"' + (Array.from(X.keys).some(function (k) { return /^sec:GEN/.test(k); }) ? ' open' : '') + '><summary>General (GEN) sections <span class="muted" data-cnt="gen"></span></summary><div class="xp-cols">' + cat.gen.map(function (x) { return ck(x.key, '<b>' + esc(x.no) + '</b> ' + esc(x.title)); }).join('') + '</div></details></div></div>';
+    h += '<div class="row wrap xp-opts"><b>3 · Layout</b><label class="chk"><input type="radio" name="xp-layout" value="table"' + (X.layout !== 'aip' ? ' checked' : '') + '> One table per data item, aerodromes as rows <span class="muted">(Excel, CSV)</span></label>' +
+      '<label class="chk"><input type="radio" name="xp-layout" value="aip"' + (X.layout === 'aip' ? ' checked' : '') + '> AIP pages per aerodrome</label>' +
+      '<label class="chk"><input type="checkbox" id="xp-raw"' + (X.raw ? ' checked' : '') + '> Add all AIXM properties of the selected features <span class="muted">(Excel, JSON)</span></label></div>';
+    h += '<div class="row wrap xp-foot"><span id="xp-sum" class="xp-sum"></span><span class="sp"></span><button class="btn small" id="xp-clear">Clear</button><button class="btn small" id="xp-preview">' + I.list + ' Preview</button></div>';
+    h += '<div class="row wrap xp-fmt"><b>4 · Format</b>' +
+      [['xlsx', I.xls, 'Excel'], ['csv', I.xls, 'CSV'], ['json', I.json, 'JSON'], ['pdf', I.pdf, 'PDF'], ['print', I.print, 'Print'], ['mail', I.mail, 'E-mail']].map(function (f) { return '<button class="btn primary" data-xf="' + f[0] + '">' + f[1] + ' ' + f[2] + '</button>'; }).join('') +
+      '<span class="xp-sep"></span>' + [['geojson', 'GeoJSON'], ['kml', 'KML'], ['shp', 'Shapefile']].map(function (f) { return '<button class="btn" data-xf="' + f[0] + '">' + I.map + ' ' + f[1] + '</button>'; }).join('') + '</div></div>';
+    return h;
+  }
+  function bindCustomExport(v, ds) {
+    var X = xsel(), host = $('#xp', v);
+    if (!host) return;
+    var cat = EXTRACT.catalog(xpDatasets(ds));
+    function adsChosen() {
+      var list = xpDatasets(ds);
+      return $$('[data-ad]:checked', host).map(function (cb) { var p = cb.getAttribute('data-ad').split(':'); var d = list[+p[0]]; return d ? { ds: d, ad: d.recs[+p[1]] } : null; }).filter(function (x) { return x && x.ad; });
+    }
+    function refresh() {
+      var ads = adsChosen(), keys = Array.from(X.keys);
+      var nAd = keys.filter(function (k) { return k.indexOf('ad:') === 0; }).length, nAs = keys.filter(function (k) { return k.indexOf('as:') === 0; }).length;
+      var nEnr = keys.filter(function (k) { return /^sec:ENR/.test(k); }).length, nGen = keys.filter(function (k) { return /^sec:GEN/.test(k); }).length;
+      $('#xp-adn', host).textContent = '(' + ads.length + ' of ' + $$('[data-ad]', host).length + ')';
+      [['ad', nAd], ['as', nAs], ['enr', nEnr], ['gen', nGen]].forEach(function (x) { var el = $('[data-cnt="' + x[0] + '"]', host); if (el) el.textContent = x[1] ? '· ' + x[1] + ' chosen' : ''; });
+      var parts = [];
+      if (nAd) parts.push(nAd + ' aerodrome item' + (nAd > 1 ? 's' : '') + ' × ' + ads.length + ' aerodrome' + (ads.length !== 1 ? 's' : ''));
+      if (nAs) parts.push(nAs + ' airspace type' + (nAs > 1 ? 's' : ''));
+      if (nEnr + nGen) parts.push((nEnr + nGen) + ' section' + (nEnr + nGen > 1 ? 's' : ''));
+      var warn = nAd && !ads.length ? ' <span class="chip warn">choose at least one aerodrome</span>' : '';
+      $('#xp-sum', host).innerHTML = (parts.length ? 'Selected: ' + esc(parts.join(' · ')) : '<span class="muted">Nothing selected yet</span>') + warn;
+      $$('.xp-qp', host).forEach(function (b) { var q = cat.quick[+b.getAttribute('data-qp')]; b.classList.toggle('primary', q.keys.every(function (k) { return X.keys.has(k) || (/^ad:\d+#/.test(k) && X.keys.has(k.split('#')[0])); })); });
+      xselSave();
+    }
+    function setKey(k, on) {
+      if (on) {
+        X.keys.add(k);
+        if (/^ad:\d+$/.test(k)) Array.from(X.keys).forEach(function (x) { if (x.indexOf(k + '#') === 0) X.keys.delete(x); }); // whole section replaces its items
+        var m = /^(ad:\d+)#/.exec(k); if (m) X.keys.delete(m[1]);
+      } else X.keys.delete(k);
+      $$('[data-k]', host).forEach(function (cb) { cb.checked = X.keys.has(cb.getAttribute('data-k')); });
+      refresh();
+    }
+    host.addEventListener('change', function (e) {
+      var t = e.target;
+      if (t.hasAttribute('data-k')) setKey(t.getAttribute('data-k'), t.checked);
+      else if (t.hasAttribute('data-ad')) { if (t.checked) X.adCodes.add(t.getAttribute('data-code')); else X.adCodes.delete(t.getAttribute('data-code')); refresh(); }
+      else if (t.hasAttribute('data-xds')) {
+        X.dss = new Set($$('[data-xds]:checked', host).map(function (c) { return +c.getAttribute('data-xds'); }));
+        if (!X.dss.size) X.dss.add(ds.id);
+        go('export');
+      } else if (t.name === 'xp-layout') { X.layout = t.value; xselSave(); }
+      else if (t.id === 'xp-raw') { X.raw = t.checked; xselSave(); }
+    });
+    host.addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b) return;
+      if (b.classList.contains('xp-more')) { var r = b.nextElementSibling; r.classList.toggle('hidden'); b.textContent = r.classList.contains('hidden') ? 'items ▾' : 'items ▴'; return; }
+      var qa = b.getAttribute('data-xa');
+      if (qa) {
+        $$('#xp-ads label.chk', host).forEach(function (l) {
+          if (l.style.display === 'none') return;
+          var cb = $('input', l), hp = cb.getAttribute('data-hp') === '1';
+          cb.checked = qa === 'all' || (qa === 'ad' && !hp) || (qa === 'hp' && hp);
+          if (cb.checked) X.adCodes.add(cb.getAttribute('data-code')); else X.adCodes.delete(cb.getAttribute('data-code'));
+        });
+        refresh(); return;
+      }
+      if (b.hasAttribute('data-qp')) {
+        var q = cat.quick[+b.getAttribute('data-qp')], on = !b.classList.contains('primary');
+        q.keys.forEach(function (k) { setKey(k, on); });
+        var grp = q.keys[0].indexOf('as:') === 0 ? $$('.xp-grp', host)[1] : null; if (grp && on) grp.open = true;
+        return;
+      }
+      if (b.id === 'xp-clear') { X.keys.clear(); setKey('', false); return; }
+      if (b.id === 'xp-preview') { var sc = scopeOf(); if (sc) previewScope(sc); return; }
+      var f = b.getAttribute('data-xf');
+      if (f) {
+        var scope = scopeOf();
+        if (!scope) return;
+        if (f === 'geojson' || f === 'kml' || f === 'shp') {
+          var n = 0;
+          xpDatasets(ds).forEach(function (d) {
+            var flt = scope.gisFilter(d);
+            if (!flt) return;
+            var base = EXPORTS.safeName(d.state + '_' + d.name.replace(/\.[^.]+$/, '') + '_selection');
+            if (f === 'geojson') EXPORTS.download(base + '.geojson', CONVERT.toGeoJSON(d, flt));
+            else if (f === 'kml') EXPORTS.download(base + '.kml', CONVERT.toKML(d, flt));
+            else EXPORTS.download(base + '_shapefile.zip', CONVERT.toShapefile(d, flt));
+            n++;
+          });
+          if (!n) toast('Nothing with a position in the selection.');
+          return;
+        }
+        if (scope.features && (f === 'pdf' || f === 'print' || f === 'mail')) scope.features = null;
+        runExport(f, scope);
+      }
+    });
+    $('#xp-adq', host).addEventListener('input', function (e) {
+      var q = e.target.value.trim().toLowerCase();
+      $$('#xp-ads label.chk', host).forEach(function (l) { l.style.display = !q || l.getAttribute('data-q').indexOf(q) >= 0 ? '' : 'none'; });
+    });
+    function scopeOf() {
+      if (!X.keys.size) { toast('Choose the data to export (step 2).'); return null; }
+      var sel = { datasets: xpDatasets(ds), ads: adsChosen(), keys: Array.from(X.keys), layout: X.layout, raw: X.raw };
+      var scope = EXTRACT.build(sel);
+      if (!scope.sections.length) { toast(sel.ads.length || !Array.from(X.keys).some(function (k) { return k.indexOf('ad:') === 0; }) ? 'The selection has no data in this data set.' : 'Choose at least one aerodrome (step 1).'); return null; }
+      return scope;
+    }
+    refresh();
+  }
+  // a quick look at the first rows of every table of a scope
+  function previewScope(scope) {
+    var secs = EXPORTS.flatSections(scope.sections), html = '';
+    secs.slice(0, 30).forEach(function (sec) {
+      html += '<h4 style="margin:14px 0 6px">' + esc(EXPORTS.secTitle(sec)) + '</h4>';
+      (sec.blocks || []).forEach(function (b) {
+        var br = EXPORTS.blockRows(b);
+        html += (b.title ? '<div class="muted">' + esc(b.title) + '</div>' : '') + '<div class="xp-prev"><table class="aip"><thead><tr>' + br.cols.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+          br.rows.slice(0, 12).map(function (r) { return '<tr>' + r.map(function (c) { return '<td>' + esc(c).replace(/\n/g, '<br>') + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table></div>' +
+          (br.rows.length > 12 ? '<div class="muted">… ' + (br.rows.length - 12) + ' more rows</div>' : '');
+      });
+    });
+    if (secs.length > 30) html += '<p class="muted">… and ' + (secs.length - 30) + ' more sections.</p>';
+    var back = document.createElement('div');
+    back.className = 'modal-back';
+    back.innerHTML = '<div class="modal xp-modal"><div class="modal-head"><h3>Preview — ' + esc(scope.sub || scope.title) + '</h3><span class="sp"></span><button class="btn small ghost" data-close>' + I.x + '</button></div><div class="modal-body">' + html + '</div></div>';
+    document.body.appendChild(back);
+    back.addEventListener('click', function (e) { if (e.target === back || e.target.closest('[data-close]')) back.remove(); });
   }
   function showReport(rep) {
     var back = document.createElement('div');

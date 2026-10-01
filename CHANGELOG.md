@@ -7,6 +7,19 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.2.0 — 2026-10-01 — custom data export
+
+- **Custom data export** (Export page): choose one or several loaded files, the **aerodromes** (search; all, aerodromes
+  or heliports) and **exactly which data** — any AD 2 / AD 3 section or single items of it (magnetic variation, ARP,
+  operational hours, rescue and firefighting, runways, declared distances, lighting …), **airspace by type** (P, R, D,
+  TMA, CTR, ATZ, CTA … with counts) and any ENR or GEN section; quick picks for frequent requests; preview.
+- Layouts: one table per data item with the aerodromes as rows (and a *Data set* column for several files), or AIP
+  pages per aerodrome with only the chosen items.
+- Formats: Excel, **CSV** (new: one file per table, zipped), JSON (source of every value), PDF, print, e-mail, and
+  **GeoJSON, KML, Shapefile with only the selected features**; option to add all AIXM properties of the features.
+- The selection (items and aerodromes by location indicator) is remembered for the next AIRAC cycle.
+- Module `extract.js`; test `custom_export.js`.
+
 ## 1.1.0 — 2026-10-01 — large files
 
 Several files of 800 MB – 1 GB can be open together without the page slowing down or the browser tab running out of

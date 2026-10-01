@@ -47,6 +47,7 @@ Data compiled once from the official sources:
 | 12 | `mapwindow.js` | `MAPWIN` | the map in a separate browser window (copies the `data-mapwin` scripts into a same-origin window) |
 | 13 | `exports.js` | `EXPORTS` | JSON, Excel, PDF, print, e-mail (clipboard / .eml / .html) |
 | 14 | `convert.js` | `CONVERT` | AIXM version conversion, 4.5 → 5.1.1 writer, GeoJSON, KML, Shapefile |
+| 14a | `extract.js` | `EXTRACT` | custom data export: catalogue of choosable items (AD 2 sections and their items, airspace types, ENR / GEN sections) and `build(selection)` → export scope (sections + GIS filter) |
 | 15 | `review.js` | `REVIEW` | AMDT report, side-by-side diff, Digital NOTAM, timeline data |
 | 16 | `rules.js` | `RULES` | AIXM 5.1 business-rule evaluation |
 | 17 | `i18n.js` | `I18N` | interface languages (Arabic RTL, French, Spanish) |
