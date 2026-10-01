@@ -11,7 +11,10 @@ var ANALYSIS = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
 
-  function yieldUI() { return new Promise(function (r) { setTimeout(r, 0); }); }
+  // MessageChannel instead of setTimeout: not slowed to once a second when the tab is in the background
+  var chan = typeof MessageChannel === 'function' ? new MessageChannel() : null, waiting = [];
+  if (chan) chan.port1.onmessage = function () { var w = waiting.shift(); if (w) w(); };
+  function yieldUI() { return new Promise(function (r) { if (chan) { waiting.push(r); chan.port2.postMessage(0); } else setTimeout(r, 0); }); }
   function prettyPath(p) {
     return p.replace(/\[(\d+)\]/g, ' #$1').split('/').map(function (x) {
       return x.replace(/^_/, '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
@@ -108,8 +111,8 @@ var ANALYSIS = (function () {
         return r.k + '|' + ad + '|' + (k || '') + '|' + (k ? '' : pt()) + (k ? '' : '|' + s(p.type));
     }
   }
+  // not cached on the feature: for two large files the flattened copies doubled the memory in use
   function flatFor(ds, r) {
-    if (r._flat && r._flatT === ds.viewDate) return r._flat;
     var f = AX.flatten(r.cur.p, '', {}, { _ad: 1 });
     var out = {};
     for (var k in f) {
@@ -118,7 +121,6 @@ var ANALYSIS = (function () {
       if (typeof v === 'string' && v.charAt(0) === '→') { var t = M.target(ds, v.slice(1)); if (t) v = '→' + t.k + ':' + naturalKey(ds, t); }
       out[k] = v;
     }
-    r._flat = out; r._flatT = ds.viewDate;
     return out;
   }
   async function compare(dsA, dsB, onProgress) {
@@ -128,20 +130,26 @@ var ANALYSIS = (function () {
       sample.forEach(function (r) { if (dsB.byId.has(r.id)) hits++; });
       useUuid = sample.length && hits / sample.length > 0.3;
     }
-    function keysOf(ds) {
+    // the page stays responsive: control goes back to the browser every ~40 ms
+    var last = Date.now();
+    async function breathe(f) { if (Date.now() - last > 40) { if (onProgress && f !== undefined) onProgress(f); await yieldUI(); last = Date.now(); } }
+    async function keysOf(ds) {
       var m = new Map();
-      ds.recs.forEach(function (r) {
-        if (r.k === '#error') return;
+      for (var j = 0; j < ds.recs.length; j++) {
+        var r = ds.recs[j];
+        if (r.k === '#error') continue;
         var k = useUuid ? r.k + '#' + r.id : naturalKey(ds, r);
         var base = k, n = 2;
         while (m.has(k)) k = base + '~' + n++;
         m.set(k, r);
-      });
+        if ((j & 1023) === 0) await breathe();
+      }
       return m;
     }
-    var A = keysOf(dsA), B = keysOf(dsB);
+    var A = await keysOf(dsA), B = await keysOf(dsB);
     var res = { useUuid: useUuid, items: [], stats: { added: 0, removed: 0, modified: 0, unchanged: 0 }, a: dsA, b: dsB };
-    var keys = new Set(Array.from(A.keys()).concat(Array.from(B.keys())));
+    var keys = new Set(A.keys());
+    B.forEach(function (v, k) { keys.add(k); });
     var i = 0, total = keys.size;
     for (var k of keys) {
       var ra = A.get(k), rb = B.get(k);
@@ -153,7 +161,7 @@ var ANALYSIS = (function () {
         if (d.length) { res.items.push({ kind: 'modified', a: ra, b: rb, fields: d, sec: AIP.sectionOf(dsB, rb) }); res.stats.modified++; }
         else res.stats.unchanged++;
       }
-      if (++i % 3000 === 0) { if (onProgress) onProgress(i / total); await yieldUI(); }
+      if ((++i & 255) === 0) await breathe(i / total);
     }
     var order = { added: 0, modified: 1, removed: 2 };
     res.items.sort(function (x, y) { return (x.sec.no < y.sec.no ? -1 : x.sec.no > y.sec.no ? 1 : 0) || order[x.kind] - order[y.kind]; });

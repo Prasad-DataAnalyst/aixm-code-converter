@@ -65,22 +65,28 @@ Theme: navy blue and white with magenta accents (the colours of ICAO aeronautica
 
 ## Performance (measured)
 
-Measured in headless Chromium on a 4-core container (3 parser threads):
+Measured in Chrome (headless, normal memory limit of about 4 GB per tab) on a 4-core machine, with test files made by
+`tools/make_big.js` (copies of the Donlon and a State data set with unique identifiers):
 
-| File | Size | Features | Memory mode | Read + index | First results | JS heap after loading |
-|---|---|---|---|---|---|---|
-| Donlon 2025 baseline (5.1.1) | 11 MB | 1,028 | Full | 0.5 s | instant | — |
-| Synthetic (93 × Donlon, 5.1.1) | **1.0 GB** | **95,604** | Full | 12.8 s | 2 s | 737 MB |
-| Same file | 1.0 GB | 95,604 | Lite | **10 s** | 1 s | **392 MB** |
-| Synthetic (5.1.1) | **2.7 GB** | **238,214** | Lite (auto) | **25 s** | 1 s | 933 MB |
+| Three files open together: 1.0 + 0.8 + 0.8 GB (389,163 features) | version 1.0 | **version 1.1** |
+|---|---|---|
+| Memory after reading | 1.77 GB | **1.18 GB** |
+| Memory after using AIP, search, map, airport view, checks | 2.76 GB | **1.31 GB** |
+| Longest freeze of the page while reading | 2.5 s | **0.7 s** |
+| First search | 1.2 s freeze | **instant** (index built in the background) |
+| Open the map (all layers) | 4.6 s freeze | **1.4 s** |
+| Zoom / pan the map | 0.7 s freeze | **0.3 s** |
+| Airport view | 2.7 s freeze | **0.5 s** |
+| Compare 1.0 GB with 0.8 GB (same State) | 15.7 s, 2.1 s freeze | **9.0 s, 0.6 s freeze** |
 
-Times are with the file already in the operating-system cache; the first read of a file from disk depends on the disk.
-**Lite mode** (automatic above 1.5 GB, selectable in *Files*) counts individual light and marking elements instead of
-storing them — more than half of the memory of aerodrome mapping data — so files of 2–5 GB fit in the browser. The full
-XML of every feature is still shown from the file.
+AIP pages open in 0.1–0.3 s; opening the AIXM fragment of the last feature in a 1 GB file takes about 80 ms. Reading
+runs at 70–95 MB/s on 3 threads (the parser uses up to 8). Times are with the file in the operating-system cache.
 
-Opening an AIP page takes about 0.25 s. Opening the AIXM fragment of the last feature in the 1 GB file takes about 80 ms.
-Machines with more cores run proportionally faster: the parser uses up to 8 threads.
+**Large files.** Loaded data takes about 0.6 × the file size (each repeated value — type names, units, codes, dates,
+references — is kept once). The **Memory** gauge in the top bar shows the use against the browser's limit; when the files
+to read would not fit, **Lite mode** (light and marking elements counted instead of stored) is used automatically and the
+tool says so; Lite is also used when all loaded files together exceed 1.5 GB. *Dashboard → Remove* frees the memory of
+a data set. The full XML of every feature is always shown from the file.
 
 ## Supported input
 
@@ -144,7 +150,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.0.0, set in `src/config.js`; version 2 will add digital charts).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.1.0, set in `src/config.js`; version 2 will add digital charts).
 
 ```bash
 cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core
@@ -159,6 +165,8 @@ node tools/e2e.js                                     # full UI test in headless
 node --test tools/tests/unit/*.test.js               # unit tests (npm run test:unit)
 node tools/tests/run_all.js                           # all feature and layout tests (npm test runs both)
 cd tools && npm run lint                              # ESLint over src/
+node tools/make_big.js testdata/Donlon_ALL_Baseline_2025.xml 1000 /tmp/big.xml   # 1 GB test file (unique UUIDs per copy)
+node tools/bench_big.js /tmp/big.xml [/tmp/big2.xml …]   # time, memory and longest freeze of every step
 node tools/e2e_big.js /path/to/1gb.xml                # large-file timing and memory (MEM=lite to force Lite mode)
 ```
 

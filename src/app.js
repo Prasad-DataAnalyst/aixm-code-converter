@@ -261,9 +261,9 @@
     var busy = S.files.some(function (f) { return f.status === 'parsing' || f.status === 'indexing'; });
     if (!S.files.length) { bar.classList.add('hidden'); return; }
     bar.classList.remove('hidden');
-    var big = S.files.some(function (f) { return f.size > LITE_AUTO; });
+    var big = S.files.some(function (f) { return f.size > LITE_AUTO; }) || memPlan(ready).lite;
     bar.innerHTML = '<div class="grow"><b>' + S.files.length + ' file(s)</b> <span class="muted">· ' + ready.length + ' ready to extract · parallel threads: ' + threads() + '</span></div>' +
-      '<label class="muted" title="Lite keeps less detail in memory (individual light and marking elements are counted, not stored) so files of 2–5 GB fit in the browser. Auto uses Lite for files over 1.5 GB.">Memory ' +
+      '<label class="muted" title="Lite keeps less detail in memory (individual light and marking elements are counted, not stored) so files of 2–5 GB fit in the browser. Auto uses Lite when all loaded files together exceed 1.5 GB or would not fit in the memory left.">Memory ' +
       '<select class="inp small" id="mem-mode"><option value="auto">Auto' + (big ? ' (Lite for large files)' : '') + '</option><option value="full">Full detail</option><option value="lite">Lite (2–5 GB files)</option></select></label>' +
       (S.datasets.length ? '<button class="btn" id="goto-dash">' + I.dash + ' Open dashboard</button>' : '') +
       '<button class="btn primary big" id="extract-btn"' + (!ready.length || busy ? ' disabled' : '') + '>' + I.play + ' Extract</button>';
@@ -302,16 +302,82 @@
     var fv = DICT.v5.featureVersions;
     return Object.keys(fv).filter(function (k) { return fv[k].indexOf(v) >= 0 || (v === '5.2' && fv[k].indexOf('5.1.1') >= 0 && !DICT.v5.objects[k]); });
   }
+  // AIXM repeats the same values everywhere (type names, units, codes, dates, references). Copied from the reader
+  // threads, every occurrence arrives as its own string; keeping one shared copy per value while a file is loaded saves
+  // about a quarter of the memory. The table lives only during loading.
+  function Interner() { this.m = new Map(); }
+  Interner.prototype.str = function (v) { var c = this.m.get(v); if (c !== undefined) return c; this.m.set(v, v); return v; };
+  Interner.prototype.obj = function (o, d) {
+    for (var k in o) {
+      var v = o[k];
+      if (typeof v === 'string') { if (v.length <= 48) o[k] = this.str(v); }
+      else if (v && typeof v === 'object' && d < 60) {
+        if (k === '_geo') { if (typeof v.t === 'string') v.t = this.str(v.t); if (v.d) this.obj(v.d, d + 1); continue; } // coordinates: numbers only
+        this.obj(v, d + 1);
+      }
+    }
+  };
+  Interner.prototype.recs = function (list, from) { for (var i = from || 0; i < list.length; i++) this.obj(list[i], 0); };
+  // removes a data set and every reference to it, so the browser can free its memory
+  function dropDataset(ds) {
+    ds.dropped = true; // stops a background save into browser storage
+    S.datasets = S.datasets.filter(function (d) { return d !== ds; });
+    S.changes.delete(ds);
+    S.datasets.forEach(function (d) { if (d.prevCmp && (d.prevCmp.a === ds || d.prevCmp.b === ds)) { d.prevCmp = null; d.cyc = null; } });
+    S.cmp = null; S.active = 0; cellRegistry = [];
+    MAPVIEW.release(ds);
+    var sr = $('#search-results'); if (sr) { sr._res = null; sr.innerHTML = ''; sr.classList.add('hidden'); }
+    renderDsSelect(); renderNav(); initSearch(); memGauge();
+  }
+  /* ------------------------------------------------------- memory guard */
+  // The browser gives the page a fixed amount of memory (performance.memory: Chrome / Edge). Loaded data needs about
+  // 0.6 x the file size. The gauge in the top bar shows the use; before reading files that would not fit, the tool
+  // switches to Lite and says so, instead of letting the browser tab crash.
+  // Chrome updates performance.memory only every ~20 minutes (unless started with --enable-precise-memory-info), so
+  // the use is estimated from the loaded data (measured: 0.6 x the file size, Lite 0.45 x) and the higher value is shown.
+  var MEM_PER_BYTE = 0.6, MEM_BASE = 80 * 1048576;
+  function memInfo() {
+    var pm = performance.memory;
+    if (!pm || !pm.jsHeapSizeLimit) return null;
+    var est = MEM_BASE + S.datasets.reduce(function (n, d) { return n + (d.size || 0) * (d.lite ? 0.45 : MEM_PER_BYTE); }, 0);
+    return { used: Math.max(pm.usedJSHeapSize || 0, est), limit: pm.jsHeapSizeLimit };
+  }
+  function memGauge() {
+    var chip = $('#mem-chip'), mi = memInfo();
+    if (!chip) return;
+    if (!mi || !S.datasets.length) { chip.classList.add('hidden'); return; }
+    var f = mi.used / mi.limit;
+    chip.classList.remove('hidden');
+    chip.className = 'mem-chip' + (f > 0.8 ? ' bad' : f > 0.6 ? ' warn' : '');
+    chip.textContent = 'Memory ' + (mi.used / 1073741824).toFixed(1) + ' / ' + (mi.limit / 1073741824).toFixed(1) + ' GB';
+    chip.title = 'Memory used by the loaded data in this browser tab (estimated), out of what the browser allows.' + (f > 0.6 ? ' Getting full: remove data sets you do not need (Dashboard → Remove) or read large files in Lite mode.' : '');
+  }
+  setInterval(memGauge, 3000);
+  function loadedBytes() { return S.datasets.reduce(function (n, d) { return n + (d.size || 0); }, 0); }
+  function memPlan(list) {
+    var add = list.reduce(function (n, f) { return n + f.size; }, 0), mi = memInfo();
+    var plan = { total: loadedBytes() + add, lite: false, warn: '' };
+    if (S.memMode === 'lite' || (S.memMode !== 'full' && plan.total > LITE_AUTO)) plan.lite = true;
+    if (mi) {
+      var need = mi.used + add * MEM_PER_BYTE, free = mi.limit * 0.85;
+      if (need > free && S.memMode !== 'full') plan.lite = true;
+      if (need > free) plan.warn = 'These files need about ' + fmtSize(add * MEM_PER_BYTE) + ' of memory; ' + fmtSize(Math.max(0, mi.limit - mi.used)) + ' is left in this browser tab. ' +
+        (S.datasets.length ? 'Remove data sets you do not need (Dashboard → Remove) and read the files again, or ' : '') + 'read fewer files at a time.' + (plan.lite ? ' Lite memory mode is used.' : '');
+    }
+    return plan;
+  }
   async function extractAll() {
     var list = S.files.filter(function (f) { return f.status === 'ready'; });
+    var plan = memPlan(list);
+    if (plan.warn) toast(plan.warn, 12000);
     for (var i = 0; i < list.length; i++) {
       var f = list[i], key = dropKey(f.file);
       var cached = await openFromCache(key, f.file, null);
       if (cached) { f.status = 'done'; f.detail = 'opened from saved data (instant) · ' + num(cached.recs.length) + ' features · ' + esc(cached.state); renderFileList(); continue; }
-      await extractOne(f);
+      await extractOne(f, plan);
     }
     renderFileList();
-    if (S.datasets.length) { initSearch(); renderDsSelect(); if (!checkPending()) go('dash'); }
+    if (S.datasets.length) { initSearch(); renderDsSelect(); memGauge(); if (!checkPending()) go('dash'); }
   }
   function cancelExtraction(id) {
     var r = running.get(id);
@@ -320,16 +386,16 @@
     r.workers.forEach(function (w) { w.terminate(); });
     if (r.resolve) r.resolve();
   }
-  function extractOne(f) {
+  function extractOne(f, plan) {
     return new Promise(function (resolve) {
       var sn = f.sniff, size = f.size;
       var nParts = Math.max(1, Math.min(threads(), Math.floor(size / (6 * 1024 * 1024)) || 1));
       if (sn.family === '45' && sn.isUpdate) nParts = Math.min(nParts, 4);
       var ds = { id: f.id, name: f.name, file: f.file, size: size, sniff: sn, family: sn.family, version: sn.version, recs: [], partLines: new Array(nParts), viewDate: S.asOf };
-      var liteOn = S.memMode === 'lite' || (S.memMode !== 'full' && size > LITE_AUTO);
+      var liteOn = S.memMode === 'lite' || (S.memMode !== 'full' && (size > LITE_AUTO || !!(plan && plan.lite)));
       var cfg = { family: sn.family, names: featureNames(sn), aixmPrefixes: sn.aixmPrefixes, eventPrefixes: sn.eventPrefixes, gmlPrefixes: sn.gmlPrefixes, isUpdate: sn.isUpdate, effective: sn.header && sn.header.effective, lite: liteOn };
       ds.lite = liteOn;
-      var done = new Array(nParts).fill(0), finished = 0, t0 = performance.now(), counts = 0, errors = 0;
+      var done = new Array(nParts).fill(0), finished = 0, t0 = performance.now(), counts = 0, errors = 0, strs = new Interner();
       var workers = [];
       var ctl = { workers: workers, cancelled: false, resolve: function () { f.status = 'cancelled'; running.delete(f.id); renderFileList(); resolve(); } };
       running.set(f.id, ctl);
@@ -353,7 +419,7 @@
         (function (part, worker) {
           worker.onmessage = function (ev) {
             var m = ev.data;
-            if (m.type === 'batch') { for (var i = 0; i < m.recs.length; i++) ds.recs.push(m.recs[i]); ui(); }
+            if (m.type === 'batch') { strs.recs(m.recs); for (var i = 0; i < m.recs.length; i++) ds.recs.push(m.recs[i]); ui(); }
             else if (m.type === 'progress') { done[part] = m.done; ui(); }
             else if (m.type === 'done') {
               ds.partLines[part] = m.lines; errors += m.errors; done[part] = Math.floor(size * (part + 1) / nParts) - Math.floor(size * part / nParts);
@@ -370,15 +436,16 @@
       function complete() {
         if (ctl.cancelled) return;
         var tRead = performance.now() - t0;
+        strs = null;
         f.status = 'indexing'; f.progress = 1; f.detail = 'building indexes and AIP model for ' + num(ds.recs.length) + ' features…';
         renderFileList();
-        setTimeout(function () {
+        setTimeout(async function () {
           try {
-            M.finalize(ds);
+            await M.finalizeAsync(ds, function (q) { f.progress = 1; f.detail = 'building indexes and AIP model for ' + num(ds.recs.length) + ' features… ' + Math.round(q * 100) + ' %'; updateFileItem(f); });
             ds.tRead = tRead; ds.tTotal = performance.now() - t0; ds.errors = errors;
             applyLib(ds, f.lib);
             ds.cacheKey = f.lib ? f.lib.key : dropKey(f.file);
-            if (ds.size <= LITE_AUTO) saveCache(ds); // multi-GB data sets are not duplicated into browser storage
+            if (ds.size <= APP_SETTINGS.cacheMaxBytes) saveCache(ds); // large data sets are not duplicated into browser storage
             S.datasets = S.datasets.filter(function (x) { return x.id !== ds.id; });
             S.datasets.push(ds);
             M.harmonizeStates(S.datasets);
@@ -420,6 +487,7 @@
     try { ds = await LIBRARY.loadDataset(key); } catch (e) { ds = null; }
     if (!ds) return null;
     ds.id = ++fileSeq; ds.file = file; ds.viewDate = S.asOf; ds.cacheKey = key;
+    new Interner().recs(ds.recs);
     M.finalize(ds);
     applyLib(ds, lib || ds.lib);
     S.datasets.push(ds);
@@ -675,7 +743,7 @@
     var ds = S.datasets.filter(function (d) { return d.name === p.f; })[0];
     if (!ds) return false;
     S.active = S.datasets.indexOf(ds);
-    if (p.d) { var t = Date.parse(p.d + 'T00:00:00Z'); if (!isNaN(t) && t !== S.asOf) { $('#asof-mode').value = 'date'; $('#asof-date').classList.remove('hidden'); $('#asof-date').value = p.d; S.asOf = t; S.datasets.forEach(function (d) { M.setViewDate(d, t); d.catalogue = null; d.searchIdx = null; }); } }
+    if (p.d) { var t = Date.parse(p.d + 'T00:00:00Z'); if (!isNaN(t) && t !== S.asOf) { $('#asof-mode').value = 'date'; $('#asof-date').classList.remove('hidden'); $('#asof-date').value = p.d; S.asOf = t; S.datasets.forEach(function (d) { M.setViewDate(d, t); d.catalogue = null; d.searchIdx = null; d._idxPart = null; }); warmIndex(); } }
     if (p.c) { var cy = ANALYSIS.changeCycles(ds).filter(function (x) { return x.cycle.id === p.c; })[0]; ds.hlCycle = cy ? cy.cycle : ds.hlCycle; ds.cyc = null; S.hlOn = true; }
     S.sbs = null;
     if (p.x) {
@@ -768,7 +836,8 @@
   $('#asof-date').addEventListener('change', function (e) { if (e.target.value) setAsOf(Date.parse(e.target.value + 'T00:00:00Z')); });
   function setAsOf(t) {
     S.asOf = t;
-    S.datasets.forEach(function (ds) { M.setViewDate(ds, t); ds.catalogue = null; ds.searchIdx = null; });
+    S.datasets.forEach(function (ds) { M.setViewDate(ds, t); ds.catalogue = null; ds.searchIdx = null; ds._idxPart = null; });
+    warmIndex();
     toast(t === null ? 'Showing the latest data of each feature' : 'Showing data valid on ' + M.fmtDate(t));
     if (S.datasets.length) go(S.view);
   }
@@ -824,7 +893,7 @@
         else if (act) {
           var k = act.getAttribute('data-act');
           if (k === 'aip') go('aip'); else if (k === 'map') go('map'); else if (k === 'export') go('export');
-          else if (k === 'remove') { S.datasets.splice(idx, 1); S.active = 0; S.cmp = null; renderDsSelect(); renderNav(); initSearch(); go(S.datasets.length ? 'dash' : 'files'); }
+          else if (k === 'remove') { dropDataset(ds); go(S.datasets.length ? 'dash' : 'files'); }
         }
       });
       g.appendChild(card);
@@ -2190,17 +2259,38 @@
   function initSearch() {
     var inp = $('#search');
     inp.disabled = !S.datasets.length;
+    warmIndex();
+  }
+  // The search index is built in small steps while the browser is idle after a file is read, so the first search
+  // does not freeze the page; a search before it is complete finishes the remaining part at once.
+  function indexStep(ds, until) {
+    var idx = ds._idxPart || (ds._idxPart = { list: [], i: 0, date: ds.viewDate });
+    var recs = ds.recs;
+    while (idx.i < recs.length && (until === Infinity || (idx.i & 255) || performance.now() < until)) {
+      var r = recs[idx.i++], p = r.cur.p;
+      idx.list.push([[M.label(ds, r), s(p.designator), s(p.name), s(p.locationIndicatorICAO), s(p.designatorIATA), r.k, r.k === 'RadioCommunicationChannel' ? M.fFreq(r) : '', s(p.channel)].join(' ').toLowerCase(), r]);
+    }
+    if (idx.i >= recs.length) { ds.searchIdx = idx.list; ds._idxPart = null; return true; }
+    return false;
+  }
+  var warmTimer = 0;
+  function warmIndex() {
+    if (warmTimer) return;
+    var ric = window.requestIdleCallback || function (f) { return setTimeout(function () { f({ timeRemaining: function () { return 12; } }); }, 50); };
+    warmTimer = ric(function step(dl) {
+      warmTimer = 0;
+      var ds = S.datasets.filter(function (d) { return !d.searchIdx; })[0];
+      if (!ds) return;
+      if (ds._idxPart && ds._idxPart.date !== ds.viewDate) ds._idxPart = null;
+      indexStep(ds, performance.now() + Math.max(4, Math.min(12, dl.timeRemaining())));
+      warmTimer = ric(step, { timeout: 2000 });
+    }, { timeout: 2000 });
   }
   function buildIndex(ds) {
     if (ds.searchIdx) return ds.searchIdx;
-    var idx = [];
-    ds.recs.forEach(function (r) {
-      var p = r.cur.p;
-      var txt = [M.label(ds, r), s(p.designator), s(p.name), s(p.locationIndicatorICAO), s(p.designatorIATA), r.k, r.k === 'RadioCommunicationChannel' ? M.fFreq(r) : '', s(p.channel)].join(' ').toLowerCase();
-      idx.push([txt, r]);
-    });
-    ds.searchIdx = idx;
-    return idx;
+    if (ds._idxPart && ds._idxPart.date !== ds.viewDate) ds._idxPart = null;
+    indexStep(ds, Infinity);
+    return ds.searchIdx;
   }
   var RANK = { AirportHeliport: 0, Runway: 1, RunwayDirection: 1, Navaid: 2, VOR: 2, NDB: 2, DME: 2, DesignatedPoint: 3, Airspace: 4, Route: 5, Unit: 6, RadioCommunicationChannel: 6 };
   function doSearch(q) {
@@ -2254,7 +2344,7 @@
     back.className = 'modal-back';
     back.innerHTML = '<div class="modal"><div class="modal-head">' + I.info.replace('<svg', '<svg width="20" height="20"') + '<h3>AIXM Code Converter — help</h3><span class="sp"></span><button class="btn small ghost" data-close>' + I.x + '</button></div><div class="modal-body">' +
       '<p><b>What it does.</b> Reads AIXM files of any version (4.5 Snapshot/Update, 5.0, 5.1, 5.1.1, 5.2 including pre-releases), detects the version, extracts the aeronautical data and presents it like the <b>ICAO specimen AIP</b> (GEN, ENR 1–6, AD 2 / AD 3 for every aerodrome and heliport). Everything runs offline inside this single HTML file — no data is uploaded anywhere.</p>' +
-      '<p><b>Large files.</b> Files are streamed in 16 MB chunks by parallel background threads; only the extracted values are kept in memory. The exact position (line, byte offset) of each feature is remembered, so <span class="kbd">&lt;/&gt;</span> opens the original AIXM code instantly, even for multi-GB files.</p>' +
+      '<p><b>Large files.</b> Files are streamed in 16 MB chunks by parallel background threads; only the extracted values are kept in memory (repeated values once). The exact position (line, byte offset) of each feature is remembered, so <span class="kbd">&lt;/&gt;</span> opens the original AIXM code instantly, even for multi-GB files. The <b>Memory</b> gauge in the top bar shows the use; when files would not fit, Lite mode is used automatically. <i>Dashboard → Remove</i> frees the memory of a data set.</p>' +
       '<p><b>Effective dates.</b> The header shows the State, AIXM version, AIRAC cycle and effective date. Every row shows the effective date of its feature. Use <b>Latest data / Valid on date</b> (top bar) to see the data valid on any date (AIXM temporality: BASELINE, PERMDELTA, TEMPDELTA).</p>' +
       '<p><b>Changes.</b> <i>Changes</i> lists the time slices inside one file (what changes, where, when). <i>Compare</i> compares two files of the same State (e.g. two AIRAC cycles, any versions) and lists added / removed / modified data with old → new values; results can also be shown on the map.</p>' +
       '<p><b>AIRAC cycle changes.</b> Values that change in the selected AIRAC cycle are shown <span class="chg-badge">in red</span> on every AIP page; <b>List all changes</b> and <b>AMDT report</b> give the amendment (publication and effective dates, affected sections, insert/amend/delete). <b>⇆ Side by side</b> on any section shows before/after a cycle, or two files. <i>Timeline</i> shows the changes per AIRAC cycle and temporary changes; <i>NOTAM</i> shows Digital NOTAM events as ICAO NOTAM text.</p>' +

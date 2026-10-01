@@ -36,3 +36,15 @@ test('geodesy: destination, distance and bearing agree', () => {
 test('DMS formatting', () => {
   assert.equal(AX.fmtPos([-31.9493, 52.3717], 0), '522218N 0315657W');
 });
+
+test('geometry signature: same shape same signature, any change or re-nesting differs', () => {
+  const a = { t: 'A', c: [[[46.1, 24.2], [46.3, 24.2], [46.3, 24.4], [46.1, 24.2]]] };
+  const same = { t: 'A', c: [[[46.1000000001, 24.2], [46.3, 24.2], [46.3, 24.4], [46.1, 24.2]]] };
+  const moved = { t: 'A', c: [[[46.1, 24.2], [46.3, 24.200002], [46.3, 24.4], [46.1, 24.2]]] };
+  const nested = { t: 'A', c: [[[46.1, 24.2], [46.3, 24.2]], [[46.3, 24.4], [46.1, 24.2]]] };
+  assert.equal(AX.geoSig(a), AX.geoSig(same));
+  assert.notEqual(AX.geoSig(a), AX.geoSig(moved));
+  assert.notEqual(AX.geoSig(a), AX.geoSig(nested));
+  assert.match(AX.geoSig(a), /^A:4pts:[0-9a-f]{8}$/);
+  assert.equal(AX.geoSig({ t: 'P', c: [46.1, 24.2] }), '24.200000,46.100000');
+});

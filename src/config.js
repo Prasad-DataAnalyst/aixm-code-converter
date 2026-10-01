@@ -9,7 +9,7 @@
  * ========================================================================== */
 var APP_INFO = Object.freeze({
   name: 'AIXM Code Converter',
-  version: '1.0.0',
+  version: '1.1.0',
   year: '2026',
   author: 'Prasad Selvaraj',
   email: 'prasad2t@gmail.com',
@@ -26,6 +26,7 @@ var APP_INFO = Object.freeze({
 });
 var APP_SETTINGS = Object.freeze({
   liteAutoBytes: 1.5 * 1024 * 1024 * 1024, // files above this size use the Lite memory mode (Auto)
+  cacheMaxBytes: 400 * 1024 * 1024,         // larger files are not copied into browser storage (reading the file again is as fast)
   maxThreads: 8,                          // parallel parser threads (capped by the CPU count)
   pdfMaxRows: 5000,                       // rows per table in PDF exports (Excel/JSON keep everything)
   airacPublishDays: 42                    // AIRAC amendments are published this many days before the effective date

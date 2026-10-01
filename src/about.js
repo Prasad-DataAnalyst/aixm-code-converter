@@ -77,7 +77,7 @@ var ABOUT = (function () {
     h += '<section><h2>Good to know</h2><ul class="ab-list">' +
       '<li><b>Privacy:</b> everything runs in your browser. Only the optional online map tiles use the internet.</li>' +
       '<li><b>Time:</b> AIXM times are UTC; “Latest data / Valid on date” shows the data valid on any day (BASELINE, PERMDELTA, TEMPDELTA).</li>' +
-      '<li><b>Large files:</b> files over 1.5 GB use the Lite memory mode automatically.</li>' +
+      '<li><b>Large files:</b> several files of 1 GB can be open together. The <i>Memory</i> gauge in the top bar shows how much of the browser\'s memory is in use; when files would not fit, the Lite memory mode is used automatically and the tool says so. <i>Dashboard → Remove</i> frees the memory of a data set.</li>' +
       '<li><b>Sources:</b> AIXM schemas, code lists and business rules from aixm.aero (EUROCONTROL, FAA); base map Natural Earth; terrain from the Terrain Tiles (Mapzen / AWS Open Data: SRTM, GMTED2010, ETOPO1); libraries Leaflet, three.js, SheetJS, jsPDF, fflate, topojson.</li></ul></section>';
     h += '<section class="ab-author"><h2>Author</h2><p>Created by <b>' + esc(APP_INFO.author) + '</b> · <a href="mailto:' + esc(APP_INFO.email) + '">' + esc(APP_INFO.email) + '</a></p>' +
       '<p class="muted">© ' + esc(APP_INFO.year) + ' ' + esc(APP_INFO.author) + '. Open source under the Apache License 2.0 — redistributions and modified versions must keep this attribution (LICENSE and NOTICE).</p>' +

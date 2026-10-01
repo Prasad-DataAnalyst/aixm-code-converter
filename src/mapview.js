@@ -252,19 +252,195 @@ var MAPVIEW = (function () {
     return layer;
   }
 
+  /* -------------------------------------------------------- shape layers */
+  // Lines and areas (airspace, routes, aerodrome surfaces, obstacle areas, comparison result) drawn on one canvas from
+  // compact Web-Mercator coordinate arrays: no map object per feature (large files used to create hundreds of thousands),
+  // only shapes in view are drawn, vertices closer than a pixel are skipped. Hover shows the name (shapeTip), a click
+  // opens the pop-up (shapeHit: lines and edges first, then the smallest area under the mouse).
+  var MAXLAT = 85.0511287798;
+  function mercX(lon) { return lon / 360 + 0.5; }
+  function mercY(lat) { var sn = Math.sin(Math.max(-MAXLAT, Math.min(MAXLAT, lat)) * Math.PI / 180); return 0.5 - Math.log((1 + sn) / (1 - sn)) / (4 * Math.PI); }
+  function ShapeSet() { this.items = []; this.styles = []; this.keys = {}; }
+  // g: {t:'A', c:[rings]} or {t:'L', c:[points]}; st: {color, weight, opacity, fill, fillOpacity, dash}; tip: hover text
+  ShapeSet.prototype.add = function (g, st, r, ds, tip) {
+    var sk = JSON.stringify(st);
+    if (this.keys[sk] === undefined) { this.keys[sk] = this.styles.length; this.styles.push(st); }
+    var rings = g.t === 'A' ? g.c : [g.c], out = [], bb = [Infinity, Infinity, -Infinity, -Infinity];
+    for (var i = 0; i < rings.length; i++) {
+      var ring = rings[i], a = new Float64Array(ring.length * 2), n = 0;
+      for (var j = 0; j < ring.length; j++) {
+        var p = ring[j];
+        if (!p || typeof p[0] !== 'number') continue;
+        var x = mercX(p[0]), y = mercY(p[1]);
+        a[n++] = x; a[n++] = y;
+        if (x < bb[0]) bb[0] = x; if (y < bb[1]) bb[1] = y; if (x > bb[2]) bb[2] = x; if (y > bb[3]) bb[3] = y;
+      }
+      if (n < 4) continue;
+      if (n !== a.length) a = a.slice(0, n);
+      // areas: outer ring one way round, holes the other (filling many shapes in one path relies on it)
+      if (g.t === 'A' && n >= 6 && (ringArea(a) > 0) !== (out.length === 0)) reversePairs(a);
+      out.push(a);
+    }
+    if (out.length) this.items.push({ area: g.t === 'A', rings: out, bb: bb, s: this.keys[sk], r: r, ds: ds, tip: tip });
+  };
+  function ringArea(a) { var A = 0; for (var i = 0, n = a.length, j = n - 2; i < n; j = i, i += 2) A += (a[j] - a[i]) * (a[j + 1] + a[i + 1]); return A; }
+  function reversePairs(a) { for (var i = 0, j = a.length - 2; i < j; i += 2, j -= 2) { var x = a[i], y = a[i + 1]; a[i] = a[j]; a[i + 1] = a[j + 1]; a[j] = x; a[j + 1] = y; } }
+  // container pixel = mercator * scale - origin
+  function viewXf(m) {
+    var S = 256 * Math.pow(2, m.getZoom()), po = m.getPixelOrigin(), off = m.containerPointToLayerPoint([0, 0]);
+    return { S: S, ox: po.x + off.x, oy: po.y + off.y };
+  }
+  function shapeLayer(set, opt) {
+    opt = opt || {};
+    var drawn = [];
+    var layer = new CanvasLayer(function (ctx, m, size) {
+      drawn = [];
+      var v = viewXf(m), S = v.S, ox = v.ox, oy = v.oy, pad = 40;
+      var x0 = (ox - pad) / S, y0 = (oy - pad) / S, x1 = (ox + size.x + pad) / S, y1 = (oy + size.y + pad) / S;
+      var its = set.items;
+      for (var i = 0; i < its.length; i++) {
+        var b = its[i].bb;
+        if (b[2] < x0 || b[0] > x1 || b[3] < y0 || b[1] > y1) continue;
+        if ((b[2] - b[0]) * S < 1 && (b[3] - b[1]) * S < 1) continue; // smaller than a pixel
+        drawn.push(i);
+      }
+      ctx.lineJoin = 'round';
+      // Many shapes in view (zoomed out over a large data set): one path per style, filled and stroked once
+      // (overlapping areas of one style are filled once); otherwise each shape is drawn on its own.
+      var batch = drawn.length > 400;
+      var groups = batch ? {} : null, order = [];
+      if (batch) drawn.forEach(function (i) { var k = its[i].s; if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(i); });
+      else order = [null];
+      order.forEach(function (gk) {
+        var list = batch ? groups[gk] : drawn, cur = -1, st = null;
+        if (batch) { st = set.styles[gk]; styleCtx(ctx, st); ctx.beginPath(); }
+        for (var d = 0; d < list.length; d++) {
+          var it = its[list[d]];
+          if (!batch) {
+            if (it.s !== cur) { cur = it.s; st = set.styles[cur]; styleCtx(ctx, st); }
+            ctx.beginPath();
+          }
+          for (var k = 0; k < it.rings.length; k++) {
+            var a = it.rings[k], n = a.length, lx = a[0] * S - ox, ly = a[1] * S - oy;
+            ctx.moveTo(lx, ly);
+            for (var j = 2; j < n; j += 2) {
+              var px = a[j] * S - ox, py = a[j + 1] * S - oy;
+              if (j < n - 2 && px - lx < 0.6 && lx - px < 0.6 && py - ly < 0.6 && ly - py < 0.6) continue;
+              ctx.lineTo(px, py); lx = px; ly = py;
+            }
+            // closePath gets slower as one path grows (batches): close by a line back to the start
+            if (it.area) { if (batch) ctx.lineTo(a[0] * S - ox, a[1] * S - oy); else ctx.closePath(); }
+          }
+          if (!batch) paint(ctx, st, it.area);
+          else if (d % 250 === 249) { paint(ctx, st, it.area, true); ctx.beginPath(); } // paint in blocks
+        }
+        if (batch) paint(ctx, st, its[list[0]].area, true);
+      });
+      ctx.globalAlpha = 1; ctx.setLineDash([]); ctx.lineCap = 'butt';
+    }, { pane: opt.pane || 'overlayPane', prio: opt.prio || 2 });
+    // -> {p:{ds, r}, score} for the shape at container point cp (score: 0 on a line or edge, else the area)
+    layer.hit = function (cp) {
+      if (!layer._map) return null;
+      var v = viewXf(layer._map), S = v.S, mx = (cp.x + v.ox) / S, my = (cp.y + v.oy) / S, best = null, bestScore = Infinity;
+      for (var d = drawn.length - 1; d >= 0; d--) {
+        var it = set.items[drawn[d]], st = set.styles[it.s], tol = ((st.weight || 1) / 2 + 4) / S, b = it.bb;
+        if (mx < b[0] - tol || mx > b[2] + tol || my < b[1] - tol || my > b[3] + tol) continue;
+        var score = nearRings(it, mx, my, tol) ? 0 : it.area && st.fillOpacity && inRings(it.rings, mx, my) ? (b[2] - b[0]) * (b[3] - b[1]) : Infinity;
+        if (score < bestScore) { bestScore = score; best = it; if (score === 0) break; }
+      }
+      return best ? { p: { ds: best.ds, r: best.r }, tip: best.tip, score: bestScore } : null;
+    };
+    layer.set = set;
+    layer.count = set.items.length;
+    return layer;
+  }
+  function nearRings(it, x, y, tol) {
+    var t2 = tol * tol;
+    for (var k = 0; k < it.rings.length; k++) {
+      var a = it.rings[k], n = a.length;
+      for (var j = 2; j <= n; j += 2) {
+        if (j === n && !it.area) break;
+        var ax = a[j - 2], ay = a[j - 1], bx = j < n ? a[j] : a[0], by = j < n ? a[j + 1] : a[1];
+        var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy, t = l2 ? ((x - ax) * dx + (y - ay) * dy) / l2 : 0;
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        var ex = ax + t * dx - x, ey = ay + t * dy - y;
+        if (ex * ex + ey * ey <= t2) return true;
+      }
+    }
+    return false;
+  }
+  function styleCtx(ctx, st) {
+    ctx.strokeStyle = st.color; ctx.fillStyle = st.fill || st.color; ctx.lineWidth = st.weight || 1;
+    ctx.setLineDash(st.dash ? st.dash.split(' ').map(Number) : []);
+    ctx.lineCap = st.cap || 'round';
+  }
+  function paint(ctx, st, area, union) {
+    if (area && st.fillOpacity) { ctx.globalAlpha = st.fillOpacity; ctx.fill(union ? 'nonzero' : 'evenodd'); }
+    if (st.weight !== 0) { ctx.globalAlpha = st.opacity === undefined ? 1 : st.opacity; if (ctx.globalAlpha > 0) ctx.stroke(); }
+  }
+  function inRings(rings, x, y) { // even-odd over all rings (holes excluded)
+    var inside = false;
+    for (var k = 0; k < rings.length; k++) {
+      var a = rings[k], n = a.length;
+      for (var i = 0, j = n - 2; i < n; j = i, i += 2) {
+        if ((a[i + 1] > y) !== (a[j + 1] > y) && x < (a[j] - a[i]) * (y - a[i + 1]) / (a[j + 1] - a[i + 1]) + a[i]) inside = !inside;
+      }
+    }
+    return inside;
+  }
+  // shape layers that are currently shown, in hit-test order (aerodrome surfaces, obstacles, comparison, routes, airspace)
+  function shownShapes() {
+    var out = [];
+    if (over.adShapes && over.aerodrome && map.hasLayer(over.aerodrome)) out.push(over.adShapes);
+    if (over.obstLines && over.obstacles && map.hasLayer(over.obstacles)) out.push(over.obstLines);
+    if (over.cmpShapes && over.cmp && map.hasLayer(over.cmp)) out.push(over.cmpShapes);
+    if (over.routes && map.hasLayer(over.routes)) out.push(over.routes);
+    AS_CATS.forEach(function (c) { var l = over['as_' + c[0]]; if (l && map.hasLayer(l)) out.push(l); });
+    return out;
+  }
+  function shapeHit(cp) {
+    var best = null;
+    shownShapes().forEach(function (l) { if (best && best.score === 0) return; var h = l.hit(cp); if (h && (!best || h.score < best.score)) best = h; });
+    return best;
+  }
+  var tipLayer = null, tipFrame = 0;
+  function shapeTip(e) {
+    if (tipFrame) return;
+    tipFrame = requestAnimationFrame(function () {
+      tipFrame = 0;
+      if (!map) return;
+      var h = state.measure ? null : shapeHit(e.containerPoint);
+      map.getContainer().classList.toggle('shape-hover', !!h);
+      if (!h || !h.tip) { if (tipLayer) { map.closeTooltip(tipLayer); tipLayer = null; } return; }
+      if (!tipLayer) tipLayer = L.tooltip({ direction: 'top', opacity: 0.9, offset: [0, -10] });
+      tipLayer.setLatLng(e.latlng).setContent(esc(h.tip));
+      if (!map.hasLayer(tipLayer)) map.openTooltip(tipLayer);
+    });
+  }
+
   /* ------------------------------------------------------------ base map */
   function landStyle() {
     var dark = document.documentElement.getAttribute('data-theme') === 'dark';
     return { stroke: true, color: dark ? '#5a4a55' : '#b9aca4', weight: 0.8, fillColor: dark ? '#2a2229' : '#f3efe9', fillOpacity: 1, interactive: false };
   }
+  // land areas drawn as shape layers (Leaflet GeoJSON built ~660,000 coordinate objects for the detailed map: a
+  // one-second freeze and ~60 MB the first time the map was zoomed in)
+  function landSet(fc) {
+    var set = new ShapeSet(), st = landStyle(), style = { color: st.color, weight: st.weight, fill: st.fillColor, fillOpacity: 1 };
+    fc.features.forEach(function (f) {
+      var g = f.geometry;
+      if (!g) return;
+      (g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : []).forEach(function (poly) { set.add({ t: 'A', c: poly }, style, null, null, null); });
+    });
+    return set;
+  }
   function buildOffline() {
     var grp = L.layerGroup();
-    var renderer = L.canvas({ padding: 0.3 });
     if (!world50) {
       var w = JSON.parse(document.getElementById('data-world50').textContent);
       world50 = topojson.feature(w, w.objects.countries);
     }
-    var l50 = L.geoJSON(world50, { style: landStyle, renderer: renderer, interactive: false });
+    var l50 = shapeLayer(landSet(world50), { pane: 'tilePane', prio: 0 });
     var l10 = null;
     grp.addLayer(l50);
     function swap() {
@@ -273,13 +449,16 @@ var MAPVIEW = (function () {
       if (z >= 6) {
         if (!l10) {
           if (!world10) { var w10 = JSON.parse(document.getElementById('data-world10').textContent); world10 = topojson.feature(w10, w10.objects.countries); }
-          l10 = L.geoJSON(world10, { style: landStyle, renderer: renderer, interactive: false });
+          l10 = shapeLayer(landSet(world10), { pane: 'tilePane', prio: 0 });
         }
         if (grp.hasLayer(l50)) { grp.removeLayer(l50); grp.addLayer(l10); }
       } else if (l10 && grp.hasLayer(l10)) { grp.removeLayer(l10); grp.addLayer(l50); }
     }
     map.on('zoomend', swap);
-    grp.restyle = function () { l50.setStyle(landStyle); if (l10) l10.setStyle(landStyle); };
+    grp.restyle = function () {
+      var st = landStyle();
+      [l50, l10].forEach(function (l) { if (l) { var x = l.set.styles[0]; if (x) { x.color = st.color; x.fill = st.fillColor; } l.redraw(); } });
+    };
     // graticule + place names
     var grat = new CanvasLayer(function (ctx, m, size) {
       var z = m.getZoom(), step = z < 4 ? 10 : z < 6 ? 5 : z < 8 ? 1 : 0.5;
@@ -363,7 +542,6 @@ var MAPVIEW = (function () {
 
   /* ------------------------------------------------------------ overlays */
   function ll(c) { return [c[1], c[0]]; }
-  function ringsLL(g) { return g.c.map(function (ring) { return ring.filter(function (p) { return typeof p[0] === 'number'; }).map(ll); }); }
   function shapesOf(g, cb) {
     if (!g) return;
     if (g.t === 'M') { g.parts.forEach(function (x) { shapesOf(x, cb); }); return; }
@@ -408,44 +586,35 @@ var MAPVIEW = (function () {
     vec = vec || L.canvas({ padding: 0.4, tolerance: 4 });
     var T = ds.byType;
     // airspace by category
-    AS_CATS.forEach(function (c) { over['as_' + c[0]] = L.layerGroup(); });
+    var asSets = {};
+    AS_CATS.forEach(function (c) { asSets[c[0]] = new ShapeSet(); });
     (T.Airspace || []).forEach(function (a) {
-      var t = s(a.cur.p.type), cat = asCat(t), col = COLORS[cat];
+      var t = s(a.cur.p.type), cat = asCat(t), col = COLORS[cat], tip = M.label(ds, a);
       shapesOf(M.geometry(ds, a), function (g) {
-        var l;
-        if (g.t === 'A') l = L.polygon(ringsLL(g), { renderer: vec, color: col, weight: cat === 'fir' ? 2.2 : 1.5, fillOpacity: cat === 'fir' ? 0.02 : 0.08, dashArray: cat === 'prd' || cat === 'mil' ? '6 4' : null });
-        else if (g.t === 'L') l = L.polyline(g.c.map(ll), { renderer: vec, color: col, weight: 1.5 });
-        if (!l) return;
-        l.on('click', function (e) { openPopup(ds, a, e.latlng); });
-        l.bindTooltip(esc(M.label(ds, a)), { sticky: true, direction: 'top', opacity: 0.9 });
-        over['as_' + cat].addLayer(l);
+        if (g.t === 'A') asSets[cat].add(g, { color: col, weight: cat === 'fir' ? 2.2 : 1.5, fillOpacity: cat === 'fir' ? 0.02 : 0.08, dash: cat === 'prd' || cat === 'mil' ? '6 4' : null }, a, ds, tip);
+        else if (g.t === 'L') asSets[cat].add(g, { color: col, weight: 1.5 }, a, ds, tip);
       });
     });
+    AS_CATS.forEach(function (c) { over['as_' + c[0]] = shapeLayer(asSets[c[0]], { prio: 1, pane: 'asPane' }); });
     // routes
-    over.routes = L.layerGroup();
+    var rtSet = new ShapeSet();
     (T.RouteSegment || []).forEach(function (sg) {
       var g = M.geometry(ds, sg);
       if (!g || g.t !== 'L') return;
-      var rnav = /RNAV|RNP/.test(s(sg.cur.p.navigationType));
-      var l = L.polyline(g.c.map(ll), { renderer: vec, color: rnav ? COLORS.rnav : COLORS.route, weight: 2, opacity: 0.85 });
-      l.on('click', function (e) { openPopup(ds, sg, e.latlng); });
-      var rt = M.target(ds, sg.cur.p.routeFormed);
-      l.bindTooltip(esc(rt ? M.routeDesignator(rt.cur.p) : M.label(ds, sg)), { sticky: true, opacity: 0.9 });
-      over.routes.addLayer(l);
+      var rnav = /RNAV|RNP/.test(s(sg.cur.p.navigationType)), rt = M.target(ds, sg.cur.p.routeFormed);
+      rtSet.add(g, { color: rnav ? COLORS.rnav : COLORS.route, weight: 2, opacity: 0.85 }, sg, ds, rt ? M.routeDesignator(rt.cur.p) : M.label(ds, sg));
     });
+    over.routes = shapeLayer(rtSet, { prio: 2 });
     // runways, aprons, taxiways, AMDB surfaces (chart colours: runways dark, taxiways grey, aprons light grey,
     // guidance lines yellow); runways that the airport chart can draw get an invisible line for clicks only
-    over.aerodrome = L.layerGroup();
+    var adSet = new ShapeSet();
     var charted = new Set();
     ADCHART.all(ds).forEach(function (m) { m.runways.forEach(function (rm) { charted.add(rm.rw); }); });
     (T.Runway || []).forEach(function (rw) {
       shapesOf(M.geometry(ds, rw), function (g) {
         var hidden = charted.has(rw) && g.t === 'L';
-        var l = g.t === 'L' ? L.polyline(g.c.map(ll), { renderer: vec, color: COLORS.rwy, weight: hidden ? 10 : 5, opacity: hidden ? 0 : 0.85, lineCap: 'butt' })
-          : g.t === 'A' ? L.polygon(ringsLL(g), { renderer: vec, color: '#1f2328', weight: 1, fillColor: ADCHART.COL.rwy, fillOpacity: 0.95 }) : null;
-        if (!l) return;
-        l.on('click', function (e) { openPopup(ds, rw, e.latlng); });
-        over.aerodrome.addLayer(l);
+        if (g.t === 'L') adSet.add(g, { color: COLORS.rwy, weight: hidden ? 10 : 5, opacity: hidden ? 0 : 0.85, cap: 'butt' }, rw, ds, null);
+        else if (g.t === 'A') adSet.add(g, { color: '#1f2328', weight: 1, fill: ADCHART.COL.rwy, fillOpacity: 0.95 }, rw, ds, null);
       });
     });
     var SURF_STYLE = {
@@ -458,13 +627,12 @@ var MAPVIEW = (function () {
       (T[k] || []).forEach(function (r) {
         var g = M.findGeo(r.cur.p, k === 'GuidanceLine' ? ['L'] : ['A'], 0);
         if (!g) return;
-        var l = g.t === 'A' ? L.polygon(ringsLL(g), { renderer: vec, color: st[0], weight: k === 'RunwayProtectArea' ? 1 : 0.6, fillColor: st[1], fillOpacity: st[2], dashArray: k === 'RunwayProtectArea' || k === 'WorkArea' ? '5 4' : null })
-          : L.polyline(g.c.map(ll), { renderer: vec, color: st[0], weight: 1.3, opacity: 0.95 });
-        l.on('click', function (e) { openPopup(ds, r, e.latlng); });
-        l.bindTooltip(esc(M.label(ds, r)), { sticky: true, opacity: 0.9 });
-        over.aerodrome.addLayer(l);
+        if (g.t === 'A') adSet.add(g, { color: st[0], weight: k === 'RunwayProtectArea' ? 1 : 0.6, fill: st[1], fillOpacity: st[2], dash: k === 'RunwayProtectArea' || k === 'WorkArea' ? '5 4' : null }, r, ds, M.label(ds, r));
+        else adSet.add(g, { color: st[0], weight: 1.3, opacity: 0.95 }, r, ds, M.label(ds, r));
       });
     });
+    over.adShapes = shapeLayer(adSet, { prio: 3 });
+    over.aerodrome = L.layerGroup([over.adShapes]);
     // airport chart: runway surfaces and markings, ILS feathers, taxiway signs, stands (adchart.js)
     var adHits = [];
     over.adChart = new CanvasLayer(function (ctx, m) {
@@ -482,7 +650,7 @@ var MAPVIEW = (function () {
     over.aerodrome.addLayer(over.adChart);
     over.aerodrome.count = (T.Runway || []).length + ['Apron', 'ApronElement', 'Taxiway', 'TaxiwayElement', 'AircraftStand', 'GuidanceLine', 'RunwayElement'].reduce(function (n, k) { return n + (T[k] || []).length; }, 0);
     // obstacle lines/areas
-    over.obstLines = L.layerGroup();
+    var obSet = new ShapeSet();
     // point sets
     var ads = new PointSet('ad'), navs = new PointSet('nav'), dps = new PointSet('dp'), obs = new PointSet('obs'), lgt = new PointSet('lgt');
     (T.AirportHeliport || []).forEach(function (a) {
@@ -506,11 +674,9 @@ var MAPVIEW = (function () {
       shapesOf(g, function (x) {
         if (x.t === 'P') obs.add(x.c[0], x.c[1], 'OBS', COLORS.obst, lbl, o, ds);
         else {
-          var l = x.t === 'L' ? L.polyline(x.c.map(ll), { renderer: vec, color: COLORS.obst, weight: 1.5, dashArray: '3 3' })
-            : L.polygon(ringsLL(x), bld ? { renderer: vec, color: '#5f6870', weight: 1, fillColor: '#9aa2a9', fillOpacity: 0.75 } : { renderer: vec, color: COLORS.obst, weight: 1, fillOpacity: 0.15 });
-          l.on('click', function (e) { openPopup(ds, o, e.latlng); });
-          l.bindTooltip(esc(M.label(ds, o) + (lbl ? ' · ' + lbl : '')), { sticky: true, opacity: 0.9 });
-          over.obstLines.addLayer(l);
+          var tip = M.label(ds, o) + (lbl ? ' · ' + lbl : '');
+          if (x.t === 'L') obSet.add(x, { color: COLORS.obst, weight: 1.5, dash: '3 3' }, o, ds, tip);
+          else obSet.add(x, bld ? { color: '#5f6870', weight: 1, fill: '#9aa2a9', fillOpacity: 0.75 } : { color: COLORS.obst, weight: 1, fillOpacity: 0.15 }, o, ds, tip);
         }
       });
     });
@@ -526,6 +692,7 @@ var MAPVIEW = (function () {
     over.mora = moraLayer();
     over.hill = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}', { opacity: 0.38, maxZoom: 16, attribution: 'Hillshade © Esri', crossOrigin: true });
     over.hill.count = 0;
+    over.obstLines = shapeLayer(obSet, { prio: 4 });
     over.obstacles = L.layerGroup([over.obstLines, over.pObs]);
     over.procs = buildProcs(ds, state.procAd && ds.recs.indexOf(state.procAd) >= 0 ? state.procAd : null);
     return over;
@@ -685,7 +852,7 @@ var MAPVIEW = (function () {
     if (!l) return 0;
     if (l.ps) return l.ps.pts.length;
     if (l.count !== undefined) return l.count;
-    var n = 0; l.eachLayer(function (x) { n += x.ps ? x.ps.pts.length : x.getLayers ? x.getLayers().length : 1; });
+    var n = 0; l.eachLayer(function (x) { n += x.ps ? x.ps.pts.length : x.set ? x.set.items.length : x.getLayers ? x.getLayers().length : 1; });
     return n;
   }
 
@@ -770,24 +937,20 @@ var MAPVIEW = (function () {
     if (over.cmp && map.hasLayer(over.cmp)) map.removeLayer(over.cmp);
     over.cmp = null;
     if (!res) return;
-    var grp = L.layerGroup(), ps = new PointSet('cmp');
+    var ps = new PointSet('cmp'), set = new ShapeSet();
     var col = { added: '#1f7a4d', removed: '#b3261e', modified: '#e08e00' };
     res.items.forEach(function (it) {
       var ds = it.kind === 'removed' ? res.a : res.b, r = it.kind === 'removed' ? it.a : it.b;
       var g = M.geometry(ds, r);
       shapesOf(g, function (x) {
         if (x.t === 'P') ps.add(x.c[0], x.c[1], 'default', col[it.kind], it.kind.charAt(0).toUpperCase() + ' ' + M.shortName(r), r, ds);
-        else {
-          var l = x.t === 'A' ? L.polygon(ringsLL(x), { renderer: vec, color: col[it.kind], weight: 3, fillOpacity: 0.12 }) : L.polyline(x.c.map(ll), { renderer: vec, color: col[it.kind], weight: 4 });
-          l.on('click', function (e) { openPopup(ds, r, e.latlng); });
-          l.bindTooltip(it.kind + ': ' + esc(M.label(ds, r)), { sticky: true });
-          grp.addLayer(l);
-        }
+        else if (x.t === 'A') set.add(x, { color: col[it.kind], weight: 3, fillOpacity: 0.12 }, r, ds, it.kind + ': ' + M.label(ds, r));
+        else if (x.t === 'L') set.add(x, { color: col[it.kind], weight: 4 }, r, ds, it.kind + ': ' + M.label(ds, r));
       });
     });
-    var pl = pointLayer(ps, { size: 7, labelZoom: 4, maxLabels: 400 });
-    grp.addLayer(pl);
-    over.cmp = grp; over.cmpPts = pl;
+    var pl = pointLayer(ps, { size: 7, labelZoom: 4, maxLabels: 400 }), sl = shapeLayer(set, { prio: 6 });
+    var grp = L.layerGroup([sl, pl]);
+    over.cmp = grp; over.cmpPts = pl; over.cmpShapes = sl;
     map.addLayer(grp);
   }
 
@@ -853,8 +1016,9 @@ var MAPVIEW = (function () {
     var mdiv = container.querySelector('#map');
     VIEW3D.close();
     if (map) { map.remove(); map = null; base = { offline: null, current: 'offline', online: {} }; over = {}; vec = null; }
-    live = []; state.adView = null; state.all = datasets;
+    live = []; state.adView = null; state.all = datasets; tipLayer = null;
     map = L.map(mdiv, { zoomControl: false, worldCopyJump: true, preferCanvas: true, minZoom: 2, maxZoom: 20 }).setView([30, 10], 3);
+    map.createPane('asPane').style.zIndex = 380;    // airspace: below routes, aerodrome surfaces and obstacles
     map.createPane('adPane').style.zIndex = 420;    // airport chart: above airspace / taxiway vectors
     map.createPane('annotPane').style.zIndex = 590; // airspace and route labels: below point symbols
     map.on('moveend zoomend resize viewreset', scheduleDraw);
@@ -882,7 +1046,11 @@ var MAPVIEW = (function () {
           openPopup(h.p.ds, h.p.r, [h.p.lat, h.p.lon]); return;
         }
       }
+      var sh = shapeHit(cp);
+      if (sh) openPopup(sh.p.ds, sh.p.r, e.latlng);
     });
+    map.on('mousemove', shapeTip);
+    map.on('mouseout', function () { if (tipLayer) { map.closeTooltip(tipLayer); tipLayer = null; } });
     var q = function (sel) { return container.querySelector(sel); };
     q('#map-base').addEventListener('change', function (e) { setBase(e.target.value); saveBase(e.target.value); });
     container.querySelectorAll('[data-layer]').forEach(function (cb) {
@@ -899,7 +1067,7 @@ var MAPVIEW = (function () {
     if (q('#map-popout')) q('#map-popout').addEventListener('click', function () { hooks.popout(state.ds, state.adView ? state.adView.ad : null); });
     if (q('#map-dock')) q('#map-dock').addEventListener('click', function () { hooks.dock(); });
     var dsSel = q('#map-ds');
-    if (dsSel) dsSel.addEventListener('change', function () { show(datasets[+dsSel.value]); fit(); });
+    if (dsSel) dsSel.addEventListener('change', function () { if (state.all) { show(state.all[+dsSel.value]); fit(); } });
     q('#map-proc-ad').addEventListener('change', function (e) { var i = e.target.value; showProcs(state.ds, i === '' ? null : state.ds.recs[+i]); });
     container.querySelectorAll('[data-pk]').forEach(function (cb) {
       cb.addEventListener('change', function () { state.procKinds = state.procKinds || {}; state.procKinds[cb.getAttribute('data-pk')] = cb.checked; showProcs(state.ds, state.procAd); });
@@ -915,6 +1083,7 @@ var MAPVIEW = (function () {
     });
     var ds = opts.ds || datasets[0];
     if (dsSel && ds) dsSel.value = String(datasets.indexOf(ds));
+    datasets = null; // the handlers above use state.all, which Remove can clear (release)
     if (ds) { show(ds); if (opts.procs) showProcs(ds, opts.procs, true); else fit(true); }
     if (opts.cmp) setCompare(opts.cmp);
     setTimeout(function () { map.invalidateSize(); }, 50);
@@ -927,6 +1096,17 @@ var MAPVIEW = (function () {
     sel.innerHTML = '<option value="">All aerodromes</option>' + Array.from(ads.keys()).sort(function (a, b) { return M.shortName(a).localeCompare(M.shortName(b)); })
       .map(function (a) { return '<option value="' + ds.recs.indexOf(a) + '">' + esc(M.shortName(a) + ' — ' + (s(a.cur.p.name) || '')) + ' (' + ads.get(a) + ')</option>'; }).join('');
     sel.value = state.procAd && ads.has(state.procAd) ? String(ds.recs.indexOf(state.procAd)) : '';
+  }
+  // forget a removed data set: the map (its layers, and the panel's handlers holding the list of data sets it was
+  // opened with) would otherwise keep all its features alive; the map is built again when next opened
+  function release(ds) {
+    var used = state.ds === ds || (state.all && state.all.indexOf(ds) >= 0) || (state.cmp && (state.cmp.a === ds || state.cmp.b === ds));
+    if (!used) return;
+    VIEW3D.close();
+    if (map) { map.remove(); map = null; }
+    over = {}; live = []; vec = null; tipLayer = null; el = {};
+    state.ds = null; state.all = null; state.cmp = null; state.adView = null; state.procAd = null;
+    base = { offline: null, current: 'offline', online: {} };
   }
   function show(ds) {
     if (state.ds !== ds) state.procAd = null;
@@ -1305,6 +1485,6 @@ var MAPVIEW = (function () {
   }
   function datasetBounds(ds) { var b = dsBounds(ds); return b ? [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] : null; }
 
-  return { countryAt: countryAt, mount: mount, show: show, focus: focus, showProcs: showProcs, airportView: airportView, closeAirportView: closeAdCard, open3d: open3d, asCat: asCat, COLORS: COLORS, procPaths: procPaths, setCompare: setCompare, refreshTheme: refreshTheme, renderImage: renderImage, boundsAround: boundsAround, datasetBounds: datasetBounds,
+  return { countryAt: countryAt, mount: mount, show: show, release: release, focus: focus, showProcs: showProcs, airportView: airportView, closeAirportView: closeAdCard, open3d: open3d, asCat: asCat, COLORS: COLORS, procPaths: procPaths, setCompare: setCompare, refreshTheme: refreshTheme, renderImage: renderImage, boundsAround: boundsAround, datasetBounds: datasetBounds,
     isMounted: function () { return !!map; }, leaflet: function () { return map; }, invalidate: function () { if (map) map.invalidateSize(); } };
 })();

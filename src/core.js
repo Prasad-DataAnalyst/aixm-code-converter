@@ -1094,8 +1094,21 @@ var AX = (function () {
   function geoSig(g) {
     if (!g) return '';
     if (g.t === 'P') return g.c[1].toFixed(6) + ',' + g.c[0].toFixed(6);
-    var s = JSON.stringify(g.c, function (k, v) { return typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v; });
-    return g.t + ':' + (g.t === 'A' ? g.c[0].length : g.c.length) + 'pts:' + hash(s).slice(0, 8);
+    // hash of the coordinates (rounded to 1e-6°) and their nesting, computed from the numbers: writing every
+    // geometry out as text first produced most of the temporary memory of a Compare of two large files
+    var h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    function mix(x) { h1 = Math.imul(h1 ^ x, 2654435761); h2 = Math.imul(h2 ^ x, 1597334677); }
+    (function walk(a) {
+      mix(91); // '['
+      for (var i = 0; i < a.length; i++) {
+        var v = a[i];
+        if (typeof v === 'number') { var q = Math.round(v * 1e6); mix(q | 0); mix((q / 4294967296) | 0); }
+        else if (Array.isArray(v)) walk(v);
+      }
+      mix(93); // ']'
+    })(g.c);
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    return g.t + ':' + (g.t === 'A' ? g.c[0].length : g.c.length) + 'pts:' + (h1 >>> 0).toString(16).padStart(8, '0');
   }
   function valStr(v) {
     if (v === null || v === undefined) return '';

@@ -7,6 +7,27 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.1.0 — 2026-10-01 — large files
+
+Several files of 800 MB – 1 GB can be open together without the page slowing down or the browser tab running out of
+memory (measured with three files, 1.0 + 0.8 + 0.8 GB: memory 2.76 → 1.31 GB, longest freezes 4.6 s → 1.4 s, Compare 15.7 → 9.0 s).
+
+- **Memory:** repeated values (type names, units, codes, dates, references) are kept once (−25 %); Compare no longer
+  keeps a flattened copy of every feature; *Remove* frees all memory of a data set (map, comparison, search results
+  and a background save let go of it).
+- **Memory guard:** a *Memory* gauge in the top bar; files that would not fit are read in Lite mode with a message;
+  Auto uses Lite when all loaded files together exceed 1.5 GB.
+- **Map:** airspace, routes, aerodrome surfaces, obstacle areas and the comparison result are drawn on canvas from
+  compact coordinate arrays instead of one map object per feature (open 3× faster, zoom / pan and airport view 4×
+  less freezing); same look, hover names and pop-ups. The built-in world map is drawn the same way (zooming in the
+  first time no longer builds ~660,000 map objects).
+- **Compare:** geometry fingerprints are computed from the coordinates directly (half the time, little temporary memory).
+- **Responsive page:** the background save into browser storage runs in small steps in idle time (it froze the page
+  for up to a second at a time after reading a big file) and is skipped for files over 400 MB; indexing after reading,
+  Compare and the search index give control back to the browser regularly; the first search is instant.
+- Reopening saved data no longer slows down with the number of features.
+- Tools: `make_big.js` (large test files), `bench_big.js` (time, memory and freezes per step); test `large_files.js`.
+
 ## 1.0.0 — 2026-10-01 — first public release
 
 Everything below is part of version 1.0 (built in three development stages).

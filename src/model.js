@@ -38,53 +38,81 @@ var MODEL = (function () {
     AircraftGroundService: 1, PassengerService: 1, FireFightingService: 1, AirportClearanceService: 1, AirTrafficManagementService: 1, AirTrafficFlowManagementService: 1, Service: 1 };
 
   /* ------------------------------------------------------------- finalize */
-  function finalize(ds) {
-    var t0 = Date.now();
-    // 1) absolute line numbers
-    var pre = [0], i;
-    var recs = ds.recs, byId = new Map(), out = [];
-    if (ds.prepared) { // restored from the saved library cache: lines and merges already done
-      recs.forEach(function (r) { byId.set(r.id || ('@' + r.o), r); });
-      out = recs;
-    } else {
-    for (i = 0; i < (ds.partLines || []).length; i++) pre[i + 1] = pre[i] + (ds.partLines[i] || 0);
-    for (i = 0; i < recs.length; i++) {
-      var r = recs[i];
-      r.line = pre[r.w || 0] + (r.l || 0) + 1;
-      delete r.w; delete r.l;
-      if (r.k === '#error') { (ds.parseErrors || (ds.parseErrors = [])).push(r); continue; }
-      // 2) merge repeated occurrences of the same feature (e.g. BASELINE + TEMPDELTA members)
-      var key = r.id || ('@' + r.o);
-      var ex = byId.get(key);
-      if (ex && ex.k === r.k) {
-        if (!ex.occ) ex.occ = [{ o: ex.o, n: ex.n, line: ex.line }];
-        ex.occ.push({ o: r.o, n: r.n, line: r.line });
-        r.ts.forEach(function (t) { t.occ = ex.occ.length - 1; });
-        ex.ts = ex.ts.concat(r.ts);
-        if (r.chg) ex.chg = r.chg;
-        continue;
+  // The work is split into stages: finalize() runs them at once, finalizeAsync() lets the browser draw and react
+  // between them (a large file used to freeze the page for a second or two at the end of reading).
+  function finalizeStages(ds) {
+    var t0 = Date.now(), recs = ds.recs, byId = new Map(), out = [];
+    return [
+      function () { // 1) absolute line numbers, 2) merge repeated occurrences of the same feature (e.g. BASELINE + TEMPDELTA members)
+        var pre = [0], i;
+        if (ds.prepared) { // restored from the saved library cache: lines and merges already done
+          recs.forEach(function (r) { byId.set(r.id || ('@' + r.o), r); });
+          out = recs;
+          return;
+        }
+        for (i = 0; i < (ds.partLines || []).length; i++) pre[i + 1] = pre[i] + (ds.partLines[i] || 0);
+        for (i = 0; i < recs.length; i++) {
+          var r = recs[i];
+          r.line = pre[r.w || 0] + (r.l || 0) + 1;
+          delete r.w; delete r.l;
+          if (r.k === '#error') { (ds.parseErrors || (ds.parseErrors = [])).push(r); continue; }
+          var key = r.id || ('@' + r.o);
+          var ex = byId.get(key);
+          if (ex && ex.k === r.k) {
+            if (!ex.occ) ex.occ = [{ o: ex.o, n: ex.n, line: ex.line }];
+            ex.occ.push({ o: r.o, n: r.n, line: r.line });
+            r.ts.forEach(function (t) { t.occ = ex.occ.length - 1; });
+            ex.ts = ex.ts.concat(r.ts);
+            if (r.chg) ex.chg = r.chg;
+            continue;
+          }
+          r.ts.forEach(function (t) { t.occ = 0; });
+          byId.set(key, r);
+          out.push(r);
+        }
+      },
+      function () {
+        out.sort(function (a, b) { return a.o - b.o; });
+        out.forEach(function (r, idx) { r.i = idx; });
+        ds.recs = out;
+        ds.byId = byId;
+        ds.gid = new Map();
+        out.forEach(function (r) { if (r.gid) ds.gid.set(r.gid, r); });
+        // 3) AIXM 4.5 cross-feature links (airspace borders -> airspace, route segment points)
+        if (ds.family === '45') link45(ds);
+        // 4) curve index for xlink'ed curve members (border following)
+        buildCurveIndex(ds);
+      },
+      // 5) temporality + indexes
+      function () { resolveAll(ds, ds.viewDate === undefined ? null : ds.viewDate); },
+      function () { buildRefIndex(ds); },
+      function () { computeOwners(ds); },
+      function () {
+        ds.byType = {};
+        out.forEach(function (r) { (ds.byType[r.k] || (ds.byType[r.k] = [])).push(r); });
+        computeMeta(ds);
+        ds.tFinalize = Date.now() - t0;
       }
-      r.ts.forEach(function (t) { t.occ = 0; });
-      byId.set(key, r);
-      out.push(r);
+    ];
+  }
+  function finalize(ds) {
+    finalizeStages(ds).forEach(function (f) { f(); });
+    return ds;
+  }
+  // gives control back to the browser (MessageChannel: not slowed to once a second in a background tab)
+  var chan = typeof MessageChannel === 'function' ? new MessageChannel() : null, waiting = [];
+  if (chan) chan.port1.onmessage = function () { var w = waiting.shift(); if (w) w(); };
+  function breathe() { return new Promise(function (r) { if (chan) { waiting.push(r); chan.port2.postMessage(0); } else setTimeout(r, 0); }); }
+  async function finalizeAsync(ds, onStage) {
+    var st = finalizeStages(ds);
+    ds.tStages = [];
+    for (var i = 0; i < st.length; i++) {
+      var t = Date.now();
+      st[i]();
+      ds.tStages.push(Date.now() - t);
+      if (onStage) onStage((i + 1) / st.length);
+      await breathe();
     }
-    }
-    out.sort(function (a, b) { return a.o - b.o; });
-    out.forEach(function (r, idx) { r.i = idx; });
-    ds.recs = out;
-    ds.byId = byId;
-    ds.gid = new Map();
-    out.forEach(function (r) { if (r.gid) ds.gid.set(r.gid, r); });
-    // 3) AIXM 4.5 cross-feature links (airspace borders -> airspace, route segment points)
-    if (ds.family === '45') link45(ds);
-    // 4) curve index for xlink'ed curve members (border following)
-    buildCurveIndex(ds);
-    // 5) temporality + indexes
-    setViewDate(ds, ds.viewDate === undefined ? null : ds.viewDate);
-    ds.byType = {};
-    out.forEach(function (r) { (ds.byType[r.k] || (ds.byType[r.k] = [])).push(r); });
-    computeMeta(ds);
-    ds.tFinalize = Date.now() - t0;
     return ds;
   }
 
@@ -102,7 +130,7 @@ var MODEL = (function () {
       }
     });
   }
-  function setViewDate(ds, t) {
+  function resolveAll(ds, t) {
     ds.viewDate = t;
     var recs = ds.recs;
     for (var i = 0; i < recs.length; i++) {
@@ -111,6 +139,9 @@ var MODEL = (function () {
       delete r._lbl;
       r.geo = undefined;
     }
+  }
+  function setViewDate(ds, t) {
+    resolveAll(ds, t);
     buildRefIndex(ds);
     computeOwners(ds);
   }
@@ -782,7 +813,7 @@ var MODEL = (function () {
   function fmtTs(str) { if (typeof str === 'number') return fmtDate(str, true); var t = AX.tms(str); return t === null ? (str || '') : fmtDate(t, true); }
 
   return {
-    setDict: setDict, dict: dict, finalize: finalize, setViewDate: setViewDate, harmonizeStates: harmonizeStates, setLocator: setLocator, target: target, eachRef: eachRef,
+    setDict: setDict, dict: dict, finalize: finalize, finalizeAsync: finalizeAsync, setViewDate: setViewDate, harmonizeStates: harmonizeStates, setLocator: setLocator, target: target, eachRef: eachRef,
     geometry: geometry, pointOf: pointOf, findGeo: findGeo, segPoint: segPoint, segPointLabel: segPointLabel, segPointRec: segPointRec,
     label: label, shortName: shortName, typeName: typeName, routeDesignator: routeDesignator, s: s,
     fq: fq, fLimit: fLimit, fPoint: fPoint, fElev: fElev, fTimesheet: fTimesheet, fSchedule: fSchedule, noteText: noteText, notesOf: notesOf,

@@ -60,6 +60,17 @@ Rule of thumb: **lower modules never call higher ones** (core ← model ← aip/
 `opts.prio` order) and share one collision registry `occ`; a label is drawn only if its box is free (`occ.take(box)`).
 Give new canvas layers a `prio` and register their labels the same way.
 
+**Map shapes.** Lines and areas (airspace, routes, aerodrome surfaces, obstacle areas, comparison) are not Leaflet
+objects: `ShapeSet.add(geometry, style, rec, ds, hoverText)` stores Web-Mercator coordinates in `Float64Array`s and
+`shapeLayer(set)` draws the ones in view on one canvas (one path per style when more than 400 are in view). Hover text
+and clicks go through `shapeHit` (lines and edges first, then the smallest area). Large files used to create hundreds
+of thousands of Leaflet objects.
+
+**Large files.** Keep work on the page's thread short: split long loops and give control back to the browser
+(`ANALYSIS` uses `yieldUI`, a MessageChannel that is not slowed in background tabs; `MODEL.finalizeAsync` runs the
+indexing in stages; the search index is built in idle time). Do not keep per-feature copies (e.g. flattened values) on
+the records. Anything that holds a data set must be cleared in `dropDataset` (`app.js`) / `MAPVIEW.release`.
+
 **Separate map window.** Scripts and JSON marked `data-mapwin` in `src/index.html` are copied into the map window, which
 runs its own `MAPVIEW` on the same data-set objects. A module needed by the map must carry `data-mapwin` and must not
 depend on `app.js`.
@@ -68,8 +79,8 @@ depend on `app.js`.
 
 ```
 File ──► AX.sniff (version, prefixes) ──► N Web Workers (byte ranges, worker.js + AX.convFeature*)
-     ──► record batches ──► MODEL.finalize(ds) ──► AIP / ANALYSIS / REVIEW / RULES / MAPVIEW / EXPORTS
-                                   └─► LIBRARY.saveDataset (cache, files ≤ 1.5 GB)
+     ──► record batches (repeated strings shared) ──► MODEL.finalizeAsync(ds, stages) ──► AIP / ANALYSIS / REVIEW / RULES / MAPVIEW / EXPORTS
+                                   └─► LIBRARY.saveDataset (cache, files ≤ 400 MB, small blocks in idle time)
 ```
 
 Values shown in the UI are **cells** `AIP.C(text, rec, prop)`: the text plus the record and property they come from,
@@ -135,7 +146,10 @@ the interface text exactly (numbers in front are handled).
 `tools/tests/` holds browser tests (Playwright, headless Chromium), one per feature: AIP and cycle highlighting,
 changes, comparison, library, conversions, AIXM 4.5, procedures, review tools, business rules, bookmarks, languages,
 map print, State detection, theme/attribution, layout at five window sizes (including RTL and dark mode), airport chart,
-map window and 3D view (`AIRPORT_FILE` / `V3D_FILE` environment variables add another data set).
+map window, 3D view (`AIRPORT_FILE` / `V3D_FILE` environment variables add another data set) and large files
+(`large_files.js`: two generated 60 MB files, memory, map, Compare, Remove frees the memory, memory guard).
+`tools/make_big.js` builds large test files from a small one (unique UUIDs per copy); `tools/bench_big.js` measures
+time, memory and the longest freeze of every step for 1 GB files.
 `node tools/tests/run_all.js [filter]` runs them and fails on any page error. `tools/test_aip.js` prints AIP sections as
 text in Node and can evaluate any expression on a data set (`EVAL='…'`).
 
