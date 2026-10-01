@@ -89,7 +89,7 @@ var ABOUT = (function () {
   // short introduction for the start page
   function intro() {
     return '<div class="card ab-intro"><div><b>' + esc(APP_INFO.name) + '</b> reads AIXM 4.5 – 5.2 files and shows them as the ICAO AIP, an aeronautical map with airport charts, and lists of changes — offline, in this one file.' +
-      '<span class="ab-sig" aria-hidden="true">' + zw(SIG) + '</span><div class="nfo-line">⚠ ' + esc(APP_INFO.disclaimerShort) + '</div></div><button class="btn small" data-about-page>About this tool</button></div>';
+      '<span class="ab-sig" aria-hidden="true">' + zw(SIG) + '</span></div><button class="btn small" data-about-page>About this tool</button></div>';
   }
   return { html: html, intro: intro };
 })();

@@ -185,20 +185,6 @@ that the committed `AIXM-Code-Converter.html` matches the sources, and all brows
 - For PDF, very large tables (e.g. hundreds of thousands of obstacles) are truncated to 5,000 rows per table with a note.
   Excel and JSON always contain everything.
 
-## Not for operational use
-
-**The AIXM Code Converter is not for operational use.** It is a tool for checking, studying and visualising aeronautical
-data. It must not be used for flight planning, navigation, flight operations, aerodrome or instrument procedure design
-decisions, obstacle assessment or any other operational or safety-related purpose. Always use the official AIP, AIP
-amendments and supplements, NOTAM and the approved aeronautical charts published by the State. Everything the tool shows
-or produces (AIP pages, maps, airport charts, 3D views, terrain, grid MORA, approach profiles, obstacle limitation
-surfaces, data integrity results, conversions and exports) is derived automatically from the input data, may be
-incomplete or inaccurate, and is provided "as is" without warranty of any kind (Apache License 2.0, sections 7 and 8).
-
-The application shows this notice at the first start, keeps a *Not for operational use* marker in the top bar and side
-menu, and writes it into every export (PDF footer on every page, Excel *About* sheet, JSON `disclaimer`, print and e-mail,
-map images, CRC lists, converted AIXM, GeoJSON, KML and Shapefile). The text is defined once, in `src/config.js`.
-
 ## Author and licence
 
 **AIXM Code Converter** was created by **Prasad Selvaraj** — [prasad2t@gmail.com](mailto:prasad2t@gmail.com).

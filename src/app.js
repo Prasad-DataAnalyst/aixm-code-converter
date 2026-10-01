@@ -113,7 +113,7 @@
       if (!v) return '<div class="nav-sep"></div>';
       var dis = !has && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about';
       return '<button data-view="' + v[0] + '" class="' + (S.view === v[0] ? 'active' : '') + '"' + (dis ? ' disabled' : '') + ' title="' + v[1] + '">' + v[2] + '<span>' + v[1] + '</span></button>';
-    }).join('') + '<div class="nav-credit" data-about="1" title="' + AUTHOR_LINE + '">© 2026<br>Prasad Selvaraj<div class="nav-nfo" title="' + esc(APP_INFO.disclaimerShort) + '">NOT FOR<br>OPERATIONAL<br>USE</div></div>';
+    }).join('') + '<div class="nav-credit" data-about="1" title="' + AUTHOR_LINE + '">© 2026<br>Prasad Selvaraj</div>';
   }
   $('#nav').addEventListener('click', function (e) {
     if (e.target.closest('[data-about]')) { go('about'); return; }
@@ -1898,7 +1898,7 @@
     cellRegistry = [];
     function mft(m) { return m.toFixed(1) + ' m (' + Math.round(m / 0.3048).toLocaleString('en-US') + ' ft)'; }
     v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Obstacle limitation surfaces of ICAO Annex 14 (approach, take-off climb, transitional, inner horizontal, conical) built from the runway data, checked against the obstacles of the ' +
-      sets.length + ' loaded file(s) (within 11 NM of each aerodrome). Runway code number from the runway length, approach type from the ILS / instrument approaches in the data. Indicative: the inner approach / OFZ surfaces are not included and the official survey prevails.</p><div class="nfo-box">⚠ Not for operational use: an automated check of the data for review purposes, not an obstacle assessment.</div>' + qTabs('ols') +
+      sets.length + ' loaded file(s) (within 11 NM of each aerodrome). Runway code number from the runway length, approach type from the ILS / instrument approaches in the data. Indicative: the inner approach / OFZ surfaces are not included and the official survey prevails.</p>' + qTabs('ols') +
       '<div class="toolbar"><span class="sp"></span><button class="btn small" id="o-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="o-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="o-mail">' + I.mail + ' E-mail</button></div>' +
       '<div class="stat-row"><div class="card stat"><b>' + res.length + '</b><span class="muted">aerodromes</span></div><div class="card stat"><b>' + num(chk) + '</b><span class="muted">obstacles checked</span></div><div class="card stat"><b class="' + (pen ? 'sev-err' : '') + '">' + pen + '</b><span class="muted">penetrations</span></div></div>' +
       (res.length ? res.map(function (x) {
@@ -1929,7 +1929,7 @@
     var list = INTEGRITY.items(ds), pub = INTEGRITY.published(ds), F = S.intF || { cls: '', st: '', q: '' }, ver = S.intVer && S.intVer.ds === ds ? S.intVer.res : null;
     var by = { OK: 0, 'Accuracy not declared': 0, 'Insufficient accuracy': 0 };
     list.forEach(function (it) { by[it.status]++; });
-    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Data integrity (ICAO Annex 15, PANS-AIM): every critical, essential and routine data item with the accuracy PANS-AIM requires and the accuracy declared in the data, and its <b>CRC32Q</b> fingerprint. Save the CRC list and verify a later delivery against it to prove that nothing changed unnoticed. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p><div class="nfo-box">⚠ Not for operational use: these fingerprints support data reviews; they do not replace the integrity protection required in the State\'s aeronautical data chain.</div>' + qTabs('integrity') +
+    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Data integrity (ICAO Annex 15, PANS-AIM): every critical, essential and routine data item with the accuracy PANS-AIM requires and the accuracy declared in the data, and its <b>CRC32Q</b> fingerprint. Save the CRC list and verify a later delivery against it to prove that nothing changed unnoticed. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('integrity') +
       '<div class="toolbar"><select class="inp" id="i-cls"><option value="">All classes</option><option value="critical">Critical</option><option value="essential">Essential</option><option value="routine">Routine</option></select>' +
       '<select class="inp" id="i-st"><option value="">All results</option><option>OK</option><option>Accuracy not declared</option><option>Insufficient accuracy</option></select><input class="inp" id="i-q" placeholder="Filter…" value="' + esc(F.q) + '"><span class="sp"></span>' +
       '<button class="btn small" id="i-csv">⬇ Save CRC list</button><button class="btn small" id="i-ver">✓ Verify against a CRC list…</button><input type="file" id="i-file" accept=".csv,.txt" class="hidden">' +
@@ -1966,7 +1966,7 @@
       if (a) { e.preventDefault(); var r1 = cellRegistry[+a.getAttribute('data-det')]; openDetail(r1.ds, r1.r); }
       if (x) { var r2 = cellRegistry[+x.getAttribute('data-xml')]; openXml(r2.ds, r2.r); }
     };
-    $('#i-csv').onclick = function () { EXPORTS.download(EXPORTS.safeName(ds.state + '_' + (ds.airac ? ds.airac.id : '') + '_CRC32Q') + '.csv', new Blob(['# ' + APP_INFO.credit + ' - CRC32Q list of ' + ds.name + ' - ' + APP_INFO.disclaimerShort + '\n' + INTEGRITY.toCsv(list)], { type: 'text/csv' })); };
+    $('#i-csv').onclick = function () { EXPORTS.download(EXPORTS.safeName(ds.state + '_' + (ds.airac ? ds.airac.id : '') + '_CRC32Q') + '.csv', new Blob(['# ' + APP_INFO.credit + ' - CRC32Q list of ' + ds.name + '\n' + INTEGRITY.toCsv(list)], { type: 'text/csv' })); };
     $('#i-ver').onclick = function () { $('#i-file').click(); };
     $('#i-file').onchange = function () {
       var f = this.files[0]; if (!f) return;
@@ -2196,32 +2196,6 @@
 
   /* ------------------------------------------------------------- help */
   $('#help-btn').addEventListener('click', function () { showHelp(false); });
-  /* ----------------------------------------------- not for operational use */
-  // The safety notice (APP_INFO.disclaimer): shown at the first start in a browser until acknowledged (remembered
-  // per browser), and any time from the top-bar chip. Automated test browsers (navigator.webdriver) skip the
-  // first-start display so scripted tests are not blocked; the notice is still everywhere else.
-  var NOTICE_KEY = 'aixm-notice-ack-1';
-  function showNotice(firstStart) {
-    if (document.getElementById('nfo-dlg')) return;
-    var back = document.createElement('div');
-    back.className = 'modal-back'; back.id = 'nfo-dlg';
-    back.innerHTML = '<div class="modal" style="width:min(620px,100%)"><div class="modal-head nfo-head"><h3>⚠ Not for operational use</h3><span class="sp"></span>' + (firstStart ? '' : '<button class="btn small ghost" data-close>' + I.x + '</button>') + '</div><div class="modal-body">' +
-      '<p class="nfo-text">' + esc(APP_INFO.disclaimer) + '</p>' +
-      '<ul class="ab-list"><li>Use it to read, check and compare AIXM data, to prepare reviews and for training.</li><li>Do not use its pages, maps, charts, 3D views, terrain, MORA, profiles, obstacle or integrity results to plan or fly, or to take safety decisions.</li><li>Report data problems to the State AIS / AIM office that published the data.</li></ul>' +
-      '<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" data-ack>I understand</button></div></div></div>';
-    document.body.appendChild(back);
-    back.addEventListener('click', function (e) {
-      if (e.target.closest('[data-ack]')) { try { localStorage.setItem(NOTICE_KEY, new Date().toISOString()); } catch (er) { /* storage unavailable */ } back.remove(); }
-      else if (!firstStart && (e.target === back || e.target.closest('[data-close]'))) back.remove();
-    });
-  }
-  $('#nfo-chip').addEventListener('click', function () { showNotice(false); });
-  (function () {
-    var ack = null;
-    try { ack = localStorage.getItem(NOTICE_KEY); } catch (e) { /* storage unavailable */ }
-    if (!ack && !navigator.webdriver) showNotice(true);
-  })();
-
   function showHelp(about) {
     var back = document.createElement('div');
     back.className = 'modal-back';
@@ -2250,5 +2224,5 @@
   renderNav();
   go('files');
   libInit().then(function () { if (LIB.status !== 'none') { startWatch(); if (!S.datasets.length) go('library'); } });
-  window.__AIXM = { S: S, go: go, showNotice: showNotice, LIB: LIB, libRescan: libRescan, openLibFile: openLibFile, openLatest: openLatest, useHandle: async function (h) { await LIBRARY.useHandle(h); LIB.status = 'granted'; await libRescan(); startWatch(); }, addFiles: addFiles, extractAll: extractAll, openXml: openXml, openDetail: openDetail };
+  window.__AIXM = { S: S, go: go, LIB: LIB, libRescan: libRescan, openLibFile: openLibFile, openLatest: openLatest, useHandle: async function (h) { await LIBRARY.useHandle(h); LIB.status = 'granted'; await libRescan(); startWatch(); }, addFiles: addFiles, extractAll: extractAll, openXml: openXml, openDetail: openDetail };
 })();

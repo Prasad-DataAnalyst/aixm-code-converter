@@ -19,10 +19,7 @@ Safety and integrity checks, approach profiles, continuous integration.
 - **Continuous integration**: GitHub Actions workflow (lint, unit tests, build check, all browser tests); unit tests with
   `node --test` (`tools/tests/unit/`); shared Node harness `tools/harness.js`.
 - Test: `ols_integrity_profile.js`.
-- **Not for operational use** notice (one text in `config.js`): first-start notice to acknowledge, top-bar chip and side-menu
-  marker, Help, About, start page, airport card, Quality tabs, and every export and generated file (PDF footer on every
-  page, Excel, JSON, print, e-mail, map images, approach profiles, 3D view, CRC lists, converted AIXM, GeoJSON, KML,
-  Shapefile); README and NOTICE.
+- **Not for operational use** notice (text in `config.js`) on the About page and in Help.
 
 ## 1.1.0 — 2026-10-01
 
