@@ -144,7 +144,7 @@ The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the mo
 application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.0.0, set in `src/config.js`; version 2 will add digital charts).
 
 ```bash
-cd aixm-code-converter/tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core
+cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core
 cd .. && python3 tools/build_dictionary.py            # schemas/ -> data/aixm_dictionary.json
 node tools/build_rules.js                             # schemas/rules/*.xlsx -> data/aixm_rules.json
 node tools/build_terrain.js 6                         # Terrain Tiles (internet, once) -> data/terrain.json
@@ -159,7 +159,7 @@ cd tools && npm run lint                              # ESLint over src/
 node tools/e2e_big.js /path/to/1gb.xml                # large-file timing and memory (MEM=lite to force Lite mode)
 ```
 
-Every push runs the same checks on GitHub Actions (`.github/workflows/aixm-code-converter.yml`): lint, unit tests, a check
+Every push runs the same checks on GitHub Actions (`.github/workflows/ci.yml`): lint, unit tests, a check
 that the committed `AIXM-Code-Converter.html` matches the sources, and all browser tests.
 
 ## Limits worth knowing

@@ -1,0 +1,54 @@
+# AIXM Code Converter - Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com> - Apache-2.0
+# Continuous integration: lint, unit tests, build (the committed HTML must match the sources)
+# and every browser test in headless Chromium, on each push and pull request.
+name: AIXM Code Converter
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/package-lock.json
+
+      - name: Install tools
+        working-directory: tools
+        run: npm ci
+
+      - name: Lint (ESLint over src/)
+        working-directory: tools
+        run: npm run lint
+
+      - name: Unit tests (parser, geodesy, AIP, Annex 14 surfaces, CRC32Q, approach profile)
+        run: node --test tools/tests/unit/*.test.js
+
+      - name: Build the single-file application
+        run: node tools/build.js
+
+      - name: Committed AIXM-Code-Converter.html matches the sources
+        run: git diff --exit-code --stat -- AIXM-Code-Converter.html || (echo "::error::Run 'node tools/build.js' and commit AIXM-Code-Converter.html" && exit 1)
+
+      - name: Install Chromium for the browser tests
+        working-directory: tools
+        run: npx playwright-core install --with-deps chromium
+
+      - name: Browser tests
+        run: node tools/tests/run_all.js
+
+      - name: Keep screenshots and outputs of the browser tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: tools/tests/out/
+          retention-days: 14

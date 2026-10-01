@@ -8,7 +8,7 @@ without a review by the maintainer, Prasad Selvaraj.
 1. **Fork** the repository and create a branch in your fork.
 2. Make the change in `src/` (never edit `AIXM-Code-Converter.html` by hand), then build and test:
    ```bash
-   cd aixm-code-converter/tools && npm ci
+   cd tools && npm ci
    npm run lint && npm run build && npm test
    ```
 3. Commit the rebuilt `AIXM-Code-Converter.html` together with your source changes.
