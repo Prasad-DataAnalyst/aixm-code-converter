@@ -24,6 +24,7 @@ Data compiled once from the official sources:
 |---|---|---|
 | `tools/build_dictionary.py` | `schemas/4.5`, `5.1`, `5.1.1`, `5.2` (aixm.aero XSDs) | `data/aixm_dictionary.json` (features, properties, code lists, definitions) |
 | `tools/build_rules.js` | `schemas/rules/aixm-br-sbvr-0.9.xlsx` | `data/aixm_rules.json` (business rules + feature hierarchy) |
+| `tools/build_terrain.js` | Terrain Tiles (Terrarium PNG, internet once) | `data/terrain.json` (0.25° mean and 1° max elevation grids, Int16, deflated, base64) |
 
 ## 2. Modules (load order)
 
@@ -36,16 +37,29 @@ Data compiled once from the official sources:
 | 5 | `library.js` | `LIBRARY` | State folders on disk (File System Access API) and the IndexedDB cache of extracted data |
 | 6 | `aip.js` | `AIP` | ICAO AIP structure: catalogue of GEN / ENR / AD 2 / AD 3 sections and their builders; `sectionOf(ds, rec)` |
 | 7 | `analysis.js` | `ANALYSIS` | in-file changes, comparison of two data sets, AIRAC-cycle changes, basic quality checks |
-| 8 | `mapview.js` | `MAPVIEW` | Leaflet map, offline base map, aeronautical layers, procedures, measure, print/PNG renderer |
-| 9 | `exports.js` | `EXPORTS` | JSON, Excel, PDF, print, e-mail (clipboard / .eml / .html) |
-| 10 | `convert.js` | `CONVERT` | AIXM version conversion, 4.5 → 5.1.1 writer, GeoJSON, KML, Shapefile |
-| 11 | `review.js` | `REVIEW` | AMDT report, side-by-side diff, Digital NOTAM, timeline data |
-| 12 | `rules.js` | `RULES` | AIXM 5.1 business-rule evaluation |
-| 13 | `i18n.js` | `I18N` | interface languages (Arabic RTL, French, Spanish) |
-| 14 | `app.js` | – | the user interface (views, drawers, dialogs) — see the table of contents at its top |
+| 8 | `terrain.js` | `TERRAIN` | built-in terrain grid (`elev`, `maxIn`, `mora`), online Terrain Tiles for an area (`area`) |
+| 9 | `adchart.js` | `ADCHART` | airport chart: drawing model per aerodrome (`all`, `of`, `bounds`), canvas drawing (`draw`) used by the live map and the PNG renderer, airport information card (`cardHtml`), label collision registry (`Occ`) |
+| 10 | `mapview.js` | `MAPVIEW` | Leaflet map, offline base map, aeronautical layers and labels, airport view, grid MORA, procedures, measure, print/PNG renderer |
+| 11 | `view3d.js` | `VIEW3D` | 3D view (three.js): terrain, airspace volumes, runways, obstacles, procedures, approach / departure crew views |
+| 12 | `mapwindow.js` | `MAPWIN` | the map in a separate browser window (copies the `data-mapwin` scripts into a same-origin window) |
+| 13 | `exports.js` | `EXPORTS` | JSON, Excel, PDF, print, e-mail (clipboard / .eml / .html) |
+| 14 | `convert.js` | `CONVERT` | AIXM version conversion, 4.5 → 5.1.1 writer, GeoJSON, KML, Shapefile |
+| 15 | `review.js` | `REVIEW` | AMDT report, side-by-side diff, Digital NOTAM, timeline data |
+| 16 | `rules.js` | `RULES` | AIXM 5.1 business-rule evaluation |
+| 17 | `i18n.js` | `I18N` | interface languages (Arabic RTL, French, Spanish) |
+| 18 | `about.js` | `ABOUT` | the About page and the start-page introduction (plain content lists) |
+| 19 | `app.js` | – | the user interface (views, drawers, dialogs) — see the table of contents at its top |
 
 Rule of thumb: **lower modules never call higher ones** (core ← model ← aip/analysis ← review/rules/exports/convert ← app).
-`mapview.js` and `exports.js` receive callbacks (`hooks`) from `app.js` instead of calling it.
+`mapview.js`, `view3d.js` and `exports.js` receive callbacks (`hooks`) from `app.js` instead of calling it.
+
+**Map labels.** All map canvas layers are redrawn together once per animation frame (`scheduleDraw` → `drawAll`, in
+`opts.prio` order) and share one collision registry `occ`; a label is drawn only if its box is free (`occ.take(box)`).
+Give new canvas layers a `prio` and register their labels the same way.
+
+**Separate map window.** Scripts and JSON marked `data-mapwin` in `src/index.html` are copied into the map window, which
+runs its own `MAPVIEW` on the same data-set objects. A module needed by the map must carry `data-mapwin` and must not
+depend on `app.js`.
 
 ## 3. Data flow
 
@@ -88,6 +102,14 @@ that belong to another feature are merged in `link45` (`model.js`).
 **Add a map layer** — build it in `buildOverlays` (`mapview.js`), add it to `LAYER_DEF`, and draw it in `renderImage` for
 PNG/PDF output.
 
+**Add something to the airport chart** — collect it in `aerodrome()` (`adchart.js`) and draw it in `draw()` with a
+metres-per-pixel threshold (`v.mpp`); use `tag()` for labels so they respect the collision registry. The same code draws
+the screen and the printed chart.
+
+**Add something to the 3D view** — add a builder in `view3d.js` called from `build()`; use `vec(lon, lat, metres)` for
+positions (it applies the vertical exaggeration) and `ground(lon, lat)` for the terrain height; push pickable meshes to
+`V.pick`. Rebuild the terrain model with `node tools/build_terrain.js 6`.
+
 **Add an export format** — write a function in `exports.js` or `convert.js` that takes a *scope* `{title, sub, ds,
 sections}` or a data set, and add a button in the Export view (`app.js`). Include `APP_INFO.credit` in the file.
 
@@ -103,7 +125,8 @@ the interface text exactly (numbers in front are handled).
 
 `tools/tests/` holds browser tests (Playwright, headless Chromium), one per feature: AIP and cycle highlighting,
 changes, comparison, library, conversions, AIXM 4.5, procedures, review tools, business rules, bookmarks, languages,
-map print, State detection, theme/attribution and layout at five window sizes (including RTL and dark mode).
+map print, State detection, theme/attribution, layout at five window sizes (including RTL and dark mode), airport chart,
+map window and 3D view (`AIRPORT_FILE` / `V3D_FILE` environment variables add another data set).
 `node tools/tests/run_all.js [filter]` runs them and fails on any page error. `tools/test_aip.js` prints AIP sections as
 text in Node and can evaluate any expression on a data set (`EVAL='…'`).
 

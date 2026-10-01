@@ -20,7 +20,7 @@
  *   EXPORT, e-mail, search, help, start . exports/conversions, Outlook text, Ctrl+K search, startup
  * Every view is a function viewXxx(v, opts) registered in go(); add a view there and in VIEWS.
  * ========================================================================== */
-/* global APP_INFO, APP_SETTINGS, AX, MODEL, AIP, ANALYSIS, MAPVIEW, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
+/* global APP_INFO, APP_SETTINGS, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
 (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -57,6 +57,7 @@
   }
   // Author of the AIXM Code Converter (Apache-2.0: this attribution must be kept in redistributions, see NOTICE)
   var AUTHOR = APP_INFO.author, AUTHOR_EMAIL = APP_INFO.email;
+  try { Object.defineProperty(window, '__aixmAuthor', { value: APP_INFO.credit, enumerable: false }); } catch (e) { /* already defined */ }
   var AUTHOR_LINE = APP_INFO.name + ' ' + APP_INFO.version + ' — © ' + APP_INFO.year + ' ' + AUTHOR + ' · ' + AUTHOR_EMAIL + ' · Apache-2.0';
   try { console.info('%c AIXM Code Converter %c © 2026 ' + AUTHOR + ' <' + AUTHOR_EMAIL + '> · Apache-2.0 ', 'background:#0b2a4a;color:#fff;font-weight:bold;padding:2px 6px', 'color:#0b2a4a'); } catch (e) { /* no console */ }
   function dsOf() { return S.datasets[S.active] || null; }
@@ -104,22 +105,24 @@
   var VIEWS = [
     ['library', 'Library', I.folder], ['files', 'Files', I.upload], ['dash', 'Dashboard', I.dash], ['aip', 'AIP', I.book], ['map', 'Map', I.map], null,
     ['changes', 'Changes', I.changes], ['timeline', 'Timeline', I.timeline], ['compare', 'Compare', I.compare], ['notam', 'NOTAM', I.notam], ['quality', 'Quality', I.check], ['explorer', 'Explorer', I.list], null,
-    ['export', 'Export', I.export]
+    ['export', 'Export', I.export], ['about', 'About', I.info]
   ];
   function renderNav() {
     var has = S.datasets.length > 0;
     $('#nav').innerHTML = VIEWS.map(function (v) {
       if (!v) return '<div class="nav-sep"></div>';
-      var dis = !has && v[0] !== 'files' && v[0] !== 'library';
+      var dis = !has && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about';
       return '<button data-view="' + v[0] + '" class="' + (S.view === v[0] ? 'active' : '') + '"' + (dis ? ' disabled' : '') + ' title="' + v[1] + '">' + v[2] + '<span>' + v[1] + '</span></button>';
     }).join('') + '<div class="nav-credit" data-about="1" title="' + AUTHOR_LINE + '">© 2026<br>Prasad Selvaraj</div>';
   }
   $('#nav').addEventListener('click', function (e) {
-    if (e.target.closest('[data-about]')) { showHelp(true); return; }
+    if (e.target.closest('[data-about]')) { go('about'); return; }
     var b = e.target.closest('button[data-view]');
     if (b && !b.disabled) go(b.getAttribute('data-view'));
   });
   function go(view, opts) {
+    // the map lives in its own window: send "show on map" there and keep the current view here
+    if (view === 'map' && MAPWIN.isOpen() && !(opts && opts.docked)) { MAPWIN.apply(S.datasets, Object.assign({ cmp: S.cmp }, opts || {})); return; }
     S.view = view;
     renderNav();
     closeSearch();
@@ -128,7 +131,8 @@
     var v = document.createElement('div');
     v.className = 'view' + (view === 'aip' || view === 'map' || view === 'explorer' ? ' full' : '');
     main.appendChild(v);
-    ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, timeline: viewTimeline, notam: viewNotam, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport })[view](v, opts || {});
+    ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, timeline: viewTimeline, notam: viewNotam, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport, about: viewAbout })[view](v, opts || {});
+    MAPWIN.sync(S.datasets, S.cmp);
     updateHash();
   }
 
@@ -140,6 +144,7 @@
     $('#theme-btn').innerHTML = (dark ? I.sun : I.moon).replace('<svg', '<svg width="16" height="16"');
     try { localStorage.setItem('aixm-theme', t || ''); } catch (e) { /* storage unavailable */ }
     if (MAPVIEW.isMounted()) MAPVIEW.refreshTheme();
+    MAPWIN.theme(t);
   }
   $('#theme-btn').addEventListener('click', function () {
     var dark = document.documentElement.getAttribute('data-theme') === 'dark' || (!S.theme && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -159,6 +164,7 @@
       step(2, 'Extract', 'Press <b>Extract</b>. Large files are read in parallel streams — results appear while reading.') +
       step(3, 'Read like the ICAO AIP', 'GEN / ENR / AD pages, map, effective dates, AIRAC cycle, changes. Every value links to its exact AIXM code.') +
       step(4, 'Share', 'Export any section or everything to JSON, Excel, PDF, print, or a ready e-mail for Outlook.') + '</div></div>' +
+      ABOUT.intro() +
       '<div class="filelist" id="filelist"></div>' +
       '<div class="extract-bar card" id="extract-bar"></div>' +
       '<div class="credit-line">AIXM Code Converter · created by <b>Prasad Selvaraj</b> · <a href="mailto:prasad2t@gmail.com">prasad2t@gmail.com</a> · © 2026 · open source (Apache-2.0)</div>';
@@ -1384,13 +1390,31 @@
     go('aip', { flash: r });
   }
 
+  /* ========================================================== ABOUT */
+  function viewAbout(v) { v.innerHTML = ABOUT.html(); }
+  document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-about-page]')) go('about'); });
+
   /* ============================================================ MAP */
+  // callbacks of the map (main window or the separate map window, see mapwindow.js)
+  function mapHooks(inWindow) {
+    var h = {
+      toast: toast, openAip: openAipFor, openXml: function (ds, r) { openXml(ds, r); }, openDetail: function (ds, r) { openDetail(ds, r); },
+      savePng: function (url) { fetch(url).then(function (res) { return res.blob(); }).then(function (b) { EXPORTS.download('aixm-map.png', b); }); },
+      popout: popOutMap,
+      dock: function () { go('map', { docked: true }); }
+    };
+    if (inWindow) delete h.popout; else delete h.dock;
+    return h;
+  }
+  // map in its own window; this window goes to the AIP (or the dashboard) so data and map are side by side
+  function popOutMap(ds, ad) {
+    if (!MAPWIN.open(S.datasets, mapHooks(true), { ds: ds || dsOf(), cmp: S.cmp, focus: ad || null })) return;
+    if (S.view === 'map') go(S.aipSel ? 'aip' : 'dash');
+    toast('The map is open in its own window. "Show on map" now uses that window.', 5000);
+  }
   function viewMap(v, opts) {
     if (!S.datasets.length) { v.innerHTML = emptyState('No data', 'Extract a file first.'); return; }
-    MAPVIEW.mount(v, S.datasets, {
-      toast: toast, openAip: openAipFor, openXml: function (ds, r) { openXml(ds, r); }, openDetail: function (ds, r) { openDetail(ds, r); },
-      savePng: function (url) { fetch(url).then(function (res) { return res.blob(); }).then(function (b) { EXPORTS.download('aixm-map.png', b); }); }
-    }, { ds: opts.ds || dsOf(), cmp: S.cmp, procs: opts.procs });
+    MAPVIEW.mount(v, S.datasets, mapHooks(), { ds: opts.ds || dsOf(), cmp: S.cmp, procs: opts.procs });
     MAPVIEW.leaflet().on('moveend', updateHash);
     if (opts.focus) setTimeout(function () { MAPVIEW.focus(opts.ds || dsOf(), opts.focus); }, 250);
   }
@@ -1980,7 +2004,7 @@
     back.innerHTML = '<div class="modal"><div class="modal-head"><h3>Conversion report — ' + esc(rep.from) + ' → ' + esc(rep.to) + '</h3><span class="sp"></span><button class="btn small ghost" data-close>' + I.x + '</button></div><div class="modal-body">' +
       '<ul>' + rep.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + (rep.renamed ? '<li>' + rep.renamed + ' element tag(s) renamed.</li>' : '') + '</ul><p class="muted">The converted file has been downloaded.</p></div></div>';
     document.body.appendChild(back);
-    back.addEventListener('click', function (e) { if (e.target === back || e.target.closest('[data-close]')) back.remove(); });
+    back.addEventListener('click', function (e) { if (e.target === back || e.target.closest('[data-close]') || e.target.closest('[data-about-page]')) back.remove(); });
   }
   function expCard(k, icon, t, d) { return '<div class="card export-card"><h4>' + icon + t + '</h4><div class="muted" style="font-size:13px;flex:1">' + d + '</div><button class="btn primary" data-exp="' + k + '">Export</button></div>'; }
 
@@ -2083,16 +2107,16 @@
       '<p><b>Effective dates.</b> The header shows the State, AIXM version, AIRAC cycle and effective date. Every row shows the effective date of its feature. Use <b>Latest data / Valid on date</b> (top bar) to see the data valid on any date (AIXM temporality: BASELINE, PERMDELTA, TEMPDELTA).</p>' +
       '<p><b>Changes.</b> <i>Changes</i> lists the time slices inside one file (what changes, where, when). <i>Compare</i> compares two files of the same State (e.g. two AIRAC cycles, any versions) and lists added / removed / modified data with old → new values; results can also be shown on the map.</p>' +
       '<p><b>AIRAC cycle changes.</b> Values that change in the selected AIRAC cycle are shown <span class="chg-badge">in red</span> on every AIP page; <b>List all changes</b> and <b>AMDT report</b> give the amendment (publication and effective dates, affected sections, insert/amend/delete). <b>⇆ Side by side</b> on any section shows before/after a cycle, or two files. <i>Timeline</i> shows the changes per AIRAC cycle and temporary changes; <i>NOTAM</i> shows Digital NOTAM events as ICAO NOTAM text.</p>' +
-      '<p><b>Map.</b> A complete offline world map is built in. When the laptop is online you can switch to OpenStreetMap (CARTO Voyager is used when the standard server refuses a local file) or satellite imagery. Instrument procedures can be drawn per aerodrome. <b>Print map</b>: drag an area, choose A4/A3, legend, north arrow and grid.</p>' +
+      '<p><b>Map.</b> A complete offline world map is built in. When the laptop is online you can switch to OpenStreetMap (CARTO Voyager is used when the standard server refuses a local file) or satellite imagery. Instrument procedures can be drawn per aerodrome. <b>Airport view</b>: airport chart (runways to scale with markings, taxiway signs, stands, ILS) and an information card. <b>🗻 3D view</b>: terrain, airspace volumes, approach and departure crew views; <i>Grid MORA</i> and terrain elevation on the map. <b>⧉ New window</b> puts the map on a second screen. <b>Print map</b>: drag an area, choose A4/A3, legend, north arrow and grid.</p>' +
       '<p><b>Quality.</b> Basic checks plus the official AIXM 5.1 business rules (SBVR) and their catalogue.</p>' +
       '<p><b>Library, links and languages.</b> Connect a folder with one sub-folder per State; extracted data is kept for instant reopening. ☆ saves views; the address (#…) of any view can be shared. The interface is available in English, العربية (right-to-left), Français and Español. Files over 1.5 GB use the Lite memory mode automatically.</p>' +
       '<p><b>Exports.</b> Any single section or the whole data set: JSON (with source references), Excel, printable PDF, print, or an e-mail to paste into Outlook (.eml opens as a draft).</p>' +
-      '<p><b>Sources.</b> AIXM schemas, code lists and definitions from aixm.aero (4.5 r2, 5.1, 5.1.1, 5.2), AIXM temporality and feature-identification concepts, ICAO Annex 15 / PANS-AIM AIP structure. Base map: Natural Earth (public domain). Libraries: Leaflet, SheetJS, jsPDF, fflate, topojson.</p>' +
+      '<p><b>Sources.</b> AIXM schemas, code lists and definitions from aixm.aero (4.5 r2, 5.1, 5.1.1, 5.2), AIXM temporality and feature-identification concepts, ICAO Annex 15 / PANS-AIM AIP structure. Base map: Natural Earth (public domain). Terrain: Terrain Tiles (Mapzen / AWS Open Data: SRTM, GMTED2010, ETOPO1). Libraries: Leaflet, three.js, SheetJS, jsPDF, fflate, topojson.</p>' +
       '<p class="muted">Keyboard: <span class="kbd">Ctrl</span>+<span class="kbd">K</span> search · <span class="kbd">Esc</span> close panels.</p>' +
-      '<div class="about-box" id="about"><b>About · version ' + APP_INFO.version + '</b><div>AIXM Code Converter — created by <b>Prasad Selvaraj</b> (<a href="mailto:prasad2t@gmail.com">prasad2t@gmail.com</a>).</div><div>© 2026 Prasad Selvaraj. Open source under the Apache License 2.0; redistributions must keep this attribution (see the NOTICE file).</div>' +
-      '<div class="muted" style="font-size:12px">Includes Leaflet (BSD-2), SheetJS CE (Apache-2.0), jsPDF and jsPDF-AutoTable (MIT), fflate (MIT), TopoJSON client and world-atlas (ISC), Natural Earth data (public domain), AIXM schemas and business rules © EUROCONTROL & FAA (aixm.aero).</div></div></div></div>';
+      '<div class="about-box" id="about"><b>About · version ' + APP_INFO.version + ' <button class="btn small" data-about-page style="float:right">About this tool</button></b><div>AIXM Code Converter — created by <b>Prasad Selvaraj</b> (<a href="mailto:prasad2t@gmail.com">prasad2t@gmail.com</a>).</div><div>© 2026 Prasad Selvaraj. Open source under the Apache License 2.0; redistributions must keep this attribution (see the NOTICE file).</div>' +
+      '<div class="muted" style="font-size:12px">Includes Leaflet (BSD-2), three.js (MIT), SheetJS CE (Apache-2.0), jsPDF and jsPDF-AutoTable (MIT), fflate (MIT), TopoJSON client and world-atlas (ISC), Natural Earth data (public domain), Terrain Tiles elevation data (Mapzen / AWS Open Data; SRTM, GMTED2010, ETOPO1 and others), AIXM schemas and business rules © EUROCONTROL & FAA (aixm.aero).</div></div></div></div>';
     document.body.appendChild(back);
-    back.addEventListener('click', function (e) { if (e.target === back || e.target.closest('[data-close]')) back.remove(); });
+    back.addEventListener('click', function (e) { if (e.target === back || e.target.closest('[data-close]') || e.target.closest('[data-about-page]')) back.remove(); });
     if (about) { var ab = back.querySelector('#about'); if (ab) ab.scrollIntoView({ block: 'center' }); }
   }
 

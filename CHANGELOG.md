@@ -2,6 +2,33 @@
 
 AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.0
 
+## 1.1.0 — 2026-10-01
+
+Map, airport chart, terrain and 3D.
+
+- **Airport chart** (new `adchart.js`): runways to scale with threshold, piano-key, aiming-point, touchdown-zone, centreline and
+  displaced-threshold markings, painted designators, magnetic bearings and THR elevations at the ends, dimensions / surface /
+  PCN along each runway, ILS feathers with ident, frequency, GP angle and DME channel, taxiway location signs, apron names,
+  stand numbers, holding positions, hot spots, ARP; chart colours for runways, taxiways, aprons and guidance lines.
+- **Airport view**: choose an aerodrome (or *✈ Airport view* in any pop-up): zooms to the diagram and opens an information
+  card (ARP, elevation, MAG VAR, TA/TL, runways with bearings, dimensions, strength, THR elevation, TORA/TODA/ASDA/LDA, ILS,
+  communications, navaids, movement area) with AIP, procedures, print, 3D approach and 3D departure buttons.
+- **Map labels**: one shared collision registry for all layers (labels never overlap, four candidate positions), navaid
+  information boxes (frequencies, channel, type, name), aerodrome name and elevation, airspace labels (name, class, upper over
+  lower limit), route designator boxes, obstacle labels as top elevation (height); chart-style obstacles and buildings.
+- **Terrain model** (new `terrain.js`, `data/terrain.json`, `tools/build_terrain.js`): built-in global elevation grid (0.25° mean,
+  1° maximum) from the public Terrain Tiles; online high-resolution terrain; grid MORA layer; online terrain shading; terrain
+  elevation in the status bar.
+- **3D view** (new `view3d.js`, three.js): terrain with airspace volumes between their vertical limits, runways with lights,
+  aerodromes, obstacles, procedures at their published altitudes; airspace column under the mouse; approach and departure
+  crew views with slider and fly-through, altitude, height above runway, terrain clearance and current airspace.
+- **Map in a separate window** (new `mapwindow.js`): *⧉ New window* moves the map to a second window or screen; "show on map"
+  in the main window goes there; AIP / XML links come back; theme and data stay in step; *⇲ Back to main window*.
+- **About page** (new `about.js`): what the tool is, who it helps, everything that is available, 3D and terrain in detail, how to
+  start; link from the start page and the side menu.
+- PNG / PDF map output draws the airport chart and avoids overlapping labels.
+- Tests: `airport_chart.js`, `map_window.js`, `view3d.js`.
+
 ## 1.0.0 — 2026-10-01
 
 First public release.

@@ -8,8 +8,15 @@
  * (OpenStreetMap and OSM-based styles), aeronautical overlays drawn on canvas
  * for speed, click-through to AIP / XML, measuring tool, compare overlay and a
  * static map renderer used for PNG / PDF snapshots.
+ * Chart quality: all canvas layers are redrawn together once per frame with a
+ * shared label-collision registry (no overlapping labels), navaid information
+ * boxes (ident, frequency, channel), airspace labels (name, class, vertical
+ * limits), route designator boxes, and the airport chart (adchart.js) with
+ * the airport-view information card.
+ * Terrain: grid MORA per 1° square (built-in terrain model), online terrain
+ * shading, terrain elevation under the mouse, and the 3D view (view3d.js).
  * ========================================================================== */
-/* global L, topojson, AX, MODEL, AIP */
+/* global L, topojson, AX, MODEL, AIP, ADCHART, TERRAIN, VIEW3D */
 var MAPVIEW = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -33,6 +40,19 @@ var MAPVIEW = (function () {
   var AS_CATS = [['fir', 'FIR / UIR / OCA'], ['cta', 'CTA / TMA / sectors / airways'], ['ctr', 'CTR'], ['atz', 'ATZ / HTZ / RMZ / TMZ'], ['prd', 'Prohibited / Restricted / Danger'], ['mil', 'Military / TSA / TRA / ADIZ'], ['other', 'Other airspace']];
 
   /* ------------------------------------------------------- canvas layers */
+  // All canvas layers are redrawn together, once per animation frame and in priority order (opts.prio,
+  // lower first), sharing one label-collision registry `occ`, so labels of different layers never overlap.
+  var live = [], frame = 0, occ = new ADCHART.Occ();
+  function scheduleDraw() {
+    if (frame) return;
+    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    frame = raf(function () { frame = 0; drawAll(); });
+  }
+  function drawAll() {
+    occ = new ADCHART.Occ();
+    live.slice().sort(function (a, b) { return (a.options.prio || 50) - (b.options.prio || 50); }).forEach(function (l) { l._redraw(); });
+  }
+  function hideAll() { live.forEach(function (l) { l._hide(); }); }
   var CanvasLayer = L.Layer.extend({
     initialize: function (draw, opts) { this._drawFn = draw; L.setOptions(this, opts); },
     onAdd: function (m) {
@@ -41,14 +61,13 @@ var MAPVIEW = (function () {
       this._c.style.position = 'absolute';
       this._c.style.pointerEvents = 'none';
       m.getPane(this.options.pane || 'overlayPane').appendChild(this._c);
-      m.on('moveend zoomend resize viewreset', this._redraw, this);
-      m.on('zoomstart', this._hide, this);
-      this._redraw();
+      if (live.indexOf(this) < 0) live.push(this);
+      scheduleDraw();
     },
-    onRemove: function (m) {
+    onRemove: function () {
       L.DomUtil.remove(this._c);
-      m.off('moveend zoomend resize viewreset', this._redraw, this);
-      m.off('zoomstart', this._hide, this);
+      var i = live.indexOf(this); if (i >= 0) live.splice(i, 1);
+      this._map = null;
     },
     _hide: function () { if (this._c) this._c.style.opacity = 0; },
     _redraw: function () {
@@ -63,7 +82,7 @@ var MAPVIEW = (function () {
       c.style.opacity = 1;
       this._drawFn(ctx, this._map, size);
     },
-    redraw: function () { this._redraw(); }
+    redraw: function () { scheduleDraw(); }
   });
 
   function project(m, lon, lat) { return m.latLngToContainerPoint([lat, lon]); }
@@ -144,12 +163,39 @@ var MAPVIEW = (function () {
   }
 
   /* -------------------------------------------------------- point layers */
+  // x: extra label lines shown from opt.detailZoom (e.g. navaid name + frequency), drawn in a box when opt.box
   function PointSet(name) { this.name = name; this.pts = []; this.grid = null; }
-  PointSet.prototype.add = function (lon, lat, symk, color, labelTxt, rec, ds) { this.pts.push({ lon: lon, lat: lat, s: symk, c: color, t: labelTxt, r: rec, ds: ds }); };
+  PointSet.prototype.add = function (lon, lat, symk, color, labelTxt, rec, ds, x) { this.pts.push({ lon: lon, lat: lat, s: symk, c: color, t: labelTxt, r: rec, ds: ds, x: x || null }); };
+  var LABEL_FONT = '"Segoe UI", system-ui, sans-serif';
+  // Places a label next to a symbol: right, left, above or below, whichever is free; nothing when all collide.
+  function placeLabel(ctx, x, y, lines, color, boxed, sz) {
+    var lh = 13, w = 0;
+    lines.forEach(function (l, i) { ctx.font = (i ? '500 10px ' : '700 11px ') + LABEL_FONT; w = Math.max(w, ctx.measureText(l).width); });
+    var pad = boxed ? 4 : 1, bw = w + pad * 2, bh = lines.length * lh + (boxed ? 4 : 0), g = (sz || 6) + 4;
+    var cand = [[g, -bh / 2], [-g - bw, -bh / 2], [-bw / 2, -g - bh], [-bw / 2, g]];
+    for (var i = 0; i < cand.length; i++) {
+      var bx = x + cand[i][0], by = y + cand[i][1], b = [bx, by, bx + bw, by + bh];
+      if (!occ.fits(b)) continue;
+      occ.add(b);
+      if (boxed) {
+        ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.strokeStyle = color; ctx.lineWidth = 1;
+        ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx + 0.5, by + 0.5, bw - 1, bh - 1, 3); else ctx.rect(bx + 0.5, by + 0.5, bw - 1, bh - 1); ctx.fill(); ctx.stroke();
+      }
+      ctx.textBaseline = 'middle';
+      lines.forEach(function (l, j) {
+        ctx.font = (j ? '500 10px ' : '700 11px ') + LABEL_FONT;
+        var tx = bx + pad, ty = by + (boxed ? 2 : 0) + lh * (j + 0.5);
+        if (!boxed) { ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(255,255,255,.92)'; ctx.strokeText(l, tx, ty); }
+        ctx.fillStyle = j ? '#33414f' : color; ctx.fillText(l, tx, ty);
+      });
+      return true;
+    }
+    return false;
+  }
   function pointLayer(ps, opt) {
     opt = opt || {};
     var drawn = [];
-    var layer = new CanvasLayer(function (ctx, m, size) {
+    var layer = new CanvasLayer(function (ctx, m) {
       drawn = [];
       var b = m.getBounds().pad(0.05), z = m.getZoom(), vis = [];
       var w = b.getWest(), e = b.getEast(), so = b.getSouth(), n = b.getNorth();
@@ -157,24 +203,27 @@ var MAPVIEW = (function () {
         var p = ps.pts[i];
         if (p.lat < so || p.lat > n) continue;
         if (w <= e ? (p.lon < w || p.lon > e) : (p.lon < w && p.lon > e)) continue;
+        if (opt.skip && opt.skip(p, z)) continue;
         vis.push(p);
       }
       var minZ = opt.minZoom || 0;
       if (z < minZ && vis.length > (opt.maxBelow || 300)) return drawCluster(ctx, m, vis, opt.color || '#0b2a4a');
       if (vis.length > (opt.cluster || 6000)) return drawCluster(ctx, m, vis, opt.color || '#0b2a4a');
       var showLabels = state.labels && vis.length <= (opt.maxLabels || 700) && z >= (opt.labelZoom || 0);
-      ctx.font = '600 11px "Segoe UI", system-ui, sans-serif';
-      ctx.textBaseline = 'middle';
-      vis.forEach(function (p) {
-        var pt = project(m, p.lon, p.lat);
-        sym(ctx, p.s, pt.x, pt.y, p.c, opt.size);
-        drawn.push({ x: pt.x, y: pt.y, p: p });
-        if (showLabels && p.t) {
-          ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.strokeText(p.t, pt.x + 9, pt.y - 1);
-          ctx.fillStyle = p.c; ctx.fillText(p.t, pt.x + 9, pt.y - 1);
-        }
+      var detail = showLabels && z >= (opt.detailZoom || 99) && vis.length <= (opt.maxDetail || 250);
+      var sz = opt.size || 6, pts = vis.map(function (p) { var pt = project(m, p.lon, p.lat); return { x: pt.x, y: pt.y, p: p }; });
+      pts.forEach(function (d) {
+        sym(ctx, d.p.s, d.x, d.y, d.p.c, opt.size);
+        drawn.push(d);
+        occ.add([d.x - sz - 1, d.y - sz - 1, d.x + sz + 1, d.y + sz + 1]);
       });
-    }, { pane: opt.pane || 'markerPane' });
+      if (showLabels) pts.forEach(function (d) {
+        if (!d.p.t) return;
+        var lines = [d.p.t];
+        if (detail && d.p.x) lines = lines.concat(d.p.x.filter(Boolean));
+        placeLabel(ctx, d.x, d.y, lines, d.p.c, detail && opt.box && lines.length > 1, sz);
+      });
+    }, { pane: opt.pane || 'markerPane', prio: opt.prio });
     function drawCluster(ctx, m, vis, color) {
       var cell = 46, cells = new Map();
       vis.forEach(function (p) {
@@ -332,8 +381,12 @@ var MAPVIEW = (function () {
     if (r.k === 'VerticalStructure') { var part = arr(p.part)[0] || {}; kv('Height', M.fq(part.verticalExtent)); }
     kv('Effective', M.fmtTs(r.cur.b) + (r.cur.e ? ' – ' + M.fmtTs(r.cur.e) : ''));
     kv('Data set', ds.state + ' · ' + ds.name);
+    if (r.k === 'AirportHeliport') { kv('Elevation', M.fq(p.fieldElevation)); kv('Runways', (AIP.directions(ds, r) || []).map(function (x) { return s(x.dir.cur.p.designator); }).filter(Boolean).join(' ')); }
+    if (r.k === 'Runway') kv('Dimensions', [M.fq(p.nominalLength), M.fq(p.nominalWidth)].filter(Boolean).join(' x '));
+    if (r.k === 'RunwayDirection') { kv('Bearing', [s(p.trueBearing) ? s(p.trueBearing) + '°T' : '', s(p.magneticBearing) ? s(p.magneticBearing) + '°M' : ''].filter(Boolean).join(' / ')); kv('TDZ elevation', M.fq(p.elevationTDZ)); }
+    var ad = r.k === 'AirportHeliport' ? r : ds.owner.get(r);
     return '<div class="pop-title">' + esc(M.label(ds, r)) + '</div>' + rows.join('') +
-      '<div class="pop-actions"><button data-act="aip">AIP section</button><button data-act="xml">View AIXM</button><button data-act="detail">All data</button></div>';
+      '<div class="pop-actions">' + (ad ? '<button data-act="adview">✈ Airport view</button>' : '') + '<button data-act="aip">AIP section</button><button data-act="xml">View AIXM</button><button data-act="detail">All data</button></div>';
   }
   function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function openPopup(ds, r, latlng) {
@@ -342,6 +395,7 @@ var MAPVIEW = (function () {
     if (node) node.addEventListener('click', function (e) {
       var a = e.target.getAttribute && e.target.getAttribute('data-act');
       if (!a) return;
+      if (a === 'adview') airportView(ds, r.k === 'AirportHeliport' ? r : ds.owner.get(r));
       if (a === 'aip') hooks.openAip(ds, r);
       if (a === 'xml') hooks.openXml(ds, r);
       if (a === 'detail') hooks.openDetail(ds, r);
@@ -379,65 +433,232 @@ var MAPVIEW = (function () {
       l.bindTooltip(esc(rt ? M.routeDesignator(rt.cur.p) : M.label(ds, sg)), { sticky: true, opacity: 0.9 });
       over.routes.addLayer(l);
     });
-    // runways, aprons, taxiways, AMDB surfaces
+    // runways, aprons, taxiways, AMDB surfaces (chart colours: runways dark, taxiways grey, aprons light grey,
+    // guidance lines yellow); runways that the airport chart can draw get an invisible line for clicks only
     over.aerodrome = L.layerGroup();
+    var charted = new Set();
+    ADCHART.all(ds).forEach(function (m) { m.runways.forEach(function (rm) { charted.add(rm.rw); }); });
     (T.Runway || []).forEach(function (rw) {
       shapesOf(M.geometry(ds, rw), function (g) {
-        var l = g.t === 'L' ? L.polyline(g.c.map(ll), { renderer: vec, color: COLORS.rwy, weight: 5, opacity: 0.85, lineCap: 'butt' })
-          : g.t === 'A' ? L.polygon(ringsLL(g), { renderer: vec, color: COLORS.rwy, weight: 1, fillColor: '#444', fillOpacity: 0.7 }) : null;
+        var hidden = charted.has(rw) && g.t === 'L';
+        var l = g.t === 'L' ? L.polyline(g.c.map(ll), { renderer: vec, color: COLORS.rwy, weight: hidden ? 10 : 5, opacity: hidden ? 0 : 0.85, lineCap: 'butt' })
+          : g.t === 'A' ? L.polygon(ringsLL(g), { renderer: vec, color: '#1f2328', weight: 1, fillColor: ADCHART.COL.rwy, fillOpacity: 0.95 }) : null;
         if (!l) return;
         l.on('click', function (e) { openPopup(ds, rw, e.latlng); });
         over.aerodrome.addLayer(l);
       });
     });
-    ['Apron', 'ApronElement', 'Taxiway', 'TaxiwayElement', 'TouchDownLiftOff', 'RunwayElement', 'AircraftStand', 'RunwayProtectArea', 'GuidanceLine', 'DeicingArea', 'WorkArea'].forEach(function (k) {
+    var SURF_STYLE = {
+      Apron: ['#9aa4ae', '#c9cfd5', 0.9], ApronElement: ['#9aa4ae', '#c9cfd5', 0.9], Taxiway: ['#7f8891', '#a3abb3', 0.95], TaxiwayElement: ['#7f8891', '#a3abb3', 0.95],
+      RunwayElement: ['#1f2328', ADCHART.COL.rwy, 0.95], TouchDownLiftOff: ['#1f2328', '#5b636b', 0.9], AircraftStand: ['#8a949e', '#d5dade', 0.9],
+      RunwayProtectArea: ['#2e7d32', '#a5d6a7', 0.12], DeicingArea: ['#1565c0', '#90caf9', 0.45], WorkArea: ['#e65100', '#ffcc80', 0.5], GuidanceLine: ['#e0b100']
+    };
+    ['RunwayProtectArea', 'Apron', 'ApronElement', 'AircraftStand', 'DeicingArea', 'Taxiway', 'TaxiwayElement', 'TouchDownLiftOff', 'RunwayElement', 'WorkArea', 'GuidanceLine'].forEach(function (k) {
+      var st = SURF_STYLE[k];
       (T[k] || []).forEach(function (r) {
         var g = M.findGeo(r.cur.p, k === 'GuidanceLine' ? ['L'] : ['A'], 0);
         if (!g) return;
-        var col = /Taxi|Guidance/.test(k) ? '#f9a825' : /Runway/.test(k) ? '#555' : COLORS.apron;
-        var l = g.t === 'A' ? L.polygon(ringsLL(g), { renderer: vec, color: col, weight: 1, fillOpacity: 0.35 }) : L.polyline(g.c.map(ll), { renderer: vec, color: col, weight: 1.2 });
+        var l = g.t === 'A' ? L.polygon(ringsLL(g), { renderer: vec, color: st[0], weight: k === 'RunwayProtectArea' ? 1 : 0.6, fillColor: st[1], fillOpacity: st[2], dashArray: k === 'RunwayProtectArea' || k === 'WorkArea' ? '5 4' : null })
+          : L.polyline(g.c.map(ll), { renderer: vec, color: st[0], weight: 1.3, opacity: 0.95 });
         l.on('click', function (e) { openPopup(ds, r, e.latlng); });
+        l.bindTooltip(esc(M.label(ds, r)), { sticky: true, opacity: 0.9 });
         over.aerodrome.addLayer(l);
       });
     });
+    // airport chart: runway surfaces and markings, ILS feathers, taxiway signs, stands (adchart.js)
+    var adHits = [];
+    over.adChart = new CanvasLayer(function (ctx, m) {
+      adHits = [];
+      var z = m.getZoom(), c = m.getCenter(), mpp = 40075016.686 * Math.cos(c.lat * Math.PI / 180) / Math.pow(2, z + 8);
+      var bb = m.getBounds().pad(0.15), W = bb.getWest(), S = bb.getSouth(), E = bb.getEast(), N = bb.getNorth();
+      ADCHART.draw(ctx, ds, { P: function (q) { var pt = project(m, q[0], q[1]); return [pt.x, pt.y]; }, mpp: mpp, k: 1, occ: occ, hits: adHits,
+        vis: function (b) { return b[2] >= W && b[0] <= E && b[3] >= S && b[1] <= N; } });
+    }, { pane: 'adPane', prio: 5 });
+    over.adChart.hit = function (cp) {
+      var best = null, bd = Infinity;
+      adHits.forEach(function (h) { var dd = Math.hypot(h.x - cp.x, h.y - cp.y); if (dd <= h.rad && dd < bd) { bd = dd; best = h; } });
+      return best ? { p: { ds: best.ds, r: best.r, lat: best.lat, lon: best.lon } } : null;
+    };
+    over.aerodrome.addLayer(over.adChart);
+    over.aerodrome.count = (T.Runway || []).length + ['Apron', 'ApronElement', 'Taxiway', 'TaxiwayElement', 'AircraftStand', 'GuidanceLine', 'RunwayElement'].reduce(function (n, k) { return n + (T[k] || []).length; }, 0);
     // obstacle lines/areas
     over.obstLines = L.layerGroup();
     // point sets
     var ads = new PointSet('ad'), navs = new PointSet('nav'), dps = new PointSet('dp'), obs = new PointSet('obs'), lgt = new PointSet('lgt');
-    (T.AirportHeliport || []).forEach(function (a) { var c = M.pointOf(ds, a); if (c) ads.add(c[0], c[1], s(a.cur.p.type) === 'HP' ? 'HP' : 'AD', COLORS.ad, M.shortName(a), a, ds); });
+    (T.AirportHeliport || []).forEach(function (a) {
+      var c = M.pointOf(ds, a), p = a.cur.p;
+      if (c) ads.add(c[0], c[1], s(p.type) === 'HP' ? 'HP' : 'AD', COLORS.ad, M.shortName(a), a, ds, [s(p.name), M.fq(p.fieldElevation) ? 'ELEV ' + ADCHART.tidy(M.fq(p.fieldElevation)) : '']);
+    });
     var usedEq = new Set();
     (T.Navaid || []).forEach(function (n) {
-      arr(n.cur.p.navaidEquipment).forEach(function (c) { var t = c && c.theNavaidEquipment ? M.target(ds, c.theNavaidEquipment) : null; if (t) usedEq.add(t); });
-      var c = M.pointOf(ds, n); if (c) navs.add(c[0], c[1], navSym(n), COLORS.nav, s(n.cur.p.designator), n, ds);
+      var comps = arr(n.cur.p.navaidEquipment).map(function (c) { return c && c.theNavaidEquipment ? M.target(ds, c.theNavaidEquipment) : null; }).filter(Boolean);
+      comps.forEach(function (t) { usedEq.add(t); });
+      var c = M.pointOf(ds, n); if (c) navs.add(c[0], c[1], navSym(n), COLORS.nav, s(n.cur.p.designator), n, ds, navInfo(n, comps));
     });
     ['VOR', 'DME', 'NDB', 'TACAN', 'MarkerBeacon', 'Localizer', 'Glidepath'].forEach(function (k) {
-      (T[k] || []).forEach(function (e) { if (usedEq.has(e)) return; var c = M.pointOf(ds, e); if (c) navs.add(c[0], c[1], navSym(e), COLORS.nav, s(e.cur.p.designator), e, ds); });
+      (T[k] || []).forEach(function (e) { if (usedEq.has(e)) return; var c = M.pointOf(ds, e); if (c) navs.add(c[0], c[1], navSym(e), COLORS.nav, s(e.cur.p.designator), e, ds, navInfo(e, [e])); });
     });
     (T.DesignatedPoint || []).forEach(function (d) { var c = M.pointOf(ds, d); if (c) dps.add(c[0], c[1], s(d.cur.p.type) === 'ICAO' ? 'DPC' : 'DP', COLORS.dp, s(d.cur.p.designator) || s(d.cur.p.name), d, ds); });
+    // obstacles are labelled like a chart: top elevation, height in brackets (the name is in the pop-up);
+    // buildings drawn grey, other obstacle areas and lines red
     (T.VerticalStructure || []).forEach(function (o) {
-      var g = M.geometry(ds, o);
+      var g = M.geometry(ds, o), lbl = obstLabel(o), bld = /BUILDING|TOWER|STADIUM|HANGAR|TERMINAL/.test(s(o.cur.p.type));
       shapesOf(g, function (x) {
-        if (x.t === 'P') obs.add(x.c[0], x.c[1], 'OBS', COLORS.obst, s(o.cur.p.name), o, ds);
+        if (x.t === 'P') obs.add(x.c[0], x.c[1], 'OBS', COLORS.obst, lbl, o, ds);
         else {
-          var l = x.t === 'L' ? L.polyline(x.c.map(ll), { renderer: vec, color: COLORS.obst, weight: 1.5, dashArray: '3 3' }) : L.polygon(ringsLL(x), { renderer: vec, color: COLORS.obst, weight: 1, fillOpacity: 0.15 });
+          var l = x.t === 'L' ? L.polyline(x.c.map(ll), { renderer: vec, color: COLORS.obst, weight: 1.5, dashArray: '3 3' })
+            : L.polygon(ringsLL(x), bld ? { renderer: vec, color: '#5f6870', weight: 1, fillColor: '#9aa2a9', fillOpacity: 0.75 } : { renderer: vec, color: COLORS.obst, weight: 1, fillOpacity: 0.15 });
           l.on('click', function (e) { openPopup(ds, o, e.latlng); });
+          l.bindTooltip(esc(M.label(ds, o) + (lbl ? ' · ' + lbl : '')), { sticky: true, opacity: 0.9 });
           over.obstLines.addLayer(l);
         }
       });
     });
     (T.AeronauticalGroundLight || []).forEach(function (r) { var c = M.pointOf(ds, r); if (c) lgt.add(c[0], c[1], 'LGT', '#e65100', s(r.cur.p.name), r, ds); });
-    over.pAd = pointLayer(ads, { size: 6, labelZoom: 5 });
-    over.pNav = pointLayer(navs, { size: 6, labelZoom: 6 });
-    over.pDp = pointLayer(dps, { size: 5, labelZoom: 7, color: COLORS.dp });
-    over.pObs = pointLayer(obs, { size: 5, labelZoom: 12, maxLabels: 200, color: COLORS.obst, cluster: 3000, minZoom: 8, maxBelow: 400 });
-    over.pLgt = pointLayer(lgt, { size: 6, labelZoom: 8 });
+    // the aerodrome symbol gives way to the airport chart (ARP symbol, runways) once that is drawn in detail
+    var adSkip = function (p, z) { return z >= 13 && !!ADCHART.of(ds, p.r); };
+    over.pAd = pointLayer(ads, { size: 6, labelZoom: 5, detailZoom: 8, maxDetail: 120, skip: adSkip, prio: 10 });
+    over.pNav = pointLayer(navs, { size: 6, labelZoom: 6, detailZoom: 8, maxDetail: 200, box: true, prio: 20 });
+    over.pDp = pointLayer(dps, { size: 5, labelZoom: 7, color: COLORS.dp, prio: 30 });
+    over.pObs = pointLayer(obs, { size: 5, labelZoom: 12, maxLabels: 200, color: COLORS.obst, cluster: 3000, minZoom: 8, maxBelow: 400, prio: 40 });
+    over.pLgt = pointLayer(lgt, { size: 6, labelZoom: 8, prio: 35 });
+    over.annot = annotLayer(ds);
+    over.mora = moraLayer();
+    over.hill = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}', { opacity: 0.38, maxZoom: 16, attribution: 'Hillshade © Esri', crossOrigin: true });
+    over.hill.count = 0;
     over.obstacles = L.layerGroup([over.obstLines, over.pObs]);
     over.procs = buildProcs(ds, state.procAd && ds.recs.indexOf(state.procAd) >= 0 ? state.procAd : null);
     return over;
   }
+  // navaid information box lines (shown from zoom 8): frequencies / DME channel, then type and name
+  // ("112.40  CH 71X" / "VOR/DME DOHA"); ILS, localizers and markers are labelled by the airport chart
+  function navInfo(n, comps) {
+    var p = n.cur.p, type = s(p.type).replace(/_/g, '/');
+    if (/ILS|LOC|MLS|MKR|GP|LDA|SDF/.test(type) || /Localizer|Glidepath|MarkerBeacon/.test(n.k)) return null;
+    var f = [];
+    comps.forEach(function (e) {
+      var q = e.cur.p;
+      if (e.k === 'DME' || e.k === 'TACAN') { if (s(q.channel)) f.push('CH ' + s(q.channel)); }
+      else if (q.frequency) f.push(M.fq(q.frequency).replace(/\s*MHZ$/i, ''));
+    });
+    var name = s(p.name);
+    if (name.length > 26) name = name.slice(0, 25) + '…';
+    return [f.filter(function (x, i, a) { return x && a.indexOf(x) === i; }).join('  '), [type || (n.k !== 'Navaid' ? n.k : ''), name].filter(Boolean).join(' ')];
+  }
+  function obstLabel(o) {
+    var part = arr(o.cur.p.part)[0] || {}, loc = part.horizontalProjection_location || part.horizontalProjection_surface || part.horizontalProjection_curve || {};
+    var el = M.fq(arr(loc)[0] && arr(loc)[0].elevation), h = M.fq(part.verticalExtent);
+    return ADCHART.tidy(el ? el + (h ? ' (' + h.replace(/\s*(M|FT)$/, '') + ')' : '') : h);
+  }
+
+  /* ---------------------------------------------- airspace and route labels */
+  // Airspace: name, class and vertical limits (upper over lower) inside large enough areas;
+  // routes: designator boxes at segment mid-points. Drawn last, so point labels win collisions.
+  function annotLayer(ds) {
+    var areas = [], segs = [];
+    (ds.byType.Airspace || []).forEach(function (a) {
+      var cat = asCat(s(a.cur.p.type)), vert = ADCHART.tidy(AIP.vertical(ds, a).split('\n')[0] || ''), cls = AIP.airspaceClass(a).split('\n').map(function (x) { return x.charAt(0); }).filter(Boolean);
+      var lim = vert.split(' / ');
+      shapesOf(M.geometry(ds, a), function (g) {
+        if (g.t !== 'A') return;
+        var ring = g.c[0].filter(function (p) { return typeof p[0] === 'number'; });
+        if (ring.length < 3) return;
+        var bb = [180, 90, -180, -90];
+        ring.forEach(function (p) { bb[0] = Math.min(bb[0], p[0]); bb[1] = Math.min(bb[1], p[1]); bb[2] = Math.max(bb[2], p[0]); bb[3] = Math.max(bb[3], p[1]); });
+        var c = [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2];
+        if (!inRingLL(c, ring)) c = ring.reduce(function (acc, p) { return [acc[0] + p[0] / ring.length, acc[1] + p[1] / ring.length]; }, [0, 0]);
+        if (!inRingLL(c, ring)) return;
+        areas.push({ cat: cat, bb: bb, c: c, name: M.label(ds, a).split(' ').filter(function (w, i, l) { return w !== l[i - 1]; }).join(' '), cls: cls.filter(function (x, i, l) { return l.indexOf(x) === i; }).join('/'), up: lim[0] || '', lo: lim[1] || '' });
+      });
+    });
+    (ds.byType.RouteSegment || []).forEach(function (sg) {
+      var g = M.geometry(ds, sg), rt = M.target(ds, sg.cur.p.routeFormed);
+      if (!g || g.t !== 'L' || !rt || g.c.length < 2) return;
+      var a = g.c[0], b = g.c[g.c.length - 1];
+      segs.push({ a: a, b: b, t: M.routeDesignator(rt.cur.p), rnav: /RNAV|RNP/.test(s(sg.cur.p.navigationType)) });
+    });
+    var layer = new CanvasLayer(function (ctx, m) {
+      if (!state.labels) return;
+      var z = m.getZoom(), bnd = m.getBounds(), W = bnd.getWest(), S = bnd.getSouth(), E = bnd.getEast(), N = bnd.getNorth();
+      if (over.routes && map.hasLayer(over.routes) && z >= 6) {
+        var seen = [];
+        segs.forEach(function (sg) {
+          var mid = [(sg.a[0] + sg.b[0]) / 2, (sg.a[1] + sg.b[1]) / 2];
+          if (mid[0] < W || mid[0] > E || mid[1] < S || mid[1] > N) return;
+          var A = project(m, sg.a[0], sg.a[1]), B = project(m, sg.b[0], sg.b[1]);
+          if (Math.hypot(B.x - A.x, B.y - A.y) < 90) return;
+          var q = project(m, mid[0], mid[1]);
+          if (seen.some(function (x) { return x[0] === sg.t && Math.hypot(x[1] - q.x, x[2] - q.y) < 160; })) return;
+          if (ADCHART.tag(ctx, { occ: occ }, [sg.t], q.x, q.y, { color: '#fff', bg: sg.rnav ? COLORS.rnav : COLORS.route, size: 10.5 })) seen.push([sg.t, q.x, q.y]);
+        });
+      }
+      if (z < 5) return;
+      areas.forEach(function (ar) {
+        if (!over['as_' + ar.cat] || !map.hasLayer(over['as_' + ar.cat])) return;
+        if (ar.bb[2] < W || ar.bb[0] > E || ar.bb[3] < S || ar.bb[1] > N) return;
+        var p0 = project(m, ar.bb[0], ar.bb[3]), p1 = project(m, ar.bb[2], ar.bb[1]);
+        if (p1.x - p0.x < 150 || p1.y - p0.y < 70) return;
+        var q = project(m, ar.c[0], ar.c[1]), col = COLORS[ar.cat];
+        var lines = [ar.name.length > 34 ? ar.name.slice(0, 33) + '…' : ar.name];
+        if (ar.cls) lines.push('CLASS ' + ar.cls);
+        ctx.font = '700 11px ' + LABEL_FONT;
+        var w = Math.max(ctx.measureText(lines[0]).width, ar.cls ? ctx.measureText(lines[1]).width : 0, ctx.measureText(ar.up).width, ctx.measureText(ar.lo).width) + 10;
+        var h = lines.length * 13 + (ar.up || ar.lo ? 30 : 0) + 4, b = [q.x - w / 2, q.y - h / 2, q.x + w / 2, q.y + h / 2];
+        if (!occ.take(b)) return;
+        ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(b[0], b[1], w, h);
+        ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(b[0] + 0.5, b[1] + 0.5, w - 1, h - 1);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = col;
+        lines.forEach(function (l, i) { ctx.font = (i ? '600 10px ' : '700 11px ') + LABEL_FONT; ctx.fillText(l, q.x, b[1] + 2 + 13 * (i + 0.5)); });
+        if (ar.up || ar.lo) {
+          var y0 = b[1] + 2 + lines.length * 13;
+          ctx.font = '600 10.5px ' + LABEL_FONT; ctx.fillText(ar.up, q.x, y0 + 7);
+          ctx.beginPath(); ctx.moveTo(q.x - w / 2 + 6, y0 + 15); ctx.lineTo(q.x + w / 2 - 6, y0 + 15); ctx.stroke();
+          ctx.fillText(ar.lo, q.x, y0 + 23);
+        }
+        ctx.textAlign = 'start';
+      });
+    }, { pane: 'annotPane', prio: 90 });
+    layer.count = areas.length + segs.length;
+    return layer;
+  }
+  /* ------------------------------------------------------------ grid MORA */
+  // Jeppesen-style grid MORA (thousands large, hundreds small) in every 1° square, from the built-in
+  // terrain model: highest elevation + 1000 ft (2000 ft above 5000 ft). Indicative only.
+  function moraLayer() {
+    var layer = new CanvasLayer(function (ctx, m) {
+      var z = m.getZoom();
+      if (z < 5 || z > 10 || !TERRAIN.load()) return;
+      var b = m.getBounds();
+      for (var lo = Math.floor(b.getWest()); lo < b.getEast(); lo++) {
+        for (var la = Math.floor(b.getSouth()); la < b.getNorth(); la++) {
+          var v = TERRAIN.mora(lo + 0.5, la + 0.5), th = Math.floor(v / 1000), hu = Math.round((v % 1000) / 100);
+          var c = project(m, lo + 0.5, la + 0.5), big = z >= 7 ? 30 : 22;
+          ctx.font = '700 ' + big + 'px "Segoe UI", Arial, sans-serif';
+          var w1 = ctx.measureText(String(th)).width;
+          ctx.font = '700 ' + Math.round(big * 0.55) + 'px "Segoe UI", Arial, sans-serif';
+          var w2 = ctx.measureText(String(hu)).width, x0 = c.x - (w1 + w2) / 2;
+          var bx = [x0 - 2, c.y - big * 0.6, x0 + w1 + w2 + 2, c.y + big * 0.45];
+          if (!occ.take(bx)) continue;
+          ctx.globalAlpha = 0.55; ctx.fillStyle = '#7b3f99'; ctx.textBaseline = 'alphabetic';
+          ctx.font = '700 ' + big + 'px "Segoe UI", Arial, sans-serif'; ctx.fillText(String(th), x0, c.y + big * 0.35);
+          ctx.font = '700 ' + Math.round(big * 0.55) + 'px "Segoe UI", Arial, sans-serif'; ctx.fillText(String(hu), x0 + w1 + 1, c.y - big * 0.1);
+          ctx.globalAlpha = 1;
+        }
+      }
+    }, { pane: 'annotPane', prio: 95 });
+    layer.count = 0;
+    return layer;
+  }
+  function inRingLL(pt, r) {
+    var ins = false;
+    for (var i = 0, j = r.length - 1; i < r.length; j = i++) { var xi = r[i][0], yi = r[i][1], xj = r[j][0], yj = r[j][1]; if (((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi)) ins = !ins; }
+    return ins;
+  }
+
   var LAYER_DEF = [
-    ['pAd', 'Aerodromes / heliports', true], ['aerodrome', 'Runways, aprons, taxiways', true], ['pNav', 'Radio navigation aids', true], ['pDp', 'Designated points', true],
-    ['routes', 'ATS routes', true], ['procs', 'Instrument procedures (SID / STAR / approach)', false], ['obstacles', 'Obstacles', true], ['pLgt', 'Aeronautical ground lights', false]
+    ['pAd', 'Aerodromes / heliports', true], ['aerodrome', 'Airport chart: runways, taxiways, aprons, stands, ILS', true], ['pNav', 'Radio navigation aids', true], ['pDp', 'Designated points', true],
+    ['routes', 'ATS routes', true], ['procs', 'Instrument procedures (SID / STAR / approach)', false], ['obstacles', 'Obstacles', true], ['pLgt', 'Aeronautical ground lights', false],
+    ['annot', 'Airspace and route labels', true], ['mora', 'Grid MORA (terrain, indicative)', false], ['hill', 'Terrain shading (online)', false]
   ];
   function applyLayers() {
     LAYER_DEF.forEach(function (d) {
@@ -463,7 +684,7 @@ var MAPVIEW = (function () {
     var l = over[k];
     if (!l) return 0;
     if (l.ps) return l.ps.pts.length;
-    if (k === 'procs') return l.count || 0;
+    if (l.count !== undefined) return l.count;
     var n = 0; l.eachLayer(function (x) { n += x.ps ? x.ps.pts.length : x.getLayers ? x.getLayers().length : 1; });
     return n;
   }
@@ -608,6 +829,8 @@ var MAPVIEW = (function () {
     h += '</select><div class="muted" style="font-size:11.5px;margin-top:4px">Online maps need the laptop\'s internet connection. The offline map always works.</div>';
     h += '<h4>Aeronautical layers</h4>';
     LAYER_DEF.forEach(function (d) { h += '<label class="chk"><input type="checkbox" data-layer="' + d[0] + '"' + (d[2] ? ' checked' : '') + '> ' + d[1] + ' <span class="muted" data-count="' + d[0] + '"></span></label>'; });
+    h += '<h4>Airport view</h4><select class="inp" id="map-adview" style="width:100%"><option value="">Choose an aerodrome…</option></select>';
+    h += '<div class="muted" style="font-size:11.5px;margin-top:2px">Airport chart with runway markings, taxiways, stands, ILS and an information card.</div>';
     h += '<h4>Procedures</h4><div class="row" style="gap:6px;flex-wrap:wrap"><select class="inp" id="map-proc-ad" style="flex:1;min-width:0"><option value="">All aerodromes</option></select></div>';
     h += '<div class="row" style="gap:10px;margin-top:4px">' + ['SID', 'STAR', 'IAP'].map(function (k) { var col = { SID: '#1565c0', STAR: '#2e7d32', IAP: '#8e24aa' }[k]; return '<label class="chk" style="margin:0"><input type="checkbox" data-pk="' + k + '" checked> <span class="sw" style="background:' + col + '"></span> ' + k + '</label>'; }).join('') + '</div>';
     h += '<div class="muted" style="font-size:11.5px;margin-top:2px">Dashed: missed approach, or a leg ending at an altitude (drawn along its course).</div>';
@@ -616,7 +839,9 @@ var MAPVIEW = (function () {
     h += '<h4>Display</h4><label class="chk"><input type="checkbox" id="map-labels" checked> Labels</label>';
     h += '<label class="chk"><input type="checkbox" id="map-cmp" disabled> Show comparison result (added / removed / modified)</label>';
     h += '</div>';
-    h += '<div class="map-tools"><button class="btn small" id="map-fit" title="Zoom to data">⤢ Fit data</button><button class="btn small" id="map-measure" title="Measure distance and bearing">📏 Measure</button><button class="btn small" id="map-png" title="Save the current view as PNG">🖼 Save PNG</button><button class="btn small" id="map-print" title="Print or save the map as PDF: choose area, paper, legend, north arrow">🖨 Print map</button><button class="btn small" id="map-panel-toggle">☰ Layers</button></div>';
+    h += '<div class="map-tools"><button class="btn small" id="map-fit" title="Zoom to data">⤢ Fit data</button><button class="btn small" id="map-measure" title="Measure distance and bearing">📏 Measure</button><button class="btn small" id="map-png" title="Save the current view as PNG">🖼 Save PNG</button><button class="btn small" id="map-print" title="Print or save the map as PDF: choose area, paper, legend, north arrow">🖨 Print map</button><button class="btn small" id="map-3d" title="3D view: terrain, airspace volumes with their vertical limits, approach and departure crew views">🗻 3D view</button><button class="btn small" id="map-panel-toggle">☰ Layers</button>' +
+      (hooks.popout ? '<button class="btn small" id="map-popout" title="Open the map in its own window (for a second screen); the main window keeps the data">⧉ New window</button>' : '') +
+      (hooks.dock ? '<button class="btn small" id="map-dock" title="Close this window and show the map in the main window again">⇲ Back to main window</button>' : '') + '</div>';
     h += '<div class="card map-status" id="map-status">Move the mouse over the map</div>';
     return h;
   }
@@ -624,10 +849,16 @@ var MAPVIEW = (function () {
   function mount(container, datasets, _hooks, opts) {
     hooks = _hooks;
     opts = opts || {};
-    container.innerHTML = '<div class="map-wrap"><div id="map"></div>' + panelHtml(datasets) + '</div>';
+    container.innerHTML = '<div class="map-wrap"><div id="map"></div>' + panelHtml(datasets) + '<div class="card map-adcard hidden" id="map-adcard"></div></div>';
     var mdiv = container.querySelector('#map');
+    VIEW3D.close();
     if (map) { map.remove(); map = null; base = { offline: null, current: 'offline', online: {} }; over = {}; vec = null; }
-    map = L.map(mdiv, { zoomControl: false, worldCopyJump: true, preferCanvas: true, minZoom: 2, maxZoom: 19 }).setView([30, 10], 3);
+    live = []; state.adView = null;
+    map = L.map(mdiv, { zoomControl: false, worldCopyJump: true, preferCanvas: true, minZoom: 2, maxZoom: 20 }).setView([30, 10], 3);
+    map.createPane('adPane').style.zIndex = 420;    // airport chart: above airspace / taxiway vectors
+    map.createPane('annotPane').style.zIndex = 590; // airspace and route labels: below point symbols
+    map.on('moveend zoomend resize viewreset', scheduleDraw);
+    map.on('zoomstart', hideAll);
     base.offline = buildOffline();
     map.addLayer(base.offline);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -635,14 +866,16 @@ var MAPVIEW = (function () {
     el.status = container.querySelector('#map-status');
     map.on('mousemove', function (e) {
       if (state.measure) return;
-      el.status.textContent = AX.fmtPos([e.latlng.lng, e.latlng.lat], 1) + '   (' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5) + ')   zoom ' + map.getZoom();
+      var te = TERRAIN.elev(e.latlng.lng, e.latlng.lat);
+      el.status.textContent = AX.fmtPos([e.latlng.lng, e.latlng.lat], 1) + '   (' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5) + ')   ' +
+        (te > 0 ? 'terrain ≈ ' + Math.round(te / 0.3048).toLocaleString('en-US') + ' ft   ' : '') + 'zoom ' + map.getZoom();
     });
     map.on('click', function (e) {
       if (state.measure) return;
-      var cp = e.containerPoint, keys = ['cmpPts', 'pAd', 'pNav', 'pLgt', 'pDp', 'pObs'];
+      var cp = e.containerPoint, keys = ['cmpPts', 'pAd', 'pNav', 'pLgt', 'pDp', 'pObs', 'adChart'];
       for (var i = 0; i < keys.length; i++) {
         var l = over[keys[i]];
-        if (!l || !map.hasLayer(l) && !(keys[i] === 'pObs' && over.obstacles && map.hasLayer(over.obstacles)) && !(keys[i] === 'cmpPts' && over.cmp && map.hasLayer(over.cmp))) continue;
+        if (!l || !map.hasLayer(l) && !(keys[i] === 'pObs' && over.obstacles && map.hasLayer(over.obstacles)) && !(keys[i] === 'cmpPts' && over.cmp && map.hasLayer(over.cmp)) && !(keys[i] === 'adChart' && over.aerodrome && map.hasLayer(over.aerodrome))) continue;
         var h = l.hit(cp);
         if (h) {
           if (h.cluster) { map.setView(e.latlng, Math.min(map.getZoom() + 2, 18)); return; }
@@ -655,12 +888,16 @@ var MAPVIEW = (function () {
     container.querySelectorAll('[data-layer]').forEach(function (cb) {
       cb.addEventListener('change', function () { state.filters[cb.getAttribute('data-layer')] = cb.checked; applyLayers(); });
     });
-    q('#map-labels').addEventListener('change', function (e) { state.labels = e.target.checked; ['pAd', 'pNav', 'pDp', 'pObs', 'pLgt'].forEach(function (k) { if (over[k] && map.hasLayer(over[k])) over[k].redraw(); }); });
+    q('#map-labels').addEventListener('change', function (e) { state.labels = e.target.checked; scheduleDraw(); });
+    q('#map-adview').addEventListener('change', function (e) { var i = e.target.value; if (i === '') closeAdCard(); else airportView(state.ds, state.ds.recs[+i]); });
     q('#map-fit').addEventListener('click', function () { fit(); });
     q('#map-measure').addEventListener('click', function (e) { toggleMeasure(e.currentTarget); });
     q('#map-png').addEventListener('click', function () { hooks.savePng(renderImage(state.ds, map.getBounds(), 1600, 1000, { title: state.ds ? state.ds.state : '', layers: currentLayers() })); });
     q('#map-print').addEventListener('click', function () { printDialog(null); });
+    q('#map-3d').addEventListener('click', function () { open3d('area', state.adView && state.adView.ds === state.ds ? state.adView.ad : null); });
     q('#map-panel-toggle').addEventListener('click', function () { q('#map-panel').classList.toggle('hidden'); });
+    if (q('#map-popout')) q('#map-popout').addEventListener('click', function () { hooks.popout(state.ds, state.adView ? state.adView.ad : null); });
+    if (q('#map-dock')) q('#map-dock').addEventListener('click', function () { hooks.dock(); });
     var dsSel = q('#map-ds');
     if (dsSel) dsSel.addEventListener('change', function () { show(datasets[+dsSel.value]); fit(); });
     q('#map-proc-ad').addEventListener('change', function (e) { var i = e.target.value; showProcs(state.ds, i === '' ? null : state.ds.recs[+i]); });
@@ -697,8 +934,72 @@ var MAPVIEW = (function () {
     buildOverlays(ds);
     applyLayers();
     fillProcAd(ds);
+    fillAdView(ds);
+    if (state.adView && state.adView.ds !== ds) closeAdCard();
     document.querySelectorAll('[data-count]').forEach(function (n) { var c = countOf(n.getAttribute('data-count')); n.textContent = c ? '(' + c + ')' : '(0)'; });
   }
+  /* --------------------------------------------------------- airport view */
+  function fillAdView(ds) {
+    var sel = document.getElementById('map-adview');
+    if (!sel) return;
+    var list = ADCHART.all(ds).slice().sort(function (a, b) { return M.shortName(a.ad).localeCompare(M.shortName(b.ad)); });
+    sel.innerHTML = '<option value="">Choose an aerodrome… (' + list.length + ')</option>' + list.map(function (m) {
+      return '<option value="' + ds.recs.indexOf(m.ad) + '">' + esc(M.shortName(m.ad) + ' — ' + (s(m.ad.cur.p.name) || '')) + (m.runways.length ? ' · ' + m.runways.length + ' RWY' : '') + '</option>';
+    }).join('');
+    sel.value = state.adView && state.adView.ds === ds ? String(ds.recs.indexOf(state.adView.ad)) : '';
+  }
+  function adLatLngBounds(ds, ad) {
+    var b = ADCHART.bounds(ds, ad);
+    return b ? L.latLngBounds([b[1], b[0]], [b[3], b[2]]) : null;
+  }
+  function closeAdCard() {
+    state.adView = null;
+    var c = document.getElementById('map-adcard'); if (c) { c.classList.add('hidden'); c.innerHTML = ''; }
+    var sel = document.getElementById('map-adview'); if (sel) sel.value = '';
+  }
+  // Airport view: zooms to the aerodrome diagram and opens the airport information card.
+  function airportView(ds, ad) {
+    if (!map || !ds || !ad) return;
+    if (state.ds !== ds) show(ds);
+    map.closePopup();
+    state.filters.aerodrome = true; applyLayers();
+    var cb = document.querySelector('[data-layer="aerodrome"]'); if (cb) cb.checked = true;
+    var panel = document.getElementById('map-panel'); if (panel) panel.classList.add('hidden'); // room for the card; ☰ Layers re-opens it
+    state.adView = { ds: ds, ad: ad };
+    var card = document.getElementById('map-adcard');
+    if (card) {
+      card.innerHTML = ADCHART.cardHtml(ds, ad);
+      card.classList.remove('hidden');
+      card.onclick = function (e) {
+        var a = e.target.closest('[data-adc]'); if (!a) return;
+        var k = a.getAttribute('data-adc');
+        if (k === 'close') closeAdCard();
+        if (k === 'aip') hooks.openAip(ds, ad);
+        if (k === 'procs') showProcs(ds, ad);
+        if (k === 'print') printDialog(adLatLngBounds(ds, ad) || map.getBounds(), { title: M.label(ds, ad) + ' — airport chart' });
+        if (k === 'fit') fitAirport(ds, ad, true);
+        if (k === '3dapp') open3d('approach', ad);
+        if (k === '3ddep') open3d('departure', ad);
+      };
+    }
+    fitAirport(ds, ad, false);
+    var sel = document.getElementById('map-adview'); if (sel) sel.value = String(ds.recs.indexOf(ad));
+  }
+  // 3D view over the map (view3d.js): 'area' for the current view, 'approach' / 'departure' for an aerodrome
+  function open3d(mode, ad) {
+    if (!state.ds) return;
+    var b = map.getBounds();
+    VIEW3D.open(map.getContainer().parentNode, state.ds, hooks, { mode: mode, ad: ad || null, bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] });
+  }
+  // fits the aerodrome diagram into the part of the map not covered by the card
+  function fitAirport(ds, ad, animate) {
+    var b = adLatLngBounds(ds, ad), card = document.getElementById('map-adcard');
+    if (!b) { hooks.toast('This aerodrome has no position to show.'); return; }
+    var wide = window.innerWidth > 900 && card && !card.classList.contains('hidden');
+    var pad = wide ? card.getBoundingClientRect().right - map.getContainer().getBoundingClientRect().left + 10 : 10;
+    map.fitBounds(b, { maxZoom: 17, animate: !!animate, paddingTopLeft: [Math.max(10, pad), 10], paddingBottomRight: [70, wide ? 10 : Math.round(map.getSize().y * 0.45)] });
+  }
+
   function setCompare(res) {
     state.cmp = res;
     var cb = document.getElementById('map-cmp');
@@ -720,6 +1021,7 @@ var MAPVIEW = (function () {
   }
   function focus(ds, r) {
     if (!map) return;
+    if (r && r.k === 'AirportHeliport' && ADCHART.of(ds, r)) { airportView(ds, r); return; } // aerodromes open the airport view
     if (state.ds !== ds) {
       var sel = document.getElementById('map-ds');
       show(ds);
@@ -819,12 +1121,23 @@ var MAPVIEW = (function () {
         var rnav = /RNAV|RNP/.test(s(sg.cur.p.navigationType));
         path(g.c); ctx.strokeStyle = rnav ? COLORS.rnav : COLORS.route; ctx.lineWidth = 1.5 * k; ctx.stroke(); used[rnav ? 'rnav' : 'route'] = 1;
       });
-      if (on('aerodrome')) (ds.byType.Runway || []).forEach(function (rw) {
-        shapesOf(M.geometry(ds, rw), function (g) {
-          if (g.t !== 'L' || !g.c.some(inView)) return;
-          path(g.c); ctx.strokeStyle = '#222'; ctx.lineWidth = 5 * k; ctx.stroke(); used.rwy = 1;
+      var rocc = new ADCHART.Occ();
+      if (on('aerodrome')) {
+        // AMDB surfaces (taxiways, aprons, runway elements) then the airport chart, as on screen
+        var mppR = 6371008.8 * Math.cos((vs + vn) / 2 * Math.PI / 180) / sc; // metres per pixel
+        if (mppR < 40) ['Apron', 'ApronElement', 'Taxiway', 'TaxiwayElement', 'RunwayElement', 'GuidanceLine'].forEach(function (kk) {
+          (ds.byType[kk] || []).forEach(function (r) {
+            var g = M.findGeo(r.cur.p, kk === 'GuidanceLine' ? ['L'] : ['A'], 0);
+            if (!g) return;
+            if (g.t === 'A') { var ring = g.c[0].filter(function (p) { return typeof p[0] === 'number'; }); if (!ring.some(inView)) return; path(ring); ctx.closePath(); ctx.fillStyle = /Runway/.test(kk) ? ADCHART.COL.rwy : /Apron/.test(kk) ? '#c9cfd5' : '#a3abb3'; ctx.fill(); }
+            else if (g.c.some(inView)) { path(g.c); ctx.strokeStyle = '#e0b100'; ctx.lineWidth = 1.3 * k; ctx.stroke(); }
+          });
         });
-      });
+        var bbV = [vw, vs, ve, vn];
+        ADCHART.draw(ctx, ds, { P: function (q) { return P(q[0], q[1]); }, mpp: mppR, k: k, occ: rocc,
+          vis: function (b) { return b[2] >= bbV[0] && b[0] <= bbV[2] && b[3] >= bbV[1] && b[1] <= bbV[3]; } });
+        if (ADCHART.all(ds).some(function (m) { return m.runways.length && m.reach && m.reach[2] >= vw && m.reach[0] <= ve && m.reach[3] >= vs && m.reach[1] <= vn; })) used.rwy = 1;
+      }
       if (opt.procAd || on('procs', false)) {
         ['StandardInstrumentDeparture', 'StandardInstrumentArrival', 'InstrumentApproachProcedure'].forEach(function (kk) {
           (ds.byType[kk] || []).forEach(function (pr) {
@@ -850,7 +1163,11 @@ var MAPVIEW = (function () {
         var q = P(x[0][0], x[0][1]);
         sym(ctx, x[1], q[0], q[1], x[2], 7 * k);
         used[x[4]] = 1;
-        if (x[3] && visPts.length < 400 * k) { ctx.lineWidth = 3 * k; ctx.lineJoin = 'round'; ctx.strokeStyle = '#fff'; ctx.strokeText(x[3], q[0] + 10 * k, q[1] - 2 * k); ctx.fillStyle = x[2]; ctx.fillText(x[3], q[0] + 10 * k, q[1] - 2 * k); }
+        if (x[3] && visPts.length < 400 * k) {
+          var tw = ctx.measureText(x[3]).width, lb = [q[0] + 9 * k, q[1] - 10 * k, q[0] + 11 * k + tw, q[1] + 4 * k];
+          if (!rocc.take(lb)) return; // the label would overlap another one
+          ctx.lineWidth = 3 * k; ctx.lineJoin = 'round'; ctx.strokeStyle = '#fff'; ctx.strokeText(x[3], q[0] + 10 * k, q[1] - 2 * k); ctx.fillStyle = x[2]; ctx.fillText(x[3], q[0] + 10 * k, q[1] - 2 * k);
+        }
       });
     }
     // frame and title
@@ -877,7 +1194,7 @@ var MAPVIEW = (function () {
       if (used.pSID) items.push(['line', PROC_COL.StandardInstrumentDeparture, 'SID']);
       if (used.pSTAR) items.push(['line', PROC_COL.StandardInstrumentArrival, 'STAR']);
       if (used.pIAP) items.push(['line', PROC_COL.InstrumentApproachProcedure, 'Instrument approach']);
-      if (used.rwy) items.push(['rwy', '#222', 'Runway']);
+      if (used.rwy) items.push(['rwy', ADCHART.COL.rwy, 'Runway (to scale at airport zoom)']);
       if (used.ad) items.push(['sym', COLORS.ad, 'Aerodrome / heliport', 'AD']);
       if (used.nav) items.push(['sym', COLORS.nav, 'Radio navigation aid', 'VOR']);
       if (used.dp) items.push(['sym', COLORS.dp, 'Designated point', 'DP']);
@@ -908,19 +1225,23 @@ var MAPVIEW = (function () {
     ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = Math.round(10 * k) + 'px Arial';
     var foot = (opt.footer ? opt.footer + '  ·  ' : '') + 'AIXM Code Converter © 2026 Prasad Selvaraj (prasad2t@gmail.com)  ·  Base map: Natural Earth (public domain) · Mercator · not for navigation';
     var fw = ctx.measureText(foot).width; ctx.fillRect(w - fw - 16 * k, h - 20 * k, fw + 12 * k, 16 * k); ctx.fillStyle = '#555'; ctx.fillText(foot, w - fw - 10 * k, h - 8 * k);
+    // author signature (Apache-2.0 NOTICE): near-invisible micro text in the bottom-left corner of every image
+    ctx.save(); ctx.globalAlpha = 0.02; ctx.fillStyle = '#000'; ctx.font = Math.max(6, Math.round(6 * k)) + 'px Arial';
+    ctx.fillText('AIXM Code Converter - Prasad Selvaraj <prasad2t@gmail.com>', 6 * k, h - 46 * k); ctx.restore();
     return c.toDataURL('image/png');
   }
 
   /* --------------------------------------------------------- print dialog */
   var PAPER = { A4L: [297, 210], A4P: [210, 297], A3L: [420, 297], A3P: [297, 420] };
-  function printDialog(bounds) {
+  function printDialog(bounds, po) {
+    po = po || {};
     var old = document.getElementById('map-print-dlg'); if (old) old.remove();
     var ds = state.ds, b = bounds || map.getBounds();
     var d = document.createElement('div');
     d.className = 'modal-back'; d.id = 'map-print-dlg';
     d.innerHTML = '<div class="modal" style="width:min(560px,100%)"><div class="modal-head"><h3>Print map</h3><span class="sp"></span><button class="btn small ghost" data-p="close">✕</button></div><div class="modal-body">' +
       '<div class="muted" style="margin-bottom:8px">Area: ' + (bounds ? 'the rectangle you selected' : 'the current map view') + ' — ' + AX.fmtPos([b.getWest(), b.getNorth()], 0) + ' to ' + AX.fmtPos([b.getEast(), b.getSouth()], 0) + '. <a href="#" data-p="area">Select another area on the map</a></div>' +
-      '<label>Title<br><input class="inp" id="mp-title" style="width:100%" value="' + esc(ds ? ds.state + (ds.airac ? ' — AIRAC ' + ds.airac.id : '') : 'Map') + '"></label>' +
+      '<label>Title<br><input class="inp" id="mp-title" style="width:100%" value="' + esc(po.title || (ds ? ds.state + (ds.airac ? ' — AIRAC ' + ds.airac.id : '') : 'Map')) + '"></label>' +
       '<div class="row wrap" style="gap:14px;margin-top:10px"><label>Paper<br><select class="inp" id="mp-paper"><option value="A4L">A4 landscape</option><option value="A4P">A4 portrait</option><option value="A3L">A3 landscape</option><option value="A3P">A3 portrait</option></select></label>' +
       '<div><br>' + [['legend', 'Legend'], ['north', 'North arrow'], ['grid', 'Coordinate grid'], ['scale', 'Scale bar']].map(function (x) { return '<label class="chk" style="display:inline-flex;margin-right:10px"><input type="checkbox" data-o="' + x[0] + '" checked> ' + x[1] + '</label>'; }).join('') + '</div></div>' +
       '<div class="muted" style="font-size:12px;margin-top:8px">The layers switched on in the map panel are printed. Procedures are included when the procedure layer is on.</div>' +
@@ -980,6 +1301,6 @@ var MAPVIEW = (function () {
   }
   function datasetBounds(ds) { var b = dsBounds(ds); return b ? [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] : null; }
 
-  return { countryAt: countryAt, mount: mount, show: show, focus: focus, showProcs: showProcs, procPaths: procPaths, setCompare: setCompare, refreshTheme: refreshTheme, renderImage: renderImage, boundsAround: boundsAround, datasetBounds: datasetBounds,
+  return { countryAt: countryAt, mount: mount, show: show, focus: focus, showProcs: showProcs, airportView: airportView, closeAirportView: closeAdCard, open3d: open3d, asCat: asCat, COLORS: COLORS, procPaths: procPaths, setCompare: setCompare, refreshTheme: refreshTheme, renderImage: renderImage, boundsAround: boundsAround, datasetBounds: datasetBounds,
     isMounted: function () { return !!map; }, leaflet: function () { return map; }, invalidate: function () { if (map) map.invalidateSize(); } };
 })();

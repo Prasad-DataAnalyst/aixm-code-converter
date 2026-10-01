@@ -20,7 +20,8 @@ var I18N = (function () {
     ['Library', 'المكتبة', 'Bibliothèque', 'Biblioteca'], ['Files', 'الملفات', 'Fichiers', 'Archivos'], ['Dashboard', 'لوحة المعلومات', 'Tableau de bord', 'Panel'],
     ['AIP', 'دليل الطيران', 'AIP', 'AIP'], ['Map', 'الخريطة', 'Carte', 'Mapa'], ['Changes', 'التغييرات', 'Modifications', 'Cambios'], ['Timeline', 'الخط الزمني', 'Chronologie', 'Cronología'],
     ['Compare', 'مقارنة', 'Comparer', 'Comparar'], ['NOTAM', 'نوتام', 'NOTAM', 'NOTAM'], ['Quality', 'الجودة', 'Qualité', 'Calidad'], ['Explorer', 'المستكشف', 'Explorateur', 'Explorador'],
-    ['Export', 'تصدير', 'Exporter', 'Exportar'], ['Latest data', 'أحدث البيانات', 'Données les plus récentes', 'Datos más recientes'], ['Valid on date…', 'السارية في تاريخ…', 'Valides à la date…', 'Vigentes en la fecha…'],
+    ['Export', 'تصدير', 'Exporter', 'Exportar'], ['About', 'حول', 'À propos', 'Acerca de'], ['About this tool', 'حول هذه الأداة', 'À propos de cet outil', 'Acerca de esta herramienta'],
+    ['Airport view', 'عرض المطار', 'Vue aéroport', 'Vista del aeropuerto'], ['⧉ New window', '⧉ نافذة جديدة', '⧉ Nouvelle fenêtre', '⧉ Nueva ventana'], ['⇲ Back to main window', '⇲ العودة إلى النافذة الرئيسية', '⇲ Retour à la fenêtre principale', '⇲ Volver a la ventana principal'], ['Latest data', 'أحدث البيانات', 'Données les plus récentes', 'Datos más recientes'], ['Valid on date…', 'السارية في تاريخ…', 'Valides à la date…', 'Vigentes en la fecha…'],
     ['AIXM Code Converter', 'محوّل رموز AIXM', 'Convertisseur de code AIXM', 'Conversor de código AIXM'],
     // common buttons
     ['Print', 'طباعة', 'Imprimer', 'Imprimir'], ['E-mail', 'بريد إلكتروني', 'E-mail', 'Correo'], ['Copy', 'نسخ', 'Copier', 'Copiar'], ['Save', 'حفظ', 'Enregistrer', 'Guardar'],

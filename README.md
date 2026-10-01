@@ -24,7 +24,10 @@ nothing to install, no server and no internet requirement. No data leaves the co
 | **6. Valid on date** | The top bar switches between *Latest data* and **data valid on a chosen date**, following AIXM temporality: BASELINE, PERMDELTA, TEMPDELTA, sequence and correction numbers, feature lifetime. |
 | **7. Changes** | **What changed, where and when** inside a file: new baselines, permanent and temporary changes, corrections, withdrawals, and AIXM 4.5 Update (New/Changed/Withdrawn). Each shows old → new values and the AIP section. |
 | **8. Compare** | Two files of the **same State**, e.g. two AIRAC cycles, even of different AIXM versions. The result lists added, removed and modified items with every changed value, filters by section, and can be drawn on the map in green, red and amber. |
-| **9. Map** | A complete **offline world map** is built in (Natural Earth countries 1:50m/1:10m, places, graticule). When online it can switch to **OpenStreetMap** or OSM-based styles (CARTO light/dark, OpenTopoMap) or satellite imagery. It shows airspace by category, ATS routes, runways, aprons and taxiways, navaids with aeronautical symbols, designated points, obstacles (clustered) and ground lights. Clicking a feature gives the AIP section, AIXM code or all its data. Also: measuring tool (distance NM/km, true bearing), coordinate readout (DMS and decimal), and PNG snapshots. |
+| **9. Map** | A complete **offline world map** is built in (Natural Earth countries 1:50m/1:10m, places, graticule). When online it can switch to **OpenStreetMap** or OSM-based styles (CARTO light/dark, OpenTopoMap) or satellite imagery. It shows airspace by category, ATS routes, runways, aprons and taxiways, navaids with aeronautical symbols, designated points, obstacles (clustered) and ground lights. Clicking a feature gives the AIP section, AIXM code or all its data. Also: measuring tool (distance NM/km, true bearing), coordinate readout (DMS and decimal) with terrain elevation, and PNG snapshots. Labels never overlap; navaids show information boxes (frequency, channel), airspace shows name, class and limits, routes their designators. |
+| **9a. Airport chart** | *Airport view*: runways to scale with ICAO markings, designators, bearings and THR elevations, ILS feathers, taxiway signs, aprons, stands, holding positions, hot spots, plus an information card (runways, declared distances, ILS, frequencies, navaids). |
+| **9b. Terrain and 3D** | Built-in terrain model (offline) and high-resolution terrain online; grid MORA; **3D view** with airspace volumes between their vertical limits and the airspace column under the mouse; **approach and departure crew views** with altitude, terrain clearance and current airspace. |
+| **9c. Second window** | *⧉ New window* puts the map on another screen while the main window shows the data. |
 | **10. Quality** | Code values not in the official code lists, coordinates out of range, unresolved references, missing mandatory AIP items, VOR/LOC/GP/NDB frequencies outside their bands, bearings, overlapping or duplicate baselines, unclosed polygons. |
 | **11. Explorer** | **Every** AIXM feature type and feature, with nothing hidden: properties with the **official AIXM definitions** and decoded code values (for example `AH` — *Airport with heliport landing area*), all time slices, and references to and from other features. For AIXM 4.5 files, the original 4.5 fields are shown with their 4.5 definitions. |
 | **12. Export** | Any single section (buttons on every page) or the whole data set: **JSON** (every value carries its source: feature, UUID, line, byte offset), **Excel** (one sheet per section plus an *AIXM line* column; tables over 1 million rows are split), a **printable PDF** (AIP-style header and footer, AIRAC and source file, map on aerodrome pages), **Print**, and **E-mail**: a formatted message to copy and paste into Outlook, or a `.eml` file that opens as an Outlook draft, or `.html`/`.txt`. No mail program is opened automatically. |
@@ -110,7 +113,12 @@ aixm-code-converter/
 │   ├── model.js                indexes, references, aerodrome ownership, geometry, formatting, State/effective date
 │   ├── aip.js                  ICAO AIP section builders (GEN, ENR, AD 2, AD 3)
 │   ├── analysis.js             in-file changes, comparison of two data sets, quality checks
-│   ├── mapview.js              Leaflet map, offline base map, canvas symbols, measure tool, snapshot renderer
+│   ├── terrain.js              built-in terrain model, online terrain tiles, grid MORA
+│   ├── adchart.js              airport chart (aerodrome diagram) and airport information card
+│   ├── mapview.js              Leaflet map, offline base map, canvas symbols, labels, measure tool, snapshot renderer
+│   ├── view3d.js               3D view (three.js): terrain, airspace volumes, approach / departure crew views
+│   ├── mapwindow.js            map in a separate browser window
+│   ├── about.js                About page
 │   ├── exports.js              JSON, Excel, PDF, print, e-mail (.eml / clipboard)
 │   ├── library.js              State folders (File System Access API) and the IndexedDB cache
 │   ├── convert.js              AIXM version conversion, 4.5 → 5.1.1 writer, GeoJSON / KML / Shapefile
@@ -119,7 +127,7 @@ aixm-code-converter/
 │   ├── i18n.js                 interface languages (Arabic RTL, French, Spanish)
 │   └── app.js                  user interface and extraction orchestration
 ├── schemas/                    official AIXM XSDs (4.5, 5.1, 5.1.1, 5.2) and business rules (rules/) from aixm.aero
-├── data/                       compiled dictionary and business rules, Natural Earth places
+├── data/                       compiled dictionary and business rules, Natural Earth places, terrain model
 ├── testdata/                   public sample files (Donlon, Chicago O'Hare, AIXM 4.5, 5.2, temporality cases, Digital NOTAM)
 │                               and synthetic test files (Donlon_EADD_changes_AIRAC2611.xml, sample_aixm45_extra.xml)
 └── tools/                      build and test scripts
@@ -128,12 +136,13 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.0.0, set in `src/config.js`).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.1.0, set in `src/config.js`).
 
 ```bash
 cd aixm-code-converter/tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core
 cd .. && python3 tools/build_dictionary.py            # schemas/ -> data/aixm_dictionary.json
 node tools/build_rules.js                             # schemas/rules/*.xlsx -> data/aixm_rules.json
+node tools/build_terrain.js 6                         # Terrain Tiles (internet, once) -> data/terrain.json
 node tools/build.js                                   # -> AIXM-Code-Converter.html
 node tools/test_parse.js testdata/Donlon_ALL_Baseline_2025.xml 4   # parser: offsets/lines across 4 parallel parts
 node tools/test_aip.js testdata/Donlon_ALL_Baseline_2025.xml "^AD 2\.1[23]$"   # AIP sections as text
@@ -146,6 +155,9 @@ node tools/e2e_big.js /path/to/1gb.xml                # large-file timing and me
 
 ## Limits worth knowing
 
+- Terrain, grid MORA and the 3D views are indicative: the built-in terrain grid is about 28 km (peaks are smoothed); online
+  terrain is finer. The 3D view needs WebGL. Not for navigation.
+- The separate map window needs pop-ups allowed for the file.
 - A browser cannot send e-mail by itself. The e-mail feature produces a formatted message (clipboard, `.eml` or `.html`) for Outlook.
 - Online base maps need internet. Some tile servers (e.g. the standard OSM server) may refuse requests from a local
   `file://` page; the OSM-based CARTO/OpenTopoMap styles are offered as alternatives, and the offline map always works.
@@ -173,5 +185,6 @@ GeoJSON, KML and Shapefile) and in the header of every source file.
 ## Third-party credits
 
 AIXM schemas, business rules and sample data © EUROCONTROL & FAA (see the notices in the files). Base map: Natural Earth (public domain).
-Libraries embedded in the HTML: Leaflet (BSD-2), SheetJS Community Edition (Apache-2.0), jsPDF and jsPDF-AutoTable (MIT),
+Terrain: Terrain Tiles (Mapzen / AWS Open Data: SRTM, GMTED2010, ETOPO1 and others).
+Libraries embedded in the HTML: Leaflet (BSD-2), three.js (MIT), SheetJS Community Edition (Apache-2.0), jsPDF and jsPDF-AutoTable (MIT),
 fflate (MIT), TopoJSON client (ISC), world-atlas (ISC).

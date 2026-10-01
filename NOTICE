@@ -14,12 +14,17 @@ GeoJSON, KML, Shapefile) and in the source file headers.
 Third-party components included in AIXM-Code-Converter.html
 ----------------------------------------------------------------------------
 Leaflet                      BSD-2-Clause    (c) Volodymyr Agafonkin, CloudMade
+three.js                     MIT             (c) three.js authors
 SheetJS Community Edition    Apache-2.0      (c) SheetJS LLC
 jsPDF                        MIT             (c) James Hall, yWorks GmbH and contributors
 jsPDF-AutoTable              MIT             (c) Simon Bengtsson
 fflate                       MIT             (c) Arjun Barrett
 TopoJSON client              ISC             (c) Michael Bostock
 world-atlas                  ISC             (c) Michael Bostock; data from Natural Earth (public domain)
+
+Terrain data (data/terrain.json and online terrain): Terrain Tiles, Mapzen / AWS
+Open Data Registry, derived from SRTM, GMTED2010, ETOPO1, NED, ArcticDEM and other
+sources (see https://github.com/tilezen/joerd/blob/master/docs/attribution.md).
 
 Aeronautical reference material
 AIXM XML Schemas (4.5, 5.1, 5.1.1, 5.2), AIXM code-list definitions, the
