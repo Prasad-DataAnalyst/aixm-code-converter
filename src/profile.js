@@ -191,7 +191,7 @@ var PROFILE = (function () {
         '<path d="M' + (MAx - 6) + ',' + (Y(mAlt) - 5) + ' L' + MAx + ',' + Y(mAlt) + ' L' + (MAx - 6) + ',' + (Y(mAlt) + 5) + ' Z" fill="#0b2a4a"/>' +
         '<text x="' + MAx + '" y="' + (Y(mAlt) - 10) + '" text-anchor="end" fill="#0b2a4a" font-size="10">MISSED APCH ' + Math.round(mAlt) + '</text>';
     }
-    h += '<text x="' + L + '" y="' + (H - 6) + '" fill="#889" font-size="9.5">Profile drawn from the AIXM data · AIXM Code Converter (Prasad Selvaraj) · indicative, not for navigation</text>';
+    h += '<text x="' + L + '" y="' + (H - 6) + '" fill="#889" font-size="9.5">Profile drawn from the AIXM data · AIXM Code Converter (Prasad Selvaraj) · NOT FOR OPERATIONAL USE - not for navigation</text>';
     h += '</svg>';
     return h;
   }

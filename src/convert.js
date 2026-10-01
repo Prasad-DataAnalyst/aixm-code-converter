@@ -13,7 +13,7 @@
 var CONVERT = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
-  var CREDIT = APP_INFO.credit;
+  var CREDIT = APP_INFO.credit, NOTOPS = APP_INFO.disclaimerShort;
 
   function xesc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function uuidFor(key) {
@@ -55,7 +55,7 @@ var CONVERT = (function () {
         out = out.replace(/(schemaLocation\s*=\s*")([^"]*)"/, function (m, a, v) {
           return a + v.replace(/(http:\/\/www\.aixm\.aero\/schema\/5[^\s]*\s+)(\S*AIXM_BasicMessage\.xsd)/, function (x, ns) { return ns + LOCFILE[target]; }) + '"';
         });
-        out = out.replace(/(<\?xml[^>]*\?>)/, '$1\n<!-- Converted from ' + xesc(report.from) + ' to ' + report.to + ' by ' + CREDIT + ' on ' + new Date().toISOString().slice(0, 10) + '. Review the conversion report. -->');
+        out = out.replace(/(<\?xml[^>]*\?>)/, '$1\n<!-- Converted from ' + xesc(report.from) + ' to ' + report.to + ' by ' + CREDIT + ' on ' + new Date().toISOString().slice(0, 10) + '. Review the conversion report. ' + NOTOPS + ' -->');
         first = false;
       }
       if (renRe) out = out.replace(renRe, function (m, p, n, sfx) { report.renamed++; return p + ren[n] + (sfx || ''); });
@@ -138,7 +138,7 @@ var CONVERT = (function () {
         '          <aixm:interpretation>BASELINE</aixm:interpretation>\n          <aixm:sequenceNumber>1</aixm:sequenceNumber>\n          <aixm:correctionNumber>0</aixm:correctionNumber>\n' +
         props + '        </aixm:' + r.k + 'TimeSlice>\n      </aixm:timeSlice>\n    </aixm:' + r.k + '>\n  </message:hasMember>\n';
     }
-    parts.push('<?xml version="1.0" encoding="UTF-8"?>\n<!-- Converted from ' + xesc(ds.sniff.versionLabel) + ' (' + xesc(ds.name) + ') to AIXM 5.1.1 by ' + CREDIT + ' on ' + new Date().toISOString().slice(0, 10) + '.\n     UUIDs are derived deterministically from the AIXM 4.5 identifiers (same input = same UUIDs). -->\n' +
+    parts.push('<?xml version="1.0" encoding="UTF-8"?>\n<!-- Converted from ' + xesc(ds.sniff.versionLabel) + ' (' + xesc(ds.name) + ') to AIXM 5.1.1 by ' + CREDIT + ' on ' + new Date().toISOString().slice(0, 10) + '.\n     UUIDs are derived deterministically from the AIXM 4.5 identifiers (same input = same UUIDs).\n     ' + NOTOPS + ' -->\n' +
       '<message:AIXMBasicMessage xmlns:message="http://www.aixm.aero/schema/5.1.1/message" xmlns:aixm="http://www.aixm.aero/schema/5.1.1" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
       'xsi:schemaLocation="http://www.aixm.aero/schema/5.1.1/message http://www.aixm.aero/schema/5.1.1/message/AIXM_BasicMessage.xsd" gml:id="MSG_' + uuidFor(ds.name).slice(0, 8) + '">\n');
     for (var i = 0; i < ds.recs.length; i++) parts.push(feature(ds.recs[i]));
@@ -176,7 +176,7 @@ var CONVERT = (function () {
     return { type: 'GeometryCollection', geometries: g.parts.map(geojsonGeom) };
   }
   function toGeoJSON(ds, filter) {
-    var parts = ['{"type":"FeatureCollection","name":' + JSON.stringify(ds.state + ' — ' + ds.name) + ',"generator":' + JSON.stringify(CREDIT) + ',"author":"Prasad Selvaraj","authorEmail":"prasad2t@gmail.com","features":[\n'];
+    var parts = ['{"type":"FeatureCollection","name":' + JSON.stringify(ds.state + ' — ' + ds.name) + ',"generator":' + JSON.stringify(CREDIT) + ',' + '"author":"Prasad Selvaraj","authorEmail":"prasad2t@gmail.com","disclaimer":' + JSON.stringify(APP_INFO.disclaimer) + ',"features":[\n'];
     gisFeatures(ds, filter).forEach(function (f, i) {
       parts.push((i ? ',\n' : '') + JSON.stringify({ type: 'Feature', id: f.r.id, geometry: geojsonGeom(f.g), properties: f.props }));
     });
@@ -195,7 +195,7 @@ var CONVERT = (function () {
   function toKML(ds, filter) {
     var feats = gisFeatures(ds, filter), byType = {};
     feats.forEach(function (f) { (byType[f.r.k] || (byType[f.r.k] = [])).push(f); });
-    var parts = ['<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>' + xesc(ds.state + ' — ' + ds.name) + '</name><description>' + xesc('Exported by ' + CREDIT) + '</description>\n'];
+    var parts = ['<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>' + xesc(ds.state + ' — ' + ds.name) + '</name><description>' + xesc('Exported by ' + CREDIT + '. ' + NOTOPS) + '</description>\n'];
     Object.keys(byType).forEach(function (k) {
       var col = KML_COL[k] || 'ff546e7a';
       parts.push('<Style id="s' + k + '"><LineStyle><color>' + col + '</color><width>2</width></LineStyle><PolyStyle><color>33' + col.slice(2) + '</color></PolyStyle><IconStyle><color>' + col + '</color><scale>0.8</scale></IconStyle></Style>\n');
@@ -298,7 +298,7 @@ var CONVERT = (function () {
       files[base + '_' + k + '.dbf'] = dbf(st.a); files[base + '_' + k + '.prj'] = new TextEncoder().encode(PRJ);
       files[base + '_' + k + '.cpg'] = new TextEncoder().encode('ISO-8859-1');
     });
-    files['README.txt'] = new TextEncoder().encode('ESRI Shapefiles exported by ' + CREDIT + ' from ' + ds.name + ' (' + ds.state + ').\nCRS: WGS 84 (EPSG:4326). Attribute AIXMID = AIXM gml:identifier / 4.5 key, LINE = line in the AIXM file.\n');
+    files['README.txt'] = new TextEncoder().encode('ESRI Shapefiles exported by ' + CREDIT + ' from ' + ds.name + ' (' + ds.state + ').\nCRS: WGS 84 (EPSG:4326). Attribute AIXMID = AIXM gml:identifier / 4.5 key, LINE = line in the AIXM file.\n\n' + APP_INFO.disclaimer + '\n');
     return new Blob([fflate.zipSync(files, { level: 6 })], { type: 'application/zip' });
   }
 

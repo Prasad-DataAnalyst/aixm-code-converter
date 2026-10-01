@@ -10,7 +10,7 @@ const FILE = process.argv[2];
 const OUT = process.argv[3] || path.join(ROOT, 'tools', 'shots');
 fs.mkdirSync(OUT, { recursive: true });
 (async () => {
-  const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--enable-precise-memory-info', '--js-flags=--max-old-space-size=6144'] });
+  const browser = await chromium.launch({ executablePath: require('./tests/_env').chrome, args: ['--enable-precise-memory-info', '--js-flags=--max-old-space-size=6144'] });
   const page = await (await browser.newContext({ viewport: { width: 1500, height: 920 } })).newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 const {chromium}=require('./_env').playwright;
 const ROOT = require('./_env').ROOT;const OUT = process.argv[2] || require('./_env').out('cycle_highlight');
-(async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome'});const p=await (await b.newContext({viewport:{width:1500,height:920}})).newPage();
+(async()=>{const b=await chromium.launch({executablePath:require('./_env').chrome});const p=await (await b.newContext({viewport:{width:1500,height:920}})).newPage();
 const errs=[];p.on('pageerror',e=>errs.push(e.message+'\n'+e.stack));
 await p.goto('file://'+ROOT+'/AIXM-Code-Converter.html');
 await p.setInputFiles('#file-input',[ROOT+'/testdata/Donlon_EADD_changes_AIRAC2611.xml',ROOT+'/testdata/temporality/EA_AIP_DS_FULL_20181206_AIRAC.xml',ROOT+'/testdata/temporality/EA_AIP_DS_FULL_20190131_AIRAC.xml']);

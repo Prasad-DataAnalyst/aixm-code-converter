@@ -464,7 +464,7 @@ var ADCHART = (function () {
     }
     h += '<div class="adc-actions"><button class="btn small" data-adc="aip">AIP AD 2</button><button class="btn small" data-adc="procs">Procedures</button><button class="btn small" data-adc="print">Print airport chart</button><button class="btn small" data-adc="fit">Zoom to airport</button>' +
       (m && m.runways.length ? '<button class="btn small" data-adc="3dapp" title="Crew view down the glide path in 3D">🗻 3D approach</button><button class="btn small" data-adc="3ddep" title="Crew view along the climb-out in 3D">🗻 3D departure</button>' : '') + '</div>';
-    h += '<div class="adc-sig" data-sig="' + esc(SIG) + '">Airport chart · AIXM Code Converter</div>';
+    h += '<div class="adc-sig" data-sig="' + esc(SIG) + '"><span class="nfo-line">⚠ Not for operational use</span> · Airport chart · AIXM Code Converter</div>';
     return h;
   }
 

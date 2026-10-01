@@ -10,6 +10,13 @@ e-mail address in the application (About, side menu, Files view), in the
 exported files (PDF, Excel, JSON, e-mail, map images, converted AIXM,
 GeoJSON, KML, Shapefile) and in the source file headers.
 
+NOT FOR OPERATIONAL USE: this software is a tool for checking, studying and
+visualising aeronautical data. It must not be used for flight planning,
+navigation, flight operations or any other operational or safety-related
+purpose. Use the official AIP, NOTAM and approved aeronautical charts. It is
+provided "as is", without warranty of any kind (Apache License 2.0, sections
+7 and 8). Redistributions should keep this notice in the application.
+
 ----------------------------------------------------------------------------
 Third-party components included in AIXM-Code-Converter.html
 ----------------------------------------------------------------------------

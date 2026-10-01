@@ -1275,6 +1275,18 @@ pre, .xml, .notam-text { text-align: left; }
 .int-essential { color: var(--warn); font-weight: 600; }
 .int-routine { color: var(--muted); }
 
+/* -------------------------------------------------- not for operational use */
+.nfo-chip { flex: none; border: 1px solid #ff8a80; background: rgba(179, 38, 30, .9); color: #fff; font: 700 11.5px/1 "Segoe UI", system-ui, sans-serif; letter-spacing: .3px; padding: 6px 10px; border-radius: 999px; cursor: pointer; white-space: nowrap; margin-right: 6px; }
+.nfo-chip:hover { background: #b3261e; }
+.nav-nfo { margin-top: 6px; font-size: 8.5px; font-weight: 800; color: var(--err); line-height: 1.2; }
+.nfo-box { border: 1px solid var(--err); border-left: 5px solid var(--err); background: var(--err-soft); color: var(--text); border-radius: 8px; padding: 10px 12px; margin: 8px 0 12px; font-size: 13px; line-height: 1.5; }
+.nfo-box h2 { color: var(--err) !important; border: 0 !important; margin: 0 0 6px !important; padding: 0 !important; }
+.nfo-head h3 { color: var(--err); }
+.nfo-text { font-weight: 600; line-height: 1.55; }
+.nfo-line { color: var(--err); font-weight: 700; font-size: 12px; margin-top: 4px; }
+@media (max-width: 1400px) { .nfo-chip { font-size: 0; padding: 6px 8px; } .nfo-chip::before { content: "⚠ NOT OPERATIONAL"; font-size: 10.5px; } }
+@media (max-width: 1100px) { .nfo-chip::before { content: "⚠"; font-size: 13px; } }
+
 </style>
 </head>
 <body data-app-author="Prasad Selvaraj &lt;prasad2t@gmail.com&gt;">
@@ -1288,6 +1300,7 @@ pre, .xml, .notam-text { text-align: left; }
         <div class="brand-sub">AIXM 4.5 · 5.1 · 5.1.1 · 5.2 → ICAO AIP · by Prasad Selvaraj</div>
       </div>
     </div>
+    <button class="nfo-chip" id="nfo-chip" title="This tool is not for operational use: click for the full notice">⚠ Not for operational use</button>
     <div class="search" id="search-wrap">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="search" type="search" placeholder="Search ICAO code, runway, navaid, point, airspace, frequency…  (Ctrl+K)" autocomplete="off" disabled>
@@ -2864,7 +2877,16 @@ var APP_INFO = Object.freeze({
   author: 'Prasad Selvaraj',
   email: 'prasad2t@gmail.com',
   license: 'Apache-2.0',
-  credit: 'AIXM Code Converter (c) 2026 Prasad Selvaraj <prasad2t@gmail.com>, Apache-2.0'
+  credit: 'AIXM Code Converter (c) 2026 Prasad Selvaraj <prasad2t@gmail.com>, Apache-2.0',
+  // safety notice shown in the application and written into every export and generated file
+  disclaimerShort: 'NOT FOR OPERATIONAL USE - for data checking, study and training only; not for navigation or flight planning.',
+  disclaimer: 'NOT FOR OPERATIONAL USE. The AIXM Code Converter is a tool for checking, studying and visualising aeronautical data. ' +
+    'It must not be used for flight planning, navigation, flight operations, aerodrome or instrument procedure design decisions, ' +
+    'obstacle assessment or any other operational or safety-related purpose. Always use the official AIP, AIP amendments and ' +
+    'supplements, NOTAM and the approved aeronautical charts published by the State. Everything this tool shows or produces ' +
+    '(AIP pages, maps, airport charts, 3D views, terrain, grid MORA, approach profiles, obstacle limitation surfaces, data ' +
+    'integrity results, conversions and exports) is derived automatically from the input data, may be incomplete or ' +
+    'inaccurate, and is provided "as is" without warranty of any kind (Apache License 2.0, sections 7 and 8).'
 });
 var APP_SETTINGS = Object.freeze({
   liteAutoBytes: 1.5 * 1024 * 1024 * 1024, // files above this size use the Lite memory mode (Auto)
@@ -7304,7 +7326,7 @@ var ADCHART = (function () {
     }
     h += '<div class="adc-actions"><button class="btn small" data-adc="aip">AIP AD 2</button><button class="btn small" data-adc="procs">Procedures</button><button class="btn small" data-adc="print">Print airport chart</button><button class="btn small" data-adc="fit">Zoom to airport</button>' +
       (m && m.runways.length ? '<button class="btn small" data-adc="3dapp" title="Crew view down the glide path in 3D">🗻 3D approach</button><button class="btn small" data-adc="3ddep" title="Crew view along the climb-out in 3D">🗻 3D departure</button>' : '') + '</div>';
-    h += '<div class="adc-sig" data-sig="' + esc(SIG) + '">Airport chart · AIXM Code Converter</div>';
+    h += '<div class="adc-sig" data-sig="' + esc(SIG) + '"><span class="nfo-line">⚠ Not for operational use</span> · Airport chart · AIXM Code Converter</div>';
     return h;
   }
 
@@ -7712,7 +7734,7 @@ var PROFILE = (function () {
         '<path d="M' + (MAx - 6) + ',' + (Y(mAlt) - 5) + ' L' + MAx + ',' + Y(mAlt) + ' L' + (MAx - 6) + ',' + (Y(mAlt) + 5) + ' Z" fill="#0b2a4a"/>' +
         '<text x="' + MAx + '" y="' + (Y(mAlt) - 10) + '" text-anchor="end" fill="#0b2a4a" font-size="10">MISSED APCH ' + Math.round(mAlt) + '</text>';
     }
-    h += '<text x="' + L + '" y="' + (H - 6) + '" fill="#889" font-size="9.5">Profile drawn from the AIXM data · AIXM Code Converter (Prasad Selvaraj) · indicative, not for navigation</text>';
+    h += '<text x="' + L + '" y="' + (H - 6) + '" fill="#889" font-size="9.5">Profile drawn from the AIXM data · AIXM Code Converter (Prasad Selvaraj) · NOT FOR OPERATIONAL USE - not for navigation</text>';
     h += '</svg>';
     return h;
   }
@@ -9111,7 +9133,7 @@ var MAPVIEW = (function () {
       ctx.font = Math.round(12 * k) + 'px Arial'; ctx.fillText(nice + ' NM (' + (nice * 1.852).toFixed(nice < 5 ? 1 : 0) + ' km)', sx + len + 8 * k, h - 22 * k);
     }
     ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = Math.round(10 * k) + 'px Arial';
-    var foot = (opt.footer ? opt.footer + '  ·  ' : '') + 'AIXM Code Converter © 2026 Prasad Selvaraj (prasad2t@gmail.com)  ·  Base map: Natural Earth (public domain) · Mercator · not for navigation';
+    var foot = (opt.footer ? opt.footer + '  ·  ' : '') + 'AIXM Code Converter © 2026 Prasad Selvaraj (prasad2t@gmail.com)  ·  Base map: Natural Earth (public domain) · Mercator  ·  NOT FOR OPERATIONAL USE / NOT FOR NAVIGATION';
     var fw = ctx.measureText(foot).width; ctx.fillRect(w - fw - 16 * k, h - 20 * k, fw + 12 * k, 16 * k); ctx.fillStyle = '#555'; ctx.fillText(foot, w - fw - 10 * k, h - 8 * k);
     // author signature (Apache-2.0 NOTICE): near-invisible micro text in the bottom-left corner of every image
     ctx.save(); ctx.globalAlpha = 0.02; ctx.fillStyle = '#000'; ctx.font = Math.max(6, Math.round(6 * k)) + 'px Arial';
@@ -9646,7 +9668,7 @@ var VIEW3D = (function () {
   }
   function foot() {
     q('foot').textContent = 'Terrain: ' + V.terrainSrc + ' · vertical ×' + V.ex + (V.capped ? ' · area limited to 6° × 4.5° around the map centre' : '') +
-      ' · drag to rotate, right-drag to pan, wheel to zoom · indicative, not for navigation';
+      ' · drag to rotate, right-drag to pan, wheel to zoom · NOT FOR OPERATIONAL USE';
   }
 
   /* ------------------------------------------------------------- events */
@@ -9933,7 +9955,7 @@ var EXPORTS = (function () {
   function toJSON(scope) {
     var ds = scope.ds;
     var out = {
-      generator: APP, generatorAuthor: AUTHOR, generatorAuthorEmail: AUTHOR_EMAIL, generatorLicense: 'Apache-2.0', generatorCredit: CREDIT,
+      generator: APP, generatorAuthor: AUTHOR, generatorAuthorEmail: AUTHOR_EMAIL, generatorLicense: 'Apache-2.0', generatorCredit: CREDIT, disclaimer: APP_INFO.disclaimer,
       generatedAt: new Date().toISOString(), title: scope.title,
       dataset: ds ? { state: ds.state, stateSource: ds.stateSource, file: ds.name, sizeBytes: ds.size, aixmVersion: (ds.sniff && ds.sniff.versionLabel) || ds.version,
         airacCycle: ds.airac ? ds.airac.id : null, airacCycleDate: ds.airac ? new Date(ds.airac.date).toISOString().slice(0, 10) : null,
@@ -10037,7 +10059,7 @@ var EXPORTS = (function () {
       });
     }
     wb.Props = { Title: String(scope.title || APP), Subject: String(scope.sub || ''), Author: AUTHOR + ' <' + AUTHOR_EMAIL + '>', Company: APP, Comments: CREDIT, CreatedDate: new Date() };
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[APP], ['Author', AUTHOR], ['E-mail', AUTHOR_EMAIL], ['Licence', 'Apache-2.0'], ['Generated', new Date().toISOString()], ['Title', String(scope.title || '')]]), sheetName('About'));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[APP], ['Author', AUTHOR], ['E-mail', AUTHOR_EMAIL], ['Licence', 'Apache-2.0'], ['Generated', new Date().toISOString()], ['Title', String(scope.title || '')], [], ['NOT FOR OPERATIONAL USE', APP_INFO.disclaimer]]), sheetName('About'));
     XLSX.writeFile(wb, safeName(scope.title) + '.xlsx', { compression: true });
   }
 
@@ -10070,6 +10092,7 @@ var EXPORTS = (function () {
         doc.setTextColor(110, 100, 105); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
         doc.text(foot, 10, H - 5);
         doc.text(credit, W / 2, H - 5, { align: 'center' });
+        doc.setTextColor(179, 38, 30); doc.text(pdfText(APP_INFO.disclaimerShort), W / 2, H - 9, { align: 'center' }); doc.setTextColor(120, 120, 120);
         doc.text('Page ' + i + ' / ' + n, W - 10, H - 5, { align: 'right' });
       }
     }
@@ -10080,7 +10103,7 @@ var EXPORTS = (function () {
     if (scope.sub) { doc.setFontSize(10); doc.setTextColor(90, 80, 85); doc.setFont('helvetica', 'normal'); doc.text(pdfText(scope.sub), 10, y); y += 6; }
     if (ds) {
       doc.autoTable({ startY: y, body: metaLines(ds).map(function (l) { return [pdfText(l[0]), pdfText(l[1])]; }), theme: 'plain', styles: { fontSize: 8.5, cellPadding: 1.2 },
-        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 38, textColor: [90, 80, 85] } }, margin: { left: 10, right: 10 } });
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 38, textColor: [90, 80, 85] } }, margin: { left: 10, right: 10, bottom: 14 } });
       y = doc.lastAutoTable.finalY + 4;
     }
     if (scope.mapImage) {
@@ -10107,7 +10130,7 @@ var EXPORTS = (function () {
         var kvStyles = b.kind === 'kv' ? { 0: { cellWidth: 9, textColor: [120, 110, 115] }, 1: { cellWidth: wide ? 70 : 52, textColor: [90, 80, 85] }, 3: { cellWidth: 26, textColor: [120, 110, 115], fontSize: 7 } } : {};
         doc.autoTable({
           startY: y, head: [br.cols.map(pdfText)], body: rows.map(function (r) { return r.map(pdfText); }),
-          theme: 'grid', margin: { left: 10, right: 10, top: 14 },
+          theme: 'grid', margin: { left: 10, right: 10, top: 14, bottom: 14 },
           styles: { fontSize: br.cols.length > 10 ? 6.2 : br.cols.length > 6 ? 7 : 8, cellPadding: 1.3, overflow: 'linebreak', lineColor: [195, 204, 216], lineWidth: 0.15, valign: 'top' },
           headStyles: { fillColor: [230, 237, 245], textColor: [6, 26, 51], fontStyle: 'bold' },
           alternateRowStyles: { fillColor: [248, 250, 252] }, columnStyles: kvStyles,
@@ -10165,7 +10188,7 @@ var EXPORTS = (function () {
     if (ds) h += '<table>' + metaLines(ds).map(function (l) { return '<tr><td style="width:30%"><b>' + esc(l[0]) + '</b></td><td>' + esc(l[1]) + '</td></tr>'; }).join('') + '</table>';
     if (scope.mapImage) h += '<img src="' + scope.mapImage + '" style="width:100%;max-height:120mm;object-fit:contain;margin:6px 0">';
     h += sectionsHtml(flatSections(scope.sections), 20000, false);
-    h += '<div class="p-foot">Generated by ' + APP + ' (© 2026 ' + AUTHOR + ', ' + AUTHOR_EMAIL + ') from ' + esc(ds ? ds.name : '') + ' — ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z</div>';
+    h += '<div class="p-foot"><b style="color:#b3261e">' + esc(APP_INFO.disclaimerShort) + '</b><br>Generated by ' + APP + ' (© 2026 ' + AUTHOR + ', ' + AUTHOR_EMAIL + ') from ' + esc(ds ? ds.name : '') + ' — ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z</div>';
     root.innerHTML = h;
     setTimeout(function () { window.print(); }, 60);
   }
@@ -10186,14 +10209,14 @@ var EXPORTS = (function () {
         return '<tr><td style="padding:2px 12px 2px 0;color:#6d6268"><b>' + esc(l[0]) + '</b></td><td style="padding:2px 0">' + esc(l[1]) + '</td></tr>';
       }).join('') + '</table>' +
       sectionsHtml(flatSections(scope.sections), opt.maxRows || 300, true) +
-      '<p style="font-size:11.5px;color:#777;margin-top:16px">Generated by ' + APP + ' (© 2026 ' + AUTHOR + ', ' + AUTHOR_EMAIL + ') on ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z. Source file: ' + esc(ds ? ds.name : '') + '</p></div></div>';
+      '<p style="font-size:11.5px;color:#b3261e;margin-top:16px;font-weight:600">' + esc(APP_INFO.disclaimer) + '</p><p style="font-size:11.5px;color:#777;margin-top:6px">Generated by ' + APP + ' (© 2026 ' + AUTHOR + ', ' + AUTHOR_EMAIL + ') on ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z. Source file: ' + esc(ds ? ds.name : '') + '</p></div></div>';
     var text = subject + '\n\n' + intro + '\n\n' + meta.map(function (l) { return l[0] + ': ' + l[1]; }).join('\n') + '\n\n' +
       flatSections(scope.sections).map(function (s) {
         return secTitle(s) + '\n' + (s.blocks || []).map(function (b) {
           var br = blockRows(b);
           return (b.title ? b.title + '\n' : '') + (b.kind === 'table' ? br.cols.join(' | ') + '\n' : '') + br.rows.slice(0, opt.maxRows || 300).map(function (r) { return r.join(' | ').replace(/\n/g, ' / '); }).join('\n');
         }).join('\n\n');
-      }).join('\n\n') + '\n\n— Generated by ' + APP + ' (© 2026 ' + AUTHOR + ', ' + AUTHOR_EMAIL + ')';
+      }).join('\n\n') + '\n\n' + APP_INFO.disclaimer + '\n\n— Generated by ' + APP + ' (© 2026 ' + AUTHOR + ', ' + AUTHOR_EMAIL + ')';
     return { subject: subject, html: html, text: text };
   }
   function b64(str) {
@@ -10254,7 +10277,7 @@ var EXPORTS = (function () {
 var CONVERT = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
-  var CREDIT = APP_INFO.credit;
+  var CREDIT = APP_INFO.credit, NOTOPS = APP_INFO.disclaimerShort;
 
   function xesc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function uuidFor(key) {
@@ -10296,7 +10319,7 @@ var CONVERT = (function () {
         out = out.replace(/(schemaLocation\s*=\s*")([^"]*)"/, function (m, a, v) {
           return a + v.replace(/(http:\/\/www\.aixm\.aero\/schema\/5[^\s]*\s+)(\S*AIXM_BasicMessage\.xsd)/, function (x, ns) { return ns + LOCFILE[target]; }) + '"';
         });
-        out = out.replace(/(<\?xml[^>]*\?>)/, '$1\n<\!-- Converted from ' + xesc(report.from) + ' to ' + report.to + ' by ' + CREDIT + ' on ' + new Date().toISOString().slice(0, 10) + '. Review the conversion report. -->');
+        out = out.replace(/(<\?xml[^>]*\?>)/, '$1\n<\!-- Converted from ' + xesc(report.from) + ' to ' + report.to + ' by ' + CREDIT + ' on ' + new Date().toISOString().slice(0, 10) + '. Review the conversion report. ' + NOTOPS + ' -->');
         first = false;
       }
       if (renRe) out = out.replace(renRe, function (m, p, n, sfx) { report.renamed++; return p + ren[n] + (sfx || ''); });
@@ -10379,7 +10402,7 @@ var CONVERT = (function () {
         '          <aixm:interpretation>BASELINE</aixm:interpretation>\n          <aixm:sequenceNumber>1</aixm:sequenceNumber>\n          <aixm:correctionNumber>0</aixm:correctionNumber>\n' +
         props + '        </aixm:' + r.k + 'TimeSlice>\n      </aixm:timeSlice>\n    </aixm:' + r.k + '>\n  </message:hasMember>\n';
     }
-    parts.push('<?xml version="1.0" encoding="UTF-8"?>\n<\!-- Converted from ' + xesc(ds.sniff.versionLabel) + ' (' + xesc(ds.name) + ') to AIXM 5.1.1 by ' + CREDIT + ' on ' + new Date().toISOString().slice(0, 10) + '.\n     UUIDs are derived deterministically from the AIXM 4.5 identifiers (same input = same UUIDs). -->\n' +
+    parts.push('<?xml version="1.0" encoding="UTF-8"?>\n<\!-- Converted from ' + xesc(ds.sniff.versionLabel) + ' (' + xesc(ds.name) + ') to AIXM 5.1.1 by ' + CREDIT + ' on ' + new Date().toISOString().slice(0, 10) + '.\n     UUIDs are derived deterministically from the AIXM 4.5 identifiers (same input = same UUIDs).\n     ' + NOTOPS + ' -->\n' +
       '<message:AIXMBasicMessage xmlns:message="http://www.aixm.aero/schema/5.1.1/message" xmlns:aixm="http://www.aixm.aero/schema/5.1.1" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ' +
       'xsi:schemaLocation="http://www.aixm.aero/schema/5.1.1/message http://www.aixm.aero/schema/5.1.1/message/AIXM_BasicMessage.xsd" gml:id="MSG_' + uuidFor(ds.name).slice(0, 8) + '">\n');
     for (var i = 0; i < ds.recs.length; i++) parts.push(feature(ds.recs[i]));
@@ -10417,7 +10440,7 @@ var CONVERT = (function () {
     return { type: 'GeometryCollection', geometries: g.parts.map(geojsonGeom) };
   }
   function toGeoJSON(ds, filter) {
-    var parts = ['{"type":"FeatureCollection","name":' + JSON.stringify(ds.state + ' — ' + ds.name) + ',"generator":' + JSON.stringify(CREDIT) + ',"author":"Prasad Selvaraj","authorEmail":"prasad2t@gmail.com","features":[\n'];
+    var parts = ['{"type":"FeatureCollection","name":' + JSON.stringify(ds.state + ' — ' + ds.name) + ',"generator":' + JSON.stringify(CREDIT) + ',' + '"author":"Prasad Selvaraj","authorEmail":"prasad2t@gmail.com","disclaimer":' + JSON.stringify(APP_INFO.disclaimer) + ',"features":[\n'];
     gisFeatures(ds, filter).forEach(function (f, i) {
       parts.push((i ? ',\n' : '') + JSON.stringify({ type: 'Feature', id: f.r.id, geometry: geojsonGeom(f.g), properties: f.props }));
     });
@@ -10436,7 +10459,7 @@ var CONVERT = (function () {
   function toKML(ds, filter) {
     var feats = gisFeatures(ds, filter), byType = {};
     feats.forEach(function (f) { (byType[f.r.k] || (byType[f.r.k] = [])).push(f); });
-    var parts = ['<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>' + xesc(ds.state + ' — ' + ds.name) + '</name><description>' + xesc('Exported by ' + CREDIT) + '</description>\n'];
+    var parts = ['<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>' + xesc(ds.state + ' — ' + ds.name) + '</name><description>' + xesc('Exported by ' + CREDIT + '. ' + NOTOPS) + '</description>\n'];
     Object.keys(byType).forEach(function (k) {
       var col = KML_COL[k] || 'ff546e7a';
       parts.push('<Style id="s' + k + '"><LineStyle><color>' + col + '</color><width>2</width></LineStyle><PolyStyle><color>33' + col.slice(2) + '</color></PolyStyle><IconStyle><color>' + col + '</color><scale>0.8</scale></IconStyle></Style>\n');
@@ -10539,7 +10562,7 @@ var CONVERT = (function () {
       files[base + '_' + k + '.dbf'] = dbf(st.a); files[base + '_' + k + '.prj'] = new TextEncoder().encode(PRJ);
       files[base + '_' + k + '.cpg'] = new TextEncoder().encode('ISO-8859-1');
     });
-    files['README.txt'] = new TextEncoder().encode('ESRI Shapefiles exported by ' + CREDIT + ' from ' + ds.name + ' (' + ds.state + ').\nCRS: WGS 84 (EPSG:4326). Attribute AIXMID = AIXM gml:identifier / 4.5 key, LINE = line in the AIXM file.\n');
+    files['README.txt'] = new TextEncoder().encode('ESRI Shapefiles exported by ' + CREDIT + ' from ' + ds.name + ' (' + ds.state + ').\nCRS: WGS 84 (EPSG:4326). Attribute AIXMID = AIXM gml:identifier / 4.5 key, LINE = line in the AIXM file.\n\n' + APP_INFO.disclaimer + '\n');
     return new Blob([fflate.zipSync(files, { level: 6 })], { type: 'application/zip' });
   }
 
@@ -11420,6 +11443,7 @@ var ABOUT = (function () {
     h += '<section class="ab-hero"><div class="ab-kicker">About this tool</div><h1>' + esc(APP_INFO.name) + '</h1>' +
       '<p class="ab-lead">Turns aeronautical data in <b>AIXM</b> — the international exchange format for aeronautical information — into something people can read: the <b>ICAO AIP</b>, an aeronautical <b>map</b> with <b>airport charts</b>, and clear lists of <b>what changed</b>. One HTML file, no installation, no server, works offline; your data never leaves your computer.</p>' +
       '<div class="ab-facts"><span>AIXM 4.5 · 5.0 · 5.1 · 5.1.1 · 5.2</span><span>ICAO Annex 15 / PANS-AIM AIP</span><span>Offline · single file</span><span>Version ' + esc(APP_INFO.version) + '</span></div></section>';
+    h += '<section class="nfo-box ab-nfo"><h2>⚠ Not for operational use</h2><p>' + esc(APP_INFO.disclaimer) + '</p></section>';
     h += '<section><h2>Why it helps</h2><p>AIXM files are large XML documents built for machines. Reading them normally needs specialised, expensive software. This tool lets anyone check a State\'s digital aeronautical data the way it is published — page by page, aerodrome by aerodrome, on a chart — and see exactly which values come from which XML element. It shortens AIRAC checks from hours to minutes and makes data errors visible before they reach pilots and charts.</p></section>';
     h += '<section><h2>Who it is for</h2>' + cards(WHO, 'ab-grid') + '</section>';
     h += '<section><h2>What is available</h2>' + cards(FEATURES, 'ab-grid ab-grid-2') + '</section>';
@@ -11443,7 +11467,7 @@ var ABOUT = (function () {
       '<li><b>Privacy:</b> everything runs in your browser. Only the optional online map tiles use the internet.</li>' +
       '<li><b>Time:</b> AIXM times are UTC; “Latest data / Valid on date” shows the data valid on any day (BASELINE, PERMDELTA, TEMPDELTA).</li>' +
       '<li><b>Large files:</b> files over 1.5 GB use the Lite memory mode automatically.</li>' +
-      '<li><b>Not for navigation:</b> maps and charts are drawn from the data for checking and study; use the official AIP and charts for flight.</li>' +
+      '<li><b>Not for operational use:</b> everything is drawn and computed automatically from the data, for checking, study and training. Use the official AIP, NOTAM and approved charts for flight planning and flight.</li>' +
       '<li><b>Sources:</b> AIXM schemas, code lists and business rules from aixm.aero (EUROCONTROL, FAA); base map Natural Earth; terrain from the Terrain Tiles (Mapzen / AWS Open Data: SRTM, GMTED2010, ETOPO1); libraries Leaflet, three.js, SheetJS, jsPDF, fflate, topojson.</li></ul></section>';
     h += '<section class="ab-author"><h2>Author</h2><p>Created by <b>' + esc(APP_INFO.author) + '</b> · <a href="mailto:' + esc(APP_INFO.email) + '">' + esc(APP_INFO.email) + '</a></p>' +
       '<p class="muted">© ' + esc(APP_INFO.year) + ' ' + esc(APP_INFO.author) + '. Open source under the Apache License 2.0 — redistributions and modified versions must keep this attribution (LICENSE and NOTICE).</p>' +
@@ -11454,7 +11478,7 @@ var ABOUT = (function () {
   // short introduction for the start page
   function intro() {
     return '<div class="card ab-intro"><div><b>' + esc(APP_INFO.name) + '</b> reads AIXM 4.5 – 5.2 files and shows them as the ICAO AIP, an aeronautical map with airport charts, and lists of changes — offline, in this one file.' +
-      '<span class="ab-sig" aria-hidden="true">' + zw(SIG) + '</span></div><button class="btn small" data-about-page>About this tool</button></div>';
+      '<span class="ab-sig" aria-hidden="true">' + zw(SIG) + '</span><div class="nfo-line">⚠ ' + esc(APP_INFO.disclaimerShort) + '</div></div><button class="btn small" data-about-page>About this tool</button></div>';
   }
   return { html: html, intro: intro };
 })();
@@ -11574,7 +11598,7 @@ var ABOUT = (function () {
       if (!v) return '<div class="nav-sep"></div>';
       var dis = !has && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about';
       return '<button data-view="' + v[0] + '" class="' + (S.view === v[0] ? 'active' : '') + '"' + (dis ? ' disabled' : '') + ' title="' + v[1] + '">' + v[2] + '<span>' + v[1] + '</span></button>';
-    }).join('') + '<div class="nav-credit" data-about="1" title="' + AUTHOR_LINE + '">© 2026<br>Prasad Selvaraj</div>';
+    }).join('') + '<div class="nav-credit" data-about="1" title="' + AUTHOR_LINE + '">© 2026<br>Prasad Selvaraj<div class="nav-nfo" title="' + esc(APP_INFO.disclaimerShort) + '">NOT FOR<br>OPERATIONAL<br>USE</div></div>';
   }
   $('#nav').addEventListener('click', function (e) {
     if (e.target.closest('[data-about]')) { go('about'); return; }
@@ -13359,7 +13383,7 @@ var ABOUT = (function () {
     cellRegistry = [];
     function mft(m) { return m.toFixed(1) + ' m (' + Math.round(m / 0.3048).toLocaleString('en-US') + ' ft)'; }
     v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Obstacle limitation surfaces of ICAO Annex 14 (approach, take-off climb, transitional, inner horizontal, conical) built from the runway data, checked against the obstacles of the ' +
-      sets.length + ' loaded file(s) (within 11 NM of each aerodrome). Runway code number from the runway length, approach type from the ILS / instrument approaches in the data. Indicative: the inner approach / OFZ surfaces are not included and the official survey prevails.</p>' + qTabs('ols') +
+      sets.length + ' loaded file(s) (within 11 NM of each aerodrome). Runway code number from the runway length, approach type from the ILS / instrument approaches in the data. Indicative: the inner approach / OFZ surfaces are not included and the official survey prevails.</p><div class="nfo-box">⚠ Not for operational use: an automated check of the data for review purposes, not an obstacle assessment.</div>' + qTabs('ols') +
       '<div class="toolbar"><span class="sp"></span><button class="btn small" id="o-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="o-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="o-mail">' + I.mail + ' E-mail</button></div>' +
       '<div class="stat-row"><div class="card stat"><b>' + res.length + '</b><span class="muted">aerodromes</span></div><div class="card stat"><b>' + num(chk) + '</b><span class="muted">obstacles checked</span></div><div class="card stat"><b class="' + (pen ? 'sev-err' : '') + '">' + pen + '</b><span class="muted">penetrations</span></div></div>' +
       (res.length ? res.map(function (x) {
@@ -13390,7 +13414,7 @@ var ABOUT = (function () {
     var list = INTEGRITY.items(ds), pub = INTEGRITY.published(ds), F = S.intF || { cls: '', st: '', q: '' }, ver = S.intVer && S.intVer.ds === ds ? S.intVer.res : null;
     var by = { OK: 0, 'Accuracy not declared': 0, 'Insufficient accuracy': 0 };
     list.forEach(function (it) { by[it.status]++; });
-    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Data integrity (ICAO Annex 15, PANS-AIM): every critical, essential and routine data item with the accuracy PANS-AIM requires and the accuracy declared in the data, and its <b>CRC32Q</b> fingerprint. Save the CRC list and verify a later delivery against it to prove that nothing changed unnoticed. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('integrity') +
+    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Data integrity (ICAO Annex 15, PANS-AIM): every critical, essential and routine data item with the accuracy PANS-AIM requires and the accuracy declared in the data, and its <b>CRC32Q</b> fingerprint. Save the CRC list and verify a later delivery against it to prove that nothing changed unnoticed. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p><div class="nfo-box">⚠ Not for operational use: these fingerprints support data reviews; they do not replace the integrity protection required in the State\'s aeronautical data chain.</div>' + qTabs('integrity') +
       '<div class="toolbar"><select class="inp" id="i-cls"><option value="">All classes</option><option value="critical">Critical</option><option value="essential">Essential</option><option value="routine">Routine</option></select>' +
       '<select class="inp" id="i-st"><option value="">All results</option><option>OK</option><option>Accuracy not declared</option><option>Insufficient accuracy</option></select><input class="inp" id="i-q" placeholder="Filter…" value="' + esc(F.q) + '"><span class="sp"></span>' +
       '<button class="btn small" id="i-csv">⬇ Save CRC list</button><button class="btn small" id="i-ver">✓ Verify against a CRC list…</button><input type="file" id="i-file" accept=".csv,.txt" class="hidden">' +
@@ -13427,7 +13451,7 @@ var ABOUT = (function () {
       if (a) { e.preventDefault(); var r1 = cellRegistry[+a.getAttribute('data-det')]; openDetail(r1.ds, r1.r); }
       if (x) { var r2 = cellRegistry[+x.getAttribute('data-xml')]; openXml(r2.ds, r2.r); }
     };
-    $('#i-csv').onclick = function () { EXPORTS.download(EXPORTS.safeName(ds.state + '_' + (ds.airac ? ds.airac.id : '') + '_CRC32Q') + '.csv', new Blob(['# ' + APP_INFO.credit + ' - CRC32Q list of ' + ds.name + '\n' + INTEGRITY.toCsv(list)], { type: 'text/csv' })); };
+    $('#i-csv').onclick = function () { EXPORTS.download(EXPORTS.safeName(ds.state + '_' + (ds.airac ? ds.airac.id : '') + '_CRC32Q') + '.csv', new Blob(['# ' + APP_INFO.credit + ' - CRC32Q list of ' + ds.name + ' - ' + APP_INFO.disclaimerShort + '\n' + INTEGRITY.toCsv(list)], { type: 'text/csv' })); };
     $('#i-ver').onclick = function () { $('#i-file').click(); };
     $('#i-file').onchange = function () {
       var f = this.files[0]; if (!f) return;
@@ -13657,10 +13681,37 @@ var ABOUT = (function () {
 
   /* ------------------------------------------------------------- help */
   $('#help-btn').addEventListener('click', function () { showHelp(false); });
+  /* ----------------------------------------------- not for operational use */
+  // The safety notice (APP_INFO.disclaimer): shown at the first start in a browser until acknowledged (remembered
+  // per browser), and any time from the top-bar chip. Automated test browsers (navigator.webdriver) skip the
+  // first-start display so scripted tests are not blocked; the notice is still everywhere else.
+  var NOTICE_KEY = 'aixm-notice-ack-1';
+  function showNotice(firstStart) {
+    if (document.getElementById('nfo-dlg')) return;
+    var back = document.createElement('div');
+    back.className = 'modal-back'; back.id = 'nfo-dlg';
+    back.innerHTML = '<div class="modal" style="width:min(620px,100%)"><div class="modal-head nfo-head"><h3>⚠ Not for operational use</h3><span class="sp"></span>' + (firstStart ? '' : '<button class="btn small ghost" data-close>' + I.x + '</button>') + '</div><div class="modal-body">' +
+      '<p class="nfo-text">' + esc(APP_INFO.disclaimer) + '</p>' +
+      '<ul class="ab-list"><li>Use it to read, check and compare AIXM data, to prepare reviews and for training.</li><li>Do not use its pages, maps, charts, 3D views, terrain, MORA, profiles, obstacle or integrity results to plan or fly, or to take safety decisions.</li><li>Report data problems to the State AIS / AIM office that published the data.</li></ul>' +
+      '<div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" data-ack>I understand</button></div></div></div>';
+    document.body.appendChild(back);
+    back.addEventListener('click', function (e) {
+      if (e.target.closest('[data-ack]')) { try { localStorage.setItem(NOTICE_KEY, new Date().toISOString()); } catch (er) { /* storage unavailable */ } back.remove(); }
+      else if (!firstStart && (e.target === back || e.target.closest('[data-close]'))) back.remove();
+    });
+  }
+  $('#nfo-chip').addEventListener('click', function () { showNotice(false); });
+  (function () {
+    var ack = null;
+    try { ack = localStorage.getItem(NOTICE_KEY); } catch (e) { /* storage unavailable */ }
+    if (!ack && !navigator.webdriver) showNotice(true);
+  })();
+
   function showHelp(about) {
     var back = document.createElement('div');
     back.className = 'modal-back';
     back.innerHTML = '<div class="modal"><div class="modal-head">' + I.info.replace('<svg', '<svg width="20" height="20"') + '<h3>AIXM Code Converter — help</h3><span class="sp"></span><button class="btn small ghost" data-close>' + I.x + '</button></div><div class="modal-body">' +
+      '<div class="nfo-box"><b>⚠ Not for operational use.</b> ' + esc(APP_INFO.disclaimer.replace(/^NOT FOR OPERATIONAL USE\. /, '')) + '</div>' +
       '<p><b>What it does.</b> Reads AIXM files of any version (4.5 Snapshot/Update, 5.0, 5.1, 5.1.1, 5.2 including pre-releases), detects the version, extracts the aeronautical data and presents it like the <b>ICAO specimen AIP</b> (GEN, ENR 1–6, AD 2 / AD 3 for every aerodrome and heliport). Everything runs offline inside this single HTML file — no data is uploaded anywhere.</p>' +
       '<p><b>Large files.</b> Files are streamed in 16 MB chunks by parallel background threads; only the extracted values are kept in memory. The exact position (line, byte offset) of each feature is remembered, so <span class="kbd">&lt;/&gt;</span> opens the original AIXM code instantly, even for multi-GB files.</p>' +
       '<p><b>Effective dates.</b> The header shows the State, AIXM version, AIRAC cycle and effective date. Every row shows the effective date of its feature. Use <b>Latest data / Valid on date</b> (top bar) to see the data valid on any date (AIXM temporality: BASELINE, PERMDELTA, TEMPDELTA).</p>' +
@@ -13684,7 +13735,7 @@ var ABOUT = (function () {
   renderNav();
   go('files');
   libInit().then(function () { if (LIB.status !== 'none') { startWatch(); if (!S.datasets.length) go('library'); } });
-  window.__AIXM = { S: S, go: go, LIB: LIB, libRescan: libRescan, openLibFile: openLibFile, openLatest: openLatest, useHandle: async function (h) { await LIBRARY.useHandle(h); LIB.status = 'granted'; await libRescan(); startWatch(); }, addFiles: addFiles, extractAll: extractAll, openXml: openXml, openDetail: openDetail };
+  window.__AIXM = { S: S, go: go, showNotice: showNotice, LIB: LIB, libRescan: libRescan, openLibFile: openLibFile, openLatest: openLatest, useHandle: async function (h) { await LIBRARY.useHandle(h); LIB.status = 'granted'; await libRescan(); startWatch(); }, addFiles: addFiles, extractAll: extractAll, openXml: openXml, openDetail: openDetail };
 })();
 </script>
 </body>

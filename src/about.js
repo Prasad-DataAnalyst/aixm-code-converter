@@ -54,6 +54,7 @@ var ABOUT = (function () {
     h += '<section class="ab-hero"><div class="ab-kicker">About this tool</div><h1>' + esc(APP_INFO.name) + '</h1>' +
       '<p class="ab-lead">Turns aeronautical data in <b>AIXM</b> — the international exchange format for aeronautical information — into something people can read: the <b>ICAO AIP</b>, an aeronautical <b>map</b> with <b>airport charts</b>, and clear lists of <b>what changed</b>. One HTML file, no installation, no server, works offline; your data never leaves your computer.</p>' +
       '<div class="ab-facts"><span>AIXM 4.5 · 5.0 · 5.1 · 5.1.1 · 5.2</span><span>ICAO Annex 15 / PANS-AIM AIP</span><span>Offline · single file</span><span>Version ' + esc(APP_INFO.version) + '</span></div></section>';
+    h += '<section class="nfo-box ab-nfo"><h2>⚠ Not for operational use</h2><p>' + esc(APP_INFO.disclaimer) + '</p></section>';
     h += '<section><h2>Why it helps</h2><p>AIXM files are large XML documents built for machines. Reading them normally needs specialised, expensive software. This tool lets anyone check a State\'s digital aeronautical data the way it is published — page by page, aerodrome by aerodrome, on a chart — and see exactly which values come from which XML element. It shortens AIRAC checks from hours to minutes and makes data errors visible before they reach pilots and charts.</p></section>';
     h += '<section><h2>Who it is for</h2>' + cards(WHO, 'ab-grid') + '</section>';
     h += '<section><h2>What is available</h2>' + cards(FEATURES, 'ab-grid ab-grid-2') + '</section>';
@@ -77,7 +78,7 @@ var ABOUT = (function () {
       '<li><b>Privacy:</b> everything runs in your browser. Only the optional online map tiles use the internet.</li>' +
       '<li><b>Time:</b> AIXM times are UTC; “Latest data / Valid on date” shows the data valid on any day (BASELINE, PERMDELTA, TEMPDELTA).</li>' +
       '<li><b>Large files:</b> files over 1.5 GB use the Lite memory mode automatically.</li>' +
-      '<li><b>Not for navigation:</b> maps and charts are drawn from the data for checking and study; use the official AIP and charts for flight.</li>' +
+      '<li><b>Not for operational use:</b> everything is drawn and computed automatically from the data, for checking, study and training. Use the official AIP, NOTAM and approved charts for flight planning and flight.</li>' +
       '<li><b>Sources:</b> AIXM schemas, code lists and business rules from aixm.aero (EUROCONTROL, FAA); base map Natural Earth; terrain from the Terrain Tiles (Mapzen / AWS Open Data: SRTM, GMTED2010, ETOPO1); libraries Leaflet, three.js, SheetJS, jsPDF, fflate, topojson.</li></ul></section>';
     h += '<section class="ab-author"><h2>Author</h2><p>Created by <b>' + esc(APP_INFO.author) + '</b> · <a href="mailto:' + esc(APP_INFO.email) + '">' + esc(APP_INFO.email) + '</a></p>' +
       '<p class="muted">© ' + esc(APP_INFO.year) + ' ' + esc(APP_INFO.author) + '. Open source under the Apache License 2.0 — redistributions and modified versions must keep this attribution (LICENSE and NOTICE).</p>' +
@@ -88,7 +89,7 @@ var ABOUT = (function () {
   // short introduction for the start page
   function intro() {
     return '<div class="card ab-intro"><div><b>' + esc(APP_INFO.name) + '</b> reads AIXM 4.5 – 5.2 files and shows them as the ICAO AIP, an aeronautical map with airport charts, and lists of changes — offline, in this one file.' +
-      '<span class="ab-sig" aria-hidden="true">' + zw(SIG) + '</span></div><button class="btn small" data-about-page>About this tool</button></div>';
+      '<span class="ab-sig" aria-hidden="true">' + zw(SIG) + '</span><div class="nfo-line">⚠ ' + esc(APP_INFO.disclaimerShort) + '</div></div><button class="btn small" data-about-page>About this tool</button></div>';
   }
   return { html: html, intro: intro };
 })();

@@ -5,6 +5,21 @@ const fs = require('fs');
 const ROOT = require('./_env').ROOT, OUT = require('./_env').out('theme_attribution');
 (async () => {
   const browser = await chromium.launch({ executablePath: require('./_env').chrome });
+  // "not for operational use" notice: shown at the first start (as for a person, not an automated browser), remembered after "I understand"
+  {
+    const c0 = await browser.newContext({ viewport: { width: 1500, height: 920 } });
+    await c0.addInitScript(() => Object.defineProperty(navigator, 'webdriver', { get: () => false }));
+    const p0 = await c0.newPage();
+    await p0.goto('file://' + ROOT + '/AIXM-Code-Converter.html');
+    await p0.waitForSelector('#nfo-dlg', { timeout: 5000 }).catch(() => { console.log('FAIL first-start notice not shown'); process.exitCode = 1; });
+    console.log('notice:', (await p0.evaluate(() => (document.querySelector('#nfo-dlg') || {}).innerText || '')).replace(/\s+/g, ' ').slice(0, 90));
+    await p0.screenshot({ path: OUT + '/notice.png' });
+    await p0.click('[data-ack]');
+    await p0.reload(); await p0.waitForSelector('#drop'); await p0.waitForTimeout(300);
+    if (await p0.$('#nfo-dlg')) { console.log('FAIL notice shown again after I understand'); process.exitCode = 1; }
+    await p0.click('#nfo-chip'); await p0.waitForSelector('#nfo-dlg');
+    await c0.close();
+  }
   const ctx = await browser.newContext({ viewport: { width: 1500, height: 920 }, acceptDownloads: true });
   const page = await ctx.newPage();
   const errors = []; page.on('pageerror', (e) => errors.push(e.message + e.stack));
@@ -26,6 +41,7 @@ const ROOT = require('./_env').ROOT, OUT = require('./_env').out('theme_attribut
   await dl('[data-x="pdf"]', 'sec.pdf');
   const j = JSON.parse(fs.readFileSync(OUT + '/sec.json', 'utf8'));
   console.log('json:', j.generator, '|', j.generatorAuthor, '|', j.generatorAuthorEmail, '|', j.generatorLicense);
+  if (!/NOT FOR OPERATIONAL USE/.test(j.disclaimer || '')) { console.log('FAIL JSON export without the notice'); process.exitCode = 1; }
   // about page (sidebar credit) and the about box of the help dialog
   await page.click('.nav-credit'); await page.waitForSelector('.about-page'); await page.waitForTimeout(300);
   const ab = await page.evaluate(() => document.querySelector('.ab-author').innerText.replace(/\s+/g, ' '));

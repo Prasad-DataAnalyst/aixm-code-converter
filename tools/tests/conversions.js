@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 const {chromium}=require('./_env').playwright;const fs=require('fs');
 const ROOT = require('./_env').ROOT;const OUT = process.argv[2] || require('./_env').out('conversions');fs.mkdirSync(OUT,{recursive:true});
-(async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome'});const p=await (await b.newContext({viewport:{width:1500,height:920},acceptDownloads:true})).newPage();
+(async()=>{const b=await chromium.launch({executablePath:require('./_env').chrome});const p=await (await b.newContext({viewport:{width:1500,height:920},acceptDownloads:true})).newPage();
 const errs=[];p.on('pageerror',e=>errs.push(e.message));
 await p.goto('file://'+ROOT+'/AIXM-Code-Converter.html');
 await p.setInputFiles('#file-input',[ROOT+'/testdata/Donlon_ALL_Baseline_2025.xml',ROOT+'/testdata/sample_aixm45_snapshot.xml']);

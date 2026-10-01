@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 const {chromium}=require('./_env').playwright;const fs=require('fs');
 const ROOT = require('./_env').ROOT;const OUT = process.argv[2] || require('./_env').out('library');
-(async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome'});
+(async()=>{const b=await chromium.launch({executablePath:require('./_env').chrome});
 const ctx=await b.newContext({viewport:{width:1500,height:920}});const p=await ctx.newPage();
 const errs=[];p.on('pageerror',e=>errs.push(e.message+'\n'+e.stack));p.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
 // serve via http so OPFS/IndexedDB persist across reloads in same context
