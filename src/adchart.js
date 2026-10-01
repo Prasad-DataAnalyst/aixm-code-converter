@@ -18,7 +18,7 @@
  * navaids) shown in the map's airport view.
  * Detail follows the scale (metres per pixel), like a paper chart series.
  * ========================================================================== */
-/* global AX, MODEL, AIP */
+/* global AX, MODEL, AIP, OLS */
 var ADCHART = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -417,7 +417,7 @@ var ADCHART = (function () {
   function cells(block) { return (block && block.rows || []).map(function (r) { return r.map(function (c) { return c && c.t !== undefined ? c.t : ''; }); }); }
   function tableOf(ds, ad, n) { return AIP.adBlocks(ds, ad, n).filter(function (b) { return b.kind === 'table'; })[0]; }
   // Airport information card (HTML): reference data, runways with declared distances and ILS, frequencies, navaids
-  function cardHtml(ds, ad) {
+  function cardHtml(ds, ad, opts) {
     var p = ad.cur.p, m = of(ds, ad), arp = M.pointOf(ds, ad);
     var mv = s(p.magneticVariation), rows = [];
     function kv(k2, v2) { if (v2) rows.push('<div><b>' + k2 + '</b><span>' + esc(v2) + '</span></div>'); }
@@ -456,6 +456,12 @@ var ADCHART = (function () {
         (m.stands.length ? 'Stands: ' + m.stands.length : '') + (m.holds.length ? ' · Holding positions: ' + m.holds.length : '') + '</div>';
     }
     if (m && m.runways.some(function (rm) { return rm.est; })) h += '<div class="adc-note muted">Runway width not in the data: drawn 45 m wide.</div>';
+    // obstacle limitation surfaces (ols.js, loaded after this module)
+    if (m && m.runways.length && typeof OLS !== 'undefined') {
+      var oc = OLS.check(ds, ad, opts && opts.obsSets);
+      if (oc) h += '<h4>Obstacle limitation surfaces (Annex 14)</h4><div class="adc-note">' + (oc.list.length ? '<b class="sev-err">' + oc.list.length + ' obstacle(s) penetrate</b>: ' + esc(oc.list.slice(0, 3).map(function (p) { return p.name + ' +' + p.pen.toFixed(1) + ' m (' + p.surface + ')'; }).join('; ')) + (oc.list.length > 3 ? '…' : '') : '✓ no penetration among ' + oc.checked + ' obstacles') +
+        ' <button class="btn small" data-adc="ols">🗻 Surfaces in 3D</button></div>';
+    }
     h += '<div class="adc-actions"><button class="btn small" data-adc="aip">AIP AD 2</button><button class="btn small" data-adc="procs">Procedures</button><button class="btn small" data-adc="print">Print airport chart</button><button class="btn small" data-adc="fit">Zoom to airport</button>' +
       (m && m.runways.length ? '<button class="btn small" data-adc="3dapp" title="Crew view down the glide path in 3D">🗻 3D approach</button><button class="btn small" data-adc="3ddep" title="Crew view along the climb-out in 3D">🗻 3D departure</button>' : '') + '</div>';
     h += '<div class="adc-sig" data-sig="' + esc(SIG) + '">Airport chart · AIXM Code Converter</div>';

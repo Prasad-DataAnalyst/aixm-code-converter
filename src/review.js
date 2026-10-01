@@ -133,13 +133,13 @@ var REVIEW = (function () {
       }
       bb.forEach(function (b, i) {
         var a = findA(b, i);
-        if (b.kind === 'note' || (a && a.kind === 'note')) { blocks.push({ kind: 'note', title: b.title, textL: a ? a.text : '', textR: b.text, st: a && a.text === b.text ? 'same' : 'chg' }); return; }
+        if (b.kind === 'note' || b.kind === 'chart' || (a && (a.kind === 'note' || a.kind === 'chart'))) { blocks.push({ kind: 'note', title: b.title, textL: a ? a.text : '', textR: b.text, st: a && a.text === b.text ? 'same' : 'chg' }); return; }
         var rows = alignRows(a, b);
         rows.forEach(function (r) { if (r.st !== 'same') stats[r.st]++; if (r.cols) stats.cells += r.cols.length; });
         blocks.push({ kind: b.kind, title: b.title, cols: b.cols, bl: a, br: b, rows: rows });
       });
       ab.forEach(function (a, j) {
-        if (usedA.has(j) || a.kind === 'note') return;
+        if (usedA.has(j) || a.kind === 'note' || a.kind === 'chart') return;
         var rows = alignRows(a, null);
         stats.del += rows.length;
         blocks.push({ kind: a.kind, title: a.title, cols: a.cols, bl: a, br: null, rows: rows });

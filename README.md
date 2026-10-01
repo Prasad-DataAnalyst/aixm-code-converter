@@ -28,6 +28,8 @@ nothing to install, no server and no internet requirement. No data leaves the co
 | **9a. Airport chart** | *Airport view*: runways to scale with ICAO markings, designators, bearings and THR elevations, ILS feathers, taxiway signs, aprons, stands, holding positions, hot spots, plus an information card (runways, declared distances, ILS, frequencies, navaids). |
 | **9b. Terrain and 3D** | Built-in terrain model (offline) and high-resolution terrain online; grid MORA; **3D view** with airspace volumes between their vertical limits and the airspace column under the mouse; **approach and departure crew views** with altitude, terrain clearance and current airspace. |
 | **9c. Second window** | *⧉ New window* puts the map on another screen while the main window shows the data. |
+| **10a. Obstacle surfaces** | ICAO Annex 14 obstacle limitation surfaces of every runway; obstacles that penetrate them, with the surface and the height above it; shown in 3D. |
+| **10b. Data integrity** | PANS-AIM classification and accuracy check, CRC32Q fingerprint per data item, save and verify CRC lists between deliveries. |
 | **10. Quality** | Code values not in the official code lists, coordinates out of range, unresolved references, missing mandatory AIP items, VOR/LOC/GP/NDB frequencies outside their bands, bearings, overlapping or duplicate baselines, unclosed polygons. |
 | **11. Explorer** | **Every** AIXM feature type and feature, with nothing hidden: properties with the **official AIXM definitions** and decoded code values (for example `AH` — *Airport with heliport landing area*), all time slices, and references to and from other features. For AIXM 4.5 files, the original 4.5 fields are shown with their 4.5 definitions. |
 | **12. Export** | Any single section (buttons on every page) or the whole data set: **JSON** (every value carries its source: feature, UUID, line, byte offset), **Excel** (one sheet per section plus an *AIXM line* column; tables over 1 million rows are split), a **printable PDF** (AIP-style header and footer, AIRAC and source file, map on aerodrome pages), **Print**, and **E-mail**: a formatted message to copy and paste into Outlook, or a `.eml` file that opens as an Outlook draft, or `.html`/`.txt`. No mail program is opened automatically. |
@@ -114,6 +116,9 @@ aixm-code-converter/
 │   ├── aip.js                  ICAO AIP section builders (GEN, ENR, AD 2, AD 3)
 │   ├── analysis.js             in-file changes, comparison of two data sets, quality checks
 │   ├── terrain.js              built-in terrain model, online terrain tiles, grid MORA
+│   ├── ols.js                  ICAO Annex 14 obstacle limitation surfaces and penetration check
+│   ├── profile.js              instrument approach vertical profile (SVG) for AD 2.22
+│   ├── integrity.js            CRC32Q, PANS-AIM data classification, CRC lists
 │   ├── adchart.js              airport chart (aerodrome diagram) and airport information card
 │   ├── mapview.js              Leaflet map, offline base map, canvas symbols, labels, measure tool, snapshot renderer
 │   ├── view3d.js               3D view (three.js): terrain, airspace volumes, approach / departure crew views
@@ -136,7 +141,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.1.0, set in `src/config.js`).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.2.0, set in `src/config.js`).
 
 ```bash
 cd aixm-code-converter/tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core
@@ -148,16 +153,24 @@ node tools/test_parse.js testdata/Donlon_ALL_Baseline_2025.xml 4   # parser: off
 node tools/test_aip.js testdata/Donlon_ALL_Baseline_2025.xml "^AD 2\.1[23]$"   # AIP sections as text
 EVAL='return JSON.stringify((await RULES.run(ds)).summary)' node tools/test_aip.js testdata/Donlon_ALL_Baseline_2025.xml   # any expression
 node tools/e2e.js                                     # full UI test in headless Chromium + exports
-node tools/tests/run_all.js                           # all feature and layout tests (npm test)
+node --test tools/tests/unit/*.test.js               # unit tests (npm run test:unit)
+node tools/tests/run_all.js                           # all feature and layout tests (npm test runs both)
 cd tools && npm run lint                              # ESLint over src/
 node tools/e2e_big.js /path/to/1gb.xml                # large-file timing and memory (MEM=lite to force Lite mode)
 ```
+
+Every push runs the same checks on GitHub Actions (`.github/workflows/aixm-code-converter.yml`): lint, unit tests, a check
+that the committed `AIXM-Code-Converter.html` matches the sources, and all browser tests.
 
 ## Limits worth knowing
 
 - Terrain, grid MORA and the 3D views are indicative: the built-in terrain grid is about 28 km (peaks are smoothed); online
   terrain is finer. The 3D view needs WebGL. Not for navigation.
 - The separate map window needs pop-ups allowed for the file.
+- Obstacle limitation surfaces: the basic Annex 14 surfaces only (no inner approach, inner transitional, balked landing or
+  outer horizontal surface; transitional surfaces along the strip only); runway code number estimated from the length.
+- CRC32Q fingerprints are computed by this tool from the formatted values; CRC values published by other systems use their
+  own input conventions and are listed, not recomputed.
 - A browser cannot send e-mail by itself. The e-mail feature produces a formatted message (clipboard, `.eml` or `.html`) for Outlook.
 - Online base maps need internet. Some tile servers (e.g. the standard OSM server) may refuse requests from a local
   `file://` page; the OSM-based CARTO/OpenTopoMap styles are offered as alternatives, and the offline map always works.

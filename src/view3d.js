@@ -20,7 +20,7 @@
  * Local east-north-up frame in metres; vertical exaggeration selectable.
  * Indicative visualisation - not for navigation.
  * ========================================================================== */
-/* global THREE, AX, MODEL, AIP, ADCHART, TERRAIN, MAPVIEW, topojson */
+/* global THREE, AX, MODEL, AIP, ADCHART, TERRAIN, MAPVIEW, OLS, topojson */
 var VIEW3D = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr, FT = 0.3048, NMM = 1852, D2R = Math.PI / 180;
@@ -89,7 +89,7 @@ var VIEW3D = (function () {
       '<select class="inp" data-3="ex" title="Vertical exaggeration"><option value="1">1× height</option><option value="2">2× height</option><option value="3" selected>3× height</option><option value="5">5× height</option></select>' +
       '<select class="inp" data-3="cap" title="Show airspace up to"><option value="3048">airspace to FL100</option><option value="6096">to FL200</option><option value="7620" selected>to FL250</option><option value="13716">to FL450</option><option value="18288">to FL600</option></select>' +
       '<span class="sp"></span><button class="btn small ghost" data-3="close" title="Close the 3D view">✕ Close 3D</button></div>' +
-      '<div class="v3d-layers card">' + [['terrain', 'Terrain', 1], ['airspace', 'Airspace', 1], ['fir', 'FIR / UIR', 0], ['obst', 'Obstacles', 1], ['procs', 'Procedures', 1], ['labels', 'Labels', 1]]
+      '<div class="v3d-layers card">' + [['terrain', 'Terrain', 1], ['airspace', 'Airspace', 1], ['fir', 'FIR / UIR', 0], ['obst', 'Obstacles', 1], ['ols', 'Obstacle surfaces (Annex 14)', 0], ['procs', 'Procedures', 1], ['labels', 'Labels', 1]]
         .map(function (x) { return '<label class="chk"><input type="checkbox" data-l="' + x[0] + '"' + (x[2] ? ' checked' : '') + '> ' + x[1] + '</label>'; }).join('') + '</div>' +
       '<div class="v3d-info card" data-3="info">Move the mouse over the terrain: elevation and the airspace column at that point.</div>' +
       '<div class="v3d-read card hidden" data-3="read"></div>' +
@@ -143,6 +143,7 @@ var VIEW3D = (function () {
       airspaces();
       runways();
       if (layerOn('obst')) obstacles();
+      if (layerOn('ols')) olsLayer();
       if (layerOn('procs')) procedures();
       if (V.opts.mode !== 'area') crewPath();
       foot();
@@ -290,19 +291,56 @@ var VIEW3D = (function () {
   }
   function obstacles() {
     var pts = [], tops = [], n = 0;
-    (V.ds.byType.VerticalStructure || []).forEach(function (o) {
+    (V.opts.obsSets && V.opts.obsSets.length ? V.opts.obsSets : [V.ds]).forEach(function (ods) { (ods.byType.VerticalStructure || []).forEach(function (o) { one(ods, o); }); });
+    function one(ods, o) {
       if (n > 6000) return;
       var part = arr(o.cur.p.part)[0] || {}, loc = arr(part.horizontalProjection_location || part.horizontalProjection_surface || part.horizontalProjection_curve)[0];
-      var c = M.pointOf(V.ds, o);
+      var c = M.pointOf(ods, o);
       if (!c || c[0] < V.bb[0] || c[0] > V.bb[2] || c[1] < V.bb[1] || c[1] > V.bb[3]) return;
       var top = loc ? toM(loc.elevation) : null, h = toM(part.verticalExtent), g = ground(c[0], c[1]);
       if (top === null) top = g + (h || 30);
       var base = h !== null ? Math.max(0, top - h) : g;
       pts.push(vec(c[0], c[1], base), vec(c[0], c[1], top)); tops.push(vec(c[0], c[1], top)); n++;
-    });
+    }
     if (!pts.length) return;
     V.world.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xd32f2f })));
     V.world.add(new THREE.Points(new THREE.BufferGeometry().setFromPoints(tops), new THREE.PointsMaterial({ color: 0xd32f2f, size: 6, sizeAttenuation: false })));
+  }
+  // Annex 14 obstacle limitation surfaces of the aerodrome (ols.js) and the obstacles that penetrate them
+  function olsLayer() {
+    var ad = V.ad;
+    if (!ad) { var c0 = [(V.bb[0] + V.bb[2]) / 2, (V.bb[1] + V.bb[3]) / 2], best = null; ADCHART.all(V.ds).forEach(function (m) { if (m.arp && m.runways.length && (!best || AX.distNM(m.arp, c0) < AX.distNM(best.arp, c0))) best = m; }); ad = best && best.ad; }
+    var S = ad && OLS.surfaces(V.ds, ad);
+    if (!S) return;
+    var COLS = { app: 0x2e7d32, toc: 0x1565c0, tr: 0x7cb342, ih: 0xf9a825, con: 0xfb8c00 };
+    function P3(p) { return vec(p[0], p[1], p[2]); }
+    function mesh(pos, col, op) {
+      var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+      V.world.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, side: THREE.DoubleSide, depthWrite: false })));
+    }
+    function outline(pts, col) { V.world.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.8 }))); }
+    OLS.geometry(S).forEach(function (g) {
+      var col = COLS[g.kind], pos = [];
+      if (g.quads) g.quads.forEach(function (q) {
+        var v = q.map(P3);
+        [v[0], v[1], v[2], v[0], v[2], v[3]].forEach(function (x) { pos.push(x.x, x.y, x.z); });
+        outline(v, col);
+      });
+      if (g.ring) { var r = g.ring.map(P3), c = r.reduce(function (a, b) { return a.add(b); }, new THREE.Vector3()).multiplyScalar(1 / r.length); for (var i = 0; i < r.length; i++) { var a = r[i], b = r[(i + 1) % r.length]; [c, a, b].forEach(function (x) { pos.push(x.x, x.y, x.z); }); } outline(r, col); }
+      if (g.inner) { var I = g.inner.map(P3), O = g.outer.map(P3); for (var j = 0; j < I.length; j++) { var k = (j + 1) % I.length; [I[j], O[j], O[k], I[j], O[k], I[k]].forEach(function (x) { pos.push(x.x, x.y, x.z); }); } outline(O, col); }
+      mesh(pos, col, g.kind === 'ih' || g.kind === 'con' ? 0.08 : 0.2);
+    });
+    var res = OLS.check(V.ds, ad, V.opts.obsSets);
+    V.olsRes = res;
+    (res ? res.list : []).forEach(function (p) {
+      var s3 = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshBasicMaterial({ color: 0xff1744 }));
+      s3.scale.setScalar(Math.max(25, V.W / 400)); s3.position.copy(vec(p.at[0], p.at[1], p.top)); V.world.add(s3);
+      if (layerOn('labels')) { var sp = sprite([p.name.length > 24 ? p.name.slice(0, 23) + '…' : p.name, '+' + p.pen.toFixed(1) + ' m · ' + p.surface], '#d32f2f', 0.036); sp.position.copy(vec(p.at[0], p.at[1], p.top + 60)); V.world.add(sp); }
+    });
+    q('info').innerHTML = '<b>Obstacle limitation surfaces — ' + esc(M.label(V.ds, ad)) + '</b><div class="muted" style="white-space:pre-wrap;font-size:11.5px;margin:4px 0">' + esc(OLS.describe(S)) + '</div>' +
+      '<div class="v3d-sub">' + (res && res.list.length ? res.list.length + ' penetration(s)' : 'No penetration') + '</div>' +
+      (res ? res.list.slice(0, 20).map(function (p) { return '<div class="v3d-col" style="border-color:#d32f2f"><b>' + esc(p.name) + '</b> +' + p.pen.toFixed(1) + ' m<br><span class="muted">' + esc(p.surface) + ' · top ' + p.top.toFixed(1) + ' m · ' + esc(p.from) + '</span></div>'; }).join('') : '') +
+      '<div class="muted" style="font-size:11px;margin-top:6px">Green approach, blue take-off climb, light green transitional, yellow inner horizontal, orange conical.</div>';
   }
   // procedures of the aerodrome in 3D: published altitudes at leg ends, interpolated in between
   function procedures() {
@@ -486,6 +524,7 @@ var VIEW3D = (function () {
     size();
     V.ro = new ResizeObserver(size); V.ro.observe(gl);
     q('mode').value = V.opts.mode;
+    if (V.opts.ols) { el.querySelector('[data-l="ols"]').checked = true; el.querySelector('[data-l="airspace"]').checked = false; } // surfaces in front
     fillAd();
     el.addEventListener('change', function (e) {
       var k = e.target.getAttribute('data-3');

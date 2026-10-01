@@ -582,3 +582,14 @@ pre, .xml, .notam-text { text-align: left; }
 .v3d-col { border-left: 4px solid; padding: 2px 0 2px 8px; margin: 4px 0; }
 .v3d-foot { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #12324f; background: rgba(255, 255, 255, .8); padding: 2px 10px; border-radius: 8px; white-space: nowrap; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 900px) { .v3d-info { top: auto; bottom: 34px; width: calc(100% - 20px); max-height: 30%; } .v3d-layers { display: none; } .v3d-read { width: calc(100% - 20px); bottom: 34px; } }
+
+/* -------------------------------------------- approach profile, integrity */
+.chart-box { margin: 8px 0 14px; overflow-x: auto; }
+.prof-wrap { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 8px; min-width: 760px; }
+.prof-svg { width: 100%; height: auto; display: block; }
+.prof-rod { border-collapse: collapse; margin: 6px 0 2px; font-size: 12px; color: #222; }
+.prof-rod th { text-align: left; font-weight: 600; padding: 2px 10px 2px 4px; color: #445; }
+.prof-rod td { padding: 2px 10px; border-left: 1px solid #dde3ea; text-align: right; font-family: var(--mono); }
+.int-critical { color: var(--err); font-weight: 700; }
+.int-essential { color: var(--warn); font-weight: 600; }
+.int-routine { color: var(--muted); }

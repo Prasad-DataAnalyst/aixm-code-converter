@@ -1264,6 +1264,17 @@ pre, .xml, .notam-text { text-align: left; }
 .v3d-foot { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #12324f; background: rgba(255, 255, 255, .8); padding: 2px 10px; border-radius: 8px; white-space: nowrap; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 900px) { .v3d-info { top: auto; bottom: 34px; width: calc(100% - 20px); max-height: 30%; } .v3d-layers { display: none; } .v3d-read { width: calc(100% - 20px); bottom: 34px; } }
 
+/* -------------------------------------------- approach profile, integrity */
+.chart-box { margin: 8px 0 14px; overflow-x: auto; }
+.prof-wrap { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 8px; min-width: 760px; }
+.prof-svg { width: 100%; height: auto; display: block; }
+.prof-rod { border-collapse: collapse; margin: 6px 0 2px; font-size: 12px; color: #222; }
+.prof-rod th { text-align: left; font-weight: 600; padding: 2px 10px 2px 4px; color: #445; }
+.prof-rod td { padding: 2px 10px; border-left: 1px solid #dde3ea; text-align: right; font-family: var(--mono); }
+.int-critical { color: var(--err); font-weight: 700; }
+.int-essential { color: var(--warn); font-weight: 600; }
+.int-routine { color: var(--muted); }
+
 </style>
 </head>
 <body data-app-author="Prasad Selvaraj &lt;prasad2t@gmail.com&gt;">
@@ -2848,7 +2859,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
  * ========================================================================== */
 var APP_INFO = Object.freeze({
   name: 'AIXM Code Converter',
-  version: '1.1.0',
+  version: '1.2.0',
   year: '2026',
   author: 'Prasad Selvaraj',
   email: 'prasad2t@gmail.com',
@@ -5297,7 +5308,7 @@ var LIBRARY = (function () {
  * and cell = {t: text, r: sourceRecord, p: propertyName, tip}.
  * The same structure feeds the screen, PDF, Excel, JSON and e-mail outputs.
  * ========================================================================== */
-/* global AX, MODEL */
+/* global AX, MODEL, PROFILE */
 var AIP = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -6050,6 +6061,8 @@ var AIP = (function () {
       });
     });
     if (mins.length) blocks.push(table('Minima', ['Aircraft category', 'Final approach', 'OCA / DA / MDA', 'OCH / DH / MDH', 'Visibility / RVR'], mins));
+    // vertical profile of an approach (profile.js, loaded after this module)
+    if (proc.k === 'InstrumentApproachProcedure' && typeof PROFILE !== 'undefined') blocks = blocks.concat(PROFILE.blocks(ds, proc));
     return blocks;
   }
 
@@ -6845,7 +6858,7 @@ var TERRAIN = (function () {
  * navaids) shown in the map's airport view.
  * Detail follows the scale (metres per pixel), like a paper chart series.
  * ========================================================================== */
-/* global AX, MODEL, AIP */
+/* global AX, MODEL, AIP, OLS */
 var ADCHART = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -7244,7 +7257,7 @@ var ADCHART = (function () {
   function cells(block) { return (block && block.rows || []).map(function (r) { return r.map(function (c) { return c && c.t !== undefined ? c.t : ''; }); }); }
   function tableOf(ds, ad, n) { return AIP.adBlocks(ds, ad, n).filter(function (b) { return b.kind === 'table'; })[0]; }
   // Airport information card (HTML): reference data, runways with declared distances and ILS, frequencies, navaids
-  function cardHtml(ds, ad) {
+  function cardHtml(ds, ad, opts) {
     var p = ad.cur.p, m = of(ds, ad), arp = M.pointOf(ds, ad);
     var mv = s(p.magneticVariation), rows = [];
     function kv(k2, v2) { if (v2) rows.push('<div><b>' + k2 + '</b><span>' + esc(v2) + '</span></div>'); }
@@ -7283,6 +7296,12 @@ var ADCHART = (function () {
         (m.stands.length ? 'Stands: ' + m.stands.length : '') + (m.holds.length ? ' · Holding positions: ' + m.holds.length : '') + '</div>';
     }
     if (m && m.runways.some(function (rm) { return rm.est; })) h += '<div class="adc-note muted">Runway width not in the data: drawn 45 m wide.</div>';
+    // obstacle limitation surfaces (ols.js, loaded after this module)
+    if (m && m.runways.length && typeof OLS !== 'undefined') {
+      var oc = OLS.check(ds, ad, opts && opts.obsSets);
+      if (oc) h += '<h4>Obstacle limitation surfaces (Annex 14)</h4><div class="adc-note">' + (oc.list.length ? '<b class="sev-err">' + oc.list.length + ' obstacle(s) penetrate</b>: ' + esc(oc.list.slice(0, 3).map(function (p) { return p.name + ' +' + p.pen.toFixed(1) + ' m (' + p.surface + ')'; }).join('; ')) + (oc.list.length > 3 ? '…' : '') : '✓ no penetration among ' + oc.checked + ' obstacles') +
+        ' <button class="btn small" data-adc="ols">🗻 Surfaces in 3D</button></div>';
+    }
     h += '<div class="adc-actions"><button class="btn small" data-adc="aip">AIP AD 2</button><button class="btn small" data-adc="procs">Procedures</button><button class="btn small" data-adc="print">Print airport chart</button><button class="btn small" data-adc="fit">Zoom to airport</button>' +
       (m && m.runways.length ? '<button class="btn small" data-adc="3dapp" title="Crew view down the glide path in 3D">🗻 3D approach</button><button class="btn small" data-adc="3ddep" title="Crew view along the climb-out in 3D">🗻 3D departure</button>' : '') + '</div>';
     h += '<div class="adc-sig" data-sig="' + esc(SIG) + '">Airport chart · AIXM Code Converter</div>';
@@ -7290,6 +7309,577 @@ var ADCHART = (function () {
   }
 
   return { all: all, of: of, bounds: bounds, draw: draw, cardHtml: cardHtml, Occ: Occ, tag: tag, metres: metres, tidy: tidy, COL: COL };
+})();
+</script>
+<script data-mapwin>/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
+ * AIXM Code Converter - obstacle limitation surfaces (ICAO Annex 14, Vol I)
+ * Builds the basic obstacle limitation surfaces of every runway from the
+ * AIXM data and checks the obstacles (VerticalStructure) against them:
+ *   approach (Table 4-1), take-off climb (Table 4-2), transitional (along the
+ *   runway strip), inner horizontal (45 m) and conical (5 %).
+ * Runway classification: code number from the runway length (1-4) and, per
+ * direction, precision (ILS / MLS / GLS in the data), non-precision (an
+ * instrument approach lands on it) or non-instrument.
+ * Not included: inner approach, inner transitional and balked landing
+ * surfaces (OFZ), outer horizontal surface, and transitional surfaces along
+ * the sides of the approach surface. Indicative check - the official
+ * aerodrome survey and the State's obstacle assessment remain the reference.
+ * ========================================================================== */
+/* global AX, MODEL, ADCHART */
+var OLS = (function () {
+  'use strict';
+  var M = MODEL, s = M.s, arr = AX.arr, NMM = 1852;
+
+  // Annex 14 Table 4-1 (approach runways) and 4-2 (take-off runways); lengths in m, slopes as ratios
+  var APP = {
+    NI: { 1: { ie: 60, d: 30, div: 0.10, l1: 1600, s1: 0.05 }, 2: { ie: 80, d: 60, div: 0.10, l1: 2500, s1: 0.04 }, 3: { ie: 150, d: 60, div: 0.10, l1: 3000, s1: 0.0333 }, 4: { ie: 150, d: 60, div: 0.10, l1: 3000, s1: 0.025 } },
+    NP: { 1: { ie: 140, d: 60, div: 0.15, l1: 2500, s1: 0.0333 }, 2: { ie: 140, d: 60, div: 0.15, l1: 2500, s1: 0.0333 }, 3: { ie: 280, d: 60, div: 0.15, l1: 3000, s1: 0.02, l2: 3600, s2: 0.025, lh: 8400 }, 4: { ie: 280, d: 60, div: 0.15, l1: 3000, s1: 0.02, l2: 3600, s2: 0.025, lh: 8400 } },
+    P: { 1: { ie: 140, d: 60, div: 0.15, l1: 3000, s1: 0.025, l2: 12000, s2: 0.03 }, 2: { ie: 140, d: 60, div: 0.15, l1: 3000, s1: 0.025, l2: 12000, s2: 0.03 }, 3: { ie: 280, d: 60, div: 0.15, l1: 3000, s1: 0.02, l2: 3600, s2: 0.025, lh: 8400 }, 4: { ie: 280, d: 60, div: 0.15, l1: 3000, s1: 0.02, l2: 3600, s2: 0.025, lh: 8400 } }
+  };
+  var IH_R = { NI: { 1: 2000, 2: 2500, 3: 4000, 4: 4000 }, NP: { 1: 3500, 2: 3500, 3: 4000, 4: 4000 }, P: { 1: 3500, 2: 3500, 3: 4000, 4: 4000 } };
+  var CON_H = { NI: { 1: 35, 2: 55, 3: 75, 4: 100 }, NP: { 1: 60, 2: 60, 3: 75, 4: 100 }, P: { 1: 60, 2: 60, 3: 100, 4: 100 } };
+  var TR_S = { NI: { 1: 0.20, 2: 0.20, 3: 0.143, 4: 0.143 }, NP: { 1: 0.20, 2: 0.20, 3: 0.143, 4: 0.143 }, P: { 1: 0.143, 2: 0.143, 3: 0.143, 4: 0.143 } };
+  var STRIP = { NI: { 1: 30, 2: 40, 3: 75, 4: 75 }, NP: { 1: 70, 2: 70, 3: 140, 4: 140 }, P: { 1: 70, 2: 70, 3: 140, 4: 140 } }; // half width
+  var TOC = { 1: { ie: 60, d: 30, div: 0.10, fw: 380, len: 1600, sl: 0.05 }, 2: { ie: 80, d: 60, div: 0.10, fw: 580, len: 2500, sl: 0.04 }, 3: { ie: 180, d: 60, div: 0.125, fw: 1200, len: 15000, sl: 0.02 }, 4: { ie: 180, d: 60, div: 0.125, fw: 1200, len: 15000, sl: 0.02 } };
+  var RANK = { NI: 0, NP: 1, P: 2 }, NAME = { NI: 'non-instrument', NP: 'non-precision approach', P: 'precision approach' };
+
+  function toM(q) {
+    if (q === undefined || q === null || q === '') return null;
+    if (typeof q === 'string') { var m = q.match(/(-?[\d.]+)\s*(FT|M)?/i); return m ? parseFloat(m[1]) * (/FT/i.test(m[2] || '') ? 0.3048 : 1) : null; }
+    q = arr(q)[0];
+    if (!q || q.nil !== undefined || q.v === undefined) return null;
+    var v = parseFloat(q.v); if (isNaN(v)) return null;
+    var u = String(q.u || 'M').toUpperCase();
+    return u === 'FL' ? v * 30.48 : /FT/.test(u) ? v * 0.3048 : u === 'KM' ? v * 1000 : v;
+  }
+  // position of p relative to origin o and axis bearing b: [along, cross] in metres (local flat approximation)
+  function local(o, b, p) {
+    var d = AX.distNM(o, p) * NMM;
+    if (d < 0.01) return [0, 0];
+    var a = (AX.bearing(o, p) - b) * Math.PI / 180;
+    return [d * Math.cos(a), d * Math.sin(a)];
+  }
+  function at(o, b, along, cross) { var p = AX.dest(o[0], o[1], b, along / NMM); return cross ? AX.dest(p[0], p[1], b + 90, cross / NMM) : p; }
+
+  // approach type of a runway end: precision when an ILS / MLS / GLS serves it, non-precision when an
+  // instrument approach lands on it, otherwise non-instrument
+  function endType(ds, e, iapDirs) {
+    if (e.ils && /ILS|MLS|GLS|GBAS/.test(e.ils.kind)) return 'P';
+    if (e.dir && /ILS|PRECISION|CAT/.test(s(e.dir.cur.p.precisionApproachGuidance)) && !/NON/.test(s(e.dir.cur.p.precisionApproachGuidance))) return 'P';
+    if (e.dir && iapDirs.has(e.dir)) return 'NP';
+    return 'NI';
+  }
+  function iapRunways(ds) {
+    var set = new Set();
+    (ds.byType.InstrumentApproachProcedure || []).forEach(function (pr) {
+      arr(pr.cur.p.landing).forEach(function (l) { arr(l && l.runway).forEach(function (x) { var t = M.target(ds, x); if (t) set.add(t); }); });
+    });
+    return set;
+  }
+  function codeNo(lM) { return lM >= 1800 ? 4 : lM >= 1200 ? 3 : lM >= 800 ? 2 : 1; }
+
+  var cache = new WeakMap();
+  // surfaces of one aerodrome: {ad, datum, runways:[{rm, code, type, strip, ext, ends:[{e, type, app, toc, el}]}]}
+  function surfaces(ds, ad) {
+    var c = cache.get(ds);
+    if (!c || c.key !== String(ds.viewDate)) { c = { key: String(ds.viewDate), map: new Map(), iap: iapRunways(ds) }; cache.set(ds, c); }
+    if (c.map.has(ad)) return c.map.get(ad);
+    var m = ADCHART.of(ds, ad), out = null;
+    if (m && m.runways.length) {
+      var fe = toM(ad.cur.p.fieldElevation), thrEls = [];
+      var rws = m.runways.map(function (rm) {
+        var code = codeNo(rm.lM), ends = rm.ends.map(function (e) {
+          var el = toM(e.elev);
+          if (el !== null) thrEls.push(el);
+          return { e: e, type: endType(ds, e, c.iap), el: el };
+        });
+        var type = ends.reduce(function (t, x) { return RANK[x.type] > RANK[t] ? x.type : t; }, 'NI');
+        var ws = toM(rm.rw.cur.p.widthStrip);
+        return { rm: rm, code: code, type: type, ends: ends, strip: ws ? ws / 2 : STRIP[type][code], ext: code === 1 && type === 'NI' ? 30 : 60 };
+      });
+      var datum = fe !== null ? fe : thrEls.length ? Math.min.apply(null, thrEls) : 0;
+      rws.forEach(function (r) { r.ends.forEach(function (x) { if (x.el === null) x.el = datum; }); });
+      out = { ad: ad, datum: datum, runways: rws };
+    }
+    c.map.set(ad, out);
+    return out;
+  }
+
+  // lowest permitted elevation (m) at p over all surfaces of the aerodrome -> {h, surface} or null
+  function limitAt(S, p) {
+    var best = null;
+    function take(h, name) { if (h !== null && (!best || h < best.h)) best = { h: h, surface: name }; }
+    S.runways.forEach(function (r) {
+      var rm = r.rm, L = AX.distNM(rm.a, rm.b) * NMM, q = local(rm.a, rm.brg, p), sAl = q[0], t = Math.abs(q[1]);
+      var e0 = r.ends.filter(function (x) { return x.e.at === rm.a; })[0] || r.ends[0], e1 = r.ends.filter(function (x) { return x !== e0; })[0] || e0;
+      var ih = S.datum + 45, R = IH_R[r.type][r.code], H = CON_H[r.type][r.code];
+      // inner horizontal and conical: distance to the runway strip centre line
+      var sc = Math.max(-r.ext, Math.min(L + r.ext, sAl)), dist = Math.sqrt(Math.pow(sAl - sc, 2) + t * t);
+      if (dist <= R) take(ih, 'Inner horizontal');
+      else if (dist <= R + H / 0.05) take(ih + (dist - R) * 0.05, 'Conical');
+      // transitional along the strip
+      if (sAl >= -r.ext && sAl <= L + r.ext && t > r.strip) {
+        var f = Math.max(0, Math.min(1, sAl / (L || 1))), base = e0.el + (e1.el - e0.el) * f, h = base + (t - r.strip) * TR_S[r.type][r.code];
+        if (h <= ih) take(h, 'Transitional');
+      }
+      r.ends.forEach(function (x) {
+        var e = x.e, P = APP[x.type][r.code], back = (e.hdg + 180) % 360, qa = local(e.land, back, p), xa = qa[0] - P.d, ya = Math.abs(qa[1]);
+        if (xa >= 0 && ya <= P.ie / 2 + xa * P.div) {
+          var hh = null, l1 = P.l1, l2 = P.l2 || 0, lh = P.lh || 0;
+          if (xa <= l1) hh = xa * P.s1;
+          else if (l2 && xa <= l1 + l2) hh = l1 * P.s1 + (xa - l1) * P.s2;
+          else if (lh && xa <= l1 + l2 + lh) hh = l1 * P.s1 + l2 * P.s2;
+          if (hh !== null) take(x.el + hh, 'Approach RWY ' + e.desig);
+        }
+        // take-off climb for departures in this end's direction, from the far end of the runway
+        var T = TOC[r.code], other = e.at === rm.a ? rm.b : rm.a, der = r.ends.filter(function (y) { return y !== x; })[0], derEl = der ? der.el : x.el;
+        var qt = local(other, e.hdg, p), xt = qt[0] - T.d, yt = Math.abs(qt[1]);
+        if (xt >= 0 && xt <= T.len && yt <= Math.min(T.fw / 2, T.ie / 2 + xt * T.div)) take(derEl + xt * T.sl, 'Take-off climb RWY ' + e.desig);
+      });
+    });
+    return best;
+  }
+
+  // obstacles (VerticalStructure) penetrating the surfaces of the aerodrome, worst first;
+  // obsSets: data sets whose obstacles are checked (default: the aerodrome's own data set), e.g. a separate eTOD file
+  function check(ds, ad, obsSets) {
+    var S = surfaces(ds, ad);
+    if (!S) return null;
+    var arp = M.pointOf(ds, ad) || S.runways[0].rm.a, out = [], checked = 0, seen = new Set();
+    (obsSets && obsSets.length ? obsSets : [ds]).forEach(function (ods) { (ods.byType.VerticalStructure || []).forEach(function (o) { checkOne(ods, o); }); });
+    function checkOne(ds, o) {
+      var c = M.pointOf(ds, o);
+      if (!c || AX.distNM(arp, c) > 11) return;
+      if (seen.has(o.id)) return; seen.add(o.id);
+      var part = arr(o.cur.p.part)[0] || {}, loc = arr(part.horizontalProjection_location || part.horizontalProjection_surface || part.horizontalProjection_curve)[0];
+      var top = loc ? toM(loc.elevation) : null, est = false;
+      if (top === null) { var h = toM(part.verticalExtent); if (h === null) return; top = S.datum + h; est = true; }
+      checked++;
+      var g = M.geometry(ds, o), pts = [];
+      (function walk(x) { if (!x) return; if (x.t === 'M') x.parts.forEach(walk); else if (x.t === 'P') pts.push(x.c); else if (x.t === 'L') pts = pts.concat(x.c); else if (x.t === 'A') pts = pts.concat(x.c[0]); })(g);
+      if (!pts.length) pts = [c];
+      var worst = null;
+      pts.forEach(function (p) { if (typeof p[0] !== 'number') return; var lim = limitAt(S, p); if (lim && top - lim.h > 0.05 && (!worst || top - lim.h > worst.pen)) worst = { pen: top - lim.h, lim: lim, at: p }; });
+      if (worst) out.push({ rec: o, ds: ds, name: M.label(ds, o), type: s(o.cur.p.type).replace(/^OTHER:/, ''), top: top, est: est, allowed: worst.lim.h, surface: worst.lim.surface, pen: worst.pen, at: worst.at,
+        from: Math.round(AX.distNM(arp, worst.at) * 10) / 10 + ' NM ' + ('00' + Math.round(AX.bearing(arp, worst.at))).slice(-3) + '°T from ARP' });
+    }
+    out.sort(function (a, b) { return b.pen - a.pen; });
+    return { surfaces: S, list: out, checked: checked };
+  }
+  // runway classification used, as text ("RWY 09L/27R code 4, precision approach (09L), non-precision approach (27R)")
+  function describe(S) {
+    return S.runways.map(function (r) {
+      return 'RWY ' + r.rm.name + ': code ' + r.code + ', strip ±' + Math.round(r.strip) + ' m; ' + r.ends.map(function (x) { return x.e.desig + ' ' + NAME[x.type]; }).join(', ');
+    }).join('\n') + '\nElevation datum ' + Math.round(S.datum) + ' m (inner horizontal ' + Math.round(S.datum + 45) + ' m)';
+  }
+
+  // geometry for drawing: [{name, kind, quads:[[[lon,lat,elev] x4]], ring?}]
+  function geometry(S) {
+    var out = [], ih = S.datum + 45;
+    S.runways.forEach(function (r) {
+      var rm = r.rm, L = AX.distNM(rm.a, rm.b) * NMM;
+      r.ends.forEach(function (x) {
+        var e = x.e, P = APP[x.type][r.code], back = (e.hdg + 180) % 360, quads = [], secs = [[0, P.l1, 0, P.s1]];
+        if (P.l2) secs.push([P.l1, P.l1 + P.l2, P.l1 * P.s1, P.s2]);
+        if (P.lh) secs.push([P.l1 + P.l2, P.l1 + P.l2 + P.lh, P.l1 * P.s1 + P.l2 * P.s2, 0]);
+        secs.forEach(function (sc) {
+          var w0 = P.ie / 2 + sc[0] * P.div, w1 = P.ie / 2 + sc[1] * P.div, h0 = x.el + sc[2], h1 = h0 + (sc[1] - sc[0]) * sc[3];
+          quads.push([at(e.land, back, P.d + sc[0], -w0).concat(h0), at(e.land, back, P.d + sc[0], w0).concat(h0), at(e.land, back, P.d + sc[1], w1).concat(h1), at(e.land, back, P.d + sc[1], -w1).concat(h1)]);
+        });
+        out.push({ name: 'Approach RWY ' + e.desig, kind: 'app', quads: quads });
+        var T = TOC[r.code], other = e.at === rm.a ? rm.b : rm.a, der = r.ends.filter(function (y) { return y !== x; })[0], derEl = der ? der.el : x.el;
+        var xw = (T.fw / 2 - T.ie / 2) / T.div, tq = [];
+        tq.push([at(other, e.hdg, T.d, -T.ie / 2).concat(derEl), at(other, e.hdg, T.d, T.ie / 2).concat(derEl), at(other, e.hdg, T.d + xw, T.fw / 2).concat(derEl + xw * T.sl), at(other, e.hdg, T.d + xw, -T.fw / 2).concat(derEl + xw * T.sl)]);
+        if (xw < T.len) tq.push([at(other, e.hdg, T.d + xw, -T.fw / 2).concat(derEl + xw * T.sl), at(other, e.hdg, T.d + xw, T.fw / 2).concat(derEl + xw * T.sl), at(other, e.hdg, T.d + T.len, T.fw / 2).concat(derEl + T.len * T.sl), at(other, e.hdg, T.d + T.len, -T.fw / 2).concat(derEl + T.len * T.sl)]);
+        out.push({ name: 'Take-off climb RWY ' + e.desig, kind: 'toc', quads: tq });
+      });
+      var e0 = r.ends.filter(function (x) { return x.e.at === rm.a; })[0] || r.ends[0], e1 = r.ends.filter(function (x) { return x !== e0; })[0] || e0;
+      var dx = (ih - Math.min(e0.el, e1.el)) / TR_S[r.type][r.code];
+      [-1, 1].forEach(function (sd) {
+        out.push({ name: 'Transitional RWY ' + rm.name, kind: 'tr', quads: [[at(rm.a, rm.brg, -r.ext, sd * r.strip).concat(e0.el), at(rm.a, rm.brg, L + r.ext, sd * r.strip).concat(e1.el), at(rm.a, rm.brg, L + r.ext, sd * (r.strip + dx)).concat(ih), at(rm.a, rm.brg, -r.ext, sd * (r.strip + dx)).concat(ih)]] });
+      });
+      // inner horizontal and conical: stadium around the strip
+      var R = IH_R[r.type][r.code], H = CON_H[r.type][r.code], A = at(rm.a, rm.brg, -r.ext, 0), B = at(rm.a, rm.brg, L + r.ext, 0);
+      function stadium(rad) {
+        var pts = [], i;
+        for (i = 0; i <= 18; i++) pts.push(AX.dest(B[0], B[1], rm.brg - 90 + i * 10, rad / NMM));
+        for (i = 0; i <= 18; i++) pts.push(AX.dest(A[0], A[1], rm.brg + 90 + i * 10, rad / NMM));
+        return pts;
+      }
+      out.push({ name: 'Inner horizontal', kind: 'ih', ring: stadium(R).map(function (p) { return p.concat(ih); }) });
+      out.push({ name: 'Conical', kind: 'con', inner: stadium(R).map(function (p) { return p.concat(ih); }), outer: stadium(R + H / 0.05).map(function (p) { return p.concat(ih + H); }) });
+    });
+    return out;
+  }
+
+  return { surfaces: surfaces, check: check, limitAt: limitAt, geometry: geometry, describe: describe, codeNo: codeNo, TABLES: { APP: APP, TOC: TOC, IH_R: IH_R, CON_H: CON_H, TR_S: TR_S } };
+})();
+</script>
+<script>/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
+ * AIXM Code Converter - instrument approach profile (vertical profile view)
+ * Builds the profile of an instrument approach from its AIXM legs, the way
+ * approach charts show it: fixes (IAF / IF / FAF / MAPt) with distances to the
+ * threshold, altitude constraints with chart bars (at or above = bar below,
+ * at or below = bar above, at = both), courses, the glide path or vertical
+ * angle with TCH, the threshold, minima (DA / MDA), the missed approach, a
+ * terrain profile under the track, a rate-of-descent table and the time from
+ * the FAF to the MAPt. Returns an AIP block {kind:'chart', svg, text} plus a
+ * table of the profile for PDF / Excel / e-mail.
+ * Indicative - drawn from the data, not a published chart.
+ * ========================================================================== */
+/* global AX, MODEL, AIP, ADCHART, TERRAIN */
+var PROFILE = (function () {
+  'use strict';
+  var M = MODEL, s = M.s, arr = AX.arr, FTNM = 6076.12;
+  var RANK = { InitialLeg: 0, IntermediateLeg: 1, FinalLeg: 2, MissedApproachLeg: 3 };
+
+  function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function ftOf(q) {
+    q = arr(q)[0];
+    if (!q || q.nil !== undefined || q.v === undefined) return null;
+    var v = parseFloat(q.v); if (isNaN(v)) return null;
+    var u = String(q.u || 'FT').toUpperCase();
+    return u === 'FL' ? v * 100 : /FT/.test(u) ? v : u === 'M' ? v / 0.3048 : v;
+  }
+  function constraint(lp) {
+    var lo = ftOf(lp.lowerLimitAltitude), up = ftOf(lp.upperLimitAltitude), it = s(lp.altitudeInterpretation);
+    if (lo === null && up === null) return null;
+    if (lo !== null && up !== null && lo !== up) return { kind: 'between', lo: lo, up: up, alt: lo };
+    var a = lo !== null ? lo : up;
+    var kind = /ABOVE|AT_LOWER/.test(it) ? 'above' : /BELOW|AT_UPPER/.test(it) ? 'below' : /AT|EXACT/.test(it) ? 'at' : lo !== null ? 'above' : 'below';
+    if (it === 'AT_LOWER' && up === null) kind = 'above';
+    return { kind: kind, alt: a };
+  }
+  function cText(c) { if (!c) return ''; var f = function (v) { return Math.round(v).toLocaleString('en-US'); }; return c.kind === 'between' ? f(c.up) + ' / ' + f(c.lo) : c.kind === 'above' ? 'at or above ' + f(c.alt) : c.kind === 'below' ? 'at or below ' + f(c.alt) : 'at ' + f(c.alt); }
+
+  // profile data of an instrument approach, or null when it cannot be drawn
+  function data(ds, proc) {
+    var legs = AIP.procLegs(ds, proc).filter(function (x) { return RANK[x.leg.k] !== undefined; });
+    if (!legs.length) return null;
+    var firstInit = null;
+    legs = legs.filter(function (x) { if (x.leg.k !== 'InitialLeg') return true; if (firstInit === null) firstInit = x.tr; return x.tr === firstInit; });
+    legs = legs.map(function (x, i) { return { x: x, i: i }; }).sort(function (a, b) { return RANK[a.x.leg.k] - RANK[b.x.leg.k] || a.i - b.i; }).map(function (o) { return o.x; });
+    // landing threshold
+    var rd = null;
+    arr(proc.cur.p.landing).forEach(function (l) { arr(l && l.runway).forEach(function (x) { var t = M.target(ds, x); if (t && !rd) rd = t; }); });
+    var ad = ds.owner.get(proc), thr = rd ? M.pointOf(ds, rd) : null, thrEl = null, desig = rd ? s(rd.cur.p.designator) : '', gpAng = null;
+    var m = ad ? ADCHART.of(ds, ad) : null;
+    if (m && rd) m.runways.forEach(function (rm) { rm.ends.forEach(function (e) { if (e.dir === rd) { thr = e.land; thrEl = e.elev; if (e.ils && parseFloat(e.ils.gp) > 1) gpAng = parseFloat(e.ils.gp); } }); });
+    var thrFt = null;
+    if (thrEl) { var mm = String(thrEl).match(/(-?[\d.]+)\s*(FT|M)?/i); if (mm) thrFt = parseFloat(mm[1]) / (/FT/i.test(mm[2] || '') ? 1 : 0.3048); }
+    if (thrFt === null && ad) thrFt = ftOf(ad.cur.p.fieldElevation);
+    if (thrFt === null) thrFt = 0;
+    // fixes in order: [{name, pt, role, c (constraint), leg, course}]
+    var fixes = [], ma = [], faf = null, mapt = null, va = null, prevEnd = null;
+    legs.forEach(function (x) {
+      var lp = x.leg.cur.p, k = x.leg.k, st = M.segPoint(ds, arr(lp.startPoint)[0]), en = M.segPoint(ds, arr(lp.endPoint)[0]);
+      var stN = M.segPointLabel(ds, arr(lp.startPoint)[0]), enN = M.segPointLabel(ds, arr(lp.endPoint)[0]);
+      if (k === 'FinalLeg' && s(lp.verticalAngle)) va = Math.abs(parseFloat(s(lp.verticalAngle)));
+      if (k === 'MissedApproachLeg') { ma.push({ leg: x.leg, c: constraint(lp), course: s(lp.course), type: s(lp.legTypeARINC), to: enN }); if (!mapt && stN) mapt = stN; return; }
+      if (st && (!prevEnd || AX.distNM(st, prevEnd) > 0.05) && !fixes.length) fixes.push({ name: stN, pt: st, role: k === 'InitialLeg' ? 'IAF' : k === 'IntermediateLeg' ? 'IF' : 'FAF', leg: x.leg });
+      if (k === 'FinalLeg' && !faf) { faf = fixes.length ? fixes[fixes.length - 1] : null; if (faf) faf.role = 'FAF'; }
+      if (en && k !== 'FinalLeg') {
+        var role = k === 'InitialLeg' ? (fixes.length ? '' : 'IAF') : k === 'IntermediateLeg' ? '' : '';
+        fixes.push({ name: enN, pt: en, role: role, c: constraint(lp), leg: x.leg, course: s(lp.course) });
+        prevEnd = en;
+      } else if (en && k === 'FinalLeg') { fixes.push({ name: enN, pt: en, role: 'MAPt', c: constraint(lp), leg: x.leg, course: s(lp.course) }); mapt = mapt || enN; }
+      if (k === 'FinalLeg' && fixes.length) fixes[fixes.length - 1].finalCourse = s(lp.course);
+    });
+    // roles: first fix IAF when an initial leg exists, the fix before the FAF is the IF
+    if (fixes.length && legs[0].leg.k === 'InitialLeg' && !fixes[0].role) fixes[0].role = 'IAF';
+    var fi = faf ? fixes.indexOf(faf) : -1;
+    if (fi < 0) { fi = fixes.length - 1; if (fixes[fi]) { fixes[fi].role = 'FAF'; faf = fixes[fi]; } }
+    if (fi > 0 && !fixes[fi - 1].role) fixes[fi - 1].role = 'IF';
+    if (!thr) { var lastPt = fixes.length ? fixes[fixes.length - 1].pt : null; if (!lastPt) return null; thr = lastPt; }
+    // distances to the threshold, backwards along the fixes
+    var d = 0;
+    for (var i = fixes.length - 1; i >= 0; i--) {
+      var next = i === fixes.length - 1 ? thr : fixes[i + 1].pt;
+      d += AX.distNM(fixes[i].pt, next);
+      fixes[i].dist = Math.round(d * 10) / 10;
+    }
+    var ang = gpAng || va || 3, tch = 50;
+    // minima from the final leg
+    var mins = [];
+    legs.forEach(function (x) {
+      if (x.leg.k !== 'FinalLeg') return;
+      arr(x.leg.cur.p.condition).forEach(function (c) {
+        if (!c || c.nil !== undefined) return;
+        var cats = arr(c.aircraftCategory).map(function (a) { return a && s(a.aircraftLandingCategory); }).filter(Boolean).join('');
+        arr(c.minimumSet).forEach(function (mm2) {
+          if (!mm2 || mm2.nil !== undefined) return;
+          var a = ftOf(mm2.altitude), code = s(mm2.altitudeCode) || 'DA/MDA';
+          if (a === null) return;
+          var same = mins.filter(function (x) { return x.alt === a && x.code === code; })[0]; // one line per value, categories merged
+          if (same) same.cats = (same.cats + cats).split('').filter(function (ch, i, l) { return l.indexOf(ch) === i; }).sort().join('');
+          else mins.push({ alt: a, code: code, cats: cats });
+        });
+      });
+    });
+    return { proc: proc, ad: ad, rd: rd, desig: desig, thr: thr, thrFt: thrFt, ang: ang, tch: tch, fixes: fixes, faf: faf, mapt: mapt || ('THR ' + desig), ma: ma, mins: mins,
+      name: (s(proc.cur.p.designator) || s(proc.cur.p.name)), precision: !!gpAng };
+  }
+
+  // SVG of the profile (width 920)
+  function svg(P) {
+    var W = 920, H = 380, L = 70, R = 760, T = 30, B = 300, MAx = 880;
+    var maxD = Math.max(5, Math.ceil((P.fixes.length ? P.fixes[0].dist : 5) + 0.5));
+    var alts = [P.thrFt + 1500].concat(P.fixes.map(function (f) { return f.c ? (f.c.up || f.c.alt) : 0; }), P.ma.map(function (x) { return x.c ? x.c.alt : 0; }), P.mins.map(function (x) { return x.alt; }));
+    var maxA = Math.ceil(Math.max.apply(null, alts) * 1.15 / 500) * 500;
+    function X(dist) { return R - dist / maxD * (R - L); }
+    function Y(a) { return B - (a / maxA) * (B - T); }
+    var gp = function (dist) { return P.thrFt + P.tch + dist * FTNM * Math.tan(P.ang * Math.PI / 180); };
+    var h = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" class="prof-svg" font-family="Segoe UI, Arial, sans-serif" font-size="11">';
+    h += '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="#fff"/>';
+    // altitude grid
+    var step = maxA > 8000 ? 2000 : maxA > 4000 ? 1000 : 500;
+    for (var a = 0; a <= maxA; a += step) h += '<line x1="' + L + '" x2="' + MAx + '" y1="' + Y(a) + '" y2="' + Y(a) + '" stroke="#e3e8ef"/><text x="' + (L - 6) + '" y="' + (Y(a) + 4) + '" text-anchor="end" fill="#667">' + a.toLocaleString('en-US') + '</text>';
+    h += '<text x="14" y="' + ((T + B) / 2) + '" transform="rotate(-90 14 ' + ((T + B) / 2) + ')" text-anchor="middle" fill="#667">ft AMSL</text>';
+    // terrain under the track
+    if (typeof TERRAIN !== 'undefined' && TERRAIN.load() && P.fixes.length) {
+      var pts = [], first = P.fixes[0].pt, tot = P.fixes[0].dist || 1;
+      for (var k = 0; k <= 60; k++) {
+        var dd = tot * (1 - k / 60), brg = AX.bearing(P.thr, first), p = AX.dest(P.thr[0], P.thr[1], brg, dd), el = Math.max(0, TERRAIN.elev(p[0], p[1])) / 0.3048;
+        pts.push(X(dd).toFixed(1) + ',' + Y(el).toFixed(1));
+      }
+      h += '<polygon points="' + X(tot) + ',' + B + ' ' + pts.join(' ') + ' ' + X(0) + ',' + B + '" fill="#e9dcc3" stroke="#c4a77d" stroke-width="1"/>';
+    }
+    h += '<line x1="' + L + '" x2="' + MAx + '" y1="' + B + '" y2="' + B + '" stroke="#555"/>';
+    // distance scale
+    for (var n = 0; n <= maxD; n++) h += '<line x1="' + X(n) + '" x2="' + X(n) + '" y1="' + B + '" y2="' + (B + 4) + '" stroke="#555"/>' + (n % (maxD > 15 ? 2 : 1) === 0 ? '<text x="' + X(n) + '" y="' + (B + 16) + '" text-anchor="middle" fill="#445">' + n + '</text>' : '');
+    h += '<text x="' + ((L + R) / 2) + '" y="' + (B + 32) + '" text-anchor="middle" fill="#445">NM to THR ' + esc(P.desig) + '</text>';
+    // minima
+    P.mins.forEach(function (mn, i) {
+      h += '<line x1="' + X(Math.min(maxD, (P.faf && P.faf.dist) || maxD)) + '" x2="' + R + '" y1="' + Y(mn.alt) + '" y2="' + Y(mn.alt) + '" stroke="#d32f2f" stroke-dasharray="6 4"/>' +
+        '<text x="' + (X(Math.min(maxD, (P.faf && P.faf.dist) || maxD)) + 4) + '" y="' + (Y(mn.alt) - 4 - i * 12) + '" fill="#d32f2f" font-weight="600">' + esc(mn.code + ' ' + Math.round(mn.alt) + (mn.cats ? ' (CAT ' + mn.cats + ')' : '')) + '</text>';
+    });
+    // path: constraints before the FAF, glide path / vertical angle from the FAF
+    var path = [], fafIdx = P.faf ? P.fixes.indexOf(P.faf) : -1;
+    P.fixes.forEach(function (f, i) {
+      var a2 = i >= fafIdx && fafIdx >= 0 ? Math.min(gp(f.dist), f.c ? f.c.alt : Infinity) : f.c ? f.c.alt : null;
+      if (i === fafIdx && f.c) a2 = f.c.alt;
+      if (a2 === null && i > 0) a2 = path.length ? path[path.length - 1][1] : gp(f.dist);
+      if (a2 === null) a2 = gp(f.dist);
+      f.palt = a2;
+      path.push([f.dist, a2]);
+    });
+    path.push([0, P.thrFt + P.tch]);
+    h += '<polyline fill="none" stroke="#0b2a4a" stroke-width="2.6" points="' + path.map(function (q) { return X(q[0]).toFixed(1) + ',' + Y(q[1]).toFixed(1); }).join(' ') + '"/>';
+    // glide path label
+    if (P.faf) {
+      // labels along the final segment: glide slope above the path at 60 %, final course below it at 35 % from the threshold
+      var fa = P.faf.palt !== undefined ? P.faf.palt : gp(P.faf.dist);
+      function onPath(f) { return [X(P.faf.dist * f), Y(P.thrFt + P.tch + (fa - P.thrFt - P.tch) * f)]; }
+      var g1 = onPath(0.62), g2 = onPath(0.35);
+      h += '<text x="' + (g1[0] + 28) + '" y="' + (g1[1] - 20) + '" fill="#b0186e" font-weight="700" text-anchor="middle">' + (P.precision ? 'GS ' : 'VA ') + P.ang.toFixed(2) + '°  TCH ' + P.tch + ' ft</text>';
+      if (P.faf.finalCourse) h += '<text x="' + g2[0] + '" y="' + (g2[1] + 20) + '" fill="#0b2a4a" font-weight="700" text-anchor="middle">' + esc(P.faf.finalCourse) + '°</text>';
+    }
+    // fixes
+    P.fixes.forEach(function (f, i) {
+      var x = X(f.dist), y = Y(f.palt);
+      h += '<line x1="' + x + '" x2="' + x + '" y1="' + (y - 8) + '" y2="' + B + '" stroke="#0b2a4a" stroke-dasharray="2 3"/>';
+      h += '<text x="' + x + '" y="' + (T - 10 + (i % 2) * 12) + '" text-anchor="middle" font-weight="700" fill="#0b2a4a">' + esc(f.name || '') + (f.role ? ' <tspan fill="#b0186e">' + f.role + '</tspan>' : '') + '</text>';
+      h += '<text x="' + x + '" y="' + (B - 6) + '" text-anchor="middle" fill="#445" font-size="10">' + f.dist.toFixed(1) + '</text>';
+      if (f.role === 'FAF') h += '<path d="M' + (x - 6) + ',' + (y - 16) + ' L' + (x + 6) + ',' + (y - 16) + ' L' + x + ',' + (y - 6) + ' Z" fill="#0b2a4a"/>';
+      if (f.c) {
+        var t = f.c.kind === 'between' ? [Math.round(f.c.up), Math.round(f.c.lo)] : [Math.round(f.c.alt)], ty = y - 22 - (f.role === 'FAF' ? 6 : 0);
+        t.forEach(function (v, j) {
+          var yy = ty - (t.length - 1 - j) * 14, w = String(v).length * 6.6;
+          h += '<text x="' + (x + 4) + '" y="' + yy + '" font-weight="700" fill="#111">' + v + '</text>';
+          var above = f.c.kind === 'above' || f.c.kind === 'at' || (f.c.kind === 'between' && j === 1), below = f.c.kind === 'below' || f.c.kind === 'at' || (f.c.kind === 'between' && j === 0);
+          if (above) h += '<line x1="' + (x + 3) + '" x2="' + (x + 5 + w) + '" y1="' + (yy + 3) + '" y2="' + (yy + 3) + '" stroke="#111" stroke-width="1.4"/>';
+          if (below) h += '<line x1="' + (x + 3) + '" x2="' + (x + 5 + w) + '" y1="' + (yy - 11) + '" y2="' + (yy - 11) + '" stroke="#111" stroke-width="1.4"/>';
+        });
+      }
+      if (i < P.fixes.length - 1 && P.fixes[i + 1].course) h += '<text x="' + ((x + X(P.fixes[i + 1].dist)) / 2) + '" y="' + (Y(f.palt) + 16) + '" text-anchor="middle" fill="#0b2a4a" font-weight="600">' + esc(P.fixes[i + 1].course) + '°</text>';
+      if (i < P.fixes.length - 1) h += '<text x="' + ((x + X(P.fixes[i + 1].dist)) / 2) + '" y="' + (B + 48) + '" text-anchor="middle" fill="#445" font-size="10">' + (f.dist - P.fixes[i + 1].dist).toFixed(1) + '</text>';
+    });
+    // threshold and runway
+    h += '<rect x="' + (R - 2) + '" y="' + (Y(P.thrFt) - 3) + '" width="70" height="6" fill="#3b4148"/><text x="' + (R + 4) + '" y="' + (Y(P.thrFt) + 18) + '" fill="#0b2a4a" font-weight="700">THR ' + esc(P.desig) + '</text>' +
+      '<text x="' + (R + 4) + '" y="' + (Y(P.thrFt) + 31) + '" fill="#445" font-size="10">ELEV ' + Math.round(P.thrFt) + ' ft</text>';
+    // missed approach
+    if (P.ma.length) {
+      var mAlt = P.ma.map(function (x) { return x.c ? x.c.alt : 0; }).reduce(function (a2, b2) { return Math.max(a2, b2); }, 0) || P.thrFt + 1000;
+      h += '<polyline fill="none" stroke="#0b2a4a" stroke-width="2" stroke-dasharray="7 5" points="' + R + ',' + Y(P.thrFt + P.tch) + ' ' + (MAx - 30) + ',' + Y(mAlt) + ' ' + (MAx - 6) + ',' + Y(mAlt) + '"/>' +
+        '<path d="M' + (MAx - 6) + ',' + (Y(mAlt) - 5) + ' L' + MAx + ',' + Y(mAlt) + ' L' + (MAx - 6) + ',' + (Y(mAlt) + 5) + ' Z" fill="#0b2a4a"/>' +
+        '<text x="' + MAx + '" y="' + (Y(mAlt) - 10) + '" text-anchor="end" fill="#0b2a4a" font-size="10">MISSED APCH ' + Math.round(mAlt) + '</text>';
+    }
+    h += '<text x="' + L + '" y="' + (H - 6) + '" fill="#889" font-size="9.5">Profile drawn from the AIXM data · AIXM Code Converter (Prasad Selvaraj) · indicative, not for navigation</text>';
+    h += '</svg>';
+    return h;
+  }
+  function rodTable(P) {
+    var gs = [70, 90, 100, 120, 140, 160], fafD = P.faf ? P.faf.dist : null, mapD = 0;
+    var rod = gs.map(function (g) { return Math.round(g * FTNM / 60 * Math.tan(P.ang * Math.PI / 180) / 10) * 10; });
+    var tm = fafD !== null ? gs.map(function (g) { var sec = Math.round((fafD - mapD) / g * 3600); return Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2); }) : null;
+    return '<table class="prof-rod"><tr><th>Ground speed (kt)</th>' + gs.map(function (g) { return '<td>' + g + '</td>'; }).join('') + '</tr>' +
+      '<tr><th>' + (P.precision ? 'Glide slope ' : 'Vertical angle ') + P.ang.toFixed(2) + '° (ft/min)</th>' + rod.map(function (r) { return '<td>' + r + '</td>'; }).join('') + '</tr>' +
+      (tm ? '<tr><th>FAF to MAPt ' + fafD.toFixed(1) + ' NM (min:s)</th>' + tm.map(function (t) { return '<td>' + t + '</td>'; }).join('') + '</tr>' : '') + '</table>';
+  }
+  // AIP blocks for an instrument approach (chart + profile table), [] when not drawable
+  function blocks(ds, proc) {
+    var P = null;
+    try { P = data(ds, proc); } catch (e) { P = null; }
+    if (!P || !P.fixes.length) return [];
+    var text = 'Profile ' + P.name + ': ' + P.fixes.map(function (f) { return (f.role ? f.role + ' ' : '') + (f.name || '?') + ' ' + f.dist.toFixed(1) + ' NM' + (f.c ? ' ' + cText(f.c) + ' ft' : ''); }).join(' → ') +
+      ' → THR ' + P.desig + ' (' + Math.round(P.thrFt) + ' ft); ' + (P.precision ? 'GS ' : 'VA ') + P.ang.toFixed(2) + '°, TCH ' + P.tch + ' ft';
+    var C = AIP.C;
+    return [
+      { kind: 'chart', title: 'Approach profile', svg: '<div class="prof-wrap">' + svg(P) + rodTable(P) + '</div>', text: text },
+      { kind: 'table', title: 'Profile', cols: ['Fix', 'Role', 'Distance to THR (NM)', 'Altitude constraint (ft)', 'Course'],
+        rows: P.fixes.map(function (f) { return [C(f.name, f.leg, 'endPoint'), C(f.role), C(f.dist.toFixed(1)), C(cText(f.c), f.leg, 'lowerLimitAltitude'), C(f.course ? f.course + '°' : '')]; }).concat([[C('THR ' + P.desig), C('THR'), C('0.0'), C('elevation ' + Math.round(P.thrFt)), C('')]]) }
+    ];
+  }
+  return { data: data, svg: svg, blocks: blocks };
+})();
+</script>
+<script>/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
+ * AIXM Code Converter - data integrity (ICAO Annex 15 / PANS-AIM)
+ *   - CRC32Q (the 32-bit CRC of the aeronautical data chain, polynomial
+ *     0x814141AB, also called CRC-32/AIXM; check value of "123456789" is
+ *     3010BF7F)
+ *   - classification of the critical / essential / routine data items with
+ *     the accuracy required by PANS-AIM Appendix 1, compared with the
+ *     accuracy declared in the data (horizontalAccuracy / verticalAccuracy)
+ *   - a CRC32Q fingerprint per data item: export the list, verify a later
+ *     delivery against it (changed / missing / new items)
+ *   - CRC values carried by the file itself (AIXM 4.5 valCrc, AIXM 5
+ *     CRCRemainder of FAS data blocks) are listed as published
+ * List key: "<feature type>;<AIXM identifier>;<item>" (stable between deliveries).
+ * Fingerprint input: "<feature type>;<identifier>;<item>;<latitude>;<longitude>;<elevation>"
+ * with the position in DMS at the resolution of the item's class
+ * (critical 1/100 s, essential 1/10 s, routine 1 s) and the elevation in
+ * metres to 0.1 m.
+ * ========================================================================== */
+/* global AX, MODEL */
+var INTEGRITY = (function () {
+  'use strict';
+  var M = MODEL, s = M.s, arr = AX.arr;
+
+  /* -------------------------------------------------------------- CRC32Q */
+  var TABLE = (function () {
+    var t = new Uint32Array(256);
+    for (var i = 0; i < 256; i++) {
+      var c = i << 24;
+      for (var k = 0; k < 8; k++) c = (c & 0x80000000) ? ((c << 1) ^ 0x814141AB) : (c << 1);
+      t[i] = c >>> 0;
+    }
+    return t;
+  })();
+  function utf8(str) { var b = unescape(encodeURIComponent(str)), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+  // CRC32Q of a string (UTF-8) or byte array -> 8 hex digits, upper case
+  function crc32q(data) {
+    var b = typeof data === 'string' ? utf8(data) : data, c = 0;
+    for (var i = 0; i < b.length; i++) c = ((c << 8) ^ TABLE[((c >>> 24) ^ b[i]) & 0xff]) >>> 0;
+    return ('0000000' + c.toString(16).toUpperCase()).slice(-8);
+  }
+
+  /* ---------------------------------------------- PANS-AIM data catalogue */
+  // [class, horizontal accuracy m, vertical accuracy m] (PANS-AIM Doc 10066, Appendix 1)
+  var REQ = {
+    THR: ['critical', 1, 0.5], RWYEND: ['critical', 1, 0.5], RCP: ['critical', 1, 0.5], THRP: ['critical', 1, 0.25],
+    ARP: ['routine', 30, 0.5], ADELEV: ['essential', null, 0.5], HOLD: ['critical', 0.5, null], TWY: ['essential', 0.5, null],
+    STAND: ['routine', 0.5, null], ILS: ['essential', 3, 3], ADNAV: ['essential', 3, 30], ENRNAV: ['essential', 100, 30],
+    DP: ['essential', 100, null], OBS2: ['essential', 5, 3], OBS1: ['routine', 50, 30], APN: ['routine', 1, null]
+  };
+  var RES = { critical: 2, essential: 1, routine: 0 }; // decimals of seconds in the fingerprint
+
+  function acc(o, k) { o = arr(o)[0]; if (!o) return null; var q = arr(o[k])[0]; if (!q || q.nil !== undefined || q.v === undefined) return null; var v = parseFloat(q.v); if (isNaN(v)) return null; return /FT/i.test(q.u || '') ? v * 0.3048 : /KM/i.test(q.u || '') ? v * 1000 : v; }
+  function elevM(o) { return acc(o, 'elevation'); }
+  function locOf(r) {
+    var p = r.cur.p;
+    if (r.k === 'AirportHeliport') return arr(p.ARP)[0];
+    if (r.k === 'VerticalStructure') { var part = arr(p.part)[0] || {}; return arr(part.horizontalProjection_location || part.horizontalProjection_surface || part.horizontalProjection_curve)[0]; }
+    return arr(p.location)[0];
+  }
+
+  // all classified data items of a data set
+  function items(ds) {
+    var out = [], adPos = (ds.byType.AirportHeliport || []).map(function (a) { return M.pointOf(ds, a); }).filter(Boolean);
+    function near(c) { return adPos.some(function (a) { return AX.distNM(a, c) < 5.4; }); } // about 10 km: aerodrome / Area 2
+    function add(r, item, key, extra) {
+      var c = M.pointOf(ds, r);
+      if (!c) return;
+      var q = REQ[key], loc = locOf(r), el = loc ? elevM(loc) : null;
+      if (key === 'ADELEV') el = acc(r.cur.p, 'fieldElevation');
+      out.push({ rec: r, item: item, key: key, cls: q[0], reqH: q[1], reqV: q[2], pos: c, elev: el, decH: loc ? acc(loc, 'horizontalAccuracy') : null,
+        decV: key === 'ADELEV' ? acc(r.cur.p, 'fieldElevationAccuracy') : loc ? acc(loc, 'verticalAccuracy') : null, extra: extra || '' });
+    }
+    (ds.byType.AirportHeliport || []).forEach(function (a) { add(a, 'Aerodrome reference point', 'ARP'); add(a, 'Aerodrome elevation', 'ADELEV'); });
+    var prec = new Set();
+    (ds.byType.Navaid || []).forEach(function (n) { if (/ILS|MLS|GLS/.test(s(n.cur.p.type))) { var rd = M.target(ds, n.cur.p.runwayDirection); if (rd) prec.add(rd); } });
+    (ds.byType.RunwayCentrelinePoint || []).forEach(function (c) {
+      var role = s(c.cur.p.role), rd = M.target(ds, c.cur.p.onRunway);
+      if (role === 'THR' || role === 'DISTHR') add(c, 'Runway threshold', rd && prec.has(rd) ? 'THRP' : 'THR');
+      else if (role === 'END') add(c, 'Runway end', 'RWYEND');
+      else add(c, 'Runway centre line point' + (role ? ' (' + role + ')' : ''), 'RCP');
+    });
+    (ds.byType.TaxiHoldingPosition || []).forEach(function (h) { add(h, 'Taxi-holding position', 'HOLD'); });
+    (ds.byType.AircraftStand || []).forEach(function (h) { add(h, 'Aircraft stand', 'STAND'); });
+    (ds.byType.Localizer || []).concat(ds.byType.Glidepath || [], ds.byType.MarkerBeacon || []).forEach(function (n) { add(n, n.k === 'Glidepath' ? 'ILS glide path' : n.k === 'Localizer' ? 'ILS localizer' : 'Marker beacon', 'ILS'); });
+    ['VOR', 'DME', 'NDB', 'TACAN'].forEach(function (k) { (ds.byType[k] || []).forEach(function (n) { var c = M.pointOf(ds, n); add(n, k + (c && near(c) ? ' (aerodrome)' : ' (en-route)'), c && near(c) ? 'ADNAV' : 'ENRNAV'); }); });
+    (ds.byType.DesignatedPoint || []).forEach(function (d) { add(d, 'Designated point', 'DP'); });
+    (ds.byType.VerticalStructure || []).forEach(function (o) { var c = M.pointOf(ds, o); add(o, c && near(c) ? 'Obstacle (Area 2)' : 'Obstacle (Area 1)', c && near(c) ? 'OBS2' : 'OBS1'); });
+    out.forEach(function (it) {
+      it.ident = M.label(ds, it.rec);
+      var dec = RES[it.cls];
+      it.posTxt = AX.fmtPos(it.pos, dec);
+      it.text = [it.rec.k, it.ident, it.item, it.posTxt.split(' ')[0], it.posTxt.split(' ')[1], it.elev === null ? '' : it.elev.toFixed(1)].join(';');
+      it.crc = crc32q(it.text);
+      it.key = [it.rec.k, it.rec.id, it.item].join(';'); // stable across deliveries: feature type, AIXM identifier (UUID), data item
+      var bad = [];
+      if (it.reqH !== null) { if (it.decH === null) bad.push('H not declared'); else if (it.decH > it.reqH + 1e-9) bad.push('H ' + it.decH + ' m > ' + it.reqH + ' m'); }
+      if (it.reqV !== null && it.elev !== null) { if (it.decV === null) bad.push('V not declared'); else if (it.decV > it.reqV + 1e-9) bad.push('V ' + it.decV + ' m > ' + it.reqV + ' m'); }
+      it.status = !bad.length ? 'OK' : bad.some(function (b) { return />/.test(b); }) ? 'Insufficient accuracy' : 'Accuracy not declared';
+      it.note = bad.join('; ');
+    });
+    return out;
+  }
+  // CRC values published in the file itself
+  function published(ds) {
+    var out = [];
+    ds.recs.forEach(function (r) {
+      if (r.raw && r.raw.valCrc) out.push({ rec: r, field: 'valCrc (AIXM 4.5)', value: typeof r.raw.valCrc === 'object' ? s(r.raw.valCrc) : String(r.raw.valCrc) });
+      (function walk(v, d) {
+        if (!v || typeof v !== 'object' || d > 6) return;
+        if (Array.isArray(v)) { v.forEach(function (x) { walk(x, d + 1); }); return; }
+        for (var k in v) { if (k === 'CRCRemainder' && s(v[k])) out.push({ rec: r, field: 'CRCRemainder (FAS data block)', value: s(v[k]) }); else if (typeof v[k] === 'object') walk(v[k], d + 1); }
+      })(r.cur && r.cur.p, 0);
+    });
+    return out;
+  }
+  // CSV of the fingerprints (key;crc) and its verification against the current data
+  function toCsv(list) { return 'key;crc32q;class;feature\n' + list.map(function (it) { return '"' + it.key.replace(/"/g, '""') + '";' + it.crc + ';' + it.cls + ';"' + it.ident.replace(/"/g, '""') + '"'; }).join('\n') + '\n'; }
+  function verify(list, csv) {
+    var ref = new Map();
+    String(csv).split(/\r?\n/).slice(1).forEach(function (line) {
+      var m = line.match(/^"((?:[^"]|"")*)";([0-9A-Fa-f]{8})/);
+      if (m) ref.set(m[1].replace(/""/g, '"'), m[2].toUpperCase());
+    });
+    var res = { same: 0, changed: [], added: [], missing: [] }, seen = new Set();
+    list.forEach(function (it) {
+      var c = ref.get(it.key);
+      seen.add(it.key);
+      if (c === undefined) res.added.push(it); else if (c === it.crc) res.same++; else res.changed.push({ it: it, was: c });
+    });
+    ref.forEach(function (v, k) { if (!seen.has(k)) res.missing.push({ key: k, crc: v }); });
+    res.reference = ref.size;
+    return res;
+  }
+
+  return { crc32q: crc32q, items: items, published: published, toCsv: toCsv, verify: verify, REQ: REQ };
 })();
 </script>
 <script data-mapwin>/*!
@@ -8147,7 +8737,7 @@ var MAPVIEW = (function () {
     var mdiv = container.querySelector('#map');
     VIEW3D.close();
     if (map) { map.remove(); map = null; base = { offline: null, current: 'offline', online: {} }; over = {}; vec = null; }
-    live = []; state.adView = null;
+    live = []; state.adView = null; state.all = datasets;
     map = L.map(mdiv, { zoomControl: false, worldCopyJump: true, preferCanvas: true, minZoom: 2, maxZoom: 20 }).setView([30, 10], 3);
     map.createPane('adPane').style.zIndex = 420;    // airport chart: above airspace / taxiway vectors
     map.createPane('annotPane').style.zIndex = 590; // airspace and route labels: below point symbols
@@ -8262,7 +8852,7 @@ var MAPVIEW = (function () {
     state.adView = { ds: ds, ad: ad };
     var card = document.getElementById('map-adcard');
     if (card) {
-      card.innerHTML = ADCHART.cardHtml(ds, ad);
+      card.innerHTML = ADCHART.cardHtml(ds, ad, { obsSets: state.all || [ds] });
       card.classList.remove('hidden');
       card.onclick = function (e) {
         var a = e.target.closest('[data-adc]'); if (!a) return;
@@ -8274,16 +8864,20 @@ var MAPVIEW = (function () {
         if (k === 'fit') fitAirport(ds, ad, true);
         if (k === '3dapp') open3d('approach', ad);
         if (k === '3ddep') open3d('departure', ad);
+        if (k === 'ols') open3d('area', ad, { ols: true });
       };
     }
     fitAirport(ds, ad, false);
     var sel = document.getElementById('map-adview'); if (sel) sel.value = String(ds.recs.indexOf(ad));
   }
   // 3D view over the map (view3d.js): 'area' for the current view, 'approach' / 'departure' for an aerodrome
-  function open3d(mode, ad) {
+  // extra: {ols: true} shows the Annex 14 surfaces of the aerodrome around it
+  function open3d(mode, ad, extra) {
     if (!state.ds) return;
-    var b = map.getBounds();
-    VIEW3D.open(map.getContainer().parentNode, state.ds, hooks, { mode: mode, ad: ad || null, bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] });
+    var b = map.getBounds(), bb = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+    if (extra && extra.ols && ad) { var c = M.pointOf(state.ds, ad); if (c) bb = [c[0] - 0.22 / Math.cos(c[1] * Math.PI / 180), c[1] - 0.17, c[0] + 0.22 / Math.cos(c[1] * Math.PI / 180), c[1] + 0.17]; }
+    VIEW3D.open(map.getContainer().parentNode, state.ds, hooks, { mode: mode, ad: ad || null, bbox: bb, ols: !!(extra && extra.ols),
+      obsSets: state.all || [state.ds] });
   }
   // fits the aerodrome diagram into the part of the map not covered by the card
   function fitAirport(ds, ad, animate) {
@@ -8621,7 +9215,7 @@ var MAPVIEW = (function () {
  * Local east-north-up frame in metres; vertical exaggeration selectable.
  * Indicative visualisation - not for navigation.
  * ========================================================================== */
-/* global THREE, AX, MODEL, AIP, ADCHART, TERRAIN, MAPVIEW, topojson */
+/* global THREE, AX, MODEL, AIP, ADCHART, TERRAIN, MAPVIEW, OLS, topojson */
 var VIEW3D = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr, FT = 0.3048, NMM = 1852, D2R = Math.PI / 180;
@@ -8690,7 +9284,7 @@ var VIEW3D = (function () {
       '<select class="inp" data-3="ex" title="Vertical exaggeration"><option value="1">1× height</option><option value="2">2× height</option><option value="3" selected>3× height</option><option value="5">5× height</option></select>' +
       '<select class="inp" data-3="cap" title="Show airspace up to"><option value="3048">airspace to FL100</option><option value="6096">to FL200</option><option value="7620" selected>to FL250</option><option value="13716">to FL450</option><option value="18288">to FL600</option></select>' +
       '<span class="sp"></span><button class="btn small ghost" data-3="close" title="Close the 3D view">✕ Close 3D</button></div>' +
-      '<div class="v3d-layers card">' + [['terrain', 'Terrain', 1], ['airspace', 'Airspace', 1], ['fir', 'FIR / UIR', 0], ['obst', 'Obstacles', 1], ['procs', 'Procedures', 1], ['labels', 'Labels', 1]]
+      '<div class="v3d-layers card">' + [['terrain', 'Terrain', 1], ['airspace', 'Airspace', 1], ['fir', 'FIR / UIR', 0], ['obst', 'Obstacles', 1], ['ols', 'Obstacle surfaces (Annex 14)', 0], ['procs', 'Procedures', 1], ['labels', 'Labels', 1]]
         .map(function (x) { return '<label class="chk"><input type="checkbox" data-l="' + x[0] + '"' + (x[2] ? ' checked' : '') + '> ' + x[1] + '</label>'; }).join('') + '</div>' +
       '<div class="v3d-info card" data-3="info">Move the mouse over the terrain: elevation and the airspace column at that point.</div>' +
       '<div class="v3d-read card hidden" data-3="read"></div>' +
@@ -8744,6 +9338,7 @@ var VIEW3D = (function () {
       airspaces();
       runways();
       if (layerOn('obst')) obstacles();
+      if (layerOn('ols')) olsLayer();
       if (layerOn('procs')) procedures();
       if (V.opts.mode !== 'area') crewPath();
       foot();
@@ -8891,19 +9486,56 @@ var VIEW3D = (function () {
   }
   function obstacles() {
     var pts = [], tops = [], n = 0;
-    (V.ds.byType.VerticalStructure || []).forEach(function (o) {
+    (V.opts.obsSets && V.opts.obsSets.length ? V.opts.obsSets : [V.ds]).forEach(function (ods) { (ods.byType.VerticalStructure || []).forEach(function (o) { one(ods, o); }); });
+    function one(ods, o) {
       if (n > 6000) return;
       var part = arr(o.cur.p.part)[0] || {}, loc = arr(part.horizontalProjection_location || part.horizontalProjection_surface || part.horizontalProjection_curve)[0];
-      var c = M.pointOf(V.ds, o);
+      var c = M.pointOf(ods, o);
       if (!c || c[0] < V.bb[0] || c[0] > V.bb[2] || c[1] < V.bb[1] || c[1] > V.bb[3]) return;
       var top = loc ? toM(loc.elevation) : null, h = toM(part.verticalExtent), g = ground(c[0], c[1]);
       if (top === null) top = g + (h || 30);
       var base = h !== null ? Math.max(0, top - h) : g;
       pts.push(vec(c[0], c[1], base), vec(c[0], c[1], top)); tops.push(vec(c[0], c[1], top)); n++;
-    });
+    }
     if (!pts.length) return;
     V.world.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xd32f2f })));
     V.world.add(new THREE.Points(new THREE.BufferGeometry().setFromPoints(tops), new THREE.PointsMaterial({ color: 0xd32f2f, size: 6, sizeAttenuation: false })));
+  }
+  // Annex 14 obstacle limitation surfaces of the aerodrome (ols.js) and the obstacles that penetrate them
+  function olsLayer() {
+    var ad = V.ad;
+    if (!ad) { var c0 = [(V.bb[0] + V.bb[2]) / 2, (V.bb[1] + V.bb[3]) / 2], best = null; ADCHART.all(V.ds).forEach(function (m) { if (m.arp && m.runways.length && (!best || AX.distNM(m.arp, c0) < AX.distNM(best.arp, c0))) best = m; }); ad = best && best.ad; }
+    var S = ad && OLS.surfaces(V.ds, ad);
+    if (!S) return;
+    var COLS = { app: 0x2e7d32, toc: 0x1565c0, tr: 0x7cb342, ih: 0xf9a825, con: 0xfb8c00 };
+    function P3(p) { return vec(p[0], p[1], p[2]); }
+    function mesh(pos, col, op) {
+      var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+      V.world.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, side: THREE.DoubleSide, depthWrite: false })));
+    }
+    function outline(pts, col) { V.world.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.8 }))); }
+    OLS.geometry(S).forEach(function (g) {
+      var col = COLS[g.kind], pos = [];
+      if (g.quads) g.quads.forEach(function (q) {
+        var v = q.map(P3);
+        [v[0], v[1], v[2], v[0], v[2], v[3]].forEach(function (x) { pos.push(x.x, x.y, x.z); });
+        outline(v, col);
+      });
+      if (g.ring) { var r = g.ring.map(P3), c = r.reduce(function (a, b) { return a.add(b); }, new THREE.Vector3()).multiplyScalar(1 / r.length); for (var i = 0; i < r.length; i++) { var a = r[i], b = r[(i + 1) % r.length]; [c, a, b].forEach(function (x) { pos.push(x.x, x.y, x.z); }); } outline(r, col); }
+      if (g.inner) { var I = g.inner.map(P3), O = g.outer.map(P3); for (var j = 0; j < I.length; j++) { var k = (j + 1) % I.length; [I[j], O[j], O[k], I[j], O[k], I[k]].forEach(function (x) { pos.push(x.x, x.y, x.z); }); } outline(O, col); }
+      mesh(pos, col, g.kind === 'ih' || g.kind === 'con' ? 0.08 : 0.2);
+    });
+    var res = OLS.check(V.ds, ad, V.opts.obsSets);
+    V.olsRes = res;
+    (res ? res.list : []).forEach(function (p) {
+      var s3 = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), new THREE.MeshBasicMaterial({ color: 0xff1744 }));
+      s3.scale.setScalar(Math.max(25, V.W / 400)); s3.position.copy(vec(p.at[0], p.at[1], p.top)); V.world.add(s3);
+      if (layerOn('labels')) { var sp = sprite([p.name.length > 24 ? p.name.slice(0, 23) + '…' : p.name, '+' + p.pen.toFixed(1) + ' m · ' + p.surface], '#d32f2f', 0.036); sp.position.copy(vec(p.at[0], p.at[1], p.top + 60)); V.world.add(sp); }
+    });
+    q('info').innerHTML = '<b>Obstacle limitation surfaces — ' + esc(M.label(V.ds, ad)) + '</b><div class="muted" style="white-space:pre-wrap;font-size:11.5px;margin:4px 0">' + esc(OLS.describe(S)) + '</div>' +
+      '<div class="v3d-sub">' + (res && res.list.length ? res.list.length + ' penetration(s)' : 'No penetration') + '</div>' +
+      (res ? res.list.slice(0, 20).map(function (p) { return '<div class="v3d-col" style="border-color:#d32f2f"><b>' + esc(p.name) + '</b> +' + p.pen.toFixed(1) + ' m<br><span class="muted">' + esc(p.surface) + ' · top ' + p.top.toFixed(1) + ' m · ' + esc(p.from) + '</span></div>'; }).join('') : '') +
+      '<div class="muted" style="font-size:11px;margin-top:6px">Green approach, blue take-off climb, light green transitional, yellow inner horizontal, orange conical.</div>';
   }
   // procedures of the aerodrome in 3D: published altitudes at leg ends, interpolated in between
   function procedures() {
@@ -9087,6 +9719,7 @@ var VIEW3D = (function () {
     size();
     V.ro = new ResizeObserver(size); V.ro.observe(gl);
     q('mode').value = V.opts.mode;
+    if (V.opts.ols) { el.querySelector('[data-l="ols"]').checked = true; el.querySelector('[data-l="airspace"]').checked = false; } // surfaces in front
     fillAd();
     el.addEventListener('change', function (e) {
       var k = e.target.getAttribute('data-3');
@@ -9211,6 +9844,7 @@ var MAPWIN = (function () {
     if (changed(datasets)) { mount(datasets, opts); win.focus(); return true; }
     var M = win.MAPVIEW;
     if (opts.cmp !== undefined && opts.cmp !== sent.cmp) { M.setCompare(opts.cmp); sent.cmp = opts.cmp; }
+    if (opts.view3d) { if (opts.ds) M.show(opts.ds); M.open3d(opts.view3d.mode, opts.view3d.ad, opts.view3d); win.focus(); return true; }
     if (opts.procs) M.showProcs(opts.ds || datasets[0], opts.procs);
     else if (opts.focus) M.focus(opts.ds || datasets[0], opts.focus);
     else if (opts.ds) M.show(opts.ds);
@@ -9309,6 +9943,7 @@ var EXPORTS = (function () {
         return { section: s.no, aerodrome: s.code || undefined, title: s.title, blocks: (s.blocks || []).map(function (b) {
           if (b.kind === 'kv') return { type: 'items', title: b.title || undefined, items: b.rows.map(function (r) { return { no: r.no || undefined, item: r.label, values: r.cells.filter(function (c) { return c.t; }).map(function (c) { return { text: c.t, source: srcOf(c) }; }) }; }) };
           if (b.kind === 'table') return { type: 'table', title: b.title || undefined, columns: b.cols, note: b.note || undefined, rows: b.rows.map(function (r) { return r.map(function (c) { return c.r ? { text: c.t, source: srcOf(c) } : c.t; }); }) };
+          if (b.kind === 'chart') return { type: 'chart', title: b.title || undefined, text: b.text };
           return { type: 'note', text: b.text };
         }) };
       })
@@ -9509,6 +10144,7 @@ var EXPORTS = (function () {
       (s.blocks || []).forEach(function (b) {
         if (b.title) h += '<h3 ' + st.h3 + '>' + esc(b.title) + '</h3>';
         if (b.kind === 'note') { h += '<p ' + st.note + '>' + esc(b.text) + '</p>'; return; }
+        if (b.kind === 'chart') { h += b.svg; return; }
         var br = blockRows(b), rows = br.rows, trunc = maxRows && rows.length > maxRows;
         if (trunc) rows = rows.slice(0, maxRows);
         h += '<table ' + st.table + '>';
@@ -10045,13 +10681,13 @@ var REVIEW = (function () {
       }
       bb.forEach(function (b, i) {
         var a = findA(b, i);
-        if (b.kind === 'note' || (a && a.kind === 'note')) { blocks.push({ kind: 'note', title: b.title, textL: a ? a.text : '', textR: b.text, st: a && a.text === b.text ? 'same' : 'chg' }); return; }
+        if (b.kind === 'note' || b.kind === 'chart' || (a && (a.kind === 'note' || a.kind === 'chart'))) { blocks.push({ kind: 'note', title: b.title, textL: a ? a.text : '', textR: b.text, st: a && a.text === b.text ? 'same' : 'chg' }); return; }
         var rows = alignRows(a, b);
         rows.forEach(function (r) { if (r.st !== 'same') stats[r.st]++; if (r.cols) stats.cells += r.cols.length; });
         blocks.push({ kind: b.kind, title: b.title, cols: b.cols, bl: a, br: b, rows: rows });
       });
       ab.forEach(function (a, j) {
-        if (usedA.has(j) || a.kind === 'note') return;
+        if (usedA.has(j) || a.kind === 'note' || a.kind === 'chart') return;
         var rows = alignRows(a, null);
         stats.del += rows.length;
         blocks.push({ kind: a.kind, title: a.title, cols: a.cols, bl: a, br: null, rows: rows });
@@ -10762,6 +11398,9 @@ var ABOUT = (function () {
     ['Approach and departure crew views', 'Fly down the glide path or along the climb-out of any runway and see what the crew sees, with altitude, height above the runway, terrain clearance and the airspace the aircraft is in.'],
     ['Map in a second window', '“⧉ New window” puts the map on another screen; “show on map” in the main window goes there.'],
     ['Data quality', 'The official AIXM 5.1 business rules (SBVR) with their catalogue, and basic consistency checks.'],
+    ['Obstacle limitation surfaces', 'The ICAO Annex 14 surfaces of every runway built from the data and every obstacle checked against them: penetrations listed with the surface and the height above it, and shown in 3D.'],
+    ['Data integrity (CRC32Q)', 'Critical, essential and routine data classified as in PANS-AIM with the required and declared accuracy, a CRC32Q fingerprint for each item, and verification of a new delivery against a saved CRC list.'],
+    ['Approach profile', 'The vertical profile of each instrument approach, as on an approach chart: fixes, distances, altitude constraints, glide path, minima, missed approach, rate-of-descent and timing table.'],
     ['Exports and conversions', 'JSON, Excel, PDF, print, e-mail; AIXM 5.1 ↔ 5.1.1 ↔ 5.2, AIXM 4.5 → 5.1.1, GeoJSON, KML, Shapefile.'],
     ['State library', 'One folder per State on your disk; extracted data is cached for instant reopening. Bookmarks and shareable links.'],
     ['Languages', 'English, العربية (right-to-left), Français and Español; light and dark themes.']
@@ -10795,6 +11434,10 @@ var ABOUT = (function () {
       '<li><b>Procedures, runways and obstacles.</b> SIDs, STARs and approaches of the aerodrome are drawn at their published altitude constraints (interpolated in between), runways at their threshold elevations with edge and approach lights, obstacles as red poles to their top elevation.</li>' +
       '<li><b>On the 2D map.</b> <i>Grid MORA</i> shows the highest terrain per 1° square + 1000 ft (2000 ft above 5000 ft) in Jeppesen style; <i>Terrain shading</i> adds online hillshade; the status bar shows the terrain elevation under the mouse.</li>' +
       '<li><b>Limits.</b> The built-in grid is coarse (about 28 km; peaks are smoothed), so terrain, grid MORA and clearances are indicative. Use the official charts and MORA / MSA values for flight.</li></ul></section>';
+    h += '<section><h2>Safety and data-integrity checks</h2><ul class="ab-list">' +
+      '<li><b>Obstacle limitation surfaces (ICAO Annex 14).</b> <i>Quality → Obstacle surfaces</i> builds, for every runway, the approach and take-off climb surfaces (Tables 4-1 and 4-2), the transitional surfaces along the strip, the inner horizontal surface (45 m) and the conical surface (5 %). The runway code number comes from the runway length and the approach type from the ILS and instrument approaches in the data. Every obstacle of all loaded files within 11 NM is checked; penetrations are listed with the surface, the permitted elevation and the height above it, and <b>🗻 Show in 3D</b> draws the surfaces with the penetrating obstacles in red. The airport card shows the result too. The inner approach / OFZ surfaces are not included and the official survey prevails.</li>' +
+      '<li><b>Data integrity (Annex 15, PANS-AIM).</b> <i>Quality → Data integrity</i> lists every critical, essential and routine data item (thresholds, runway ends, holding positions, ILS, navaids, points, obstacles, aerodrome reference point and elevation) with the accuracy PANS-AIM requires and the accuracy declared in the data. Each item gets a <b>CRC32Q</b> fingerprint (the 32-bit CRC of the aeronautical data chain). <b>Save CRC list</b> keeps the fingerprints; <b>Verify against a CRC list</b> shows which items changed, disappeared or are new in a later delivery. CRC values published in the file (AIXM 4.5 valCrc, FAS data blocks) are listed.</li>' +
+      '<li><b>Approach profile.</b> Every instrument approach in AD 2.22 shows its vertical profile: IAF / IF / FAF / MAPt with distances to the threshold, altitude constraints with chart bars (at or above, at or below, at), courses, glide slope or vertical angle with TCH, minima, missed approach and the terrain under the track, followed by the rate-of-descent table (ft/min for 70–160 kt) and the time from the FAF to the MAPt. It prints with the AIP page.</li></ul></section>';
     h += '<section><h2>How to start</h2><ol class="ab-steps">' + STEPS.map(function (x) { return '<li><b>' + esc(x[0]) + '</b> — ' + esc(x[1]) + '</li>'; }).join('') + '</ol></section>';
     h += '<section><h2>Good to know</h2><ul class="ab-list">' +
       '<li><b>Privacy:</b> everything runs in your browser. Only the optional online map tiles use the internet.</li>' +
@@ -10838,7 +11481,7 @@ var ABOUT = (function () {
  *   EXPORT, e-mail, search, help, start . exports/conversions, Outlook text, Ctrl+K search, startup
  * Every view is a function viewXxx(v, opts) registered in go(); add a view there and in VIEWS.
  * ========================================================================== */
-/* global APP_INFO, APP_SETTINGS, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
+/* global APP_INFO, APP_SETTINGS, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, ADCHART, OLS, INTEGRITY, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
 (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -11749,6 +12392,7 @@ var ABOUT = (function () {
     (sec.blocks || []).forEach(function (b, bi) {
       if (b.title) h += '<div class="block-title">' + esc(b.title) + '</div>';
       if (b.kind === 'note') { h += '<div class="note-box">' + esc(b.text) + '</div>'; return; }
+      if (b.kind === 'chart') { h += '<div class="chart-box">' + b.svg + '</div>'; return; } // generated SVG (profile.js)
       if (b.kind === 'kv') {
         h += '<table class="aip-kv"><tbody>' + b.rows.map(function (r) {
           var cells = r.cells.filter(function (c) { return c && c.t; });
@@ -12235,6 +12879,7 @@ var ABOUT = (function () {
     MAPVIEW.mount(v, S.datasets, mapHooks(), { ds: opts.ds || dsOf(), cmp: S.cmp, procs: opts.procs });
     MAPVIEW.leaflet().on('moveend', updateHash);
     if (opts.focus) setTimeout(function () { MAPVIEW.focus(opts.ds || dsOf(), opts.focus); }, 250);
+    if (opts.view3d) setTimeout(function () { MAPVIEW.open3d(opts.view3d.mode, opts.view3d.ad, opts.view3d); }, 300);
   }
 
   /* ========================================================= CHANGES */
@@ -12651,7 +13296,7 @@ var ABOUT = (function () {
 
 
   function qTabs(active) {
-    return '<div class="pill-tabs q-tabs">' + [['basic', 'Basic checks'], ['rules', 'AIXM business rules (SBVR)'], ['cat', 'Rule catalogue']].map(function (x) { return '<button class="' + (active === x[0] ? 'active' : '') + '" data-qtab="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+    return '<div class="pill-tabs q-tabs">' + [['basic', 'Basic checks'], ['rules', 'AIXM business rules (SBVR)'], ['cat', 'Rule catalogue'], ['ols', 'Obstacle surfaces (Annex 14)'], ['integrity', 'Data integrity (CRC32Q)']].map(function (x) { return '<button class="' + (active === x[0] ? 'active' : '') + '" data-qtab="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
   }
   function viewQuality(v) {
     var ds = dsOf();
@@ -12659,6 +13304,8 @@ var ABOUT = (function () {
     v.onclick = function (e) { var tb = e.target.closest('[data-qtab]'); if (tb) { S.qTab = tb.getAttribute('data-qtab'); go('quality'); } };
     if (S.qTab === 'rules') { viewRules(v, ds); return; }
     if (S.qTab === 'cat') { viewRuleCatalogue(v); return; }
+    if (S.qTab === 'ols') { viewOls(v, ds); return; }
+    if (S.qTab === 'integrity') { viewIntegrity(v, ds); return; }
     var iss = S.quality.get(ds);
     v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Checks based on the AIXM schema code lists, AIXM temporality rules and the minimum ICAO AIP data: coordinates, references, frequencies, bearings, missing mandatory AIP items. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('basic') +
       '<div class="toolbar"><button class="btn primary" id="q-run">' + I.check + (iss ? ' Run again' : ' Run checks') + '</button><select class="inp" id="q-sev"><option value="">All severities</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Info</option></select><input class="inp" id="q-q" placeholder="Filter…"><span class="sp"></span>' +
@@ -12700,6 +13347,100 @@ var ABOUT = (function () {
     $('#q-xlsx').onclick = function () { if (iss) runExport('xlsx', scope()); };
     $('#q-mail').onclick = function () { if (iss) runExport('mail', scope()); };
     draw();
+  }
+
+  /* ------------------------------------------- obstacle limitation surfaces */
+  // Annex 14 surfaces of every aerodrome (ols.js), checked against the obstacles of all loaded files of the State
+  function viewOls(v, ds) {
+    var sets = S.datasets.slice(); // obstacles of every loaded file (e.g. a separate eTOD / obstacle file); only those near the aerodrome count
+    var ads = ADCHART.all(ds).filter(function (m) { return m.runways.length; }).map(function (m) { return m.ad; });
+    var res = ads.map(function (ad) { return { ad: ad, r: OLS.check(ds, ad, sets) }; }).filter(function (x) { return x.r; });
+    var pen = res.reduce(function (n, x) { return n + x.r.list.length; }, 0), chk = res.reduce(function (n, x) { return n + x.r.checked; }, 0);
+    cellRegistry = [];
+    function mft(m) { return m.toFixed(1) + ' m (' + Math.round(m / 0.3048).toLocaleString('en-US') + ' ft)'; }
+    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Obstacle limitation surfaces of ICAO Annex 14 (approach, take-off climb, transitional, inner horizontal, conical) built from the runway data, checked against the obstacles of the ' +
+      sets.length + ' loaded file(s) (within 11 NM of each aerodrome). Runway code number from the runway length, approach type from the ILS / instrument approaches in the data. Indicative: the inner approach / OFZ surfaces are not included and the official survey prevails.</p>' + qTabs('ols') +
+      '<div class="toolbar"><span class="sp"></span><button class="btn small" id="o-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="o-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="o-mail">' + I.mail + ' E-mail</button></div>' +
+      '<div class="stat-row"><div class="card stat"><b>' + res.length + '</b><span class="muted">aerodromes</span></div><div class="card stat"><b>' + num(chk) + '</b><span class="muted">obstacles checked</span></div><div class="card stat"><b class="' + (pen ? 'sev-err' : '') + '">' + pen + '</b><span class="muted">penetrations</span></div></div>' +
+      (res.length ? res.map(function (x) {
+        return '<div class="card card-pad" style="margin-bottom:12px"><div class="row"><b>' + esc(M.label(ds, x.ad)) + '</b><span class="sp"></span><span class="chip ' + (x.r.list.length ? 'warn' : 'ok') + '">' + x.r.list.length + ' penetration(s) · ' + x.r.checked + ' obstacles</span>' +
+          '<button class="btn small" data-ols3d="' + ds.recs.indexOf(x.ad) + '">🗻 Show in 3D</button></div><pre class="muted" style="white-space:pre-wrap;margin:6px 0">' + esc(OLS.describe(x.r.surfaces)) + '</pre>' +
+          (x.r.list.length ? '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Obstacle</th><th>Type</th><th>Top elevation</th><th>Surface</th><th>Permitted</th><th>Penetration</th><th>Position</th></tr></thead><tbody>' + x.r.list.map(function (p) {
+            var idx = cellRegistry.push({ ds: p.ds, r: p.rec }) - 1;
+            return '<tr><td><a href="#" data-det="' + idx + '">' + esc(p.name) + '</a></td><td>' + esc(p.type) + '</td><td>' + mft(p.top) + (p.est ? ' <span class="muted">(est.)</span>' : '') + '</td><td>' + esc(p.surface) + '</td><td>' + mft(p.allowed) + '</td><td class="sev-err"><b>+' + mft(p.pen) + '</b></td><td>' + esc(p.from) + '</td></tr>';
+          }).join('') + '</tbody></table></div>' : '<div style="color:var(--ok)">✓ No obstacle penetrates the surfaces.</div>') + '</div>';
+      }).join('') : '<div class="card card-pad muted">No aerodrome with runway positions in this data set.</div>');
+    v.querySelectorAll('[data-det]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); var c = cellRegistry[+a.getAttribute('data-det')]; openDetail(c.ds, c.r); }; });
+    v.querySelectorAll('[data-ols3d]').forEach(function (b) { b.onclick = function () { go('map', { ds: ds, view3d: { mode: 'area', ad: ds.recs[+b.getAttribute('data-ols3d')], ols: true } }); }; });
+    function scope() {
+      var C = AIP.C;
+      return { title: 'Obstacle limitation surfaces (ICAO Annex 14)', sub: ds.state + ' — ' + ds.name, ds: ds, sections: res.map(function (x) {
+        return { no: 'OLS', code: M.shortName(x.ad), title: M.label(ds, x.ad), blocks: [{ kind: 'note', text: OLS.describe(x.r.surfaces) }, { kind: 'table', cols: ['Obstacle', 'Type', 'Top elevation', 'Surface', 'Permitted', 'Penetration', 'Position'],
+          rows: x.r.list.map(function (p) { return [C(p.name, p.rec), C(p.type), C(mft(p.top)), C(p.surface), C(mft(p.allowed)), C('+' + mft(p.pen)), C(p.from)]; }) }] };
+      }) };
+    }
+    $('#o-pdf').onclick = function () { runExport('pdf', scope()); };
+    $('#o-xlsx').onclick = function () { runExport('xlsx', scope()); };
+    $('#o-mail').onclick = function () { runExport('mail', scope()); };
+  }
+
+  /* ------------------------------------------------------ data integrity */
+  // PANS-AIM classification and declared accuracy, CRC32Q fingerprints, verification against an earlier list (integrity.js)
+  function viewIntegrity(v, ds) {
+    var list = INTEGRITY.items(ds), pub = INTEGRITY.published(ds), F = S.intF || { cls: '', st: '', q: '' }, ver = S.intVer && S.intVer.ds === ds ? S.intVer.res : null;
+    var by = { OK: 0, 'Accuracy not declared': 0, 'Insufficient accuracy': 0 };
+    list.forEach(function (it) { by[it.status]++; });
+    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Data integrity (ICAO Annex 15, PANS-AIM): every critical, essential and routine data item with the accuracy PANS-AIM requires and the accuracy declared in the data, and its <b>CRC32Q</b> fingerprint. Save the CRC list and verify a later delivery against it to prove that nothing changed unnoticed. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('integrity') +
+      '<div class="toolbar"><select class="inp" id="i-cls"><option value="">All classes</option><option value="critical">Critical</option><option value="essential">Essential</option><option value="routine">Routine</option></select>' +
+      '<select class="inp" id="i-st"><option value="">All results</option><option>OK</option><option>Accuracy not declared</option><option>Insufficient accuracy</option></select><input class="inp" id="i-q" placeholder="Filter…" value="' + esc(F.q) + '"><span class="sp"></span>' +
+      '<button class="btn small" id="i-csv">⬇ Save CRC list</button><button class="btn small" id="i-ver">✓ Verify against a CRC list…</button><input type="file" id="i-file" accept=".csv,.txt" class="hidden">' +
+      '<button class="btn small" id="i-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="i-xlsx">' + I.xls + ' Excel</button></div>' +
+      '<div class="stat-row"><div class="card stat"><b>' + num(list.length) + '</b><span class="muted">data items</span></div><div class="card stat"><b style="color:var(--ok)">' + num(by.OK) + '</b><span class="muted">accuracy OK</span></div><div class="card stat"><b class="sev-warn">' + num(by['Accuracy not declared']) + '</b><span class="muted">accuracy not declared</span></div><div class="card stat"><b class="sev-err">' + num(by['Insufficient accuracy']) + '</b><span class="muted">insufficient accuracy</span></div></div>' +
+      '<div id="i-ver-out"></div><div id="i-out"></div>' +
+      (pub.length ? '<div class="card card-pad" style="margin-top:12px"><b>CRC values published in the file (' + pub.length + ')</b><div class="muted" style="font-size:12px">Listed as published: the field order used by the originator to compute them is not standardised, so they are not recomputed.</div><div class="tbl-wrap"><table class="aip"><thead><tr><th>Feature</th><th>Field</th><th>Value</th></tr></thead><tbody>' +
+        pub.slice(0, 500).map(function (p) { return '<tr><td>' + esc(M.label(ds, p.rec)) + '</td><td>' + esc(p.field) + '</td><td class="mono">' + esc(p.value) + '</td></tr>'; }).join('') + '</tbody></table></div></div>' : '');
+    $('#i-cls').value = F.cls; $('#i-st').value = F.st;
+    function cur() { return list.filter(function (it) { return (!F.cls || it.cls === F.cls) && (!F.st || it.status === F.st) && (!F.q || (it.ident + ' ' + it.item + ' ' + it.crc).toLowerCase().indexOf(F.q.toLowerCase()) >= 0); }); }
+    function draw() {
+      var l = cur();
+      cellRegistry = [];
+      $('#i-out').innerHTML = '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Class</th><th>Data item</th><th>Feature</th><th>Position</th><th>Elevation</th><th>Required accuracy (H / V)</th><th>Declared (H / V)</th><th>Result</th><th>CRC32Q</th><th></th></tr></thead><tbody>' +
+        l.slice(0, 1500).map(function (it) {
+          var idx = cellRegistry.push({ ds: ds, r: it.rec }) - 1;
+          function a(x) { return x === null ? '—' : x + ' m'; }
+          return '<tr><td class="int-' + it.cls + '">' + it.cls + '</td><td>' + esc(it.item) + '</td><td><a href="#" data-det="' + idx + '">' + esc(it.ident) + '</a></td><td class="mono">' + esc(it.posTxt) + '</td><td>' + (it.elev === null ? '' : it.elev.toFixed(1) + ' m') + '</td>' +
+            '<td>' + a(it.reqH) + ' / ' + a(it.reqV) + '</td><td>' + a(it.decH) + ' / ' + a(it.decV) + '</td><td class="' + (it.status === 'OK' ? '' : it.status === 'Insufficient accuracy' ? 'sev-err' : 'sev-warn') + '" title="' + esc(it.note) + '">' + esc(it.status) + '</td><td class="mono" title="' + esc(it.text) + '">' + it.crc + '</td><td><span class="srcbtn" data-xml="' + idx + '">&lt;/&gt;</span></td></tr>';
+        }).join('') + '</tbody></table>' + (l.length > 1500 ? '<div class="more-rows muted">Showing 1500 of ' + num(l.length) + ' (exports contain all)</div>' : '') + '</div>';
+    }
+    function drawVer() {
+      if (!ver) { $('#i-ver-out').innerHTML = ''; return; }
+      $('#i-ver-out').innerHTML = '<div class="card card-pad" style="margin-bottom:12px"><b>Verification against the CRC list (' + num(ver.reference) + ' items)</b> — ' +
+        '<span style="color:var(--ok)">' + num(ver.same) + ' unchanged</span> · <span class="sev-err">' + ver.changed.length + ' changed</span> · <span class="sev-warn">' + ver.missing.length + ' missing</span> · ' + ver.added.length + ' new' +
+        (ver.changed.length || ver.missing.length ? '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Result</th><th>Data item</th><th>CRC in the list</th><th>CRC now</th></tr></thead><tbody>' +
+          ver.changed.slice(0, 300).map(function (c) { return '<tr><td class="sev-err">changed</td><td>' + esc(c.it.key) + '</td><td class="mono">' + c.was + '</td><td class="mono">' + c.it.crc + '</td></tr>'; }).join('') +
+          ver.missing.slice(0, 300).map(function (c) { return '<tr><td class="sev-warn">missing</td><td>' + esc(c.key) + '</td><td class="mono">' + c.crc + '</td><td></td></tr>'; }).join('') + '</tbody></table></div>' : '<div style="color:var(--ok)">✓ All data items of the list are unchanged.</div>') + '</div>';
+    }
+    function save() { F = { cls: $('#i-cls').value, st: $('#i-st').value, q: $('#i-q').value }; S.intF = F; draw(); }
+    $('#i-cls').onchange = save; $('#i-st').onchange = save; $('#i-q').oninput = save;
+    $('#i-out').onclick = function (e) {
+      var a = e.target.closest('[data-det]'), x = e.target.closest('[data-xml]');
+      if (a) { e.preventDefault(); var r1 = cellRegistry[+a.getAttribute('data-det')]; openDetail(r1.ds, r1.r); }
+      if (x) { var r2 = cellRegistry[+x.getAttribute('data-xml')]; openXml(r2.ds, r2.r); }
+    };
+    $('#i-csv').onclick = function () { EXPORTS.download(EXPORTS.safeName(ds.state + '_' + (ds.airac ? ds.airac.id : '') + '_CRC32Q') + '.csv', new Blob(['# ' + APP_INFO.credit + ' - CRC32Q list of ' + ds.name + '\n' + INTEGRITY.toCsv(list)], { type: 'text/csv' })); };
+    $('#i-ver').onclick = function () { $('#i-file').click(); };
+    $('#i-file').onchange = function () {
+      var f = this.files[0]; if (!f) return;
+      f.text().then(function (txt) { ver = INTEGRITY.verify(list, txt.replace(/^#.*\n/, '')); S.intVer = { ds: ds, res: ver }; drawVer(); toast('Verified ' + num(ver.reference) + ' items: ' + ver.changed.length + ' changed, ' + ver.missing.length + ' missing.'); });
+    };
+    function scope() {
+      var C = AIP.C;
+      return { title: 'Data integrity report (CRC32Q)', sub: ds.state + ' — ' + ds.name, ds: ds, sections: [{ no: 'INTEGRITY', title: 'Data items, accuracy and CRC32Q', blocks: [{ kind: 'table', cols: ['Class', 'Data item', 'Feature', 'Position', 'Elevation (m)', 'Required H / V (m)', 'Declared H / V (m)', 'Result', 'CRC32Q'],
+        rows: cur().map(function (it) { return [C(it.cls), C(it.item), C(it.ident, it.rec), C(it.posTxt), C(it.elev === null ? '' : it.elev.toFixed(1)), C((it.reqH === null ? '—' : it.reqH) + ' / ' + (it.reqV === null ? '—' : it.reqV)), C((it.decH === null ? '—' : it.decH) + ' / ' + (it.decV === null ? '—' : it.decV)), C(it.status), C(it.crc)]; }) }] }] };
+    }
+    $('#i-pdf').onclick = function () { runExport('pdf', scope()); };
+    $('#i-xlsx').onclick = function () { runExport('xlsx', scope()); };
+    draw(); drawVer();
   }
 
   /* ======================================================== EXPLORER */
@@ -12926,7 +13667,7 @@ var ABOUT = (function () {
       '<p><b>Changes.</b> <i>Changes</i> lists the time slices inside one file (what changes, where, when). <i>Compare</i> compares two files of the same State (e.g. two AIRAC cycles, any versions) and lists added / removed / modified data with old → new values; results can also be shown on the map.</p>' +
       '<p><b>AIRAC cycle changes.</b> Values that change in the selected AIRAC cycle are shown <span class="chg-badge">in red</span> on every AIP page; <b>List all changes</b> and <b>AMDT report</b> give the amendment (publication and effective dates, affected sections, insert/amend/delete). <b>⇆ Side by side</b> on any section shows before/after a cycle, or two files. <i>Timeline</i> shows the changes per AIRAC cycle and temporary changes; <i>NOTAM</i> shows Digital NOTAM events as ICAO NOTAM text.</p>' +
       '<p><b>Map.</b> A complete offline world map is built in. When the laptop is online you can switch to OpenStreetMap (CARTO Voyager is used when the standard server refuses a local file) or satellite imagery. Instrument procedures can be drawn per aerodrome. <b>Airport view</b>: airport chart (runways to scale with markings, taxiway signs, stands, ILS) and an information card. <b>🗻 3D view</b>: terrain, airspace volumes, approach and departure crew views; <i>Grid MORA</i> and terrain elevation on the map. <b>⧉ New window</b> puts the map on a second screen. <b>Print map</b>: drag an area, choose A4/A3, legend, north arrow and grid.</p>' +
-      '<p><b>Quality.</b> Basic checks plus the official AIXM 5.1 business rules (SBVR) and their catalogue.</p>' +
+      '<p><b>Quality.</b> Basic checks, the official AIXM 5.1 business rules (SBVR) and their catalogue, the ICAO Annex 14 obstacle limitation surfaces (penetrations, also in 3D) and data integrity (PANS-AIM accuracy, CRC32Q fingerprints, verification against a saved CRC list). Instrument approaches in AD 2.22 show their vertical profile.</p>' +
       '<p><b>Library, links and languages.</b> Connect a folder with one sub-folder per State; extracted data is kept for instant reopening. ☆ saves views; the address (#…) of any view can be shared. The interface is available in English, العربية (right-to-left), Français and Español. Files over 1.5 GB use the Lite memory mode automatically.</p>' +
       '<p><b>Exports.</b> Any single section or the whole data set: JSON (with source references), Excel, printable PDF, print, or an e-mail to paste into Outlook (.eml opens as a draft).</p>' +
       '<p><b>Sources.</b> AIXM schemas, code lists and definitions from aixm.aero (4.5 r2, 5.1, 5.1.1, 5.2), AIXM temporality and feature-identification concepts, ICAO Annex 15 / PANS-AIM AIP structure. Base map: Natural Earth (public domain). Terrain: Terrain Tiles (Mapzen / AWS Open Data: SRTM, GMTED2010, ETOPO1). Libraries: Leaflet, three.js, SheetJS, jsPDF, fflate, topojson.</p>' +

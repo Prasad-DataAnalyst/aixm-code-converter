@@ -2,6 +2,24 @@
 
 AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.0
 
+## 1.2.0 — 2026-10-01
+
+Safety and integrity checks, approach profiles, continuous integration.
+
+- **Obstacle limitation surfaces** (new `ols.js`): ICAO Annex 14 approach (Table 4-1), take-off climb (Table 4-2), transitional,
+  inner horizontal and conical surfaces per runway from the data (code number from the length, precision / non-precision /
+  non-instrument from the ILS and approaches); obstacles of all loaded files checked; *Quality → Obstacle surfaces* with
+  PDF / Excel / e-mail, the result on the airport card, and the surfaces with the penetrating obstacles in the 3D view.
+- **Data integrity** (new `integrity.js`): CRC32Q (CRC-32/AIXM, check value 3010BF7F); PANS-AIM classification and required
+  accuracy against the declared accuracy; a fingerprint per data item; *Save CRC list* and *Verify against a CRC list*
+  (changed / missing / new); CRC values published in the file listed.
+- **Approach profile** (new `profile.js`): vertical profile of every instrument approach in AD 2.22 (fixes and roles,
+  distances, altitude constraints with chart bars, glide slope / vertical angle and TCH, minima, missed approach, terrain),
+  rate-of-descent and FAF–MAPt timing table, profile table in the exports.
+- **Continuous integration**: GitHub Actions workflow (lint, unit tests, build check, all browser tests); unit tests with
+  `node --test` (`tools/tests/unit/`); shared Node harness `tools/harness.js`.
+- Test: `ols_integrity_profile.js`.
+
 ## 1.1.0 — 2026-10-01
 
 Map, airport chart, terrain and 3D.

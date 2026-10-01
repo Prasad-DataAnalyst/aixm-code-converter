@@ -4,12 +4,12 @@
   "parserOptions": { "ecmaVersion": 2020, "sourceType": "script" },
   "globals": {
     "APP_INFO": "readonly", "APP_SETTINGS": "readonly", "AX": "readonly", "MODEL": "readonly", "AIP": "readonly", "ANALYSIS": "readonly",
-    "MAPVIEW": "readonly", "EXPORTS": "readonly", "CONVERT": "readonly", "LIBRARY": "readonly", "REVIEW": "readonly", "RULES": "readonly", "I18N": "readonly", "ADCHART": "readonly", "MAPWIN": "readonly", "ABOUT": "readonly", "TERRAIN": "readonly", "VIEW3D": "readonly", "THREE": "readonly",
+    "MAPVIEW": "readonly", "EXPORTS": "readonly", "CONVERT": "readonly", "LIBRARY": "readonly", "REVIEW": "readonly", "RULES": "readonly", "I18N": "readonly", "ADCHART": "readonly", "MAPWIN": "readonly", "ABOUT": "readonly", "TERRAIN": "readonly", "VIEW3D": "readonly", "THREE": "readonly", "OLS": "readonly", "INTEGRITY": "readonly", "PROFILE": "readonly",
     "L": "readonly", "XLSX": "readonly", "jspdf": "readonly", "fflate": "readonly", "topojson": "readonly", "module": "writable"
   },
   "rules": {
     "no-undef": "error", "no-redeclare": ["error", { "builtinGlobals": false }], "no-dupe-keys": "error", "no-unreachable": "error",
-    "no-self-assign": "error", "no-unused-vars": ["warn", { "args": "none", "varsIgnorePattern": "^(APP_INFO|APP_SETTINGS|AX|MODEL|AIP|ANALYSIS|MAPVIEW|EXPORTS|CONVERT|LIBRARY|REVIEW|RULES|I18N|ADCHART|MAPWIN|ABOUT|TERRAIN|VIEW3D)$" }],
+    "no-self-assign": "error", "no-unused-vars": ["warn", { "args": "none", "varsIgnorePattern": "^(APP_INFO|APP_SETTINGS|AX|MODEL|AIP|ANALYSIS|MAPVIEW|EXPORTS|CONVERT|LIBRARY|REVIEW|RULES|I18N|ADCHART|MAPWIN|ABOUT|TERRAIN|VIEW3D|OLS|INTEGRITY|PROFILE)$" }],
     "no-constant-condition": ["warn", { "checkLoops": false }], "no-empty": "warn", "eqeqeq": ["warn", "smart"], "no-unused-expressions": "warn"
   }
 }

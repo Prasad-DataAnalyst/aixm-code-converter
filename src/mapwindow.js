@@ -93,6 +93,7 @@ var MAPWIN = (function () {
     if (changed(datasets)) { mount(datasets, opts); win.focus(); return true; }
     var M = win.MAPVIEW;
     if (opts.cmp !== undefined && opts.cmp !== sent.cmp) { M.setCompare(opts.cmp); sent.cmp = opts.cmp; }
+    if (opts.view3d) { if (opts.ds) M.show(opts.ds); M.open3d(opts.view3d.mode, opts.view3d.ad, opts.view3d); win.focus(); return true; }
     if (opts.procs) M.showProcs(opts.ds || datasets[0], opts.procs);
     else if (opts.focus) M.focus(opts.ds || datasets[0], opts.focus);
     else if (opts.ds) M.show(opts.ds);

@@ -11,7 +11,7 @@
  * and cell = {t: text, r: sourceRecord, p: propertyName, tip}.
  * The same structure feeds the screen, PDF, Excel, JSON and e-mail outputs.
  * ========================================================================== */
-/* global AX, MODEL */
+/* global AX, MODEL, PROFILE */
 var AIP = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -764,6 +764,8 @@ var AIP = (function () {
       });
     });
     if (mins.length) blocks.push(table('Minima', ['Aircraft category', 'Final approach', 'OCA / DA / MDA', 'OCH / DH / MDH', 'Visibility / RVR'], mins));
+    // vertical profile of an approach (profile.js, loaded after this module)
+    if (proc.k === 'InstrumentApproachProcedure' && typeof PROFILE !== 'undefined') blocks = blocks.concat(PROFILE.blocks(ds, proc));
     return blocks;
   }
 

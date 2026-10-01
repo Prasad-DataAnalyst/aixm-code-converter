@@ -78,6 +78,7 @@ var EXPORTS = (function () {
         return { section: s.no, aerodrome: s.code || undefined, title: s.title, blocks: (s.blocks || []).map(function (b) {
           if (b.kind === 'kv') return { type: 'items', title: b.title || undefined, items: b.rows.map(function (r) { return { no: r.no || undefined, item: r.label, values: r.cells.filter(function (c) { return c.t; }).map(function (c) { return { text: c.t, source: srcOf(c) }; }) }; }) };
           if (b.kind === 'table') return { type: 'table', title: b.title || undefined, columns: b.cols, note: b.note || undefined, rows: b.rows.map(function (r) { return r.map(function (c) { return c.r ? { text: c.t, source: srcOf(c) } : c.t; }); }) };
+          if (b.kind === 'chart') return { type: 'chart', title: b.title || undefined, text: b.text };
           return { type: 'note', text: b.text };
         }) };
       })
@@ -278,6 +279,7 @@ var EXPORTS = (function () {
       (s.blocks || []).forEach(function (b) {
         if (b.title) h += '<h3 ' + st.h3 + '>' + esc(b.title) + '</h3>';
         if (b.kind === 'note') { h += '<p ' + st.note + '>' + esc(b.text) + '</p>'; return; }
+        if (b.kind === 'chart') { h += b.svg; return; }
         var br = blockRows(b), rows = br.rows, trunc = maxRows && rows.length > maxRows;
         if (trunc) rows = rows.slice(0, maxRows);
         h += '<table ' + st.table + '>';

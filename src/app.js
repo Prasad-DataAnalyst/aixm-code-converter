@@ -20,7 +20,7 @@
  *   EXPORT, e-mail, search, help, start . exports/conversions, Outlook text, Ctrl+K search, startup
  * Every view is a function viewXxx(v, opts) registered in go(); add a view there and in VIEWS.
  * ========================================================================== */
-/* global APP_INFO, APP_SETTINGS, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
+/* global APP_INFO, APP_SETTINGS, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, ADCHART, OLS, INTEGRITY, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
 (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -931,6 +931,7 @@
     (sec.blocks || []).forEach(function (b, bi) {
       if (b.title) h += '<div class="block-title">' + esc(b.title) + '</div>';
       if (b.kind === 'note') { h += '<div class="note-box">' + esc(b.text) + '</div>'; return; }
+      if (b.kind === 'chart') { h += '<div class="chart-box">' + b.svg + '</div>'; return; } // generated SVG (profile.js)
       if (b.kind === 'kv') {
         h += '<table class="aip-kv"><tbody>' + b.rows.map(function (r) {
           var cells = r.cells.filter(function (c) { return c && c.t; });
@@ -1417,6 +1418,7 @@
     MAPVIEW.mount(v, S.datasets, mapHooks(), { ds: opts.ds || dsOf(), cmp: S.cmp, procs: opts.procs });
     MAPVIEW.leaflet().on('moveend', updateHash);
     if (opts.focus) setTimeout(function () { MAPVIEW.focus(opts.ds || dsOf(), opts.focus); }, 250);
+    if (opts.view3d) setTimeout(function () { MAPVIEW.open3d(opts.view3d.mode, opts.view3d.ad, opts.view3d); }, 300);
   }
 
   /* ========================================================= CHANGES */
@@ -1833,7 +1835,7 @@
 
 
   function qTabs(active) {
-    return '<div class="pill-tabs q-tabs">' + [['basic', 'Basic checks'], ['rules', 'AIXM business rules (SBVR)'], ['cat', 'Rule catalogue']].map(function (x) { return '<button class="' + (active === x[0] ? 'active' : '') + '" data-qtab="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+    return '<div class="pill-tabs q-tabs">' + [['basic', 'Basic checks'], ['rules', 'AIXM business rules (SBVR)'], ['cat', 'Rule catalogue'], ['ols', 'Obstacle surfaces (Annex 14)'], ['integrity', 'Data integrity (CRC32Q)']].map(function (x) { return '<button class="' + (active === x[0] ? 'active' : '') + '" data-qtab="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
   }
   function viewQuality(v) {
     var ds = dsOf();
@@ -1841,6 +1843,8 @@
     v.onclick = function (e) { var tb = e.target.closest('[data-qtab]'); if (tb) { S.qTab = tb.getAttribute('data-qtab'); go('quality'); } };
     if (S.qTab === 'rules') { viewRules(v, ds); return; }
     if (S.qTab === 'cat') { viewRuleCatalogue(v); return; }
+    if (S.qTab === 'ols') { viewOls(v, ds); return; }
+    if (S.qTab === 'integrity') { viewIntegrity(v, ds); return; }
     var iss = S.quality.get(ds);
     v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Checks based on the AIXM schema code lists, AIXM temporality rules and the minimum ICAO AIP data: coordinates, references, frequencies, bearings, missing mandatory AIP items. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('basic') +
       '<div class="toolbar"><button class="btn primary" id="q-run">' + I.check + (iss ? ' Run again' : ' Run checks') + '</button><select class="inp" id="q-sev"><option value="">All severities</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Info</option></select><input class="inp" id="q-q" placeholder="Filter…"><span class="sp"></span>' +
@@ -1882,6 +1886,100 @@
     $('#q-xlsx').onclick = function () { if (iss) runExport('xlsx', scope()); };
     $('#q-mail').onclick = function () { if (iss) runExport('mail', scope()); };
     draw();
+  }
+
+  /* ------------------------------------------- obstacle limitation surfaces */
+  // Annex 14 surfaces of every aerodrome (ols.js), checked against the obstacles of all loaded files of the State
+  function viewOls(v, ds) {
+    var sets = S.datasets.slice(); // obstacles of every loaded file (e.g. a separate eTOD / obstacle file); only those near the aerodrome count
+    var ads = ADCHART.all(ds).filter(function (m) { return m.runways.length; }).map(function (m) { return m.ad; });
+    var res = ads.map(function (ad) { return { ad: ad, r: OLS.check(ds, ad, sets) }; }).filter(function (x) { return x.r; });
+    var pen = res.reduce(function (n, x) { return n + x.r.list.length; }, 0), chk = res.reduce(function (n, x) { return n + x.r.checked; }, 0);
+    cellRegistry = [];
+    function mft(m) { return m.toFixed(1) + ' m (' + Math.round(m / 0.3048).toLocaleString('en-US') + ' ft)'; }
+    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Obstacle limitation surfaces of ICAO Annex 14 (approach, take-off climb, transitional, inner horizontal, conical) built from the runway data, checked against the obstacles of the ' +
+      sets.length + ' loaded file(s) (within 11 NM of each aerodrome). Runway code number from the runway length, approach type from the ILS / instrument approaches in the data. Indicative: the inner approach / OFZ surfaces are not included and the official survey prevails.</p>' + qTabs('ols') +
+      '<div class="toolbar"><span class="sp"></span><button class="btn small" id="o-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="o-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="o-mail">' + I.mail + ' E-mail</button></div>' +
+      '<div class="stat-row"><div class="card stat"><b>' + res.length + '</b><span class="muted">aerodromes</span></div><div class="card stat"><b>' + num(chk) + '</b><span class="muted">obstacles checked</span></div><div class="card stat"><b class="' + (pen ? 'sev-err' : '') + '">' + pen + '</b><span class="muted">penetrations</span></div></div>' +
+      (res.length ? res.map(function (x) {
+        return '<div class="card card-pad" style="margin-bottom:12px"><div class="row"><b>' + esc(M.label(ds, x.ad)) + '</b><span class="sp"></span><span class="chip ' + (x.r.list.length ? 'warn' : 'ok') + '">' + x.r.list.length + ' penetration(s) · ' + x.r.checked + ' obstacles</span>' +
+          '<button class="btn small" data-ols3d="' + ds.recs.indexOf(x.ad) + '">🗻 Show in 3D</button></div><pre class="muted" style="white-space:pre-wrap;margin:6px 0">' + esc(OLS.describe(x.r.surfaces)) + '</pre>' +
+          (x.r.list.length ? '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Obstacle</th><th>Type</th><th>Top elevation</th><th>Surface</th><th>Permitted</th><th>Penetration</th><th>Position</th></tr></thead><tbody>' + x.r.list.map(function (p) {
+            var idx = cellRegistry.push({ ds: p.ds, r: p.rec }) - 1;
+            return '<tr><td><a href="#" data-det="' + idx + '">' + esc(p.name) + '</a></td><td>' + esc(p.type) + '</td><td>' + mft(p.top) + (p.est ? ' <span class="muted">(est.)</span>' : '') + '</td><td>' + esc(p.surface) + '</td><td>' + mft(p.allowed) + '</td><td class="sev-err"><b>+' + mft(p.pen) + '</b></td><td>' + esc(p.from) + '</td></tr>';
+          }).join('') + '</tbody></table></div>' : '<div style="color:var(--ok)">✓ No obstacle penetrates the surfaces.</div>') + '</div>';
+      }).join('') : '<div class="card card-pad muted">No aerodrome with runway positions in this data set.</div>');
+    v.querySelectorAll('[data-det]').forEach(function (a) { a.onclick = function (e) { e.preventDefault(); var c = cellRegistry[+a.getAttribute('data-det')]; openDetail(c.ds, c.r); }; });
+    v.querySelectorAll('[data-ols3d]').forEach(function (b) { b.onclick = function () { go('map', { ds: ds, view3d: { mode: 'area', ad: ds.recs[+b.getAttribute('data-ols3d')], ols: true } }); }; });
+    function scope() {
+      var C = AIP.C;
+      return { title: 'Obstacle limitation surfaces (ICAO Annex 14)', sub: ds.state + ' — ' + ds.name, ds: ds, sections: res.map(function (x) {
+        return { no: 'OLS', code: M.shortName(x.ad), title: M.label(ds, x.ad), blocks: [{ kind: 'note', text: OLS.describe(x.r.surfaces) }, { kind: 'table', cols: ['Obstacle', 'Type', 'Top elevation', 'Surface', 'Permitted', 'Penetration', 'Position'],
+          rows: x.r.list.map(function (p) { return [C(p.name, p.rec), C(p.type), C(mft(p.top)), C(p.surface), C(mft(p.allowed)), C('+' + mft(p.pen)), C(p.from)]; }) }] };
+      }) };
+    }
+    $('#o-pdf').onclick = function () { runExport('pdf', scope()); };
+    $('#o-xlsx').onclick = function () { runExport('xlsx', scope()); };
+    $('#o-mail').onclick = function () { runExport('mail', scope()); };
+  }
+
+  /* ------------------------------------------------------ data integrity */
+  // PANS-AIM classification and declared accuracy, CRC32Q fingerprints, verification against an earlier list (integrity.js)
+  function viewIntegrity(v, ds) {
+    var list = INTEGRITY.items(ds), pub = INTEGRITY.published(ds), F = S.intF || { cls: '', st: '', q: '' }, ver = S.intVer && S.intVer.ds === ds ? S.intVer.res : null;
+    var by = { OK: 0, 'Accuracy not declared': 0, 'Insufficient accuracy': 0 };
+    list.forEach(function (it) { by[it.status]++; });
+    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Data integrity (ICAO Annex 15, PANS-AIM): every critical, essential and routine data item with the accuracy PANS-AIM requires and the accuracy declared in the data, and its <b>CRC32Q</b> fingerprint. Save the CRC list and verify a later delivery against it to prove that nothing changed unnoticed. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('integrity') +
+      '<div class="toolbar"><select class="inp" id="i-cls"><option value="">All classes</option><option value="critical">Critical</option><option value="essential">Essential</option><option value="routine">Routine</option></select>' +
+      '<select class="inp" id="i-st"><option value="">All results</option><option>OK</option><option>Accuracy not declared</option><option>Insufficient accuracy</option></select><input class="inp" id="i-q" placeholder="Filter…" value="' + esc(F.q) + '"><span class="sp"></span>' +
+      '<button class="btn small" id="i-csv">⬇ Save CRC list</button><button class="btn small" id="i-ver">✓ Verify against a CRC list…</button><input type="file" id="i-file" accept=".csv,.txt" class="hidden">' +
+      '<button class="btn small" id="i-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="i-xlsx">' + I.xls + ' Excel</button></div>' +
+      '<div class="stat-row"><div class="card stat"><b>' + num(list.length) + '</b><span class="muted">data items</span></div><div class="card stat"><b style="color:var(--ok)">' + num(by.OK) + '</b><span class="muted">accuracy OK</span></div><div class="card stat"><b class="sev-warn">' + num(by['Accuracy not declared']) + '</b><span class="muted">accuracy not declared</span></div><div class="card stat"><b class="sev-err">' + num(by['Insufficient accuracy']) + '</b><span class="muted">insufficient accuracy</span></div></div>' +
+      '<div id="i-ver-out"></div><div id="i-out"></div>' +
+      (pub.length ? '<div class="card card-pad" style="margin-top:12px"><b>CRC values published in the file (' + pub.length + ')</b><div class="muted" style="font-size:12px">Listed as published: the field order used by the originator to compute them is not standardised, so they are not recomputed.</div><div class="tbl-wrap"><table class="aip"><thead><tr><th>Feature</th><th>Field</th><th>Value</th></tr></thead><tbody>' +
+        pub.slice(0, 500).map(function (p) { return '<tr><td>' + esc(M.label(ds, p.rec)) + '</td><td>' + esc(p.field) + '</td><td class="mono">' + esc(p.value) + '</td></tr>'; }).join('') + '</tbody></table></div></div>' : '');
+    $('#i-cls').value = F.cls; $('#i-st').value = F.st;
+    function cur() { return list.filter(function (it) { return (!F.cls || it.cls === F.cls) && (!F.st || it.status === F.st) && (!F.q || (it.ident + ' ' + it.item + ' ' + it.crc).toLowerCase().indexOf(F.q.toLowerCase()) >= 0); }); }
+    function draw() {
+      var l = cur();
+      cellRegistry = [];
+      $('#i-out').innerHTML = '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Class</th><th>Data item</th><th>Feature</th><th>Position</th><th>Elevation</th><th>Required accuracy (H / V)</th><th>Declared (H / V)</th><th>Result</th><th>CRC32Q</th><th></th></tr></thead><tbody>' +
+        l.slice(0, 1500).map(function (it) {
+          var idx = cellRegistry.push({ ds: ds, r: it.rec }) - 1;
+          function a(x) { return x === null ? '—' : x + ' m'; }
+          return '<tr><td class="int-' + it.cls + '">' + it.cls + '</td><td>' + esc(it.item) + '</td><td><a href="#" data-det="' + idx + '">' + esc(it.ident) + '</a></td><td class="mono">' + esc(it.posTxt) + '</td><td>' + (it.elev === null ? '' : it.elev.toFixed(1) + ' m') + '</td>' +
+            '<td>' + a(it.reqH) + ' / ' + a(it.reqV) + '</td><td>' + a(it.decH) + ' / ' + a(it.decV) + '</td><td class="' + (it.status === 'OK' ? '' : it.status === 'Insufficient accuracy' ? 'sev-err' : 'sev-warn') + '" title="' + esc(it.note) + '">' + esc(it.status) + '</td><td class="mono" title="' + esc(it.text) + '">' + it.crc + '</td><td><span class="srcbtn" data-xml="' + idx + '">&lt;/&gt;</span></td></tr>';
+        }).join('') + '</tbody></table>' + (l.length > 1500 ? '<div class="more-rows muted">Showing 1500 of ' + num(l.length) + ' (exports contain all)</div>' : '') + '</div>';
+    }
+    function drawVer() {
+      if (!ver) { $('#i-ver-out').innerHTML = ''; return; }
+      $('#i-ver-out').innerHTML = '<div class="card card-pad" style="margin-bottom:12px"><b>Verification against the CRC list (' + num(ver.reference) + ' items)</b> — ' +
+        '<span style="color:var(--ok)">' + num(ver.same) + ' unchanged</span> · <span class="sev-err">' + ver.changed.length + ' changed</span> · <span class="sev-warn">' + ver.missing.length + ' missing</span> · ' + ver.added.length + ' new' +
+        (ver.changed.length || ver.missing.length ? '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Result</th><th>Data item</th><th>CRC in the list</th><th>CRC now</th></tr></thead><tbody>' +
+          ver.changed.slice(0, 300).map(function (c) { return '<tr><td class="sev-err">changed</td><td>' + esc(c.it.key) + '</td><td class="mono">' + c.was + '</td><td class="mono">' + c.it.crc + '</td></tr>'; }).join('') +
+          ver.missing.slice(0, 300).map(function (c) { return '<tr><td class="sev-warn">missing</td><td>' + esc(c.key) + '</td><td class="mono">' + c.crc + '</td><td></td></tr>'; }).join('') + '</tbody></table></div>' : '<div style="color:var(--ok)">✓ All data items of the list are unchanged.</div>') + '</div>';
+    }
+    function save() { F = { cls: $('#i-cls').value, st: $('#i-st').value, q: $('#i-q').value }; S.intF = F; draw(); }
+    $('#i-cls').onchange = save; $('#i-st').onchange = save; $('#i-q').oninput = save;
+    $('#i-out').onclick = function (e) {
+      var a = e.target.closest('[data-det]'), x = e.target.closest('[data-xml]');
+      if (a) { e.preventDefault(); var r1 = cellRegistry[+a.getAttribute('data-det')]; openDetail(r1.ds, r1.r); }
+      if (x) { var r2 = cellRegistry[+x.getAttribute('data-xml')]; openXml(r2.ds, r2.r); }
+    };
+    $('#i-csv').onclick = function () { EXPORTS.download(EXPORTS.safeName(ds.state + '_' + (ds.airac ? ds.airac.id : '') + '_CRC32Q') + '.csv', new Blob(['# ' + APP_INFO.credit + ' - CRC32Q list of ' + ds.name + '\n' + INTEGRITY.toCsv(list)], { type: 'text/csv' })); };
+    $('#i-ver').onclick = function () { $('#i-file').click(); };
+    $('#i-file').onchange = function () {
+      var f = this.files[0]; if (!f) return;
+      f.text().then(function (txt) { ver = INTEGRITY.verify(list, txt.replace(/^#.*\n/, '')); S.intVer = { ds: ds, res: ver }; drawVer(); toast('Verified ' + num(ver.reference) + ' items: ' + ver.changed.length + ' changed, ' + ver.missing.length + ' missing.'); });
+    };
+    function scope() {
+      var C = AIP.C;
+      return { title: 'Data integrity report (CRC32Q)', sub: ds.state + ' — ' + ds.name, ds: ds, sections: [{ no: 'INTEGRITY', title: 'Data items, accuracy and CRC32Q', blocks: [{ kind: 'table', cols: ['Class', 'Data item', 'Feature', 'Position', 'Elevation (m)', 'Required H / V (m)', 'Declared H / V (m)', 'Result', 'CRC32Q'],
+        rows: cur().map(function (it) { return [C(it.cls), C(it.item), C(it.ident, it.rec), C(it.posTxt), C(it.elev === null ? '' : it.elev.toFixed(1)), C((it.reqH === null ? '—' : it.reqH) + ' / ' + (it.reqV === null ? '—' : it.reqV)), C((it.decH === null ? '—' : it.decH) + ' / ' + (it.decV === null ? '—' : it.decV)), C(it.status), C(it.crc)]; }) }] }] };
+    }
+    $('#i-pdf').onclick = function () { runExport('pdf', scope()); };
+    $('#i-xlsx').onclick = function () { runExport('xlsx', scope()); };
+    draw(); drawVer();
   }
 
   /* ======================================================== EXPLORER */
@@ -2108,7 +2206,7 @@
       '<p><b>Changes.</b> <i>Changes</i> lists the time slices inside one file (what changes, where, when). <i>Compare</i> compares two files of the same State (e.g. two AIRAC cycles, any versions) and lists added / removed / modified data with old → new values; results can also be shown on the map.</p>' +
       '<p><b>AIRAC cycle changes.</b> Values that change in the selected AIRAC cycle are shown <span class="chg-badge">in red</span> on every AIP page; <b>List all changes</b> and <b>AMDT report</b> give the amendment (publication and effective dates, affected sections, insert/amend/delete). <b>⇆ Side by side</b> on any section shows before/after a cycle, or two files. <i>Timeline</i> shows the changes per AIRAC cycle and temporary changes; <i>NOTAM</i> shows Digital NOTAM events as ICAO NOTAM text.</p>' +
       '<p><b>Map.</b> A complete offline world map is built in. When the laptop is online you can switch to OpenStreetMap (CARTO Voyager is used when the standard server refuses a local file) or satellite imagery. Instrument procedures can be drawn per aerodrome. <b>Airport view</b>: airport chart (runways to scale with markings, taxiway signs, stands, ILS) and an information card. <b>🗻 3D view</b>: terrain, airspace volumes, approach and departure crew views; <i>Grid MORA</i> and terrain elevation on the map. <b>⧉ New window</b> puts the map on a second screen. <b>Print map</b>: drag an area, choose A4/A3, legend, north arrow and grid.</p>' +
-      '<p><b>Quality.</b> Basic checks plus the official AIXM 5.1 business rules (SBVR) and their catalogue.</p>' +
+      '<p><b>Quality.</b> Basic checks, the official AIXM 5.1 business rules (SBVR) and their catalogue, the ICAO Annex 14 obstacle limitation surfaces (penetrations, also in 3D) and data integrity (PANS-AIM accuracy, CRC32Q fingerprints, verification against a saved CRC list). Instrument approaches in AD 2.22 show their vertical profile.</p>' +
       '<p><b>Library, links and languages.</b> Connect a folder with one sub-folder per State; extracted data is kept for instant reopening. ☆ saves views; the address (#…) of any view can be shared. The interface is available in English, العربية (right-to-left), Français and Español. Files over 1.5 GB use the Lite memory mode automatically.</p>' +
       '<p><b>Exports.</b> Any single section or the whole data set: JSON (with source references), Excel, printable PDF, print, or an e-mail to paste into Outlook (.eml opens as a draft).</p>' +
       '<p><b>Sources.</b> AIXM schemas, code lists and definitions from aixm.aero (4.5 r2, 5.1, 5.1.1, 5.2), AIXM temporality and feature-identification concepts, ICAO Annex 15 / PANS-AIM AIP structure. Base map: Natural Earth (public domain). Terrain: Terrain Tiles (Mapzen / AWS Open Data: SRTM, GMTED2010, ETOPO1). Libraries: Leaflet, three.js, SheetJS, jsPDF, fflate, topojson.</p>' +

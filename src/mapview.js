@@ -853,7 +853,7 @@ var MAPVIEW = (function () {
     var mdiv = container.querySelector('#map');
     VIEW3D.close();
     if (map) { map.remove(); map = null; base = { offline: null, current: 'offline', online: {} }; over = {}; vec = null; }
-    live = []; state.adView = null;
+    live = []; state.adView = null; state.all = datasets;
     map = L.map(mdiv, { zoomControl: false, worldCopyJump: true, preferCanvas: true, minZoom: 2, maxZoom: 20 }).setView([30, 10], 3);
     map.createPane('adPane').style.zIndex = 420;    // airport chart: above airspace / taxiway vectors
     map.createPane('annotPane').style.zIndex = 590; // airspace and route labels: below point symbols
@@ -968,7 +968,7 @@ var MAPVIEW = (function () {
     state.adView = { ds: ds, ad: ad };
     var card = document.getElementById('map-adcard');
     if (card) {
-      card.innerHTML = ADCHART.cardHtml(ds, ad);
+      card.innerHTML = ADCHART.cardHtml(ds, ad, { obsSets: state.all || [ds] });
       card.classList.remove('hidden');
       card.onclick = function (e) {
         var a = e.target.closest('[data-adc]'); if (!a) return;
@@ -980,16 +980,20 @@ var MAPVIEW = (function () {
         if (k === 'fit') fitAirport(ds, ad, true);
         if (k === '3dapp') open3d('approach', ad);
         if (k === '3ddep') open3d('departure', ad);
+        if (k === 'ols') open3d('area', ad, { ols: true });
       };
     }
     fitAirport(ds, ad, false);
     var sel = document.getElementById('map-adview'); if (sel) sel.value = String(ds.recs.indexOf(ad));
   }
   // 3D view over the map (view3d.js): 'area' for the current view, 'approach' / 'departure' for an aerodrome
-  function open3d(mode, ad) {
+  // extra: {ols: true} shows the Annex 14 surfaces of the aerodrome around it
+  function open3d(mode, ad, extra) {
     if (!state.ds) return;
-    var b = map.getBounds();
-    VIEW3D.open(map.getContainer().parentNode, state.ds, hooks, { mode: mode, ad: ad || null, bbox: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] });
+    var b = map.getBounds(), bb = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+    if (extra && extra.ols && ad) { var c = M.pointOf(state.ds, ad); if (c) bb = [c[0] - 0.22 / Math.cos(c[1] * Math.PI / 180), c[1] - 0.17, c[0] + 0.22 / Math.cos(c[1] * Math.PI / 180), c[1] + 0.17]; }
+    VIEW3D.open(map.getContainer().parentNode, state.ds, hooks, { mode: mode, ad: ad || null, bbox: bb, ols: !!(extra && extra.ols),
+      obsSets: state.all || [state.ds] });
   }
   // fits the aerodrome diagram into the part of the map not covered by the card
   function fitAirport(ds, ad, animate) {

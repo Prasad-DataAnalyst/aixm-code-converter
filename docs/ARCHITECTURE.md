@@ -38,6 +38,9 @@ Data compiled once from the official sources:
 | 6 | `aip.js` | `AIP` | ICAO AIP structure: catalogue of GEN / ENR / AD 2 / AD 3 sections and their builders; `sectionOf(ds, rec)` |
 | 7 | `analysis.js` | `ANALYSIS` | in-file changes, comparison of two data sets, AIRAC-cycle changes, basic quality checks |
 | 8 | `terrain.js` | `TERRAIN` | built-in terrain grid (`elev`, `maxIn`, `mora`), online Terrain Tiles for an area (`area`) |
+| 9a | `ols.js` | `OLS` | Annex 14 obstacle limitation surfaces (`surfaces`, `limitAt`, `check`, `geometry` for 3D) |
+| 9b | `profile.js` | `PROFILE` | instrument approach profile: `data`, `svg`, `blocks` (AIP block kind `chart` + a table); called by `aip.js` at run time |
+| 9c | `integrity.js` | `INTEGRITY` | CRC32Q, PANS-AIM items and accuracy (`items`), published CRCs, CRC list `toCsv` / `verify` |
 | 9 | `adchart.js` | `ADCHART` | airport chart: drawing model per aerodrome (`all`, `of`, `bounds`), canvas drawing (`draw`) used by the live map and the PNG renderer, airport information card (`cardHtml`), label collision registry (`Occ`) |
 | 10 | `mapview.js` | `MAPVIEW` | Leaflet map, offline base map, aeronautical layers and labels, airport view, grid MORA, procedures, measure, print/PNG renderer |
 | 11 | `view3d.js` | `VIEW3D` | 3D view (three.js): terrain, airspace volumes, runways, obstacles, procedures, approach / departure crew views |
@@ -105,6 +108,12 @@ PNG/PDF output.
 **Add something to the airport chart** — collect it in `aerodrome()` (`adchart.js`) and draw it in `draw()` with a
 metres-per-pixel threshold (`v.mpp`); use `tag()` for labels so they respect the collision registry. The same code draws
 the screen and the printed chart.
+
+**AIP block kinds** — `kv`, `table`, `note` and `chart` (`{kind:'chart', svg, text}`: drawn on screen and in print / e-mail
+HTML; PDF, Excel and JSON use `text`). Add a table next to a chart so the data reaches every export.
+
+**Unit tests** — `tools/harness.js` loads the modules into a Node `vm` context and parses files with the real worker; write
+tests in `tools/tests/unit/*.test.js` with `node:test` (arrays created inside the context are compared as JSON).
 
 **Add something to the 3D view** — add a builder in `view3d.js` called from `build()`; use `vec(lon, lat, metres)` for
 positions (it applies the vertical exaggeration) and `ground(lon, lat)` for the terrain height; push pickable meshes to
