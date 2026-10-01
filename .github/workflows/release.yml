@@ -22,6 +22,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: tools/package-lock.json
+
+      - name: Install tools (libraries inlined by the build)
+        working-directory: tools
+        run: npm ci
 
       - name: Build and check the committed HTML matches the sources
         run: |
