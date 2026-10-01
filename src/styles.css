@@ -601,3 +601,6 @@ pre, .xml, .notam-text { text-align: left; }
 .v3d-fly { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; }
 .v3d-fly .inp { padding: 4px 6px; }
 .v3d-clock { font: 700 12.5px var(--mono); color: var(--brand); min-width: 92px; }
+.coming-soon { min-height: 60vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.coming-soon h1 { font-size: 28px; color: var(--brand); margin: 0 0 8px; }
+.coming-soon p { font-size: 18px; color: var(--muted); margin: 0; font-weight: 600; letter-spacing: .5px; }

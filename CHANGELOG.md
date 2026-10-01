@@ -16,7 +16,7 @@ Everything below is part of version 1.0 (built in three development stages).
 - *View AIXM code*: the value is highlighted in the time slice shown in the AIP, AIXM 4.5 element names are recognised,
   and values assembled from the data are found by their text; a note explains values that are not one AIXM element.
   Test `xml_reference.js` checks every feature position and every AIP value.
-- *Digital charts* tab (coming in version 2), version shown in the top bar.
+- *Digital charts* tab ("Coming soon", planned for version 2), version shown in the top bar.
 
 ### Stage 3 — safety and integrity checks, approach profiles, continuous integration
 

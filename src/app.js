@@ -1439,20 +1439,9 @@
   }
 
   /* ================================================= DIGITAL CHARTS */
-  // planned for version 2: aeronautical charts generated from the AIXM data
+  // planned for version 2
   function viewCharts(v) {
-    var plan = [['Aerodrome / heliport charts', 'ICAO-style aerodrome charts from the AMDB and AIP data: runways, taxiways, aprons, stands, lighting, frequencies and the information box.'],
-      ['Instrument approach charts', 'Plan view, profile and minima of every approach in one printable chart, built on the approach profile of version 1.'],
-      ['SID and STAR charts', 'Departure and arrival routes with fixes, altitude and speed constraints, transitions and frequencies.'],
-      ['En-route charts', 'ATS routes with MEA / MOCA, navaids, significant points, airspace and grid MORA at chosen scales.'],
-      ['Obstacle charts (Type A / B)', 'Obstacles and the take-off flight path areas from the obstacle data and the Annex 14 surfaces.'],
-      ['Chart export', 'PDF and high-resolution PNG at A4 / A3, with AIRAC date, amendment notes and change marks.']];
-    v.innerHTML = '<div class="about-page"><section class="ab-hero"><div class="ab-kicker">Coming soon · version 2</div><h1>Digital charts</h1>' +
-      '<p class="ab-lead">Version 2 of the AIXM Code Converter will draw aeronautical charts directly from the AIXM data: the charts follow the data of every AIRAC cycle automatically, and changed items can be marked on them.</p>' +
-      '<div class="ab-facts"><span>Current version ' + esc(APP_INFO.version) + '</span><span>Planned for version 2.0</span></div></section>' +
-      '<section><h2>Planned charts</h2><div class="ab-grid ab-grid-2">' + plan.map(function (x) { return '<div class="ab-card"><b>' + esc(x[0]) + '</b><p>' + esc(x[1]) + '</p></div>'; }).join('') + '</div></section>' +
-      '<section><h2>Available today</h2><p>The map already shows the airport chart (Airport view), approach profiles are in AD 2.22, and maps print to A4 / A3 from the Map view. Ideas and requests for the charts are welcome: ' +
-      '<a href="mailto:' + esc(APP_INFO.email) + '">' + esc(APP_INFO.email) + '</a>.</p></section></div>';
+    v.innerHTML = '<div class="coming-soon"><h1>Digital charts</h1><p>Coming soon</p></div>';
   }
 
   /* ========================================================== ABOUT */
