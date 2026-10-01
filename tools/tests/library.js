@@ -4,6 +4,7 @@ const {chromium}=require('./_env').playwright;const fs=require('fs');
 const ROOT = require('./_env').ROOT;const OUT = process.argv[2] || require('./_env').out('library');
 (async()=>{const b=await chromium.launch({executablePath:require('./_env').chrome});
 const ctx=await b.newContext({viewport:{width:1500,height:920}});const p=await ctx.newPage();
+p.on('dialog',d=>d.accept()); // the app asks before leaving with data loaded (beforeunload): accept it for the reload below
 const errs=[];p.on('pageerror',e=>errs.push(e.message+'\n'+e.stack));p.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
 // serve via http so OPFS/IndexedDB persist across reloads in same context
 const http=require('http');const srv=http.createServer((q,r)=>{r.writeHead(200,{'content-type':'text/html'});r.end(fs.readFileSync(ROOT+'/AIXM-Code-Converter.html'));}).listen(8765);
