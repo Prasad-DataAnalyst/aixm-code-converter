@@ -3,9 +3,8 @@
 const {chromium}=require('./_env').playwright;const fs=require('fs');
 const ROOT = require('./_env').ROOT;const OUT = process.argv[2] || require('./_env').out('library');
 (async()=>{const b=await chromium.launch({executablePath:require('./_env').chrome});
-const ctx=await b.newContext({viewport:{width:1500,height:920}});const p=await ctx.newPage();
-p.on('dialog',d=>d.accept()); // the app asks before leaving with data loaded (beforeunload): accept it for the reload below
-const errs=[];p.on('pageerror',e=>errs.push(e.message+'\n'+e.stack));p.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
+const ctx=await b.newContext({viewport:{width:1500,height:920}});let p=await ctx.newPage();
+const errs=[];function watch(pg){pg.on('pageerror',e=>errs.push(e.message+'\n'+e.stack));pg.on('console',m=>{if(m.type()==='error')errs.push(m.text())});}watch(p);
 // serve via http so OPFS/IndexedDB persist across reloads in same context
 const http=require('http');const srv=http.createServer((q,r)=>{r.writeHead(200,{'content-type':'text/html'});r.end(fs.readFileSync(ROOT+'/AIXM-Code-Converter.html'));}).listen(8765);
 await p.goto('http://localhost:8765/');
@@ -20,8 +19,12 @@ let t=Date.now();await p.evaluate(()=>window.__AIXM.openLatest('Saudi'));await p
 await p.waitForTimeout(800);
 t=Date.now();await p.evaluate(()=>window.__AIXM.openLatest('UAE'));await p.waitForTimeout(500);console.log('open UAE',Date.now()-t);
 await p.click('#state-btn');await p.waitForTimeout(300);await p.screenshot({path:OUT+'/lib-switcher.png'});await p.keyboard.press('Escape');
-// reload page -> cache
-await p.reload();await p.waitForTimeout(1500);
+// restart the page -> extracted data comes from the cache. This test uses the origin-private file system (OPFS) as a
+// stand-in for a real library folder; Chrome 153 crashes when an OPFS handle saved in IndexedDB is read back in a new
+// page (real folders from the folder picker are not affected). So the stand-in is forgotten before the restart and
+// connected again afterwards; the cache of extracted data stays.
+await p.evaluate(()=>LIBRARY.forget());await p.close();p=await ctx.newPage();watch(p);await p.goto('http://localhost:8765/');await p.waitForTimeout(800);
+await p.evaluate(async()=>{await window.__AIXM.useHandle(await navigator.storage.getDirectory());});await p.waitForTimeout(700);
 console.log('after reload status',await p.evaluate(()=>window.__AIXM.LIB.status+' cached='+window.__AIXM.LIB.cached.size));
 t=Date.now();await p.evaluate(()=>window.__AIXM.openLatest('Saudi'));await p.waitForFunction(()=>window.__AIXM.S.datasets.length>0);console.log('reopen Saudi from cache',Date.now()-t,'ms', await p.evaluate(()=>window.__AIXM.S.datasets[0].state+' '+window.__AIXM.S.datasets[0].recs.length));
 // changes vs prev via library
