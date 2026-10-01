@@ -22,7 +22,13 @@ let html = read('src/index.html');
 html = html.replace(/\/\*@@INLINE_CSS:([^@]+)@@\*\//g, (m, p) => read(p));
 html = html.replace(/\/\*@@INLINE_JSON:([^@]+)@@\*\//g, (m, p) => safeJson(read(p)));
 html = html.replace(/\/\*@@INLINE_JS:([^@]+)@@\*\//g, (m, p) => safeJs(read(p)));
-const stamp = new Date().toISOString().slice(0, 10);
-html = html.replace('<title>AIXM Code Converter</title>', '<title>AIXM Code Converter</title>\n<meta name="generator" content="AIXM Code Converter build ' + stamp + '">');
+// the version (not the date) keeps the build reproducible, so CI can compare it with the committed file
+const version = /version:\s*'([^']+)'/.exec(read('src/config.js'))[1];
+html = html.replace('<title>AIXM Code Converter</title>', '<title>AIXM Code Converter</title>\n<meta name="generator" content="AIXM Code Converter ' + version + '">');
+// A NUL character in a comment near the top makes GitHub treat the file as binary, so the "raw" link
+// (github.com/.../raw/main/AIXM-Code-Converter.html) downloads the file instead of showing its code.
+// Browsers ignore it (a comment; HTML replaces NUL with U+FFFD).
+html = html.replace('<!doctype html>\n', '<!doctype html>\n<!-- download marker: \u0000 -->\n');
+if (html.indexOf('\u0000') < 0 || html.indexOf('\u0000') > 8000) throw new Error('download marker not in the first 8000 bytes');
 fs.writeFileSync(OUT, html);
 console.log('Wrote', path.relative(process.cwd(), OUT), (fs.statSync(OUT).size / 1048576).toFixed(2) + ' MB');
