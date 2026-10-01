@@ -100,7 +100,9 @@ aixm-code-converter/
 ├── AIXM-Code-Converter.html   ← the single-file application (built)
 ├── LICENSE                     Apache License 2.0
 ├── NOTICE                      attribution that redistributions must keep (author: Prasad Selvaraj, prasad2t@gmail.com)
+├── docs/ARCHITECTURE.md        developer guide
 ├── src/                        ← sources
+│   ├── config.js               name, version, author, licence and limits (one place)
 │   ├── index.html              HTML shell (placeholders are filled by the build)
 │   ├── styles.css              design system (light/dark, print)
 │   ├── core.js                 sniffing, fast XML parser, AIXM 4.5/5.x conversion, GML geometry, temporality, AIRAC
@@ -125,6 +127,9 @@ aixm-code-converter/
 
 ## Build and test (developers)
 
+The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.0.0, set in `src/config.js`).
+
 ```bash
 cd aixm-code-converter/tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core
 cd .. && python3 tools/build_dictionary.py            # schemas/ -> data/aixm_dictionary.json
@@ -134,6 +139,8 @@ node tools/test_parse.js testdata/Donlon_ALL_Baseline_2025.xml 4   # parser: off
 node tools/test_aip.js testdata/Donlon_ALL_Baseline_2025.xml "^AD 2\.1[23]$"   # AIP sections as text
 EVAL='return JSON.stringify((await RULES.run(ds)).summary)' node tools/test_aip.js testdata/Donlon_ALL_Baseline_2025.xml   # any expression
 node tools/e2e.js                                     # full UI test in headless Chromium + exports
+node tools/tests/run_all.js                           # all feature and layout tests (npm test)
+cd tools && npm run lint                              # ESLint over src/
 node tools/e2e_big.js /path/to/1gb.xml                # large-file timing and memory (MEM=lite to force Lite mode)
 ```
 

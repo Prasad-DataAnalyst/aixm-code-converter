@@ -4,7 +4,9 @@
   "description": "Build and test tools for the AIXM Code Converter",
   "scripts": {
     "build": "node build.js",
-    "test": "node e2e.js"
+    "lint": "eslint --no-eslintrc -c .eslintrc.json ../src/*.js",
+    "test": "node tests/run_all.js",
+    "test:e2e": "node e2e.js"
   },
   "keywords": [],
   "author": "Prasad Selvaraj <prasad2t@gmail.com>",
@@ -17,5 +19,8 @@
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
   }
 }

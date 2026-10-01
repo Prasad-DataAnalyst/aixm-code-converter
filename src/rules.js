@@ -114,12 +114,12 @@ var RULES = (function () {
         Object.keys(ds.byType).forEach(function (t) { if (isA(t, k.c)) ds.byType[t].forEach(function (r) { res.n++; res.fails.push({ rec: r, msg: t + ' present' }); }); });
         return res;
       case 'unique': {
-        var seen = new Map();
+        var byVal = new Map();
         Object.keys(ds.byType).forEach(function (t) {
           if (!isA(t, k.c)) return;
-          ds.byType[t].forEach(function (r) { if (!r.cur || r.cur.future || r.cur.ended) return; var v = sv(r.cur.p[k.p]); if (!v) return; res.n++; var l = seen.get(v); if (!l) seen.set(v, l = []); l.push(r); });
+          ds.byType[t].forEach(function (r) { if (!r.cur || r.cur.future || r.cur.ended) return; var v = sv(r.cur.p[k.p]); if (!v) return; res.n++; var l = byVal.get(v); if (!l) byVal.set(v, l = []); l.push(r); });
         });
-        seen.forEach(function (l, v) { if (l.length > 1) l.forEach(function (r) { res.fails.push({ rec: r, msg: k.p + ' "' + v + '" used by ' + l.length + ' features' }); }); });
+        byVal.forEach(function (l, v) { if (l.length > 1) l.forEach(function (r) { res.fails.push({ rec: r, msg: k.p + ' "' + v + '" used by ' + l.length + ' features' }); }); });
         return res;
       }
     }

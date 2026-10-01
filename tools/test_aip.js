@@ -8,6 +8,7 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const ctx = { console, setTimeout, TextDecoder, Uint8Array, Map, Set, Date, Math, JSON, Promise, Array, Object, String, RegExp, Number, parseFloat, parseInt, isNaN, Infinity, NaN };
 vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/config.js'), 'utf8') + '\n;this.APP_INFO=APP_INFO;this.APP_SETTINGS=APP_SETTINGS;', ctx, { filename: 'src/config.js' });
 const GLOBALS = { 'src/core.js': 'AX', 'src/model.js': 'MODEL', 'src/aip.js': 'AIP', 'src/analysis.js': 'ANALYSIS', 'src/review.js': 'REVIEW', 'src/rules.js': 'RULES' };
 Object.keys(GLOBALS).forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8') + '\n;this.' + GLOBALS[f] + '=' + GLOBALS[f] + ';', ctx, { filename: f }));
 const dict = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/aixm_dictionary.json'), 'utf8'));

@@ -53,7 +53,7 @@
 
     var bytes = new Uint8Array(0), str = '', base = start, readPos = start;
     var cursor = 0, nlTo = 0, lines = 0;
-    var batch = [], sent = 0, count = 0, errors = 0, lastProgress = 0;
+    var batch = [], count = 0, errors = 0, lastProgress = 0;
     var chg45 = null; // AIXM 4.5 Update wrapper state (New / Changed / Withdrawn)
 
     if (cfg.family === '45' && cfg.isUpdate && start > 0) {
@@ -84,7 +84,7 @@
     function post(final) {
       if (batch.length || final) {
         self.postMessage({ type: 'batch', recs: batch, jobId: job.jobId });
-        sent += batch.length; batch = [];
+        batch = [];
       }
     }
     function progress() {

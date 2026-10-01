@@ -13,7 +13,7 @@
 var CONVERT = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
-  var CREDIT = 'AIXM Code Converter (c) 2026 Prasad Selvaraj <prasad2t@gmail.com>, Apache-2.0';
+  var CREDIT = APP_INFO.credit;
 
   function xesc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function uuidFor(key) {

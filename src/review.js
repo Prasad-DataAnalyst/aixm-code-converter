@@ -27,7 +27,7 @@ var REVIEW = (function () {
   /* ------------------------------------------------------ AMDT report */
   // cc = ANALYSIS.cycleChanges(ds, cycle) -> export scope (EXPORTS format)
   function amdtScope(ds, cc) {
-    var cy = cc.cycle, pub = new Date(cy.date - 42 * DAY), secs = new Map(), parts = { GEN: 0, ENR: 0, AD: 0, Other: 0 };
+    var cy = cc.cycle, pub = new Date(cy.date - APP_SETTINGS.airacPublishDays * DAY), secs = new Map(), parts = { GEN: 0, ENR: 0, AD: 0, Other: 0 };
     function secEntry(ds2, sec) {
       var key = sec.no + (sec.ad ? ' ' + M.shortName(sec.ad) : '');
       var e = secs.get(key);

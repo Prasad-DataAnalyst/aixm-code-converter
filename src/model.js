@@ -318,7 +318,7 @@ var MODEL = (function () {
   // Map geometry of a feature: {t:'P'|'L'|'A', c, parts?}
   function geometry(ds, r) {
     if (r.geo !== undefined) return r.geo;
-    var p = r.cur.p, g = null, list, i;
+    var p = r.cur.p, g = null, list;
     switch (r.k) {
       case 'Airspace': {
         list = [];

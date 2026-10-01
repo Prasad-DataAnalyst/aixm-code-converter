@@ -14,6 +14,7 @@
 var AX = (function () {
   'use strict';
 
+  // eslint-disable-next-line no-unused-vars -- reference value (GML 3.2 namespace)
   var GML_NS = 'http://www.opengis.net/gml/3.2';
   var GML_NS_RE = /^http:\/\/www\.opengis\.net\/gml(\/3\.2)?$/;
 
@@ -569,6 +570,7 @@ var AX = (function () {
     }
     return name.replace(/Uid.*$/, '') + '[' + parts.join(';') + ']';
   }
+  // eslint-disable-next-line no-unused-vars -- helper kept for future AIXM 4.5 relation handling
   function collectUids(o, own, out, path) {
     for (var k in o) {
       var v = o[k];

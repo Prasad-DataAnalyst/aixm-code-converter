@@ -4,8 +4,23 @@
  * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
  * ==========================================================================
  * AIXM Code Converter - application (UI, extraction orchestration)
+ *
+ * Contents (search for the section banner, e.g. "AIP VIEW"):
+ *   state, icons, nav, theme ............ shared UI state S, icon set, side menu, light/dark
+ *   FILES VIEW, extraction engine ....... drop/browse files, sniffing, parallel workers -> MODEL.finalize
+ *   LIBRARY, State switcher ............. State folders (LIBRARY module), cache, top-bar State menu
+ *   links and bookmarks, as of .......... #hash view links, saved views, "valid on date"
+ *   DASHBOARD, AIP VIEW ................. data-set cards; AIP tree and section rendering
+ *   cycle change highlighting ........... red/white values of an AIRAC cycle, change lists
+ *   side-by-side AIP .................... two cycles / two files next to each other
+ *   XML drawer, detail drawer ........... exact AIXM code of a value; all data of a feature
+ *   MAP, CHANGES, COMPARE ............... MAPVIEW mount; in-file changes; two-file comparison
+ *   AMDT REPORT, TIMELINE, NOTAM ........ REVIEW module views
+ *   QUALITY, BUSINESS RULES, EXPLORER ... ANALYSIS.quality, RULES, every feature type
+ *   EXPORT, e-mail, search, help, start . exports/conversions, Outlook text, Ctrl+K search, startup
+ * Every view is a function viewXxx(v, opts) registered in go(); add a view there and in VIEWS.
  * ========================================================================== */
-/* global AX, MODEL, AIP, ANALYSIS, MAPVIEW, EXPORTS, fflate */
+/* global APP_INFO, APP_SETTINGS, AX, MODEL, AIP, ANALYSIS, MAPVIEW, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
 (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -41,11 +56,11 @@
     setTimeout(function () { t.remove(); }, ms || 3800);
   }
   // Author of the AIXM Code Converter (Apache-2.0: this attribution must be kept in redistributions, see NOTICE)
-  var AUTHOR = 'Prasad Selvaraj', AUTHOR_EMAIL = 'prasad2t@gmail.com';
-  var AUTHOR_LINE = 'AIXM Code Converter — © 2026 ' + AUTHOR + ' · ' + AUTHOR_EMAIL + ' · Apache-2.0';
+  var AUTHOR = APP_INFO.author, AUTHOR_EMAIL = APP_INFO.email;
+  var AUTHOR_LINE = APP_INFO.name + ' ' + APP_INFO.version + ' — © ' + APP_INFO.year + ' ' + AUTHOR + ' · ' + AUTHOR_EMAIL + ' · Apache-2.0';
   try { console.info('%c AIXM Code Converter %c © 2026 ' + AUTHOR + ' <' + AUTHOR_EMAIL + '> · Apache-2.0 ', 'background:#0b2a4a;color:#fff;font-weight:bold;padding:2px 6px', 'color:#0b2a4a'); } catch (e) { /* no console */ }
   function dsOf() { return S.datasets[S.active] || null; }
-  var LITE_AUTO = 1.5 * 1024 * 1024 * 1024;
+  var LITE_AUTO = APP_SETTINGS.liteAutoBytes;
   try { S.memMode = localStorage.getItem('aixm-mem') || 'auto'; } catch (e) { S.memMode = 'auto'; }
   try { M.setLocator(MAPVIEW.countryAt); } catch (e) { /* map data missing */ }
   function copyText(txt) { EXPORTS.copyText(txt).then(function (ok) { toast(ok ? 'Copied to the clipboard' : 'Copy failed — select the text manually'); }); }
@@ -264,7 +279,7 @@
 
   /* ---------------------------------------------------- extraction engine */
   var workerUrl = null;
-  function threads() { return Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 4) - 1)); }
+  function threads() { return Math.max(1, Math.min(APP_SETTINGS.maxThreads, (navigator.hardwareConcurrency || 4) - 1)); }
   function makeWorker() {
     if (!workerUrl) {
       var src = document.getElementById('src-core').textContent + '\n' + document.getElementById('src-worker').textContent;
@@ -295,7 +310,7 @@
     if (!r) return;
     r.cancelled = true;
     r.workers.forEach(function (w) { w.terminate(); });
-    r.resolve && r.resolve();
+    if (r.resolve) r.resolve();
   }
   function extractOne(f) {
     return new Promise(function (resolve) {
@@ -440,6 +455,7 @@
     window.addEventListener('focus', function () { if (LIB.status === 'granted' && LIBRARY.isConnected()) libRescan(true); });
   }
   function libStates() { return LIB.scan ? LIB.scan.states : []; }
+  // eslint-disable-next-line no-unused-vars -- helper kept for future Library features
   function libFileFor(ds) {
     if (!ds || !ds.lib) return null;
     var st = libStates().filter(function (x) { return x.name === ds.lib.state; })[0];
@@ -601,9 +617,8 @@
   function renderDsSelect() {
     var sel = $('#ds-select');
     renderStateBtn();
+    // the State button replaces the old data-set list; the hidden <select> is kept up to date for scripts and tests
     sel.classList.add('hidden');
-    if (true) return;
-    sel.classList.remove('hidden');
     sel.innerHTML = S.datasets.map(function (d, i) { return '<option value="' + i + '"' + (i === S.active ? ' selected' : '') + '>' + esc(d.state + ' · ' + d.name) + '</option>'; }).join('');
   }
   $('#ds-select').addEventListener('change', function (e) { S.active = +e.target.value; S.aipSel = null; renderStateBtn(); go(S.view); });
@@ -762,7 +777,6 @@
     v.innerHTML = '<h1 class="view-title">Dashboard</h1><p class="view-sub">' + S.datasets.length + ' data set(s) extracted. Click a tile or an aerodrome to open it.</p><div class="ds-grid" id="ds-grid"></div>';
     var g = $('#ds-grid', v);
     S.datasets.forEach(function (ds, idx) {
-      var ch = S.changes.get(ds);
       var nTs = ds.recs.filter(function (r) { return r.ts.length > 1 || r.chg; }).length;
       var ads = (ds.byType.AirportHeliport || []).slice().sort(function (a, b) { return M.shortName(a) < M.shortName(b) ? -1 : 1; });
       var card = document.createElement('div');
@@ -2075,7 +2089,7 @@
       '<p><b>Exports.</b> Any single section or the whole data set: JSON (with source references), Excel, printable PDF, print, or an e-mail to paste into Outlook (.eml opens as a draft).</p>' +
       '<p><b>Sources.</b> AIXM schemas, code lists and definitions from aixm.aero (4.5 r2, 5.1, 5.1.1, 5.2), AIXM temporality and feature-identification concepts, ICAO Annex 15 / PANS-AIM AIP structure. Base map: Natural Earth (public domain). Libraries: Leaflet, SheetJS, jsPDF, fflate, topojson.</p>' +
       '<p class="muted">Keyboard: <span class="kbd">Ctrl</span>+<span class="kbd">K</span> search · <span class="kbd">Esc</span> close panels.</p>' +
-      '<div class="about-box" id="about"><b>About</b><div>AIXM Code Converter — created by <b>Prasad Selvaraj</b> (<a href="mailto:prasad2t@gmail.com">prasad2t@gmail.com</a>).</div><div>© 2026 Prasad Selvaraj. Open source under the Apache License 2.0; redistributions must keep this attribution (see the NOTICE file).</div>' +
+      '<div class="about-box" id="about"><b>About · version ' + APP_INFO.version + '</b><div>AIXM Code Converter — created by <b>Prasad Selvaraj</b> (<a href="mailto:prasad2t@gmail.com">prasad2t@gmail.com</a>).</div><div>© 2026 Prasad Selvaraj. Open source under the Apache License 2.0; redistributions must keep this attribution (see the NOTICE file).</div>' +
       '<div class="muted" style="font-size:12px">Includes Leaflet (BSD-2), SheetJS CE (Apache-2.0), jsPDF and jsPDF-AutoTable (MIT), fflate (MIT), TopoJSON client and world-atlas (ISC), Natural Earth data (public domain), AIXM schemas and business rules © EUROCONTROL & FAA (aixm.aero).</div></div></div></div>';
     document.body.appendChild(back);
     back.addEventListener('click', function (e) { if (e.target === back || e.target.closest('[data-close]')) back.remove(); });

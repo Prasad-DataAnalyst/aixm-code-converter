@@ -14,8 +14,8 @@ var EXPORTS = (function () {
   var M = MODEL;
   var APP = 'AIXM Code Converter';
   // Author credit written into every exported file (Apache-2.0 NOTICE: must be kept by redistributors)
-  var AUTHOR = 'Prasad Selvaraj', AUTHOR_EMAIL = 'prasad2t@gmail.com';
-  var CREDIT = APP + ' - (c) 2026 ' + AUTHOR + ' <' + AUTHOR_EMAIL + '>';
+  var AUTHOR = APP_INFO.author, AUTHOR_EMAIL = APP_INFO.email;
+  var CREDIT = APP + ' ' + APP_INFO.version + ' - (c) ' + APP_INFO.year + ' ' + AUTHOR + ' <' + AUTHOR_EMAIL + '>';
 
   function flatSections(list) {
     var out = [];
@@ -222,7 +222,7 @@ var EXPORTS = (function () {
       doc.addImage(scope.mapImage, 'PNG', 10, y, ih / 0.62, ih);
       y += ih + 6;
     }
-    var MAXROWS = opt.maxRows || 5000;
+    var MAXROWS = opt.maxRows || APP_SETTINGS.pdfMaxRows;
     secs.forEach(function (s, si) {
       if (y > H - 30) { doc.addPage(); y = 16; }
       doc.setTextColor(BR[0], BR[1], BR[2]); doc.setFont('helvetica', 'bold'); doc.setFontSize(12);

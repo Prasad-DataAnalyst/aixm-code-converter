@@ -237,7 +237,7 @@ var AIP = (function () {
     var p = ad.cur.p, used = new Set();
     function n(props) { return M.notesOf(p, props, used); }
     var orgs = refsFrom(ds, ad, 'responsibleOrganisation');
-    var operator = orgs.map(function (o) { return join([M.label(ds, o), M.fContact(o.cur.p.contact)], '\n'); }).join('\n\n');
+    var operator = orgs.map(function (o) { return uniq(join([M.label(ds, o), M.fContact(o.cur.p.contact)], '\n').split('\n')).join('\n'); }).join('\n\n');
     var traffic = [];
     arr(p.availability).forEach(function (a) {
       arr(a && a.usage).forEach(function (u) {
@@ -396,7 +396,7 @@ var AIP = (function () {
     var thp = owned(ds, ad, ['TaxiHoldingPosition']);
     var thpl = owned(ds, ad, ['TaxiHoldingPositionLightSystem']);
     blocks.push(table('Stop bars and runway guard lights / holding positions', ['Holding position', 'Type', 'Category', 'Protected RWY', 'Lighting'], thp.map(function (r) {
-      var p = r.cur.p, l = refsTo(ds, r, ['TaxiHoldingPositionLightSystem']);
+      var l = refsTo(ds, r, ['TaxiHoldingPositionLightSystem']);
       return [C(M.label(ds, r), r), codeCell(r, 'type'), codeCell(r, 'landingCategory'), C(refsFrom(ds, r, 'protectedRunway').map(function (x) { return M.shortName(x); }).join(', '), r, 'protectedRunway'),
         C(l.map(function (x) { return join([s(x.cur.p.type), s(x.cur.p.colour)], ' '); }).join(', '), l[0] || r)];
     }), thpl.length ? thpl.length + ' taxi holding position light systems in the data set.' : ''));

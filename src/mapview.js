@@ -352,7 +352,7 @@ var MAPVIEW = (function () {
     Object.keys(over).forEach(function (k) { if (map.hasLayer(over[k])) map.removeLayer(over[k]); });
     over = {};
     vec = vec || L.canvas({ padding: 0.4, tolerance: 4 });
-    var T = ds.byType, lay;
+    var T = ds.byType;
     // airspace by category
     AS_CATS.forEach(function (c) { over['as_' + c[0]] = L.layerGroup(); });
     (T.Airspace || []).forEach(function (a) {
