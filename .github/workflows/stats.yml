@@ -1,0 +1,45 @@
+# AIXM Code Converter - Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com> - Apache-2.0
+# Daily download and traffic statistics, kept on the "stats" branch (GitHub shows traffic for 14 days only).
+# Summary: https://github.com/Prasad-DataAnalyst/aixm-code-converter/blob/stats/README.md
+# Page views / visitors / referring sites need the TRAFFIC_TOKEN secret (see tools/stats.js).
+name: Statistics
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: stats
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Open the stats branch (created on the first run)
+        run: |
+          if git fetch --depth=1 origin stats:stats; then git worktree add stats stats
+          else git worktree add --orphan -b stats stats; fi
+
+      - name: Collect
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TRAFFIC_TOKEN: ${{ secrets.TRAFFIC_TOKEN }}
+        run: node tools/stats.js stats
+
+      - name: Save
+        working-directory: stats
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet || git commit -q -m "Statistics $(date -u +%F)"
+          git push origin stats
