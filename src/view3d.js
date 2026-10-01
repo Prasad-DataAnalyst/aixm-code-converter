@@ -84,8 +84,12 @@ var VIEW3D = (function () {
       '<b class="v3d-title">3D view</b>' +
       '<select class="inp" data-3="mode" title="View"><option value="area">Area — terrain and airspace</option><option value="approach">Approach — crew view</option><option value="departure">Departure — crew view</option></select>' +
       '<select class="inp" data-3="ad" title="Aerodrome"></select><select class="inp" data-3="end" title="Runway"></select>' +
-      '<label class="v3d-sl" data-3="slwrap"><span data-3="sltxt"></span><input type="range" data-3="dist" min="0" max="15" step="0.1" value="8"></label>' +
-      '<button class="btn small" data-3="play" title="Fly the approach / departure">▶ Fly</button>' +
+      '<label class="v3d-sl" data-3="slwrap"><span data-3="sltxt"></span><input type="range" data-3="dist" min="0" max="15" step="0.05" value="8"></label>' +
+      '<span class="v3d-fly" data-3="flywrap"><button class="btn small primary" data-3="play" title="Fly the last 2 minutes of the approach / the first 2 minutes of the departure in real time">▶ Fly 2 min</button>' +
+      '<button class="btn small" data-3="pause" title="Pause / resume">⏸</button>' +
+      '<label title="Ground speed">GS <input class="inp" type="number" data-3="gs" min="60" max="300" step="5" value="140" style="width:64px"> kt</label>' +
+      '<select class="inp" data-3="rate" title="Playback speed"><option value="1">×1 real time</option><option value="2">×2</option><option value="4">×4</option></select>' +
+      '<b class="v3d-clock" data-3="clock"></b></span>' +
       '<select class="inp" data-3="ex" title="Vertical exaggeration"><option value="1">1× height</option><option value="2">2× height</option><option value="3" selected>3× height</option><option value="5">5× height</option></select>' +
       '<select class="inp" data-3="cap" title="Show airspace up to"><option value="3048">airspace to FL100</option><option value="6096">to FL200</option><option value="7620" selected>to FL250</option><option value="13716">to FL450</option><option value="18288">to FL600</option></select>' +
       '<span class="sp"></span><button class="btn small ghost" data-3="close" title="Close the 3D view">✕ Close 3D</button></div>' +
@@ -122,6 +126,7 @@ var VIEW3D = (function () {
     return b;
   }
   function build() {
+    stopFly(false);
     var my = ++V.gen;
     clearScene();
     V.bb = bboxFor();
@@ -434,12 +439,17 @@ var VIEW3D = (function () {
       return;
     }
     V.controls.enabled = false;
-    var g = crewGeo(), d = +q('dist').value, ap = V.opts.mode === 'approach';
+    if (!V.end || !V.rw) return;
+    var g = crewGeo(), d = V.fly ? V.fly.d : +q('dist').value, ap = V.opts.mode === 'approach';
     var p = AX.dest(g.ref[0], g.ref[1], g.back, d), alt = g.alt(d), look = ap ? AX.dest(g.ref[0], g.ref[1], g.hdg, 0.35) : AX.dest(p[0], p[1], g.hdg, 3);
     var lookAlt = ap ? g.refEl : alt + 3 * NMM * 0.02;
-    cam.fov = 55; cam.near = 5; cam.far = 120000; cam.updateProjectionMatrix();
+    if (cam.fov !== 55) { cam.fov = 55; cam.near = 5; cam.far = 120000; cam.updateProjectionMatrix(); }
     cam.position.copy(vec(p[0], p[1], alt));
     cam.lookAt(vec(look[0], look[1], lookAlt));
+    // the read-out is rebuilt at most 5 times a second while flying (the camera moves every frame)
+    var now = Date.now();
+    if (V.fly && V.fly.lastRead && now - V.fly.lastRead < 200) return;
+    if (V.fly) V.fly.lastRead = now;
     var gr = ground(p[0], p[1]), inside = column(p[0], p[1], alt);
     q('read').classList.remove('hidden');
     q('read').innerHTML = '<b>' + (ap ? 'Approach ' : 'Departure ') + esc('RWY ' + V.end.desig) + '</b> · ' + (ap ? (V.end.ils ? esc(V.end.ils.kind + ' ' + V.end.ils.ident) + ' · ' : '') + 'GP ' + g.ang.toFixed(1) + '°' : 'climb 3.3 % (200 ft/NM)') +
@@ -448,6 +458,7 @@ var VIEW3D = (function () {
       '<span>Terrain clearance</span><b class="' + (alt - gr < 1000 * FT ? 'v3d-warn' : '') + '">' + ft(alt - gr) + ' ft</b><span>Track</span><b>' + Math.round(g.hdg) + '°T</b></div>' +
       '<div class="v3d-sub">Airspace at this position</div>' + colHtml(inside);
     q('sltxt').textContent = d.toFixed(1) + ' NM';
+    q('dist').value = d;
   }
   function foot() {
     q('foot').textContent = 'Terrain: ' + V.terrainSrc + ' · vertical ×' + V.ex + (V.capped ? ' · area limited to 6° × 4.5° around the map centre' : '') +
@@ -487,18 +498,47 @@ var VIEW3D = (function () {
     V.ends = ends; V.rw = pick ? pick.rm : null; V.end = pick ? pick.e : null;
     if (pick) q('end').value = String(ends.indexOf(pick));
     var crew = V.opts.mode !== 'area';
-    q('end').style.display = crew ? '' : 'none'; q('slwrap').style.display = crew ? '' : 'none'; q('play').style.display = crew ? '' : 'none';
+    q('end').style.display = crew ? '' : 'none'; q('slwrap').style.display = crew ? '' : 'none'; q('flywrap').style.display = crew ? '' : 'none';
+    q('gs').value = V.opts.mode === 'departure' ? 160 : 140;
+  }
+  // Fly: the last 2 minutes of the approach (to the threshold) or the first 2 minutes of the departure (from the
+  // departure end), in real time at the chosen ground speed; ×2 / ×4 playback; pause / resume; time-based animation
+  function stopFly(keep) {
+    if (!V || !V.fly) return;
+    cancelAnimationFrame(V.fly.raf);
+    var d = V.fly.d;
+    V.fly = null;
+    q('play').textContent = '▶ Fly 2 min'; q('pause').textContent = '⏸'; q('clock').textContent = '';
+    if (keep) { q('dist').value = d; placeCamera(); }
   }
   function fly() {
-    if (V.flying) { clearInterval(V.flying); V.flying = null; q('play').textContent = '▶ Fly'; return; }
-    var ap = V.opts.mode === 'approach', sl = q('dist');
-    sl.value = ap ? 15 : 0;
+    if (V.fly) { stopFly(true); return; }
+    if (V.opts.mode === 'area' || !V.end) return;
+    var ap = V.opts.mode === 'approach', gs = Math.max(60, Math.min(300, +q('gs').value || (ap ? 140 : 160)));
+    var span = gs * 2 / 60; // NM flown in 2 minutes
+    V.fly = { ap: ap, gs: gs, d: ap ? Math.min(15, span) : 0, end: ap ? 0 : Math.min(15, span), paused: false, last: performance.now(), lastRead: 0 };
     q('play').textContent = '■ Stop';
-    V.flying = setInterval(function () {
-      var v = +sl.value + (ap ? -0.05 : 0.05);
-      if (ap ? v <= 0 : v >= 15) { v = ap ? 0 : 15; clearInterval(V.flying); V.flying = null; q('play').textContent = '▶ Fly'; }
-      sl.value = v; placeCamera();
-    }, 40);
+    function step(tnow) {
+      var f = V && V.fly;
+      if (!f) return;
+      var dt = Math.min(0.5, (tnow - f.last) / 1000); // seconds (capped: a tab hidden for a while does not jump ahead)
+      f.last = tnow;
+      if (!f.paused) {
+        var dd = f.gs / 3600 * dt * (+q('rate').value || 1);
+        f.d = f.ap ? Math.max(f.end, f.d - dd) : Math.min(f.end, f.d + dd);
+      }
+      var left = Math.abs(f.d - f.end) / f.gs * 3600, mm = Math.floor(left / 60), ss = Math.floor(left % 60);
+      q('clock').textContent = (f.ap ? 'THR in ' : 'end in ') + mm + ':' + ('0' + ss).slice(-2);
+      placeCamera();
+      if (f.d === f.end) { f.lastRead = 0; placeCamera(); stopFly(true); return; }
+      f.raf = requestAnimationFrame(step);
+    }
+    V.fly.raf = requestAnimationFrame(step);
+  }
+  function pauseFly() {
+    if (!V.fly) return;
+    V.fly.paused = !V.fly.paused;
+    q('pause').textContent = V.fly.paused ? '▶' : '⏸';
   }
 
   /* --------------------------------------------------------------- open */
@@ -533,8 +573,9 @@ var VIEW3D = (function () {
       else if (k === 'end') { var x = V.ends[+e.target.value]; if (x) { V.rw = x.rm; V.end = x.e; V.opts.end = x.e.desig; } build(); }
       else if (k === 'ex' || k === 'cap' || e.target.hasAttribute('data-l')) build();
     });
-    q('dist').addEventListener('input', function () { placeCamera(); });
+    q('dist').addEventListener('input', function () { stopFly(false); placeCamera(); });
     q('play').addEventListener('click', fly);
+    q('pause').addEventListener('click', pauseFly);
     q('close').addEventListener('click', close);
     renderer.domElement.addEventListener('pointermove', onMove);
     renderer.domElement.addEventListener('click', onClick);
@@ -546,8 +587,9 @@ var VIEW3D = (function () {
   }
   function close() {
     if (!V) return;
+    if (V.fly) cancelAnimationFrame(V.fly.raf);
     var v = V; V = null;
-    cancelAnimationFrame(v.raf); if (v.flying) clearInterval(v.flying); if (v.ro) v.ro.disconnect();
+    cancelAnimationFrame(v.raf); if (v.ro) v.ro.disconnect();
     var cur = V; V = v; clearScene(); V = cur;
     v.controls.dispose(); v.renderer.dispose(); v.el.remove();
   }

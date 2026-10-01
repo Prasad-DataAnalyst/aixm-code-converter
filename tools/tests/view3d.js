@@ -38,6 +38,24 @@ async function run(browser, file, icao, tag, errors, fails) {
   await page.evaluate(() => { const sl = document.querySelector('[data-3="dist"]'); sl.value = 3; sl.dispatchEvent(new Event('input')); });
   await page.waitForTimeout(400);
   await page.screenshot({ path: OUT + '/' + tag + '_approach3nm.png' });
+  // Fly: last 2 minutes of the approach at 140 kt (starts 4.7 NM out), ×4 playback, pause / resume
+  await page.selectOption('[data-3="rate"]', '4');
+  await page.click('[data-3="play"]');
+  await page.waitForTimeout(300);
+  const d0 = await page.evaluate(() => VIEW3D.state().fly && VIEW3D.state().fly.d);
+  await page.waitForTimeout(2000);
+  const d1 = await page.evaluate(() => VIEW3D.state().fly && VIEW3D.state().fly.d);
+  const clock = await page.evaluate(() => document.querySelector('[data-3="clock"]').textContent);
+  console.log(tag, 'fly: start', d0 && d0.toFixed(2), 'NM, after 2 s at x4', d1 && d1.toFixed(2), 'NM,', clock);
+  if (!(d0 > 4.3 && d0 <= 4.7)) fails.push(tag + ' fly start distance ' + d0);
+  if (!(d0 - d1 > 0.2 && d0 - d1 < 0.45)) fails.push(tag + ' fly speed (moved ' + (d0 - d1) + ' NM in 2 s at x4)');
+  await page.click('[data-3="pause"]'); await page.waitForTimeout(150);
+  const p1 = await page.evaluate(() => VIEW3D.state().fly.d); await page.waitForTimeout(800);
+  const p2 = await page.evaluate(() => VIEW3D.state().fly.d);
+  if (p1 !== p2) fails.push(tag + ' fly pause');
+  await page.screenshot({ path: OUT + '/' + tag + '_fly.png' });
+  await page.click('[data-3="play"]'); // stop
+  if (await page.evaluate(() => !!VIEW3D.state().fly)) fails.push(tag + ' fly stop');
   // departure
   await page.selectOption('[data-3="mode"]', 'departure');
   await page.waitForFunction(() => /Departure/.test(document.querySelector('[data-3="read"]').innerText), null, { timeout: 20000 });
