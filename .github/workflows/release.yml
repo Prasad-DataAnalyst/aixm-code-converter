@@ -51,7 +51,7 @@ jobs:
           cat SHA256SUMS.txt
 
       - name: Signed build record (provenance) of the released files
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             AIXM-Code-Converter.html
