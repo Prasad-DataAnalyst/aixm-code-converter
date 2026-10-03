@@ -11,7 +11,9 @@ on:
     tags: ['v*']
 
 permissions:
-  contents: write
+  contents: write      # create the release
+  id-token: write      # sign the build record (attestation)
+  attestations: write
 
 jobs:
   release:
@@ -42,8 +44,18 @@ jobs:
           fi
           echo "TAG=v$v" >> "$GITHUB_ENV"
 
-      - name: Package
-        run: zip -j AIXM-Code-Converter.zip AIXM-Code-Converter.html LICENSE NOTICE README.md CHANGELOG.md
+      - name: Package and checksums
+        run: |
+          zip -j AIXM-Code-Converter.zip AIXM-Code-Converter.html LICENSE NOTICE README.md CHANGELOG.md
+          sha256sum AIXM-Code-Converter.html AIXM-Code-Converter.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Signed build record (provenance) of the released files
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            AIXM-Code-Converter.html
+            AIXM-Code-Converter.zip
 
       - name: Publish the release
         env:
@@ -57,10 +69,13 @@ jobs:
           **How to use:** download `AIXM-Code-Converter.html` below and double-click it (Chrome or Edge).
           No installation, no server, works offline; your data never leaves your computer.
 
+          **Verify the download:** compare its SHA-256 with `SHA256SUMS.txt`, or run
+          `gh attestation verify AIXM-Code-Converter.html --repo Prasad-DataAnalyst/aixm-code-converter` (see SECURITY.md).
+
           ⚠️ For study, analysis and data review — not for operational use.
 
           © 2026 Prasad Selvaraj · Apache License 2.0 · see CHANGELOG.md for the full list of features.
           EOF
-          gh release create "$TAG" AIXM-Code-Converter.html AIXM-Code-Converter.zip \
+          gh release create "$TAG" AIXM-Code-Converter.html AIXM-Code-Converter.zip SHA256SUMS.txt \
             --target "$GITHUB_SHA" \
             --title "AIXM Code Converter $TAG" --notes-file notes.md --latest

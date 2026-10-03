@@ -1,0 +1,30 @@
+# AIXM Code Converter - Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com> - Apache-2.0
+# Code scanning (CodeQL) of the JavaScript sources on every push / pull request to main and weekly.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '23 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          config: |
+            paths: [src, tools]
+            paths-ignore: [tools/node_modules, AIXM-Code-Converter.html]
+      - uses: github/codeql-action/analyze@v3

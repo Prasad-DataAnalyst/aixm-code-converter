@@ -1,0 +1,11 @@
+name: Feature request
+description: Suggest an improvement or new feature
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes: { label: "What would you like to do?", description: "Your task in AIS / AIM / charting / data work" }
+    validations: { required: true }
+  - type: textarea
+    id: idea
+    attributes: { label: Proposed solution, description: "Optional: how it could work, examples, ICAO / AIXM references" }

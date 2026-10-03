@@ -89,6 +89,13 @@ to read would not fit, **Lite mode** (light and marking elements counted instead
 tool says so; Lite is also used when all loaded files together exceed 1.5 GB. *Dashboard → Remove* frees the memory of
 a data set. The full XML of every feature is always shown from the file.
 
+## Safe download
+
+Download only from this repository's [releases](https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases).
+Every release is built by GitHub Actions from the source here and lists the SHA-256 checksums (`SHA256SUMS.txt`)
+and a signed build record of its files — see [SECURITY.md](SECURITY.md) for how to verify a file and how to report a
+security problem privately.
+
 ## Supported input
 
 | Version | Detected by | Notes |

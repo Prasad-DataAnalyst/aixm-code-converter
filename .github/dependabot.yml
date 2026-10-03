@@ -1,0 +1,10 @@
+# Weekly update proposals (pull requests) for the build/test tools and the GitHub Actions used by the workflows
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /tools
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
