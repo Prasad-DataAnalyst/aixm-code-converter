@@ -62,7 +62,8 @@
   var AUTHOR_LINE = APP_INFO.name + ' ' + APP_INFO.version + ' — © ' + APP_INFO.year + ' ' + AUTHOR + ' · ' + AUTHOR_EMAIL + ' · Apache-2.0';
   try { console.info('%c AIXM Code Converter %c © 2026 ' + AUTHOR + ' <' + AUTHOR_EMAIL + '> · Apache-2.0 ', 'background:#0b2a4a;color:#fff;font-weight:bold;padding:2px 6px', 'color:#0b2a4a'); } catch (e) { /* no console */ }
   function dsOf() { return S.datasets[S.active] || null; }
-  var LITE_AUTO = APP_SETTINGS.liteAutoBytes;
+  // Lite memory mode (Auto) starts at a lower size on phones and tablets
+  function liteAuto() { return DEVICE.isPhone() ? APP_SETTINGS.liteAutoPhone : DEVICE.isTablet() ? APP_SETTINGS.liteAutoTablet : APP_SETTINGS.liteAutoBytes; }
   try { S.memMode = localStorage.getItem('aixm-mem') || 'auto'; } catch (e) { S.memMode = 'auto'; }
   try { M.setLocator(MAPVIEW.countryAt); } catch (e) { /* map data missing */ }
   function copyText(txt) { EXPORTS.copyText(txt).then(function (ok) { toast(ok ? 'Copied to the clipboard' : 'Copy failed — select the text manually'); }); }
@@ -109,10 +110,10 @@
     ['changes', 'Changes', I.changes], ['timeline', 'Timeline', I.timeline], ['compare', 'Compare', I.compare], ['notam', 'NOTAM', I.notam], ['quality', 'Quality', I.check], ['explorer', 'Explorer', I.list], null,
     ['export', 'Export', I.export], ['charts', 'Digital charts', I.charts], ['about', 'About', I.info]
   ];
-  /* ------------------------------------------------- phone layout (≤ 760 px) */
-  // Only for small screens: the desktop layout is unchanged. Search opens from a header button, the AIP and Explorer
-  // section lists fold behind a "Sections" button, the map opens without its layer panel.
-  function isPhone() { return !!(window.matchMedia && window.matchMedia('(max-width: 760px)').matches); }
+  /* ------------------------------------------------- phone and tablet layouts */
+  // DEVICE (device.js) marks the page as phone, tablet or desktop; the styles for phones and tablets apply only
+  // there, the desktop layout is unchanged. Phones (and tablets held upright): search opens from a header button,
+  // the AIP and Explorer section lists fold behind a "☰" button, the map opens without its layer panel.
   $('#m-search-btn').addEventListener('click', function () {
     var on = document.body.classList.toggle('m-search');
     if (on) $('#search').focus(); // inside the tap, so phones open the keyboard
@@ -123,9 +124,13 @@
     b.className = 'm-side-btn'; b.type = 'button'; b.innerHTML = '☰ <span>' + label + '</span><span class="m-side-cur"></span>';
     b.onclick = function () { wrap.classList.toggle('side-open'); };
     wrap.insertBefore(b, wrap.firstChild);
-    // picking an entry closes the list again (phones)
+    // picking an entry closes the list again (where it folds: phones, tablets held upright)
     wrap.querySelector('.side').addEventListener('click', function (e) {
-      if (isPhone() && e.target.closest('.node[data-sec]:not([data-toggle]), [data-t]')) setTimeout(function () { wrap.classList.remove('side-open'); }, 0);
+      if (b.offsetParent && e.target.closest('.node[data-sec]:not([data-toggle]), [data-t]')) setTimeout(function () { wrap.classList.remove('side-open'); }, 0);
+    });
+    // a tap on the page beside the open list closes it
+    wrap.addEventListener('click', function (e) {
+      if (wrap.classList.contains('side-open') && b.offsetParent && !e.target.closest('.side, .m-side-btn')) wrap.classList.remove('side-open');
     });
   }
   function renderNav() {
@@ -135,7 +140,7 @@
       var dis = !has && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about' && v[0] !== 'charts';
       return '<button data-view="' + v[0] + '" class="' + (S.view === v[0] ? 'active' : '') + '"' + (dis ? ' disabled' : '') + ' title="' + v[1] + '">' + v[2] + '<span>' + v[1] + '</span></button>';
     }).join('') + '<div class="nav-credit" data-about="1" title="' + AUTHOR_LINE + '">© 2026<br>Prasad Selvaraj</div>';
-    if (isPhone()) { var act = $('#nav .active'); if (act && act.scrollIntoView) act.scrollIntoView({ inline: 'center', block: 'nearest' }); }
+    if (DEVICE.isPhone()) { var act = $('#nav .active'); if (act && act.scrollIntoView) act.scrollIntoView({ inline: 'center', block: 'nearest' }); }
   }
   $('#nav').addEventListener('click', function (e) {
     if (e.target.closest('[data-about]')) { go('about'); return; }
@@ -149,6 +154,21 @@
     '<a href="mailto:' + esc(AUTHOR_EMAIL) + '">' + esc(AUTHOR_EMAIL) + '</a>' +
     '<a href="' + esc(APP_INFO.linkedin) + '" target="_blank" rel="noopener">LinkedIn: ' + esc(APP_INFO.linkedin.replace(/^https:\/\/(www\.)?/, '').replace(/\/$/, '')) + '</a>' +
     '<span>' + esc(APP_INFO.name) + ' v' + esc(APP_INFO.version) + ' · Apache License 2.0</span></div>';
+  // phones and tablets: choose the layout (automatic, phone, tablet or desktop); not shown on computers
+  function footHtml() {
+    if (!DEVICE.touch && !DEVICE.chosen()) return FOOT_HTML;
+    var c = DEVICE.chosen() || 'auto';
+    var opts = [['auto', 'Automatic'], ['phone', 'Phone'], ['tablet', 'Tablet'], ['desktop', 'Desktop']].map(function (o) {
+      return '<option value="' + o[0] + '"' + (o[0] === c ? ' selected' : '') + '>' + o[1] + (o[0] === 'auto' ? ' (' + DEVICE.kind() + ')' : '') + '</option>';
+    }).join('');
+    return FOOT_HTML.replace(/<\/div>$/, '<label class="foot-layout">Layout <select id="layout-sel">' + opts + '</select></label></div>');
+  }
+  document.addEventListener('change', function (e) {
+    if (e.target.id !== 'layout-sel') return;
+    DEVICE.choose(e.target.value);
+    $$('#main .app-foot').forEach(function (f) { f.remove(); }); placeFoot();
+  });
+  DEVICE.onChange(function () { $$('#main .app-foot').forEach(function (f) { f.remove(); }); placeFoot(); renderNav(); });
   function footTarget() {
     var m = $('#main'), ex = $('#ex-list', m);
     return $('#aip-content', m) || (ex && ex.parentNode) || $('#map-panel', m) || $('.view', m);
@@ -161,7 +181,7 @@
     var last = t.lastElementChild;
     if (last && last.classList.contains('app-foot') && $$('#main .app-foot').length === 1) return;
     $$('#main .app-foot').forEach(function (f) { f.remove(); });
-    t.insertAdjacentHTML('beforeend', FOOT_HTML);
+    t.insertAdjacentHTML('beforeend', footHtml());
   }
   new MutationObserver(function () { if (!footQueued) { footQueued = true; Promise.resolve().then(placeFoot); } }).observe($('#main'), { childList: true, subtree: true });
   function go(view, opts) {
@@ -198,11 +218,13 @@
 
   /* ======================================================== FILES VIEW */
   function viewFiles(v) {
+    var tch = DEVICE.touch; // phones and tablets: tap to choose, files from the device
     v.innerHTML =
-      '<h1 class="view-title">Open AIXM files</h1><p class="view-sub">Drop one or more AIXM files (any version — 4.5, 5.1, 5.1.1 or 5.2, also inside .zip archives). The version is detected automatically. Nothing leaves this computer.</p>' +
+      '<h1 class="view-title">Open AIXM files</h1><p class="view-sub">' + (tch ? 'Choose' : 'Drop') + ' one or more AIXM files (any version — 4.5, 5.1, 5.1.1 or 5.2, also inside .zip archives). The version is detected automatically. Nothing leaves this ' + (tch ? 'device' : 'computer') + '.</p>' +
       '<div class="hero"><div class="drop" id="drop"><div class="drop-icon">' + I.upload.replace('<svg', '<svg width="30" height="30"') + '</div>' +
-      '<h2>Drop AIXM files here</h2><div class="muted">or click to browse · .xml .aixm .gml .zip · one file per State or many</div>' +
-      '<div class="row" style="margin-top:6px"><span class="chip brand">AIXM 4.5</span><span class="chip brand">5.1</span><span class="chip brand">5.1.1</span><span class="chip brand">5.2</span><span class="chip">up to several GB</span></div></div>' +
+      (tch ? '<h2>Tap to choose AIXM files</h2><div class="muted">from Files, Downloads, iCloud Drive or Google Drive · .xml .aixm .gml .zip</div>'
+        : '<h2>Drop AIXM files here</h2><div class="muted">or click to browse · .xml .aixm .gml .zip · one file per State or many</div>') +
+      '<div class="row" style="margin-top:6px"><span class="chip brand">AIXM 4.5</span><span class="chip brand">5.1</span><span class="chip brand">5.1.1</span><span class="chip brand">5.2</span><span class="chip">' + (tch ? 'very large files: use a computer' : 'up to several GB') + '</span></div></div>' +
       '<div class="how card card-pad"><h3>How it works</h3>' +
       step(1, 'Add files', 'Drag & drop or browse. Each file is checked instantly: AIXM version, root element, size.') +
       step(2, 'Extract', 'Press <b>Extract</b>. Large files are read in parallel streams — results appear while reading.') +
@@ -303,7 +325,7 @@
     var busy = S.files.some(function (f) { return f.status === 'parsing' || f.status === 'indexing'; });
     if (!S.files.length) { bar.classList.add('hidden'); return; }
     bar.classList.remove('hidden');
-    var big = S.files.some(function (f) { return f.size > LITE_AUTO; }) || memPlan(ready).lite;
+    var big = S.files.some(function (f) { return f.size > liteAuto(); }) || memPlan(ready).lite;
     bar.innerHTML = '<div class="grow"><b>' + S.files.length + ' file(s)</b> <span class="muted">· ' + ready.length + ' ready to extract · parallel threads: ' + threads() + '</span></div>' +
       '<label class="muted" title="Lite keeps less detail in memory (individual light and marking elements are counted, not stored) so files of 2–5 GB fit in the browser. Auto uses Lite when all loaded files together exceed 1.5 GB or would not fit in the memory left.">Memory ' +
       '<select class="inp small" id="mem-mode"><option value="auto">Auto' + (big ? ' (Lite for large files)' : '') + '</option><option value="full">Full detail</option><option value="lite">Lite (2–5 GB files)</option></select></label>' +
@@ -399,13 +421,15 @@
   function memPlan(list) {
     var add = list.reduce(function (n, f) { return n + f.size; }, 0), mi = memInfo();
     var plan = { total: loadedBytes() + add, lite: false, warn: '' };
-    if (S.memMode === 'lite' || (S.memMode !== 'full' && plan.total > LITE_AUTO)) plan.lite = true;
+    if (S.memMode === 'lite' || (S.memMode !== 'full' && plan.total > liteAuto())) plan.lite = true;
     if (mi) {
       var need = mi.used + add * MEM_PER_BYTE, free = mi.limit * 0.85;
       if (need > free && S.memMode !== 'full') plan.lite = true;
       if (need > free) plan.warn = 'These files need about ' + fmtSize(add * MEM_PER_BYTE) + ' of memory; ' + fmtSize(Math.max(0, mi.limit - mi.used)) + ' is left in this browser tab. ' +
         (S.datasets.length ? 'Remove data sets you do not need (Dashboard → Remove) and read the files again, or ' : '') + 'read fewer files at a time.' + (plan.lite ? ' Lite memory mode is used.' : '');
     }
+    var lim = DEVICE.isPhone() ? APP_SETTINGS.warnPhone : DEVICE.isTablet() ? APP_SETTINGS.warnTablet : 0;
+    if (lim && plan.total > lim && !plan.warn) plan.warn = fmtSize(plan.total) + ' of AIXM data is a lot for a ' + DEVICE.kind() + ': the browser may close the page when it runs out of memory. ' + (plan.lite ? 'Lite memory mode is used; f' : 'F') + 'or files this size a computer works best.';
     return plan;
   }
   async function extractAll() {
@@ -434,7 +458,7 @@
       var nParts = Math.max(1, Math.min(threads(), Math.floor(size / (6 * 1024 * 1024)) || 1));
       if (sn.family === '45' && sn.isUpdate) nParts = Math.min(nParts, 4);
       var ds = { id: f.id, name: f.name, file: f.file, size: size, sniff: sn, family: sn.family, version: sn.version, recs: [], partLines: new Array(nParts), viewDate: S.asOf };
-      var liteOn = S.memMode === 'lite' || (S.memMode !== 'full' && (size > LITE_AUTO || !!(plan && plan.lite)));
+      var liteOn = S.memMode === 'lite' || (S.memMode !== 'full' && (size > liteAuto() || !!(plan && plan.lite)));
       var cfg = { family: sn.family, names: featureNames(sn), aixmPrefixes: sn.aixmPrefixes, eventPrefixes: sn.eventPrefixes, gmlPrefixes: sn.gmlPrefixes, isUpdate: sn.isUpdate, effective: sn.header && sn.header.effective, lite: liteOn };
       ds.lite = liteOn;
       var done = new Array(nParts).fill(0), finished = 0, t0 = performance.now(), counts = 0, errors = 0, strs = new Interner();

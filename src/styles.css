@@ -642,45 +642,140 @@ pre, .xml, .notam-text { text-align: left; }
 .content > .app-foot { margin: 28px 22px 0; }
 .map-panel > .app-foot { margin-top: 14px; padding: 10px 0 2px; flex-direction: column; gap: 3px; font-size: 11px; }
 .explorer .app-foot { margin: 0; padding: 6px 10px; flex: none; }
-/* ------------------------------------------------ phone layout (≤ 760 px) */
-/* Small screens only: the desktop layout above is not changed. */
+/* ============================================================ phone and tablet layouts
+   Used only when device.js marks the page as a phone or a tablet: <html data-device="phone | tablet"
+   data-orient="portrait | landscape">. A computer is always "desktop", at any window size, so nothing below
+   changes the desktop layout. */
 .m-only, .topbar .m-only, .m-side-btn { display: none; }
-@media (max-width: 760px) {
-  .app { grid-template-rows: auto 1fr 60px; }
-  .topbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 6px 8px; min-height: 48px; }
-  .topbar::-webkit-scrollbar { display: none; }
-  .topbar > * { flex: none; }
-  .nav-credit { display: none; } /* the page footer carries the credit on phones */
-  .brand-sub { display: none; }
-  .brand-mark { width: 30px; height: 30px; }
-  .brand-title { font-size: 13.5px; }
-  .ver-badge { font-size: 9.5px; padding: 0 5px; margin-left: 3px; }
-  #state-btn { max-width: 44vw; }
-  .topbar select, .topbar .tb-btn, .topbar input[type="date"] { height: 30px; font-size: 12.5px; padding: 0 8px; }
-  .m-only, .topbar .m-only { display: inline-flex; font-size: 18px; }
-  body.m-search .topbar .search { display: block; position: fixed; top: 54px; left: 8px; right: 8px; max-width: none; margin: 0; z-index: 90; }
-  body.m-search .topbar .search input { background: #12355c; border-color: rgba(255, 255, 255, .45); height: 42px; font-size: 15px; box-shadow: var(--shadow-lg); }
-  .search-results .sr-item { flex-wrap: wrap; row-gap: 2px; } .search-results .sr-item > .chip { flex: none; } .search-results .sr-item > .grow { flex: 1 1 100%; order: 2; } .search-results .sr-item > small:last-child { margin-left: auto; }
-  .nav { scroll-snap-type: x proximity; scrollbar-width: none; }
-  .nav::-webkit-scrollbar { display: none; }
-  .nav button { scroll-snap-align: center; }
-  /* AIP and Explorer: the list folds behind a button */
-  .m-side-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: 0; border-bottom: 1px solid var(--border); background: var(--surface); color: var(--brand); font-weight: 700; font-size: 14px; cursor: pointer; text-align: left; }
-  .split, .explorer { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; }
-  .split > .side, .explorer > .side { display: none; max-height: 58vh; }
-  .split.side-open > .side, .explorer.side-open > .side { display: block; }
-  .sec-body, .tbl-wrap, .content .card { overflow-x: auto; }
-  .view { padding: 14px 12px 40px; }
-  /* map: full screen, tools in one row, panels as sheets */
-  .map-tools { top: 8px; left: 8px; right: 8px; flex-direction: row; overflow-x: auto; scrollbar-width: none; }
-  .map-tools::-webkit-scrollbar { display: none; }
-  .map-tools .btn { flex: none; }
-  .map-panel { top: 50px; left: 8px; right: 8px; width: auto; max-height: calc(100% - 110px); }
-  .map-adcard { top: auto; bottom: 30px; left: 8px; right: 8px; width: auto; max-width: none; max-height: 46%; }
-  .map-status { font-size: 10.5px; max-width: calc(100% - 110px); }
-  /* dialogs and pop-ups use the whole width */
-  .modal-back { padding: 8px; }
-  .modal { width: 100%; max-height: 92vh; border-radius: 12px; }
-  .drawer { width: 100% !important; max-width: 100%; }
-  .toasts, #toasts { left: 8px; right: 8px; bottom: 70px; }
+
+/* ---- phones and tablets: smooth touch scrolling, finger-size controls, no page zoom when a field is tapped,
+        no pull-to-refresh (it would reload the page and drop the loaded data) */
+:root[data-device="phone"], :root[data-device="tablet"] { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+:root[data-device="phone"] body, :root[data-device="tablet"] body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+:root[data-device="phone"] .app, :root[data-device="tablet"] .app { height: 100vh; height: 100dvh; } /* the visible height, with or without the browser bar */
+:root[data-device="phone"] :is(.view, .side, .vlist, .content, .detail-pane, .map-panel, .map-adcard, .modal, .drawer, .search-results, .state-pop, .nav),
+:root[data-device="tablet"] :is(.view, .side, .vlist, .content, .detail-pane, .map-panel, .map-adcard, .modal, .drawer, .search-results, .state-pop, .nav) { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+:root[data-device="phone"] :is(button, a, select, label, summary, .node, .vrow, .sr-item, .sp-i),
+:root[data-device="tablet"] :is(button, a, select, label, summary, .node, .vrow, .sr-item, .sp-i) { touch-action: manipulation; }
+:root[data-device="phone"] :is(input, select, textarea), :root[data-device="tablet"] :is(input, select, textarea) { font-size: 16px; } /* iOS zooms into smaller fields */
+/* a tap leaves no stuck hover colour; a short press colour instead */
+:root[data-device="phone"] .nav button:hover:not(.active), :root[data-device="tablet"] .nav button:hover:not(.active) { background: transparent; color: var(--muted); }
+:root[data-device="phone"] :is(.nav button, .btn, .tree .node, .vlist .vrow, .sr-item, .sp-i):active,
+:root[data-device="tablet"] :is(.nav button, .btn, .tree .node, .vlist .vrow, .sr-item, .sp-i):active { background: var(--brand-soft); }
+:root[data-device="phone"] .tree .node, :root[data-device="tablet"] .tree .node { padding: 9px 10px; }
+:root[data-device="phone"] .map-panel label.chk, :root[data-device="tablet"] .map-panel label.chk { padding: 5px 0; }
+:root[data-device="phone"] .map-panel input[type="checkbox"], :root[data-device="tablet"] .map-panel input[type="checkbox"] { width: 18px; height: 18px; }
+.foot-layout { display: inline-flex; align-items: center; gap: 6px; }
+.foot-layout select { height: 30px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); padding: 0 6px; }
+
+/* ---- section lists that fold behind a "☰" button (phones; tablets held upright): the AIP sections and the
+        Explorer feature types slide in over the page and close after a pick */
+:root[data-device="phone"] .m-side-btn, :root[data-device="tablet"][data-orient="portrait"] .m-side-btn {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: 0; border-bottom: 1px solid var(--border);
+  background: var(--surface); color: var(--brand); font-weight: 700; font-size: 14px; cursor: pointer; text-align: left; grid-row: 1; grid-column: 1; }
+:root[data-device="phone"] :is(.split, .explorer), :root[data-device="tablet"][data-orient="portrait"] :is(.split, .explorer) {
+  grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); position: relative; }
+:root[data-device="phone"] :is(.split, .explorer) > .side, :root[data-device="tablet"][data-orient="portrait"] :is(.split, .explorer) > .side {
+  display: none; position: absolute; grid-row: 2; grid-column: 1; top: 0; bottom: 0; left: 0; width: min(380px, 88%); max-height: none; z-index: 40;
+  border-right: 1px solid var(--border); border-bottom: 0; box-shadow: 8px 0 28px rgba(5, 18, 40, .22); }
+:root[data-device="phone"] :is(.split, .explorer).side-open > .side, :root[data-device="tablet"][data-orient="portrait"] :is(.split, .explorer).side-open > .side { display: block; }
+:root[data-device="phone"] :is(.split, .explorer) > .side ~ *, :root[data-device="tablet"][data-orient="portrait"] :is(.split, .explorer) > .side ~ * { grid-row: 2; grid-column: 1; min-height: 0; }
+:root[data-device="phone"] .explorer > .side, :root[data-device="tablet"][data-orient="portrait"] .explorer > .side { flex-direction: column; }
+:root[data-device="phone"] .explorer.side-open > .side, :root[data-device="tablet"][data-orient="portrait"] .explorer.side-open > .side { display: flex; }
+
+/* ---- phone: header in one row (swipe for more), search behind ⌕, page tabs at the bottom */
+:root[data-device="phone"] .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) 60px; }
+:root[data-device="phone"] .topbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 6px 8px; min-height: 48px; }
+:root[data-device="phone"] .topbar::-webkit-scrollbar { display: none; }
+:root[data-device="phone"] .topbar > * { flex: none; }
+:root[data-device="phone"] .topbar .sp, :root[data-device="phone"] .topbar .search, :root[data-device="phone"] .brand-sub, :root[data-device="phone"] .nav-credit { display: none; }
+:root[data-device="phone"] .brand-mark { width: 30px; height: 30px; }
+:root[data-device="phone"] .brand-title { font-size: 13.5px; }
+:root[data-device="phone"] .ver-badge { font-size: 9.5px; padding: 0 5px; margin-left: 3px; }
+:root[data-device="phone"] #state-btn { max-width: 44vw; }
+:root[data-device="phone"] :is(.topbar select, .topbar .tb-btn, .topbar input[type="date"]) { height: 32px; font-size: 13px; padding: 0 9px; }
+:root[data-device="phone"] .topbar .m-only { display: inline-flex; font-size: 18px; }
+:root[data-device="phone"] body.m-search .topbar .search {
+  display: block; position: fixed; top: 54px; left: 8px; right: 8px; max-width: none; min-width: 0; margin: 0; z-index: 90; }
+:root[data-device="phone"] body.m-search .topbar .search input {
+  background: #12355c; border-color: rgba(255, 255, 255, .45); height: 44px; box-shadow: var(--shadow-lg); }
+:root[data-device="phone"] .search-results .sr-item { flex-wrap: wrap; row-gap: 2px; }
+:root[data-device="phone"] .search-results .sr-item > .chip { flex: none; }
+:root[data-device="phone"] .search-results .sr-item > .grow { flex: 1 1 100%; order: 2; }
+:root[data-device="phone"] .search-results .sr-item > small:last-child { margin-left: auto; }
+:root[data-device="phone"] .state-pop { position: fixed; left: 8px !important; right: 8px !important; width: auto; top: 54px; max-height: 70vh; }
+:root[data-device="phone"] .nav { grid-row: 3; flex-direction: row; overflow-x: auto; overflow-y: hidden; border-right: 0; border-top: 1px solid var(--border); padding: 4px;
+  scroll-snap-type: x proximity; scrollbar-width: none; }
+:root[data-device="phone"] .nav::-webkit-scrollbar { display: none; }
+:root[data-device="phone"] .nav button { min-width: 64px; flex: none; scroll-snap-align: center; }
+:root[data-device="phone"] .nav .nav-sep { display: none; }
+:root[data-device="phone"] .view { padding: 14px 12px 40px; }
+:root[data-device="phone"] .view.full { padding: 0; }
+:root[data-device="phone"] :is(.sec-body, .tbl-wrap, .content .card) { overflow-x: auto; }
+:root[data-device="phone"] .content { min-width: 0; }
+/* map: full screen, tools in one row, layer panel and airport card as sheets */
+:root[data-device="phone"] .map-tools { top: 8px; left: 8px; right: 8px; flex-direction: row; overflow-x: auto; scrollbar-width: none; }
+:root[data-device="phone"] .map-tools::-webkit-scrollbar { display: none; }
+:root[data-device="phone"] .map-tools .btn { flex: none; }
+:root[data-device="phone"] .map-panel { top: 52px; left: 8px; right: 8px; width: auto; max-height: calc(100% - 112px); }
+:root[data-device="phone"] .map-adcard { top: auto; bottom: 30px; left: 8px; right: 8px; width: auto; max-width: none; max-height: 46%; }
+:root[data-device="phone"] .map-status { font-size: 10.5px; max-width: calc(100% - 110px); }
+/* dialogs and pop-ups use the whole width */
+:root[data-device="phone"] .modal-back { padding: 8px; }
+:root[data-device="phone"] .modal { width: 100%; max-height: 92vh; border-radius: 12px; }
+:root[data-device="phone"] .drawer { top: 48px; width: 100% !important; max-width: 100%; }
+:root[data-device="phone"] .toast-host { left: 8px; right: 8px; bottom: 70px; }
+
+/* ---- phone turned sideways: little height, so the page tabs move to a slim rail on the left */
+:root[data-device="phone"][data-orient="landscape"] .app { grid-template-columns: 64px minmax(0, 1fr); grid-template-rows: 44px minmax(0, 1fr); }
+:root[data-device="phone"][data-orient="landscape"] .topbar { min-height: 44px; padding: 4px 10px; }
+:root[data-device="phone"][data-orient="landscape"] .nav { grid-row: auto; flex-direction: column; overflow-x: hidden; overflow-y: auto; border-top: 0; border-right: 1px solid var(--border);
+  scroll-snap-type: y proximity; }
+:root[data-device="phone"][data-orient="landscape"] .nav button { min-width: 0; padding: 6px 2px 5px; font-size: 10px; }
+:root[data-device="phone"][data-orient="landscape"] .nav button svg { width: 20px; height: 20px; }
+:root[data-device="phone"][data-orient="landscape"] body.m-search .topbar .search { top: 48px; left: 72px; }
+:root[data-device="phone"][data-orient="landscape"] .state-pop { top: 48px; }
+:root[data-device="phone"][data-orient="landscape"] .drawer { top: 44px; }
+:root[data-device="phone"][data-orient="landscape"] .view { padding: 10px 16px 30px; }
+:root[data-device="phone"][data-orient="landscape"] .view.full { padding: 0; }
+:root[data-device="phone"][data-orient="landscape"] .map-panel { right: auto; width: min(340px, 60%); }
+:root[data-device="phone"][data-orient="landscape"] .map-adcard { top: 52px; bottom: 8px; left: auto; right: 8px; width: min(340px, 55%); max-height: none; }
+:root[data-device="phone"][data-orient="landscape"] .toast-host { bottom: 12px; left: 72px; }
+
+/* ---- tablet (iPad, Android tablets): the desktop arrangement with the page tabs on the left at every width,
+        finger-size controls; held upright the section lists fold and search sits behind ⌕ */
+:root[data-device="tablet"] .app { grid-template-columns: 76px minmax(0, 1fr); grid-template-rows: 56px minmax(0, 1fr); }
+:root[data-device="tablet"] .nav { grid-row: auto; flex-direction: column; overflow-x: hidden; overflow-y: auto; border-top: 0; border-right: 1px solid var(--border); padding: 8px 6px; }
+:root[data-device="tablet"] .nav button { min-width: 0; padding: 10px 2px 8px; }
+:root[data-device="tablet"] .nav .nav-sep { display: block; }
+:root[data-device="tablet"] .nav-credit { margin: auto 0 0; padding: 10px 2px 6px; min-width: 0; }
+:root[data-device="tablet"] .topbar { flex-wrap: nowrap; gap: 8px; padding: 0 12px; min-height: 0; }
+:root[data-device="tablet"] :is(.topbar select, .topbar .tb-btn, .topbar input[type="date"]) { height: 38px; border-radius: 19px; }
+:root[data-device="tablet"] .topbar .search input { height: 40px; border-radius: 20px; }
+:root[data-device="tablet"] .topbar .search svg { top: 11px; }
+:root[data-device="tablet"] .search-results { top: 46px; }
+:root[data-device="tablet"] .btn { height: 38px; }
+:root[data-device="tablet"] .btn.small { height: 34px; }
+:root[data-device="tablet"] .view { padding: 20px 22px 60px; }
+:root[data-device="tablet"] .view.full { padding: 0; }
+:root[data-device="tablet"] .side { max-height: none; border-bottom: 0; border-right: 1px solid var(--border); }
+:root[data-device="tablet"] .map-panel { width: 300px; }
+:root[data-device="tablet"] .drawer { top: 56px; }
+:root[data-device="tablet"] .brand { flex: none; }
+:root[data-device="tablet"] .topbar .search { min-width: 200px; margin-left: 4px; }
+:root[data-device="tablet"] .brand-sub { display: none; }
+:root[data-device="tablet"] #state-btn { max-width: 230px; }
+@media (max-width: 1199px) {
+  /* tablets narrower than 1200 px (all upright, most sideways): header in one row (swipe for more), search behind ⌕ */
+  :root[data-device="tablet"] .topbar { overflow-x: auto; scrollbar-width: none; }
+  :root[data-device="tablet"] .topbar::-webkit-scrollbar { display: none; }
+  :root[data-device="tablet"] .topbar > * { flex: none; }
+  :root[data-device="tablet"] .topbar .sp { flex: 1 0 0; display: block; }
+  :root[data-device="tablet"] .topbar .search, :root[data-device="tablet"] .brand-sub { display: none; }
+  :root[data-device="tablet"] .state-pop { position: fixed; top: 60px; left: auto !important; right: 12px !important; width: min(440px, calc(100% - 24px)); }
+  :root[data-device="tablet"] .topbar .m-only { display: inline-flex; font-size: 18px; }
+  :root[data-device="tablet"] body.m-search .topbar .search { display: block; position: fixed; top: 62px; left: 88px; right: 12px; max-width: 720px; min-width: 0; margin: 0 auto; z-index: 90; }
+  :root[data-device="tablet"] body.m-search .topbar .search input { background: #12355c; border-color: rgba(255, 255, 255, .45); height: 44px; box-shadow: var(--shadow-lg); }
+  :root[data-device="tablet"] .mem-chip { display: none; }
 }
+:root[data-device="tablet"][data-orient="portrait"] .map-adcard { top: auto; bottom: 40px; left: 12px; right: 12px; width: auto; max-width: none; max-height: 42%; }

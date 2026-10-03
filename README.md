@@ -12,7 +12,7 @@ comparison and exports. The user does not need to read AIXM/XML.
 ➡ **Download the file above, then double-click it to open it in Chrome or Edge.** There is nothing to install, no server
 and no internet requirement. No data leaves the computer. (Also as a [ZIP](https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases/latest/download/AIXM-Code-Converter.zip)
 with the licence, or from the [releases page](https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases).)
-On a phone or tablet, open the downloaded file in Chrome: the layout adapts to the small screen (large files need a computer).
+Phones and tablets get their own layout — see [Phones and tablets](#phones-and-tablets).
 
 ---
 
@@ -64,6 +64,39 @@ On a phone or tablet, open the downloaded file in Chrome: the layout adapts to t
 | **State detection** | STATE authority, ICAO location indicators (aerodromes, FIRs, NOTAM locations, procedure names, reference titles) and, if nothing else, the country under the data; a file with only a weak guess takes the State of a loaded file with the same ICAO prefix. |
 
 Theme: navy blue and white with magenta accents (the colours of ICAO aeronautical charts), in light and dark modes.
+
+## Phones and tablets
+
+The same file has three layouts. A computer always gets the **desktop** layout, at any window size; phones and
+tablets get layouts of their own, so the desktop view is never changed by them.
+
+| Layout | Devices | What changes |
+|---|---|---|
+| **Desktop** | Windows, Mac, Linux computers (also touch-screen laptops) | Nothing — as before |
+| **Tablet** | iPad, iPad Pro, iPad mini, Android tablets | Page tabs on the left, larger touch targets. Upright (and below 1200 px wide): header in one row, search behind ⌕, the AIP sections and Explorer types slide in from a ☰ button, the map opens with its layer panel closed. |
+| **Phone** | iPhone, Android phones | Page tabs at the bottom (a slim rail on the left when the phone is turned sideways), header in one row that swipes, search behind ⌕, section lists behind ☰, full-screen map with the layer panel and airport card as sheets, wide tables scroll inside their card. |
+
+**How the page knows the device.** When the file opens, a small script (`src/device.js`) decides before anything is
+drawn:
+
+1. *Is it a touch device?* Yes when the browser names a phone or tablet (iPhone, iPad, Android…; an iPad asking for
+   the desktop site says "Macintosh" but has a touch screen, which is checked too), or when its main pointer is a
+   finger (`pointer: coarse` with no hover). A computer with a mouse or trackpad is always *desktop*.
+2. *Phone or tablet?* A touch device whose window is narrower than 600 px, or lower than 500 px when turned sideways,
+   is a *phone*; otherwise a *tablet*. Turning the device or resizing a split-screen window re-checks it.
+
+The result is written on the page root (`<html data-device="phone|tablet|desktop" data-orient="portrait|landscape">`)
+and every phone or tablet style is scoped to it. To choose by hand, use **Layout** in the page footer on a phone or
+tablet (remembered), or add `?layout=phone`, `?layout=tablet`, `?layout=desktop` or `?layout=auto` to the address.
+
+**Fast on small devices.** The map is drawn at 2× resolution at most (phones have 3× screens), pull-to-refresh is
+switched off so data cannot be lost by a swipe, scrolling stays inside each panel, text fields are 16 px so iOS does
+not zoom, and the Lite memory mode starts at 150 MB on phones and 400 MB on tablets (1.5 GB on computers). Files of
+hundreds of MB are better read on a computer.
+
+**Opening the file.** Android: download the file, then open it from *Files* / *Downloads* with Chrome. iPhone and
+iPad: the Files app only previews an HTML file without running it, so open the tool from a web link in Safari or
+Chrome instead (the data still stays on the device).
 
 ## Performance (measured)
 
@@ -126,6 +159,7 @@ aixm-code-converter/
 ├── docs/ARCHITECTURE.md        developer guide
 ├── src/                        ← sources
 │   ├── config.js               name, version, author, licence and limits (one place)
+│   ├── device.js               phone / tablet / desktop detection (runs first; layouts scoped to it)
 │   ├── index.html              HTML shell (placeholders are filled by the build)
 │   ├── styles.css              design system (light/dark, print)
 │   ├── core.js                 sniffing, fast XML parser, AIXM 4.5/5.x conversion, GML geometry, temporality, AIRAC
@@ -159,7 +193,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.2.2, set in `src/config.js`; version 2 will add digital charts).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.3.0, set in `src/config.js`; version 2 will add digital charts).
 
 ```bash
 cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core

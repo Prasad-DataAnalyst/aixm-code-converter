@@ -19,6 +19,9 @@
 /* global L, topojson, AX, MODEL, AIP, ADCHART, TERRAIN, VIEW3D */
 var MAPVIEW = (function () {
   'use strict';
+  // phones and tablets (device.js; the pop-out map window has no DEVICE and counts as a computer)
+  function devKind() { return document.documentElement.getAttribute('data-device') || 'desktop'; }
+  function touchDev() { return typeof DEVICE !== 'undefined' && DEVICE.touch; }
   var M = MODEL, s = M.s, arr = AX.arr;
   var map = null, hooks = null, el = {}, world50 = null, world10 = null, places = null;
   var base = { offline: null, current: 'offline', online: {} };
@@ -73,6 +76,7 @@ var MAPVIEW = (function () {
     _redraw: function () {
       if (!this._map) return;
       var size = this._map.getSize(), dpr = window.devicePixelRatio || 1, c = this._c;
+      if (touchDev()) dpr = Math.min(dpr, 2); // phones / tablets: 3x screens look the same at 2x and draw less than half
       c.width = size.x * dpr; c.height = size.y * dpr;
       c.style.width = size.x + 'px'; c.style.height = size.y + 'px';
       L.DomUtil.setPosition(c, this._map.containerPointToLayerPoint([0, 0]));
@@ -1005,7 +1009,7 @@ var MAPVIEW = (function () {
     h += '<div class="map-tools"><button class="btn small" id="map-fit" title="Zoom to data">⤢ Fit data</button><button class="btn small" id="map-measure" title="Measure distance and bearing">📏 Measure</button><button class="btn small" id="map-png" title="Save the current view as PNG">🖼 Save PNG</button><button class="btn small" id="map-print" title="Print or save the map as PDF: choose area, paper, legend, north arrow">🖨 Print map</button><button class="btn small" id="map-3d" title="3D view: terrain, airspace volumes with their vertical limits, approach and departure crew views">🗻 3D view</button><button class="btn small" id="map-panel-toggle">☰ Layers</button>' +
       (hooks.popout ? '<button class="btn small" id="map-popout" title="Open the map in its own window (for a second screen); the main window keeps the data">⧉ New window</button>' : '') +
       (hooks.dock ? '<button class="btn small" id="map-dock" title="Close this window and show the map in the main window again">⇲ Back to main window</button>' : '') + '</div>';
-    h += '<div class="card map-status" id="map-status">Move the mouse over the map</div>';
+    h += '<div class="card map-status" id="map-status">' + (touchDev() ? 'Tap the map to read the position' : 'Move the mouse over the map') + '</div>';
     return h;
   }
 
@@ -1014,7 +1018,7 @@ var MAPVIEW = (function () {
     opts = opts || {};
     container.innerHTML = '<div class="map-wrap"><div id="map"></div>' + panelHtml(datasets) + '<div class="card map-adcard hidden" id="map-adcard"></div></div>';
     var mdiv = container.querySelector('#map');
-    if (window.matchMedia && window.matchMedia('(max-width: 760px)').matches) container.querySelector('#map-panel').classList.add('hidden'); // phones: map first, Layers opens the panel
+    if (devKind() === 'phone' || (devKind() === 'tablet' && window.innerHeight > window.innerWidth)) container.querySelector('#map-panel').classList.add('hidden'); // phones, upright tablets: map first, Layers opens the panel
     VIEW3D.close();
     if (map) { map.remove(); map = null; base = { offline: null, current: 'offline', online: {} }; over = {}; vec = null; }
     live = []; state.adView = null; state.all = datasets; tipLayer = null;
@@ -1029,12 +1033,14 @@ var MAPVIEW = (function () {
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.control.scale({ imperial: true, metric: true, position: 'bottomleft' }).addTo(map);
     el.status = container.querySelector('#map-status');
-    map.on('mousemove', function (e) {
+    function showPos(e) {
       if (state.measure) return;
       var te = TERRAIN.elev(e.latlng.lng, e.latlng.lat);
       el.status.textContent = AX.fmtPos([e.latlng.lng, e.latlng.lat], 1) + '   (' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5) + ')   ' +
         (te > 0 ? 'terrain ≈ ' + Math.round(te / 0.3048).toLocaleString('en-US') + ' ft   ' : '') + 'zoom ' + map.getZoom();
-    });
+    }
+    map.on('mousemove', showPos);
+    if (touchDev()) map.on('click', showPos); // no mouse pointer on phones and tablets
     map.on('click', function (e) {
       if (state.measure) return;
       var cp = e.containerPoint, keys = ['cmpPts', 'pAd', 'pNav', 'pLgt', 'pDp', 'pObs', 'adChart'];

@@ -7,12 +7,20 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
-## 1.2.2 — 2026-10-03 — phone layout
+## 1.3.0 — 2026-10-03 — phone and tablet layouts
 
-- **Phone layout** (screens up to 760 px wide); the desktop view is unchanged. One-row top bar that scrolls sideways,
-  search opens from the ⌕ button, page tabs at the bottom; AIP sections and Explorer feature types open from a
-  "☰" button and close after a pick; the map opens full screen with the Layers panel closed and the airport card as a
-  bottom sheet; tables scroll sideways inside their card.
+- **Phone layout** (iPhone, Android phones) and **tablet layout** (iPad, Android tablets), upright and sideways. The
+  desktop layout is not changed: a computer gets it at every window size (checked pixel by pixel against 1.2.1).
+- The page identifies the device when it opens (`src/device.js`): touch device by browser name or finger pointer
+  (also an iPad asking for the desktop site), then phone or tablet by window size; re-checked on rotation.
+  **Layout** switch in the footer of phones and tablets; `?layout=phone|tablet|desktop|auto` in the address.
+- Phone: page tabs at the bottom (slim rail on the left when sideways), header in one swipeable row, search behind ⌕,
+  AIP sections and Explorer types slide in from ☰ and close after a pick, full-screen map, airport card and layers as
+  sheets. Tablet: page tabs on the left, larger touch targets; upright the same folding lists and ⌕ search.
+- Smooth on small devices: map canvas at most 2× resolution, no pull-to-refresh, scrolling kept inside panels, 16 px
+  fields (no iOS zoom), visible-height sizing (browser bars), Lite memory mode from 150 MB (phone) / 400 MB (tablet)
+  with a note for very large files; "Tap the map to read the position"; touch wording on the Files page.
+- Tests: `devices.js` (12 emulated phones, tablets and computers).
 
 ## 1.2.1 — 2026-10-03
 

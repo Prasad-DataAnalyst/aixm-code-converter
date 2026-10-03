@@ -9,7 +9,7 @@
  * ========================================================================== */
 var APP_INFO = Object.freeze({
   name: 'AIXM Code Converter',
-  version: '1.2.2',
+  version: '1.3.0',
   year: '2026',
   author: 'Prasad Selvaraj',
   email: 'prasad2t@gmail.com',
@@ -27,6 +27,10 @@ var APP_INFO = Object.freeze({
 });
 var APP_SETTINGS = Object.freeze({
   liteAutoBytes: 1.5 * 1024 * 1024 * 1024, // files above this size use the Lite memory mode (Auto)
+  liteAutoPhone: 150 * 1024 * 1024,        // the same on phones and tablets, which give a browser tab far less memory
+  liteAutoTablet: 400 * 1024 * 1024,
+  warnPhone: 400 * 1024 * 1024,            // above this total a phone / tablet shows a "use a computer" note
+  warnTablet: 900 * 1024 * 1024,
   cacheMaxBytes: 400 * 1024 * 1024,         // larger files are not copied into browser storage (reading the file again is as fast)
   maxThreads: 8,                          // parallel parser threads (capped by the CPU count)
   pdfMaxRows: 5000,                       // rows per table in PDF exports (Excel/JSON keep everything)
