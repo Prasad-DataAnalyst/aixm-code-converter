@@ -779,3 +779,6 @@ pre, .xml, .notam-text { text-align: left; }
   :root[data-device="tablet"] .mem-chip { display: none; }
 }
 :root[data-device="tablet"][data-orient="portrait"] .map-adcard { top: auto; bottom: 40px; left: 12px; right: 12px; width: auto; max-width: none; max-height: 42%; }
+/* phones and tablets: the section header (title, changes box, buttons) scrolls away with the page instead of staying
+   pinned on top, so the AIP content gets the whole screen; scrolling back up shows it again */
+:root[data-device="phone"] .sec-head, :root[data-device="tablet"] .sec-head { position: static; }

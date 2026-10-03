@@ -68,6 +68,10 @@ const CASES = [
       await page.locator('.side .node[data-sec]:not([data-toggle])').nth(2).click(); await page.waitForTimeout(200);
       if (await shown(page, '.split > .side')) bad('AIP sections should fold after a pick');
     } else if (!(await shown(page, '.split > .side'))) bad('AIP sections should be visible');
+    // the section header scrolls away on phones and tablets (stays pinned on computers)
+    await page.evaluate(() => window.__AIXM.go('aip')); await page.waitForTimeout(150);
+    const headGone = await page.evaluate((want) => { const c = document.querySelector('#aip-content'), h = c.querySelector('.sec-head'); if (c.scrollHeight - c.clientHeight < h.offsetHeight + 200) return want !== 'desktop'; c.scrollTop = h.offsetHeight + 200; return h.getBoundingClientRect().bottom <= c.getBoundingClientRect().top + 1; }, want);
+    if (headGone !== (want !== 'desktop')) bad('section header should ' + (want === 'desktop' ? 'stay pinned' : 'scroll away'));
     // the AIP page scrolls to its footer, and the footer is on screen
     await page.evaluate(() => { const c = document.querySelector('#aip-content'); c.scrollTop = c.scrollHeight; }); await page.waitForTimeout(200);
     const foot = await page.evaluate(() => { const f = document.querySelector('#aip-content .app-foot'); if (!f) return false; const r = f.getBoundingClientRect(), n = document.querySelector('#nav').getBoundingClientRect(); return r.height > 0 && r.top >= 0 && r.bottom <= innerHeight + 1 && !(n.top < r.bottom && n.bottom > r.top && n.left < r.right && n.right > r.left); });
