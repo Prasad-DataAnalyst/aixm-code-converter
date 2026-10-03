@@ -122,6 +122,28 @@
     var b = e.target.closest('button[data-view]');
     if (b && !b.disabled) go(b.getAttribute('data-view'));
   });
+  /* ---------------------------------------------------- footer on every page */
+  // Copyright, author, e-mail and LinkedIn at the end of every page: at the end of what scrolls (the page, the AIP
+  // section panel, the map's layer panel) or, for the Explorer's list, under it. Kept there whatever re-renders.
+  var FOOT_HTML = '<div class="app-foot"><span>© ' + esc(APP_INFO.year) + ' <b>' + esc(AUTHOR) + '</b></span>' +
+    '<a href="mailto:' + esc(AUTHOR_EMAIL) + '">' + esc(AUTHOR_EMAIL) + '</a>' +
+    '<a href="' + esc(APP_INFO.linkedin) + '" target="_blank" rel="noopener">LinkedIn: ' + esc(APP_INFO.linkedin.replace(/^https:\/\/(www\.)?/, '').replace(/\/$/, '')) + '</a>' +
+    '<span>' + esc(APP_INFO.name) + ' v' + esc(APP_INFO.version) + ' · Apache License 2.0</span></div>';
+  function footTarget() {
+    var m = $('#main'), ex = $('#ex-list', m);
+    return $('#aip-content', m) || (ex && ex.parentNode) || $('#map-panel', m) || $('.view', m);
+  }
+  var footQueued = false;
+  function placeFoot() {
+    footQueued = false;
+    var t = footTarget();
+    if (!t) return;
+    var last = t.lastElementChild;
+    if (last && last.classList.contains('app-foot') && $$('#main .app-foot').length === 1) return;
+    $$('#main .app-foot').forEach(function (f) { f.remove(); });
+    t.insertAdjacentHTML('beforeend', FOOT_HTML);
+  }
+  new MutationObserver(function () { if (!footQueued) { footQueued = true; Promise.resolve().then(placeFoot); } }).observe($('#main'), { childList: true, subtree: true });
   function go(view, opts) {
     // the map lives in its own window: send "show on map" there and keep the current view here
     if (view === 'map' && MAPWIN.isOpen() && !(opts && opts.docked)) { MAPWIN.apply(S.datasets, Object.assign({ cmp: S.cmp }, opts || {})); return; }

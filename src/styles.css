@@ -634,3 +634,11 @@ pre, .xml, .notam-text { text-align: left; }
 .xp-prev { overflow: auto; max-height: 300px; }
 @media (max-width: 860px) { .xp-grid { grid-template-columns: 1fr; } }
 .xp-cols b, .xp-sec b { white-space: nowrap; }
+/* footer on every page (copyright, author, e-mail, LinkedIn) */
+.app-foot { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin: 28px 0 0; padding: 14px 12px 6px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); text-align: center; }
+.app-foot a { color: var(--brand); text-decoration: none; }
+.app-foot a:hover { text-decoration: underline; }
+.app-foot b { color: var(--text); }
+.content > .app-foot { margin: 28px 22px 0; }
+.map-panel > .app-foot { margin-top: 14px; padding: 10px 0 2px; flex-direction: column; gap: 3px; font-size: 11px; }
+.explorer .app-foot { margin: 0; padding: 6px 10px; flex: none; }

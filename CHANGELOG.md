@@ -7,6 +7,11 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.2.1 — 2026-10-03
+
+- Footer at the end of every page (and of the AIP section panel, the map's layer panel and under the Explorer list):
+  © 2026 Prasad Selvaraj, e-mail and LinkedIn profile, version and licence. LinkedIn link also on the About page.
+
 ## 1.2.0 — 2026-10-01 — custom data export
 
 - **Custom data export** (Export page): choose one or several loaded files, the **aerodromes** (search; all, aerodromes

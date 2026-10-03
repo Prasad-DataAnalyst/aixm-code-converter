@@ -37,6 +37,14 @@ const ROOT = require('./_env').ROOT, OUT = require('./_env').out('theme_attribut
   await page.click('#help-btn'); await page.waitForSelector('#about');
   console.log('about box:', await page.evaluate(() => document.querySelector('#about').innerText.replace(/\s+/g, ' ').slice(0, 120)));
   await page.click('.modal-back [data-close]');
+  // footer with copyright, e-mail and LinkedIn at the end of every page
+  for (const v of ['files', 'dash', 'aip', 'map', 'changes', 'quality', 'explorer', 'export', 'about', 'charts']) {
+    await page.evaluate((x) => window.__AIXM.go(x), v); await page.waitForTimeout(400);
+    const f = await page.evaluate(() => { const l = document.querySelectorAll('#main .app-foot'); return l.length === 1 && l[0].parentElement.lastElementChild === l[0] ? l[0].innerHTML : 'count ' + l.length; });
+    if (!/© 2026 <b>Prasad Selvaraj<\/b>/.test(f) || !/mailto:prasad2t@gmail\.com/.test(f) || !/https:\/\/www\.linkedin\.com\/in\/prasadselvaraj\//.test(f)) { console.log('FAIL footer on ' + v + ': ' + f.slice(0, 120)); process.exitCode = 1; }
+  }
+  console.log('footer on every page: checked');
+  await page.evaluate(() => window.__AIXM.go('aip'));
   // dark theme
   await page.click('#theme-btn'); await page.waitForTimeout(300);
   await page.screenshot({ path: OUT + '/aip-dark.png' });

@@ -9,10 +9,11 @@
  * ========================================================================== */
 var APP_INFO = Object.freeze({
   name: 'AIXM Code Converter',
-  version: '1.2.0',
+  version: '1.2.1',
   year: '2026',
   author: 'Prasad Selvaraj',
   email: 'prasad2t@gmail.com',
+  linkedin: 'https://www.linkedin.com/in/prasadselvaraj/',
   license: 'Apache-2.0',
   credit: 'AIXM Code Converter (c) 2026 Prasad Selvaraj <prasad2t@gmail.com>, Apache-2.0',
   // safety notice, shown on the About page

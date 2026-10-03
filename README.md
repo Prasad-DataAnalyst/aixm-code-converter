@@ -1,6 +1,6 @@
 # AIXM Code Converter
 
-**Created by Prasad Selvaraj · [prasad2t@gmail.com](mailto:prasad2t@gmail.com)** · © 2026 Prasad Selvaraj · Open source under the
+**Created by Prasad Selvaraj · [prasad2t@gmail.com](mailto:prasad2t@gmail.com) · [LinkedIn](https://www.linkedin.com/in/prasadselvaraj/)** · © 2026 Prasad Selvaraj · Open source under the
 [Apache License 2.0](LICENSE) — redistributions must keep this attribution ([NOTICE](NOTICE)).
 
 **One offline HTML file** that reads AIXM files of any version and shows the aeronautical data the way an
@@ -151,7 +151,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.2.0, set in `src/config.js`; version 2 will add digital charts).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.2.1, set in `src/config.js`; version 2 will add digital charts).
 
 ```bash
 cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core
