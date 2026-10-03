@@ -1,7 +1,7 @@
 // AIXM Code Converter - Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com>
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 // Layout check: every main view at several window sizes, dark mode and Arabic (RTL); the page must not
-// scroll sideways and the top bar must not wrap off-screen. Screenshots go to tools/tests/out/layout.
+// scroll sideways and the top bar must not wrap off-screen (on phones it is one row that scrolls). Screenshots go to tools/tests/out/layout.
 const { ROOT, out, chrome, playwright } = require('./_env');
 const OUT = out('layout');
 const SIZES = [[1920, 1080], [1366, 768], [1024, 768], [820, 1180], [390, 844]];
@@ -19,8 +19,10 @@ const VIEWS = ['files', 'dash', 'aip', 'map', 'changes', 'timeline', 'compare', 
   await page.waitForFunction(() => window.__AIXM.S.view === 'dash', null, { timeout: 60000 });
   async function check(tag) {
     const r = await page.evaluate(() => {
-      const de = document.documentElement, tb = document.querySelector('.topbar').getBoundingClientRect();
-      const off = [...document.querySelectorAll('.topbar > *')].filter((e) => { const b = e.getBoundingClientRect(); return b.width && (b.right > innerWidth + 1 || b.left < -1); }).map((e) => e.id || e.className);
+      const de = document.documentElement, bar = document.querySelector('.topbar'), tb = bar.getBoundingClientRect();
+      // phones: the top bar is one row that scrolls sideways, so items past the edge are still reachable
+      const swipe = getComputedStyle(bar).overflowX === 'auto';
+      const off = swipe ? [] : [...document.querySelectorAll('.topbar > *')].filter((e) => { const b = e.getBoundingClientRect(); return b.width && (b.right > innerWidth + 1 || b.left < -1); }).map((e) => e.id || e.className);
       return { sideScroll: de.scrollWidth > innerWidth + 1, topbarH: Math.round(tb.height), off };
     });
     if (r.sideScroll) problems.push(tag + ': page scrolls sideways');

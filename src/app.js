@@ -109,6 +109,25 @@
     ['changes', 'Changes', I.changes], ['timeline', 'Timeline', I.timeline], ['compare', 'Compare', I.compare], ['notam', 'NOTAM', I.notam], ['quality', 'Quality', I.check], ['explorer', 'Explorer', I.list], null,
     ['export', 'Export', I.export], ['charts', 'Digital charts', I.charts], ['about', 'About', I.info]
   ];
+  /* ------------------------------------------------- phone layout (≤ 760 px) */
+  // Only for small screens: the desktop layout is unchanged. Search opens from a header button, the AIP and Explorer
+  // section lists fold behind a "Sections" button, the map opens without its layer panel.
+  function isPhone() { return !!(window.matchMedia && window.matchMedia('(max-width: 760px)').matches); }
+  $('#m-search-btn').addEventListener('click', function () {
+    var on = document.body.classList.toggle('m-search');
+    if (on) $('#search').focus(); // inside the tap, so phones open the keyboard
+  });
+  function sideToggle(wrap, label) {
+    if (!wrap) return;
+    var b = document.createElement('button');
+    b.className = 'm-side-btn'; b.type = 'button'; b.innerHTML = '☰ <span>' + label + '</span><span class="m-side-cur"></span>';
+    b.onclick = function () { wrap.classList.toggle('side-open'); };
+    wrap.insertBefore(b, wrap.firstChild);
+    // picking an entry closes the list again (phones)
+    wrap.querySelector('.side').addEventListener('click', function (e) {
+      if (isPhone() && e.target.closest('.node[data-sec]:not([data-toggle]), [data-t]')) setTimeout(function () { wrap.classList.remove('side-open'); }, 0);
+    });
+  }
   function renderNav() {
     var has = S.datasets.length > 0;
     $('#nav').innerHTML = VIEWS.map(function (v) {
@@ -116,6 +135,7 @@
       var dis = !has && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about' && v[0] !== 'charts';
       return '<button data-view="' + v[0] + '" class="' + (S.view === v[0] ? 'active' : '') + '"' + (dis ? ' disabled' : '') + ' title="' + v[1] + '">' + v[2] + '<span>' + v[1] + '</span></button>';
     }).join('') + '<div class="nav-credit" data-about="1" title="' + AUTHOR_LINE + '">© 2026<br>Prasad Selvaraj</div>';
+    if (isPhone()) { var act = $('#nav .active'); if (act && act.scrollIntoView) act.scrollIntoView({ inline: 'center', block: 'nearest' }); }
   }
   $('#nav').addEventListener('click', function (e) {
     if (e.target.closest('[data-about]')) { go('about'); return; }
@@ -949,6 +969,7 @@
       if (firstAd) { S.aipOpen[firstAd.id] = true; S.aipOpen.AD = true; }
     }
     v.innerHTML = '<div class="split"><div class="side" id="aip-side"></div><div class="content" id="aip-content"></div></div>';
+    sideToggle($('.split', v), 'AIP sections');
     renderTree(ds, cat);
     renderSection(ds, S.aipSel, opts.flash);
   }
@@ -2138,6 +2159,7 @@
       '<input class="inp" id="ex-q" placeholder="Search in this type…"><div class="btn-group"><button class="btn small" id="ex-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="ex-json">' + I.json + ' JSON</button></div></div>' +
       '<div class="row" style="padding:6px 26px;font-size:12px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border)"><span style="flex:2">Feature</span><span style="flex:1">AIP section</span><span style="flex:1">Effective from</span><span style="width:90px">Time slices</span><span style="width:80px">Line</span></div>' +
       '<div class="vlist grow" id="ex-list"></div></div></div>';
+    sideToggle($('.explorer', v), 'Feature types');
     var tl = $('#ex-types');
     function drawTypes() {
       var q = $('#ex-tf').value.toLowerCase();
@@ -2507,7 +2529,7 @@
     box.classList.remove('hidden');
     box._res = res;
   }
-  function closeSearch() { var b = $('#search-results'); if (b) b.classList.add('hidden'); }
+  function closeSearch() { var b = $('#search-results'); if (b) b.classList.add('hidden'); document.body.classList.remove('m-search'); }
   function pickSearch(i) {
     var box = $('#search-results'), x = box._res && box._res[i];
     if (!x) return;
@@ -2527,7 +2549,7 @@
     } else if (e.key === 'Enter') { if (cur >= 0) pickSearch(+items[cur].getAttribute('data-sr')); }
   });
   $('#search-results').addEventListener('click', function (e) { var n = e.target.closest('[data-sr]'); if (n) pickSearch(+n.getAttribute('data-sr')); });
-  document.addEventListener('click', function (e) { if (!e.target.closest('#search-wrap')) closeSearch(); });
+  document.addEventListener('click', function (e) { if (!e.target.closest('#search-wrap, #m-search-btn')) closeSearch(); });
 
   /* ------------------------------------------------------------- help */
   $('#help-btn').addEventListener('click', function () { showHelp(false); });

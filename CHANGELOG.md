@@ -7,6 +7,13 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.2.2 — 2026-10-03 — phone layout
+
+- **Phone layout** (screens up to 760 px wide); the desktop view is unchanged. One-row top bar that scrolls sideways,
+  search opens from the ⌕ button, page tabs at the bottom; AIP sections and Explorer feature types open from a
+  "☰" button and close after a pick; the map opens full screen with the Layers panel closed and the airport card as a
+  bottom sheet; tables scroll sideways inside their card.
+
 ## 1.2.1 — 2026-10-03
 
 - Footer at the end of every page (and of the AIP section panel, the map's layer panel and under the Explorer list):

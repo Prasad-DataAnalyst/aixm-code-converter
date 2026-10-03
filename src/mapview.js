@@ -1014,6 +1014,7 @@ var MAPVIEW = (function () {
     opts = opts || {};
     container.innerHTML = '<div class="map-wrap"><div id="map"></div>' + panelHtml(datasets) + '<div class="card map-adcard hidden" id="map-adcard"></div></div>';
     var mdiv = container.querySelector('#map');
+    if (window.matchMedia && window.matchMedia('(max-width: 760px)').matches) container.querySelector('#map-panel').classList.add('hidden'); // phones: map first, Layers opens the panel
     VIEW3D.close();
     if (map) { map.remove(); map = null; base = { offline: null, current: 'offline', online: {} }; over = {}; vec = null; }
     live = []; state.adView = null; state.all = datasets; tipLayer = null;

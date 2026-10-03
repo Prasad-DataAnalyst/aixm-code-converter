@@ -642,3 +642,45 @@ pre, .xml, .notam-text { text-align: left; }
 .content > .app-foot { margin: 28px 22px 0; }
 .map-panel > .app-foot { margin-top: 14px; padding: 10px 0 2px; flex-direction: column; gap: 3px; font-size: 11px; }
 .explorer .app-foot { margin: 0; padding: 6px 10px; flex: none; }
+/* ------------------------------------------------ phone layout (≤ 760 px) */
+/* Small screens only: the desktop layout above is not changed. */
+.m-only, .topbar .m-only, .m-side-btn { display: none; }
+@media (max-width: 760px) {
+  .app { grid-template-rows: auto 1fr 60px; }
+  .topbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 6px 8px; min-height: 48px; }
+  .topbar::-webkit-scrollbar { display: none; }
+  .topbar > * { flex: none; }
+  .nav-credit { display: none; } /* the page footer carries the credit on phones */
+  .brand-sub { display: none; }
+  .brand-mark { width: 30px; height: 30px; }
+  .brand-title { font-size: 13.5px; }
+  .ver-badge { font-size: 9.5px; padding: 0 5px; margin-left: 3px; }
+  #state-btn { max-width: 44vw; }
+  .topbar select, .topbar .tb-btn, .topbar input[type="date"] { height: 30px; font-size: 12.5px; padding: 0 8px; }
+  .m-only, .topbar .m-only { display: inline-flex; font-size: 18px; }
+  body.m-search .topbar .search { display: block; position: fixed; top: 54px; left: 8px; right: 8px; max-width: none; margin: 0; z-index: 90; }
+  body.m-search .topbar .search input { background: #12355c; border-color: rgba(255, 255, 255, .45); height: 42px; font-size: 15px; box-shadow: var(--shadow-lg); }
+  .search-results .sr-item { flex-wrap: wrap; row-gap: 2px; } .search-results .sr-item > .chip { flex: none; } .search-results .sr-item > .grow { flex: 1 1 100%; order: 2; } .search-results .sr-item > small:last-child { margin-left: auto; }
+  .nav { scroll-snap-type: x proximity; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav button { scroll-snap-align: center; }
+  /* AIP and Explorer: the list folds behind a button */
+  .m-side-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: 0; border-bottom: 1px solid var(--border); background: var(--surface); color: var(--brand); font-weight: 700; font-size: 14px; cursor: pointer; text-align: left; }
+  .split, .explorer { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; }
+  .split > .side, .explorer > .side { display: none; max-height: 58vh; }
+  .split.side-open > .side, .explorer.side-open > .side { display: block; }
+  .sec-body, .tbl-wrap, .content .card { overflow-x: auto; }
+  .view { padding: 14px 12px 40px; }
+  /* map: full screen, tools in one row, panels as sheets */
+  .map-tools { top: 8px; left: 8px; right: 8px; flex-direction: row; overflow-x: auto; scrollbar-width: none; }
+  .map-tools::-webkit-scrollbar { display: none; }
+  .map-tools .btn { flex: none; }
+  .map-panel { top: 50px; left: 8px; right: 8px; width: auto; max-height: calc(100% - 110px); }
+  .map-adcard { top: auto; bottom: 30px; left: 8px; right: 8px; width: auto; max-width: none; max-height: 46%; }
+  .map-status { font-size: 10.5px; max-width: calc(100% - 110px); }
+  /* dialogs and pop-ups use the whole width */
+  .modal-back { padding: 8px; }
+  .modal { width: 100%; max-height: 92vh; border-radius: 12px; }
+  .drawer { width: 100% !important; max-width: 100%; }
+  .toasts, #toasts { left: 8px; right: 8px; bottom: 70px; }
+}
