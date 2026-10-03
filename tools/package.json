@@ -18,7 +18,7 @@
     "jspdf-autotable": "^5.0.8",
     "leaflet": "^1.9.4",
     "playwright-core": "^1.63.0",
-    "three": "^0.147.0",
+    "three": "^0.186.1",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2",
     "xlsx": "^0.18.5"
