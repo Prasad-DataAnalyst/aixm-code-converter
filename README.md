@@ -160,6 +160,7 @@ aixm-code-converter/
 ├── src/                        ← sources
 │   ├── config.js               name, version, author, licence and limits (one place)
 │   ├── device.js               phone / tablet / desktop detection (runs first; layouts scoped to it)
+│   ├── feedback.js             feedback form to the author (e-mail file / share sheet, attachments)
 │   ├── index.html              HTML shell (placeholders are filled by the build)
 │   ├── styles.css              design system (light/dark, print)
 │   ├── core.js                 sniffing, fast XML parser, AIXM 4.5/5.x conversion, GML geometry, temporality, AIRAC
@@ -193,7 +194,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.3.1, set in `src/config.js`; version 2 will add digital charts).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.4.0, set in `src/config.js`; version 2 will add digital charts).
 
 ```bash
 cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core
@@ -240,6 +241,10 @@ that the committed `AIXM-Code-Converter.html` matches the sources, and all brows
   Excel and JSON always contain everything.
 
 ## Author and licence
+
+**Feedback:** use **✉ Send feedback** at the bottom of any page (or on the About page) — name, e-mail, organisation,
+position, subject, description and attachments go to the author through your own e-mail program (on a computer an
+e-mail file that Outlook opens ready to send; on a phone the share sheet). Or write to prasad2t@gmail.com.
 
 **AIXM Code Converter** was created by **Prasad Selvaraj** — [prasad2t@gmail.com](mailto:prasad2t@gmail.com).
 

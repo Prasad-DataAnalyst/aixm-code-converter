@@ -153,7 +153,13 @@
   var FOOT_HTML = '<div class="app-foot"><span>© ' + esc(APP_INFO.year) + ' <b>' + esc(AUTHOR) + '</b></span>' +
     '<a href="mailto:' + esc(AUTHOR_EMAIL) + '">' + esc(AUTHOR_EMAIL) + '</a>' +
     '<a href="' + esc(APP_INFO.linkedin) + '" target="_blank" rel="noopener">LinkedIn: ' + esc(APP_INFO.linkedin.replace(/^https:\/\/(www\.)?/, '').replace(/\/$/, '')) + '</a>' +
+    '<a href="#" data-feedback>✉ Send feedback</a>' +
     '<span>' + esc(APP_INFO.name) + ' v' + esc(APP_INFO.version) + ' · Apache License 2.0</span></div>';
+  // feedback form (feedback.js): from the footer of every page and the About page
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest || !e.target.closest('[data-feedback]')) return;
+    e.preventDefault(); FEEDBACK.open(toast);
+  });
   // phones and tablets: choose the layout (automatic, phone, tablet or desktop); not shown on computers
   function footHtml() {
     if (!DEVICE.touch && !DEVICE.chosen()) return FOOT_HTML;
@@ -1582,7 +1588,10 @@
   }
 
   /* ========================================================== ABOUT */
-  function viewAbout(v) { v.innerHTML = ABOUT.html(); }
+  function viewAbout(v) {
+    v.innerHTML = '<div class="card card-pad fb-card"><div class="grow"><b>Feedback to the creator</b><div class="muted">Ideas, problems or questions — with screenshots or files. Goes to ' + esc(AUTHOR) + ' (' + esc(AUTHOR_EMAIL) + ').</div></div>' +
+      '<button class="btn primary" data-feedback>✉ Send feedback</button></div>' + ABOUT.html();
+  }
   document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-about-page]')) go('about'); });
 
   /* ============================================================ MAP */

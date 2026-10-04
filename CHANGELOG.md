@@ -7,6 +7,16 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.4.0 — 2026-10-04 — feedback to the creator
+
+- **Send feedback** (link in the footer of every page, and on the About page): name and e-mail (required, e-mail
+  checked), organisation, position, subject, description, up to 5 attachments (20 MB), optional technical details
+  (tool version, browser, screen; never AIXM data). The tool has no server, so Send hands the message to the user's
+  own e-mail: on a computer an e-mail file addressed to the creator with the attachments inside (Outlook opens it
+  ready to send); on phones and tablets the share sheet with the files, or the e-mail app with the address filled in.
+  Other ways: e-mail app, Gmail, copy the text. Name, e-mail, organisation and position are remembered.
+- Tests: `feedback.js`.
+
 ## 1.3.1 — 2026-10-03
 
 - Phones and tablets: the AIP section header (title, changes box, Print / PDF / Excel buttons) now scrolls away with
