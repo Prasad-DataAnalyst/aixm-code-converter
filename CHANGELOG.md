@@ -7,6 +7,12 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.4.1 — 2026-10-04
+
+- Dark mode from the computer's or phone's system setting now uses the same dark colours as the tool's own dark theme
+  everywhere: the AIRAC changes box ("Highlight changes", "List all changes" was hard to read), side-by-side old values,
+  NOTAM text, ILS labels on the airport chart and the map background. Light mode unchanged.
+
 ## 1.4.0 — 2026-10-04 — feedback to the creator
 
 - **✉ Feedback** button in the top bar (next to ?), a card on the About page and a link in the footer of every page: name and e-mail (required, e-mail

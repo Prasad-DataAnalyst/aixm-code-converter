@@ -806,3 +806,13 @@ pre, .xml, .notam-text { text-align: left; }
 @media (max-width: 600px) { .fb-grid { grid-template-columns: 1fr; } }
 #fb-btn { white-space: nowrap; }
 @media (max-width: 1240px) { .fb-btn-t { display: none; } }
+
+/* system dark mode (no theme chosen in the tool): the same dark colours as the dark theme above */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #map { background: #0e1b24; }
+  :root:not([data-theme="light"]) .cycle-bar { background: #3a1616; border-color: #6b2626; color: #ffc9c9; }
+  :root:not([data-theme="light"]) .sbs-head.old { background: #2b3236; color: #cfd8dc; }
+  :root:not([data-theme="light"]) .sbs .sbs-old { background: #4a3b10; color: #ffe08a; }
+  :root:not([data-theme="light"]) .notam-text { background: #2d2a18; color: #f5e9b8; border-color: #5a5130; }
+  :root:not([data-theme="light"]) .adc-ils { color: #d48be4; }
+}
