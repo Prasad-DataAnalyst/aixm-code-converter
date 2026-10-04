@@ -242,9 +242,10 @@ that the committed `AIXM-Code-Converter.html` matches the sources, and all brows
 
 ## Author and licence
 
-**Feedback:** use **✉ Send feedback** at the bottom of any page (or on the About page) — name, e-mail, organisation,
-position, subject, description and attachments go to the author through your own e-mail program (on a computer an
-e-mail file that Outlook opens ready to send; on a phone the share sheet). Or write to prasad2t@gmail.com.
+**Feedback:** use **✉ Feedback** in the top bar (also on the About page and at the bottom of every page) — name, e-mail, organisation,
+position, subject, description and attachments go to the author through your own e-mail program (your default e-mail app opens
+addressed to the author, subject "AIXM Code Converter — …"; with attachments, an e-mail file that Outlook opens ready to
+send, or the share sheet on a phone). Or write to prasad2t@gmail.com.
 
 **AIXM Code Converter** was created by **Prasad Selvaraj** — [prasad2t@gmail.com](mailto:prasad2t@gmail.com).
 

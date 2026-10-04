@@ -2,7 +2,9 @@
  * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
  *
  * Feedback to the creator: name and e-mail (required), organisation, position, subject, description and attachments.
- * The tool has no server, so "Send" hands a finished message to the user's own e-mail:
+ * The tool has no server, so "Send" hands a finished message to the user's own e-mail. Without attachments the
+ * system's default e-mail app opens with the creator's address, the subject ("AIXM Code Converter — …") and the
+ * text filled in (also the "Open my e-mail app" button). With attachments:
  *   computer          an e-mail file (.eml) addressed to the creator with the attachments inside; Outlook opens it
  *                     ready to send (other mail apps: the same message, or "Other ways" below)
  *   phone / tablet    with attachments: the device's share sheet (Gmail, Outlook, Mail…) with the files and the text;
@@ -24,7 +26,7 @@ var FEEDBACK = (function () {
       'Browser: ' + navigator.userAgent];
   }
   function compose(f) {
-    var subj = (f.subject || 'Feedback') + ' — ' + APP_INFO.name;
+    var subj = APP_INFO.name + (f.subject ? ' — ' + f.subject : ' — Feedback');
     var who = [['Name', f.name], ['E-mail', f.email], ['Organisation', f.org], ['Position', f.pos]].filter(function (x) { return x[1]; });
     var text = 'Feedback for ' + APP_INFO.name + '\n\n' + who.map(function (x) { return x[0] + ': ' + x[1]; }).join('\n') +
       '\nSubject: ' + (f.subject || '—') + '\n\n' + (f.desc || '(no description)') +
@@ -93,7 +95,7 @@ var FEEDBACK = (function () {
       '<div class="fb-files" id="fb-files"></div><button class="btn small" type="button" data-fb="add">📎 Add files</button><input type="file" id="fb-file" multiple hidden></div>' +
       '<label class="fb-chk"><input type="checkbox" id="fb-tech" checked> Include technical details (tool version, browser, screen) — no AIXM data is included</label>' +
       '<div class="fb-done hidden" id="fb-done"></div></div>' +
-      '<div class="modal-foot"><button class="btn ghost" data-fb="close">Cancel</button><button class="btn primary" data-fb="send">✉ Send</button></div></div>';
+      '<div class="modal-foot"><button class="btn ghost" data-fb="close">Cancel</button><button class="btn" data-fb="mailto" title="Opens your default e-mail program with the message (attachments: add them there)">Open my e-mail app</button><button class="btn primary" data-fb="send">✉ Send</button></div></div>';
     document.body.appendChild(back);
     var q = function (s) { return back.querySelector(s); };
     q('#fb-name').value = me.name || ''; q('#fb-email').value = me.email || ''; q('#fb-org').value = me.org || ''; q('#fb-pos').value = me.pos || '';
@@ -128,12 +130,18 @@ var FEEDBACK = (function () {
       return ok;
     }
     function done(html) { var d = q('#fb-done'); d.innerHTML = html; d.classList.remove('hidden'); d.scrollIntoView({ block: 'nearest' }); }
-    async function send() {
+    async function send(mode) {
       var f = read();
       if (!check(f)) return;
       try { localStorage.setItem(KEY, JSON.stringify({ name: f.name, email: f.email, org: f.org, pos: f.pos })); } catch (e) { /* storage blocked */ }
       var m = compose(f), other = '<div class="fb-other">Other ways: <a href="' + esc(mailto(m, true)) + '">e-mail app</a> · <a href="' + esc(gmail(m)) + '" target="_blank" rel="noopener">Gmail</a> · <a href="#" data-fb="copy">copy the text</a>' +
         (f.files.length ? ' — then attach your file(s) yourself' : '') + ' · address: <b>' + esc(TO) + '</b></div>';
+      if (!f.files.length || mode === 'mailto') {
+        location.href = mailto(m, false);
+        done('<b>✓ Your e-mail app opens</b> with the message to ' + esc(TO) + ' — press <b>Send</b> there.' + (f.files.length ? ' Attach your file(s) in the e-mail app.' : '') +
+          ' Nothing opened? Use <a href="' + esc(gmail(m)) + '" target="_blank" rel="noopener">Gmail</a> or <a href="#" data-fb="copy">copy the text</a>.');
+        return;
+      }
       if (touch()) {
         if (f.files.length && navigator.canShare && navigator.canShare({ files: f.files })) {
           try { await navigator.clipboard.writeText(TO); } catch (e) { /* clipboard blocked */ }
@@ -161,7 +169,7 @@ var FEEDBACK = (function () {
       var a = b.getAttribute('data-fb');
       if (a === 'close') back.remove();
       else if (a === 'add') q('#fb-file').click();
-      else if (a === 'send') send().catch(function (err) { done('Could not prepare the e-mail: ' + esc(err.message)); });
+      else if (a === 'send' || a === 'mailto') send(a).catch(function (err) { done('Could not prepare the e-mail: ' + esc(err.message)); });
       else if (a === 'copy') { e.preventDefault(); var t = 'To: ' + TO + '\n' + compose(read()).text; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { toast('Copied — paste it into an e-mail to ' + TO); }, function () { toast('Copy failed'); }); }
     });
     back.addEventListener('input', function (e) { if (e.target.classList.contains('fb-bad')) { e.target.classList.remove('fb-bad'); var er = q('[data-for="' + e.target.id + '"]'); if (er) er.textContent = ''; } });

@@ -17,8 +17,8 @@ const ROOT = env.ROOT, OUT = env.out('feedback');
   await page.goto('file://' + ROOT + '/AIXM-Code-Converter.html');
   await page.waitForSelector('#drop');
 
-  // from the footer
-  await page.click('.app-foot [data-feedback]');
+  // from the top bar
+  await page.click('#fb-btn');
   await page.waitForSelector('.fb-modal');
   await page.screenshot({ path: OUT + '/form.png' });
   // required fields
@@ -34,6 +34,11 @@ const ROOT = env.ROOT, OUT = env.out('feedback');
   await page.fill('#fb-pos', 'AIS Officer');
   await page.fill('#fb-subj', 'Runway table idea');
   await page.fill('#fb-desc', 'Please add a column.\nSecond line — ünïcode ✓');
+  // no attachment: the default e-mail app (mailto) with the creator's address and subject
+  const mt = await page.evaluate(() => { const m = FEEDBACK.compose({ name: 'A', email: 'a@b.cd', subject: 'Runway table idea', desc: 'x', files: [] }); return m.subject; });
+  if (mt !== 'AIXM Code Converter — Runway table idea') fails.push('subject: ' + mt);
+  await page.click('[data-fb="mailto"]');
+  if (!/Your e-mail app opens/.test(await page.textContent('#fb-done'))) fails.push('e-mail app button');
   const att = path.join(OUT, 'shot.png');
   fs.copyFileSync(OUT + '/form.png', att);
   await page.setInputFiles('#fb-file', [att, ROOT + '/LICENSE']);
@@ -57,6 +62,11 @@ const ROOT = env.ROOT, OUT = env.out('feedback');
   if (!/E-mail ready/.test(await page.textContent('#fb-done'))) fails.push('no confirmation');
   console.log('eml:', fs.statSync(eml).size, 'bytes, attachment', bytes.length, 'bytes');
   await page.keyboard.press('Escape');
+  const sub = /^Subject: (.*)$/m.exec(txt);
+  const subTxt = sub ? (/=\?UTF-8\?B\?(.*)\?=/.test(sub[1]) ? Buffer.from(/=\?UTF-8\?B\?(.*)\?=/.exec(sub[1])[1], 'base64').toString('utf8') : sub[1]) : '';
+  if (subTxt !== 'AIXM Code Converter — Runway table idea') fails.push('e-mail subject: ' + subTxt);
+  // and from the footer
+  await page.click('.app-foot [data-feedback]'); await page.waitForSelector('.fb-modal'); await page.click('[data-fb="close"]');
 
   // remembered, and from the About page
   await page.click('.nav [data-view="about"]');
