@@ -368,6 +368,7 @@
         name: p.kept.length && key.indexOf('u:') !== 0 ? p.kept.join('_') : (members[0].from || 'Combined data set').replace(/\.zip$/i, '') };
     }
     if (!g.join) return null;
+    if (g.status === 'done' && members.some(function (m) { return m.status === 'ready'; })) { g.status = 'ready'; g.detail = ''; }
     g.members = members.sort(function (a, b) { var da = nameParts(a).diff, db = nameParts(b).diff; return da - db || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
     var man = members[0].manifest;
     if (man) g.delivery = { effective: man.effective, issued: man.issued, product: man.product, number: man.number, version: man.version, listed: man.files.length };
@@ -587,7 +588,14 @@
       if (!g) { units.push({ item: f, members: [f] }); return; }
       if (seen[g.key]) return;
       seen[g.key] = true;
-      var members = g.members.filter(function (m) { return m.status === 'ready'; });
+      var members = g.members.filter(function (m) { return m.status === 'ready' || m.status === 'done'; });
+      if (members.some(function (m) { return m.status === 'done'; })) {
+        // files added later to a delivery already read: the whole delivery is read again as one data set,
+        // replacing what was read before (so the map and the data set list show it once)
+        var had = new Set(members.map(function (m) { return m.file; }));
+        S.datasets.filter(function (d) { return (d.file && had.has(d.file)) || (d.files && d.files.some(function (x) { return had.has(x); })); }).forEach(dropDataset);
+        members.forEach(function (m) { m.status = 'ready'; });
+      }
       if (members.length > 1 && members.every(function (m) { return m.sniff.family === members[0].sniff.family; })) units.push({ item: g, members: members });
       else members.forEach(function (m) { units.push({ item: m, members: [m] }); });
     });

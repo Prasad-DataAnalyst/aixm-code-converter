@@ -139,6 +139,20 @@ fs.writeFileSync(ZIP, fflate.zipSync(Object.fromEntries(Object.entries(zipFiles)
   if (again.n !== 1 || again.files !== N || !/saved data/.test(card)) fails.push('saved copy not reused: ' + JSON.stringify({ n: again.n, files: again.files, card }));
   if (again.airac !== '2511' || !again.exact) fails.push('the saved copy should keep the AIRAC cycle: ' + again.airac + ' exact ' + again.exact);
 
+  // files of the delivery added in two goes, extracting in between: still one data set (one entry on the map)
+  const loose = Object.keys(zipFiles).filter((k) => /\.xml$/.test(k) && k !== 'checksum.xml' && !k.startsWith('schema/')).map((k) => { const p = path.join(OUT, path.basename(k)); fs.writeFileSync(p, zipFiles[k]); return p; });
+  await page.goto(URL); await page.waitForSelector('#drop');
+  for (const part of [loose.slice(0, 3), loose.slice(3)]) {
+    await page.setInputFiles('#file-input', part);
+    await page.waitForFunction(() => window.__AIXM.S.files.every((f) => f.status === 'ready' || f.status === 'done'), null, { timeout: 30000 });
+    await page.evaluate(() => window.__AIXM.go('files')); await page.waitForTimeout(200);
+    await page.evaluate(() => document.querySelector('#extract-btn').click());
+    await page.waitForFunction(() => window.__AIXM.S.view === 'dash', null, { timeout: 60000 });
+  }
+  await page.evaluate(() => window.__AIXM.go('map')); await page.waitForTimeout(1200);
+  const two = await page.evaluate(() => ({ n: window.__AIXM.S.datasets.length, files: window.__AIXM.S.datasets[0].files && window.__AIXM.S.datasets[0].files.length, mapList: !!document.querySelector('#map-ds') }));
+  if (two.n !== 1 || two.files !== loose.length || two.mapList) fails.push('files added in two goes should give one data set and one map entry: ' + JSON.stringify(two));
+
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no errors');
   console.log(fails.length ? 'FAIL:\n  ' + fails.join('\n  ') : 'multi-file data set OK (' + N + ' files, ' + r.n + ' features)');
   if (errors.length || fails.length) process.exitCode = 1;

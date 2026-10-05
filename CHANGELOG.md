@@ -7,6 +7,13 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.9.1 — 2026-10-05 — a delivery added in several goes stays one data set
+
+- Files of one delivery added at different times (e.g. the baseline files first and read, the difference files
+  later) are read again together as **one** data set that replaces the earlier one — the map, the data set list and
+  the dashboard show the delivery once. (Added in one go — files or zip — they were already one data set.)
+- Test: `multi_file.js` adds a delivery in two goes and checks for one data set and one map entry.
+
 ## 1.9.0 — 2026-10-05 — one AIRAC cycle delivered in several files
 
 - **Several files, one data set.** Some States deliver one AIRAC cycle as many files (one per feature type, baseline
