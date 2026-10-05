@@ -61,7 +61,7 @@ Phones and tablets get their own layout — see [Phones and tablets](#phones-and
 | **Languages** | English, العربية (right-to-left layout), Français, Español for menus, headings, AIP section titles and common item labels. AIXM values are never translated. |
 | **Map print** | Drag an area, choose A4/A3 portrait/landscape; legend of the layers shown, north arrow, coordinate grid and scale; PDF, PNG or print. |
 | **Online maps** | 15 free maps from Esri, OpenStreetMap, OpenTopoMap and NASA — none needs an API key, all load from the downloaded file; if a tile server refuses the page, the map switches automatically. The chosen base map is remembered. The offline map asks no server anything; the internet is checked only when an online map is chosen. |
-| **Live traffic** | *✈ Live traffic* switches live air traffic on and off **inside the map**: the free [adsb.lol](https://adsb.lol/) live flight map (community ADS-B data under the Open Database Licence, no account) appears under the aeronautical data at the same position and zoom and follows panning and zooming. *🛈 Aircraft details* opens the live map in a window over the map, inside the tool: click any aircraft for its callsign, registration, operator, type, route, altitude, speed, squawk and track; ✕ returns to the AIXM map. Off by default; needs internet only while it is on. |
+| **Live traffic** | *✈ Live traffic* switches live air traffic on and off **inside the map**: the free [adsb.lol](https://adsb.lol/) live flight map (community ADS-B data under the Open Database Licence, no account) appears under the aeronautical data at the same position and zoom and follows panning and zooming. *🛈 Aircraft details* opens the live map in a window over the map, inside the tool: click any aircraft for its live details, or **find** one by callsign (BAW495), registration (G-EUYG) or ICAO address — a card in the tool's own style shows the airline, the route with both airports and its distance, the aircraft (type, operator, country, photo), and the live map follows the aircraft. ✕ returns to the AIXM map. Flight and aircraft data: free [adsbdb.com](https://www.adsbdb.com/) (no key). Off by default; needs internet only while it is on. |
 | **State detection** | STATE authority, ICAO location indicators (aerodromes, FIRs, NOTAM locations, procedure names, reference titles) and, if nothing else, the country under the data; a file with only a weak guess takes the State of a loaded file with the same ICAO prefix. |
 
 Theme: navy blue and white with magenta accents (the colours of ICAO aeronautical charts), in light and dark modes.
@@ -199,7 +199,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.10.0, set in `src/config.js`; version 2 will add digital charts).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.11.0, set in `src/config.js`; version 2 will add digital charts).
 
 ```bash
 cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core

@@ -7,6 +7,19 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.11.0 — 2026-10-05 — aircraft details in the tool's own style
+
+- **Find an aircraft** in the *Aircraft details* window: type a callsign (BAW495), registration (G-EUYG) or ICAO
+  address (40624E). A card in the tool's own style (navy, white, magenta; light and dark) shows:
+  - the flight: airline and its radio callsign, IATA / ICAO flight number, route from airport to airport (codes,
+    names, cities, countries) and the great-circle distance in NM and km;
+  - the aircraft: photo, registration, manufacturer and type, ICAO type code, owner / operator, country, ICAO address.
+- With a registration or ICAO address, the live map finds and **follows** the aircraft, with its live altitude,
+  speed, track and flight path beside the card.
+- Data: the free adsbdb.com service (no key) — the only free sources a page opened from a file may read; the live
+  values stay on the live map, because the live-traffic services do not allow that.
+- Phones: the card sits above the live map. Test: `safety.js` finds a flight and an aircraft (stand-in data).
+
 ## 1.10.0 — 2026-10-05 — aircraft details inside the tool
 
 - **🛈 Aircraft details** (in the live-traffic note on the map) opens the live map in a window over the map, inside

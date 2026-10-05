@@ -305,7 +305,29 @@ pre.xml .ln.hl { background: var(--hl); }
 .linkbtn { border: 0; background: none; padding: 0; font: inherit; color: var(--brand); text-decoration: underline; cursor: pointer; }
 .traffic-details { position: absolute; inset: 12px; z-index: 1100; display: flex; flex-direction: column; overflow: hidden; padding: 0; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
 .traffic-details .td-head { display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--border); background: var(--surface); }
-.traffic-details .td-head .grow { display: flex; flex-direction: column; min-width: 0; }
+.traffic-details .td-title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.traffic-details .td-find { display: flex; gap: 6px; align-items: center; }
+.traffic-details .td-find .inp { width: 260px; height: 32px; }
+.traffic-details .td-main { flex: 1; display: flex; min-height: 0; }
+.ac-card { position: relative; width: 340px; flex: none; overflow: auto; padding: 14px 16px; border-right: 1px solid var(--border); background: var(--surface); border-top: 3px solid var(--brand-3); }
+.ac-card .ac-close { position: absolute; top: 8px; right: 8px; }
+.ac-card .ac-photo { position: relative; margin: -14px -16px 12px; background: var(--surface-3); }
+.ac-card .ac-photo img { display: block; width: 100%; max-height: 190px; object-fit: cover; }
+.ac-card .ac-photo span { position: absolute; right: 6px; bottom: 4px; font-size: 10px; color: #fff; background: rgba(0,0,0,.5); padding: 1px 5px; border-radius: 4px; }
+.ac-card .ac-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-right: 30px; }
+.ac-card .ac-title b { font-size: 22px; color: var(--brand); letter-spacing: .5px; }
+.ac-card .ac-sub { margin: 2px 0 12px; }
+.ac-card .ac-route { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: start; padding: 12px; margin-bottom: 12px; border-radius: 10px; background: var(--brand-soft); }
+.ac-card .ac-ap { display: flex; flex-direction: column; min-width: 0; }
+.ac-card .ac-ap b { font-size: 24px; color: var(--brand); line-height: 1; }
+.ac-card .ac-ap .mono { font-size: 12px; color: var(--muted); }
+.ac-card .ac-ap small { font-size: 11.5px; margin-top: 4px; color: var(--text); }
+.ac-card .ac-arrow { display: flex; flex-direction: column; align-items: center; color: var(--brand-3); padding-top: 2px; }
+.ac-card .ac-arrow span { font-size: 20px; }
+.ac-card .ac-arrow small { font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+.ac-card h4 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+.ac-card .ac-note { font-size: 11.5px; margin-top: 12px; }
+.ac-card .ac-empty { display: flex; flex-direction: column; gap: 6px; padding: 8px 30px 8px 0; }
 .traffic-details .td-head .muted { font-size: 12px; }
 .traffic-details .td-credit a { color: var(--brand); }
 .traffic-details .td-body { position: relative; flex: 1; background: var(--surface-2); }
@@ -313,6 +335,12 @@ pre.xml .ln.hl { background: var(--hl); }
 .traffic-details .td-wait { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
 :root[data-device="phone"] .traffic-details { inset: 0; border-radius: 0; }
 :root[data-device="phone"] .traffic-details .td-credit { display: none; }
+:root[data-device="phone"] .traffic-details .td-head { flex-wrap: wrap; }
+:root[data-device="phone"] .traffic-details .td-find { order: 3; width: 100%; }
+:root[data-device="phone"] .traffic-details .td-find .inp { flex: 1; width: auto; }
+:root[data-device="phone"] .traffic-details .td-main { flex-direction: column; }
+:root[data-device="phone"] .ac-card { width: auto; max-height: 42%; border-right: 0; border-bottom: 1px solid var(--border); }
+:root[data-device="phone"] .ac-card .ac-photo img { max-height: 110px; }
 :root[data-device="phone"] .map-traffic-note { left: 12px; right: 64px; bottom: 84px; font-size: 11px; }
 .map-status { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 500; padding: 5px 12px; font: 12px var(--mono); }
 /* airport view: information card next to the layer panel */

@@ -8,7 +8,9 @@ are read inside your browser. Nothing is requested from any server unless you as
 - **3D terrain tiles** — only when you open the 3D view with terrain;
 - **Live traffic** — only while it is switched on: the free adsb.lol live map is shown inside the map in a sandboxed
   frame (it cannot open windows or touch the tool or your data); adsb.lol receives the map position and zoom, nothing
-  else. *Aircraft details* shows the same sandboxed live map in a window over the map.
+  else. *Aircraft details* shows the same sandboxed live map in a window over the map; *Find* sends
+  the callsign, registration or ICAO address you type to adsbdb.com (flight and aircraft data) and loads the
+  aircraft photo from airport-data.com.
 
 No AIXM data, file names or search text is ever sent. Map tile servers see only the tile coordinates.
 
@@ -23,7 +25,7 @@ Please **do not open a public issue** for security problems. Report them private
 - GitHub: **Security → Report a vulnerability** on this repository (private advisory), or
 - e-mail: prasad2t@gmail.com
 
-Include the version (top bar, e.g. v1.8), the browser, and steps or a sample file that shows the problem.
+Include the version (top bar, e.g. v1.11), the browser, and steps or a sample file that shows the problem.
 You will get an answer within 7 days.
 
 ## Verify your download

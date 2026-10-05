@@ -631,8 +631,48 @@ var MAPVIEW = (function () {
     trafficUi();
     trafficLoad();
   }
-  // aircraft details: the live map in a window over this map, where any aircraft can be clicked (its details open
-  // there: callsign, registration, operator, type, route, altitude, speed, squawk, photo). This map stays as it was.
+  // aircraft details: the live map in a window over this map, where any aircraft can be clicked (its live details
+  // open there), and a search by callsign, registration or ICAO address that shows the flight and the aircraft in a
+  // card of this tool (free adsbdb.com data: airline, route, aircraft, photo) while the live map follows it.
+  // This map stays as it was.
+  var ADSBDB = 'https://api.adsbdb.com/v0/';
+  function acKind(q) {
+    if (/^[0-9A-F]{6}$/.test(q)) return 'icao';
+    if (/-/.test(q) || /^N\d/.test(q)) return 'reg';
+    return /^[A-Z]{3}\d[A-Z0-9]{0,4}$/.test(q) ? 'callsign' : 'reg';
+  }
+  function acGet(path) {
+    return fetch(ADSBDB + path).then(function (r) { return r.json(); }).then(function (j) { return j && typeof j.response === 'object' ? j.response : null; });
+  }
+  function acPlace(a) {
+    if (!a) return '';
+    return '<div class="ac-ap"><b>' + esc(a.iata_code || a.icao_code || '') + '</b><span class="mono">' + esc(a.icao_code || '') + '</span>' +
+      '<small>' + esc(a.name || '') + '<br>' + esc([a.municipality, a.country_name].filter(Boolean).join(', ')) + '</small></div>';
+  }
+  function acCardHtml(q, kind, r) {
+    var ac = r && r.aircraft, fr = r && r.flightroute;
+    if (!ac && !fr) return '<div class="ac-empty"><b>Nothing found for “' + esc(q) + '”</b><span class="muted">Check the ' + (kind === 'callsign' ? 'callsign (e.g. BAW495)' : kind === 'icao' ? 'ICAO address (6 characters, e.g. 40624E)' : 'registration (e.g. G-EUYG)') + '. The live map still looks for it.</span></div>';
+    var h = '';
+    if (ac && ac.url_photo_thumbnail) h += '<div class="ac-photo"><img src="' + esc(ac.url_photo_thumbnail) + '" alt="' + esc((ac.registration || '') + ' ' + (ac.type || '')) + '" referrerpolicy="no-referrer"><span>Photo airport-data.com</span></div>';
+    var title = fr ? (fr.callsign_iata || fr.callsign) : ac.registration;
+    h += '<div class="ac-title"><b>' + esc(title) + '</b>' + (fr && fr.callsign_iata && fr.callsign_icao ? '<span class="chip brand">' + esc(fr.callsign_icao) + '</span>' : '') + (ac ? '<span class="chip">' + esc(ac.icao_type || '') + '</span>' : '') + '</div>';
+    var airline = fr && fr.airline;
+    h += '<div class="muted ac-sub">' + esc(airline ? airline.name + (airline.callsign ? ' · “' + airline.callsign + '”' : '') : ac && ac.registered_owner || '') + '</div>';
+    if (fr && (fr.origin || fr.destination)) {
+      var o = fr.origin, d = fr.destination, km = '';
+      if (o && d && o.latitude !== undefined && d.latitude !== undefined) { var nm = AX.distNM([o.longitude, o.latitude], [d.longitude, d.latitude]); km = Math.round(nm).toLocaleString('en') + ' NM · ' + Math.round(nm * 1.852).toLocaleString('en') + ' km'; }
+      h += '<div class="ac-route">' + acPlace(o) + '<div class="ac-arrow"><span>✈</span><small>' + km + '</small></div>' + acPlace(d) + '</div>';
+    }
+    if (ac) {
+      h += '<h4>Aircraft</h4><table class="mini-table">' + [['Registration', ac.registration], ['Type', [ac.manufacturer, ac.type].filter(Boolean).join(' ') + (ac.icao_type ? ' (' + ac.icao_type + ')' : '')],
+        ['Owner / operator', ac.registered_owner], ['Country', ac.registered_owner_country_name], ['ICAO address', ac.mode_s]].filter(function (x) { return x[1]; })
+        .map(function (x) { return '<tr><td class="muted">' + x[0] + '</td><td>' + esc(x[1]) + '</td></tr>'; }).join('') + '</table>';
+    } else h += '<p class="muted ac-note">To see the aircraft here and follow it on the live map, search its registration (e.g. G-EUYG) or ICAO address, or click it on the live map.</p>';
+    if (fr && airline) h += '<h4>Airline</h4><table class="mini-table">' + [['Name', airline.name], ['ICAO / IATA', [airline.icao, airline.iata].filter(Boolean).join(' / ')], ['Radio callsign', airline.callsign], ['Country', airline.country]]
+      .filter(function (x) { return x[1]; }).map(function (x) { return '<tr><td class="muted">' + x[0] + '</td><td>' + esc(x[1]) + '</td></tr>'; }).join('') + '</table>';
+    h += '<p class="muted ac-note">' + (ac ? 'Live altitude, speed and position: on the live map, which follows this aircraft. ' : '') + 'Flight and aircraft data: adsbdb.com.</p>';
+    return h;
+  }
   function trafficDetails() {
     if (!map) return;
     var wrap = map.getContainer().parentNode, old = wrap.querySelector('.traffic-details');
@@ -640,22 +680,50 @@ var MAPVIEW = (function () {
     var d = document.createElement('div');
     d.className = 'traffic-details card';
     d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Live air traffic — aircraft details');
-    d.innerHTML = '<div class="td-head"><div class="grow"><b>✈ Live traffic — aircraft details</b><span class="muted">Click an aircraft for its details · drag and zoom as usual</span></div>' +
-      '<span class="muted td-credit">data <a href="https://adsb.lol/" target="_blank" rel="noopener noreferrer">adsb.lol</a> (ODbL) · map © OpenStreetMap</span>' +
-      '<button class="btn small ghost" data-td="close" title="Back to the map" aria-label="Close">✕</button></div>' +
-      '<div class="td-body"><div class="td-wait"><span class="spinner"></span> loading the live map…</div></div>';
-    var f = document.createElement('iframe');
-    f.title = 'Live air traffic (adsb.lol) — click an aircraft for its details';
-    f.setAttribute('sandbox', 'allow-scripts allow-same-origin');
-    f.setAttribute('referrerpolicy', 'no-referrer');
-    f.addEventListener('load', function () { var w = d.querySelector('.td-wait'); if (w) w.remove(); });
-    f.src = trafficUrl(true);
-    d.querySelector('.td-body').appendChild(f);
-    function close() { d.remove(); document.removeEventListener('keydown', esc, true); }
-    function esc(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
+    d.innerHTML = '<div class="td-head"><div class="td-title"><b>✈ Live traffic — aircraft details</b><span class="muted">Click an aircraft, or find one</span></div>' +
+      '<form class="td-find" autocomplete="off"><input class="inp" name="q" placeholder="Callsign, registration or ICAO address" aria-label="Find aircraft by callsign, registration or ICAO address" spellcheck="false"><button class="btn small primary">Find</button></form>' +
+      '<span class="muted td-credit">live map <a href="https://adsb.lol/" target="_blank" rel="noopener noreferrer">adsb.lol</a> (ODbL) · © OpenStreetMap</span>' +
+      '<button type="button" class="btn small ghost" data-td="close" title="Back to the map" aria-label="Close">✕</button></div>' +
+      '<div class="td-main"><aside class="ac-card hidden" aria-live="polite"></aside><div class="td-body"><div class="td-wait"><span class="spinner"></span> loading the live map…</div></div></div>';
+    var body = d.querySelector('.td-body'), card = d.querySelector('.ac-card'), seq = 0;
+    function live(extra) {
+      var f = body.querySelector('iframe');
+      if (f) f.remove();
+      f = document.createElement('iframe');
+      f.title = 'Live air traffic (adsb.lol) — click an aircraft for its details';
+      f.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+      f.setAttribute('referrerpolicy', 'no-referrer');
+      f.addEventListener('load', function () { var w = body.querySelector('.td-wait'); if (w) w.remove(); });
+      f.src = extra ? 'https://adsb.lol/?' + extra + '&hideSidebar&hideButtons' : trafficUrl(true);
+      body.appendChild(f);
+    }
+    live();
+    d.querySelector('.td-find').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var q = String(e.target.q.value || '').trim().toUpperCase().replace(/\s+/g, '');
+      if (!q) return;
+      var kind = acKind(q), my = ++seq;
+      // the live map finds and follows an aircraft by its ICAO address (from the search, or from the aircraft data)
+      if (kind === 'icao') live('icao=' + q.toLowerCase());
+      card.classList.remove('hidden');
+      card.innerHTML = '<div class="ac-empty"><span class="spinner"></span> looking up ' + esc(q) + '…</div>';
+      (kind === 'callsign' ? acGet('callsign/' + encodeURIComponent(q)) : acGet('aircraft/' + encodeURIComponent(q)))
+        .catch(function () { return 'offline'; })
+        .then(function (r) {
+          if (my !== seq) return;
+          var hex = r && r !== 'offline' && r.aircraft && r.aircraft.mode_s;
+          if (hex && kind !== 'icao') live('icao=' + String(hex).toLowerCase());
+          card.innerHTML = r === 'offline' ? '<div class="ac-empty"><b>The flight data service is not reachable</b><span class="muted">No internet, or adsbdb.com is busy. The live map still looks for ' + esc(q) + '.</span></div>' : acCardHtml(q, kind, r);
+          card.insertAdjacentHTML('afterbegin', '<button type="button" class="btn small ghost ac-close" title="Hide the card" aria-label="Hide the card">✕</button>');
+          card.querySelector('.ac-close').addEventListener('click', function () { card.classList.add('hidden'); });
+        });
+    });
+    function close() { d.remove(); document.removeEventListener('keydown', esc_, true); }
+    function esc_(e) { if (e.key === 'Escape' && document.activeElement !== d.querySelector('.td-find .inp')) { e.stopPropagation(); close(); } }
     d.querySelector('[data-td="close"]').addEventListener('click', close);
-    document.addEventListener('keydown', esc, true);
+    document.addEventListener('keydown', esc_, true);
     wrap.appendChild(d);
+    d.querySelector('.td-find .inp').focus();
   }
   function trafficOff() {
     if (!traffic) return;

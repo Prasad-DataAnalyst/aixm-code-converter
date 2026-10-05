@@ -70,6 +70,21 @@ const DONLON = ROOT + '/testdata/Donlon_ALL_Baseline_2025.xml';
   await page.click('#map-traffic-info');
   const det = await page.evaluate(() => { const d = document.querySelector('.traffic-details'), f = d && d.querySelector('iframe'); return d ? { src: f.src, sandbox: f.getAttribute('sandbox'), head: d.querySelector('.td-head').textContent } : null; });
   if (!det || !/^https:\/\/adsb\.lol\/\?lat=-?\d+\.\d{5}&lon=-?\d+\.\d{5}&zoom=7&hideSidebar&hideButtons$/.test(det.src) || det.sandbox !== 'allow-scripts allow-same-origin' || !/aircraft details/.test(det.head)) fails.push('aircraft details window ' + JSON.stringify(det));
+  // find an aircraft: a card of this tool (stand-in flight data), and the live map follows it by its ICAO address
+  await ctx.route('https://api.adsbdb.com/**', (r) => r.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+    body: JSON.stringify(/callsign/.test(r.request().url())
+      ? { response: { flightroute: { callsign: 'TST123', callsign_icao: 'TST123', callsign_iata: 'TS123', airline: { name: 'Test Air', icao: 'TST', iata: 'TS', country: 'Donlon', callsign: 'TESTER' },
+        origin: { iata_code: 'AAA', icao_code: 'EAAA', name: 'Alpha Airport', municipality: 'Alpha', country_name: 'Donlon', latitude: 52, longitude: -32 },
+        destination: { iata_code: 'BBB', icao_code: 'EBBB', name: 'Bravo Airport', municipality: 'Bravo', country_name: 'Donlon', latitude: 53, longitude: -30 } } } }
+      : { response: { aircraft: { type: 'A320 214', icao_type: 'A320', manufacturer: 'Airbus', mode_s: 'ABC123', registration: 'EA-TST', registered_owner: 'Test Air', registered_owner_country_name: 'Donlon' } } }) }));
+  await page.fill('.td-find .inp', 'tst123'); await page.press('.td-find .inp', 'Enter');
+  await page.waitForFunction(() => /AAA/.test((document.querySelector('.ac-card') || {}).textContent || ''), null, { timeout: 10000 }).catch(() => fails.push('flight card not shown'));
+  const fc = await page.evaluate(() => document.querySelector('.ac-card').textContent);
+  if (!/TS123/.test(fc) || !/Test Air/.test(fc) || !/Bravo Airport/.test(fc) || !/NM/.test(fc)) fails.push('flight card content: ' + fc.slice(0, 200));
+  await page.fill('.td-find .inp', 'EA-TST'); await page.press('.td-find .inp', 'Enter');
+  await page.waitForFunction(() => /ABC123/.test((document.querySelector('.ac-card') || {}).textContent || ''), null, { timeout: 10000 }).catch(() => fails.push('aircraft card not shown'));
+  const fol = await page.evaluate(() => ({ card: document.querySelector('.ac-card').textContent, src: document.querySelector('.traffic-details iframe').src }));
+  if (!/Airbus A320 214/.test(fol.card) || !/icao=abc123&hideSidebar&hideButtons$/.test(fol.src)) fails.push('aircraft card / follow: ' + JSON.stringify(fol).slice(0, 300));
   await page.click('.traffic-details [data-td="close"]');
   if (await page.$('.traffic-details')) fails.push('✕ should close the aircraft details window');
   await page.click('#map-traffic-info');
