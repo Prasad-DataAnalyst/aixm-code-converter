@@ -127,8 +127,8 @@ var LIBRARY = (function () {
     return { root: rootName(), states: list, loose: loose };
   }
   function fileDate(f) {
-    var m = /(20\d\d|19\d\d)[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\d|3[01])/.exec(f.name);
-    return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : null;
+    var m = /(20\d\d|19\d\d)[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\d|3[01])(?:[T_-]?([01]\d|2[0-3])([0-5]\d)(?!\d))?/.exec(f.name);
+    return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)) : null;
   }
   async function fileOf(f) { return f.file || (f.handle ? await f.handle.getFile() : null); }
   async function writeInto(stateName, file) {
@@ -181,14 +181,14 @@ var LIBRARY = (function () {
       await put('chunks', key + '#' + i, ds.recs.slice(i * CH, (i + 1) * CH).map(slim));
     }
     await put('meta', key, { key: key, name: ds.name, size: ds.size, sniff: ds.sniff, family: ds.family, version: ds.version, chunks: n, count: ds.recs.length,
-      parseErrors: (ds.parseErrors || []).map(slim), tRead: ds.tRead, errors: ds.errors, savedAt: Date.now(), lib: ds.lib || null, state: ds.state, lite: !!ds.lite });
+      parseErrors: (ds.parseErrors || []).map(slim), tRead: ds.tRead, errors: ds.errors, savedAt: Date.now(), lib: ds.lib || null, state: ds.state, lite: !!ds.lite, delivery: ds.delivery || null });
   }
   async function loadDataset(key) {
     var m = await get('meta', key);
     if (!m) return null;
     var recs = [];
     for (var i = 0; i < m.chunks; i++) { var c = await get('chunks', key + '#' + i); if (!c) return null; for (var j = 0; j < c.length; j++) recs.push(c[j]); }
-    return { name: m.name, size: m.size, sniff: m.sniff, family: m.family, version: m.version, recs: recs, parseErrors: m.parseErrors, tRead: m.tRead, errors: m.errors, prepared: true, lib: m.lib, cachedAt: m.savedAt, lite: m.lite };
+    return { name: m.name, size: m.size, sniff: m.sniff, family: m.family, version: m.version, recs: recs, parseErrors: m.parseErrors, tRead: m.tRead, errors: m.errors, prepared: true, lib: m.lib, cachedAt: m.savedAt, lite: m.lite, delivery: m.delivery || undefined };
   }
   async function cachedKeys() { try { return new Set(await keys('meta')); } catch (e) { return new Set(); } }
   async function cachedList() { try { return await getAll('meta'); } catch (e) { return []; } }

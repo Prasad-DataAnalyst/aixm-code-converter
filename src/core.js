@@ -189,6 +189,10 @@ var AX = (function () {
       }
       var ds = /<(?:[\w]+:)?dateStamp>\s*<(?:[\w]+:)?Date(?:Time)?>([^<]+)</.exec(h);
       if (ds) out.header.created = ds[1].trim();
+      // the data provider's country in the message metadata (ISO 19115 contact): a State clue for files that
+      // contain no aerodromes or other location indicators
+      var mc = /<(?:[\w]+:)?messageMetadata[\s\S]*?<(?:[\w]+:)?country>\s*<(?:[\w]+:)?CharacterString>([^<]{2,60})</.exec(h);
+      if (mc) out.metaCountry = mc[1].trim();
     } else {
       out.notes.push('No AIXM namespace found in the file header');
     }
@@ -451,8 +455,13 @@ var AX = (function () {
     var m = /([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/.exec(h);
     if (m) return m[1].toLowerCase();
     if (h.charAt(0) === '#') return h;
+    // identifiers that are not hexadecimal UUIDs (some States derive equipment IDs from the navaid's UUID,
+    // e.g. …47299bac9ndb): "urn:uuid:" + the identifier, matched like the feature's gml:identifier
+    m = /^\s*urn:uuid:(.+?)\s*$/i.exec(h);
+    if (m) return m[1].toLowerCase();
     return h;
   }
+  function normId(s) { return normRef(String(s).trim()) || null; }
   function addProp(o, k, v) {
     if (v === undefined) return;
     if (Object.prototype.hasOwnProperty.call(o, k)) {
@@ -544,7 +553,7 @@ var AX = (function () {
     if (gid) rec.gid = gid;
     if (node.c) for (var i = 0; i < node.c.length; i++) {
       var ch = node.c[i];
-      if (ch.n === 'identifier') rec.id = textOf(ch).toLowerCase();
+      if (ch.n === 'identifier') rec.id = normId(textOf(ch)).toLowerCase();
       else if (ch.n === 'timeSlice') { if (ch.c) for (var j = 0; j < ch.c.length; j++) rec.ts.push(convTS(ch.c[j], ctx)); }
     }
     if (!rec.id) rec.id = gid ? '#' + gid : null;
@@ -1160,11 +1169,16 @@ var AX = (function () {
   var AIRAC_REF = Date.UTC(2024, 0, 25), DAY = 86400000;
   function airac(ms) {
     if (ms === null || ms === undefined || isNaN(ms)) return null;
+    // a cycle that starts at local midnight east of Greenwich is written as the evening before in UTC
+    // (e.g. 16:00Z = 00:00 at UTC+8): up to 14 hours before a cycle date belongs to that cycle
+    var ahead = (AIRAC_REF - ms) % (28 * DAY); if (ahead < 0) ahead += 28 * DAY;
+    var local = ahead > 0 && ahead <= 14 * 3600000;
+    if (local) ms += ahead;
     var d = Math.floor((ms - AIRAC_REF) / DAY), n = Math.floor(d / 28);
     var eff = AIRAC_REF + n * 28 * DAY, y = new Date(eff).getUTCFullYear();
     var k = Math.ceil((Date.UTC(y, 0, 1) - AIRAC_REF) / DAY / 28), firstEff = AIRAC_REF + k * 28 * DAY;
     var num = Math.round((eff - firstEff) / DAY / 28) + 1;
-    return { id: String(y % 100).padStart(2, '0') + String(num).padStart(2, '0'), date: eff, exact: ms === eff, next: eff + 28 * DAY };
+    return { id: String(y % 100).padStart(2, '0') + String(num).padStart(2, '0'), date: eff, exact: ms === eff && (!local || ahead % 900000 === 0), local: local, next: eff + 28 * DAY };
   }
 
   /* --------------------------------------------------------- ICAO states */

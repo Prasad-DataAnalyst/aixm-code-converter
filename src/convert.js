@@ -29,7 +29,7 @@ var CONVERT = (function () {
   var LOCFILE = { '5.1': 'http://www.aixm.aero/schema/5.1/message/AIXM_BasicMessage.xsd', '5.1.1': 'http://www.aixm.aero/schema/5.1.1/message/AIXM_BasicMessage.xsd', '5.2': 'http://www.aixm.aero/schema/5.2/5.2.0/message/AIXM_BasicMessage.xsd' };
   var RENAME_52 = { RunwayVisualRange: 'RunwayVisualRangeEquipment' };
   var REMOVED_52 = ['AngleIndication', 'DistanceIndication', 'AirspaceBorderCrossing', 'AltimeterSource', 'SafeAltitudeArea', 'AirTrafficManagementService'];
-  async function convertVersion(ds, target, onProgress) {
+  async function convertVersion(ds, target, onProgress, srcFile) { // srcFile: one file of a data set read from several files
     if (ds.family !== '5') throw new Error('Version conversion works on AIXM 5.x files. Use "AIXM 4.5 → 5.1.1" for 4.5 files.');
     var from = ds.version === '5.2' ? '5.2' : ds.version === '5.1.1' ? '5.1.1' : '5.1';
     var report = { from: ds.sniff.versionLabel, to: 'AIXM ' + target, renamed: 0, review: {}, notes: [] };
@@ -39,7 +39,7 @@ var CONVERT = (function () {
     var renRe = Object.keys(ren).length ? new RegExp('(</?[\\w.-]+:)(' + Object.keys(ren).join('|') + ')(TimeSlice|PropertyType)?(?=[\\s>/])', 'g') : null;
     if (target === '5.2') ds.recs.forEach(function (r) { if (REMOVED_52.indexOf(r.k) >= 0) report.review[r.k] = (report.review[r.k] || 0) + 1; });
     if (from === '5.2' && target !== '5.2') ds.recs.forEach(function (r) { if ((M.dict().v5.featureVersions[r.k] || []).indexOf('5.1.1') < 0) report.review[r.k] = (report.review[r.k] || 0) + 1; });
-    var parts = [], file = ds.file, size = file.size, CH = 8 * 1024 * 1024, pos = 0, carry = '', first = true;
+    var parts = [], file = srcFile || ds.file, size = file.size, CH = 8 * 1024 * 1024, pos = 0, carry = '', first = true;
     var dec = new TextDecoder('utf-8');
     while (pos < size) {
       var buf = await file.slice(pos, Math.min(size, pos + CH)).arrayBuffer();

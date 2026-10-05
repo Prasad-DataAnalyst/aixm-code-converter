@@ -24,6 +24,14 @@ test('AIXM times are UTC even without a zone', () => {
 test('AIRAC cycle of a date', () => {
   assert.equal(AX.airac(Date.UTC(2026, 9, 1)).id, '2610');
   assert.equal(AX.airac(Date.UTC(2026, 9, 29)).id, '2611');
+  assert.equal(AX.airac(Date.UTC(2026, 9, 29)).exact, true);
+  // local midnight east of Greenwich: 16:00Z the evening before (UTC+8) is the next cycle, and still exact
+  const cn = AX.airac(Date.UTC(2026, 9, 28, 16));
+  assert.equal(cn.id, '2611'); assert.equal(cn.exact, true); assert.equal(cn.date, Date.UTC(2026, 9, 29));
+  assert.equal(AX.airac(Date.UTC(2026, 9, 28, 10)).id, '2611');             // UTC+14
+  assert.equal(AX.airac(Date.UTC(2026, 9, 28, 9, 59)).id, '2610');          // more than 14 h before: previous cycle
+  assert.equal(AX.airac(Date.UTC(2026, 9, 28, 16, 7)).exact, false);        // not a whole quarter hour
+  assert.equal(AX.airac(Date.UTC(2026, 9, 29, 5)).id, '2611');              // west of Greenwich: the same day
 });
 
 test('geodesy: destination, distance and bearing agree', () => {

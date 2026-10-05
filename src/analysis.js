@@ -55,6 +55,11 @@ var ANALYSIS = (function () {
         out.push({ rec: r, kind: r.chg === 'New' ? 'New feature' : r.chg === 'Withdrawn' ? 'Withdrawn' : 'Changed (AIXM 4.5 update)', from: ts[0].b, to: null,
           fields: r.chg === 'Changed' ? AX.diffFlat({}, AX.flatten(ts[0].p)) : [], tsIdx: 0 });
       }
+      // withdrawn by its validity: the last time slice ends and nothing follows (no end of life given)
+      if (r.cur && r.cur.gone && !ts.some(function (x) { return x.le; })) {
+        var lastE = ts.filter(function (x) { return x.i !== 'TEMPDELTA' && x.e; }).sort(function (a, b) { return (AX.tms(b.e) || 0) - (AX.tms(a.e) || 0); })[0];
+        if (lastE) out.push({ rec: r, kind: 'Feature withdrawn (validity ended)', from: lastE.e, to: null, fields: [], tsIdx: ts.indexOf(lastE) });
+      }
       if (ts.length < 2 && ts[0] && ts[0].i !== 'TEMPDELTA' && ts[0].i !== 'PERMDELTA' && !ts[0].le) return;
       var perm = [], temp = [];
       ts.forEach(function (t, i) { (t.i === 'TEMPDELTA' ? temp : perm).push(i); });
@@ -66,7 +71,8 @@ var ANALYSIS = (function () {
           var prev = prevIdx >= 0 ? ts[prevIdx] : null;
           var kind = t.i === 'PERMDELTA' ? 'Permanent change (PERMDELTA)' : prev && prev.s === t.s && t.c > prev.c ? 'Correction' : 'Permanent change (new BASELINE)';
           var fields = t.i === 'PERMDELTA' && !prevProps ? AX.diffFlat({}, AX.flatten(t.p)) : AX.diffFlat(AX.flatten(prevProps || {}), AX.flatten(props));
-          out.push({ rec: r, kind: kind, from: t.b, to: t.e, fields: fields, tsIdx: i, prevIdx: prevIdx });
+          // a new BASELINE with exactly the same values (only dates and sequence number change) is a re-issue
+          out.push({ rec: r, kind: kind, from: t.b, to: t.e, fields: fields, tsIdx: i, prevIdx: prevIdx, same: t.i === 'BASELINE' && !fields.length });
         }
         prevProps = props; prevIdx = i;
       });
@@ -179,6 +185,7 @@ var ANALYSIS = (function () {
     var D = M.dict();
     for (var i = 0; i < ds.recs.length; i++) {
       var r = ds.recs[i], p = r.cur.p;
+      if (r.cur.gone) continue;
       M.eachRef(p, function (ref, prop) {
         if (!M.target(ds, ref)) { var k = r.k + '.' + prop; unresolved.set(k, (unresolved.get(k) || []).concat([r])); }
       }, '', 0);
@@ -281,9 +288,13 @@ var ANALYSIS = (function () {
       e.kinds.add(kind);
     }
     var ev = ds._events || (ds._events = inFileChanges(ds));
-    var inCycle = ev.filter(function (e) { return e.t !== null && e.t >= cycle.date && e.t < cycle.next; });
+    // a State whose cycles start at local midnight east of Greenwich (e.g. 16:00Z): the window moves with it
+    var off = ds.airac && ds.airac.local && ds.effective !== null ? ds.airac.date - ds.effective : 0;
+    var inCycle = ev.filter(function (e) { return e.t !== null && e.t >= cycle.date - off && e.t < cycle.next - off; });
     if (inCycle.length) res.sources.push('time slices in the file starting in AIRAC ' + cycle.id);
+    var reissued = new Set();
     inCycle.forEach(function (e) {
+      if (e.same) { reissued.add(e.rec); return; }
       if (!e.fields.length) { var en = entry(e.rec); en.kinds.add(e.kind); if (/New|withdrawn|Withdrawn/.test(e.kind)) en.added = /New/.test(e.kind); if (e.noValues) en.amended = true; }
       e.fields.forEach(function (f) { addField(e.rec, f, 'file', e.kind); });
     });
@@ -300,6 +311,7 @@ var ANALYSIS = (function () {
       res.byRec.forEach(function (e, r) { if (e.amended && !e.added && !e.props.size && !changed.has(r)) res.byRec.delete(r); });
     }
     res.byRec.forEach(function (e, r) { res.count++; res.list.push({ rec: r, e: e, sec: AIP.sectionOf(ds, r) }); });
+    res.reissued = 0; reissued.forEach(function (r) { if (!res.byRec.has(r)) res.reissued++; });
     res.list.sort(function (a, b) { return a.sec.no < b.sec.no ? -1 : a.sec.no > b.sec.no ? 1 : 0; });
     // per-section counters (for the AIP tree badges)
     res.bySection = {};
@@ -315,7 +327,7 @@ var ANALYSIS = (function () {
   // cycles in which the file contains changes (for the cycle selector)
   function changeCycles(ds) {
     var ev = ds._events || (ds._events = inFileChanges(ds)), m = new Map();
-    ev.forEach(function (e) { if (e.t === null) return; var a = AX.airac(e.t); if (!a) return; var c = m.get(a.id) || { cycle: a, n: 0 }; c.n++; m.set(a.id, c); });
+    ev.forEach(function (e) { if (e.t === null || e.same) return; var a = AX.airac(e.t); if (!a) return; var c = m.get(a.id) || { cycle: a, n: 0 }; c.n++; m.set(a.id, c); });
     if (ds.airac && !m.has(ds.airac.id)) m.set(ds.airac.id, { cycle: ds.airac, n: 0 });
     return Array.from(m.values()).sort(function (a, b) { return b.cycle.date - a.cycle.date; });
   }

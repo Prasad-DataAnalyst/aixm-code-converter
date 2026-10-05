@@ -1267,7 +1267,7 @@ var MAPVIEW = (function () {
   // same layout as the main window's search index (built there while idle; rebuilt when the view date changes)
   function searchIndex(ds) {
     if (ds.searchIdx) return ds.searchIdx;
-    ds.searchIdx = ds.recs.map(function (r) { return [M.searchText(ds, r), r]; });
+    ds.searchIdx = ds.recs.filter(function (r) { return !r.cur.gone; }).map(function (r) { return [M.searchText(ds, r), r]; });
     return ds.searchIdx;
   }
   function okc(c) { return c && typeof c[0] === 'number' && typeof c[1] === 'number'; }

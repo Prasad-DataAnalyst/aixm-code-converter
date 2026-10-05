@@ -85,7 +85,15 @@ File ──► AX.sniff (version, prefixes) ──► N Web Workers (byte ranges
 ```
 
 Values shown in the UI are **cells** `AIP.C(text, rec, prop)`: the text plus the record and property they come from,
-so every value can open its exact AIXM code (byte offset `rec.o`, length `rec.n`, line `rec.line`).
+so every value can open its exact AIXM code (byte offset `rec.o`, length `rec.n`, line `rec.line`; in a data set read
+from several files, `rec.f` is the index of the file in `ds.files` and each occurrence `rec.occ[i].f` names its file).
+
+A delivery of several files (one per feature type, baseline + difference files, checksum list) is grouped in the
+Files view (`setKeyOf`, `setOf`) and read by `extractSet(members, item)`: every file with the parallel reader
+(`scanFile`), the records tagged with their file, then one `finalize` — line numbers count per file
+(`ds.partFile`), a time slice delivered twice is kept once (`sameSlice`). Features whose lifetime or last time slice
+has ended at the moment shown get `rec.cur.gone`: they stay in `ds.recs` (changes, XML view) but not in `ds.byType`,
+the reference index or the ownership.
 
 ## 4. Data model
 

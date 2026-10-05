@@ -46,23 +46,27 @@ var MODEL = (function () {
       function () { // 1) absolute line numbers, 2) merge repeated occurrences of the same feature (e.g. BASELINE + TEMPDELTA members)
         var pre = [0], i;
         if (ds.prepared) { // restored from the saved library cache: lines and merges already done
-          recs.forEach(function (r) { byId.set(r.id || ('@' + r.o), r); });
+          recs.forEach(function (r) { byId.set(r.id || ('@' + (r.f || 0) + ':' + r.o), r); });
           out = recs;
           return;
         }
-        for (i = 0; i < (ds.partLines || []).length; i++) pre[i + 1] = pre[i] + (ds.partLines[i] || 0);
+        // line numbers count from the start of each file (a data set can be read from several files: ds.partFile)
+        var pf = ds.partFile;
+        for (i = 0; i < (ds.partLines || []).length; i++) pre[i + 1] = pf && pf[i + 1] !== pf[i] ? 0 : pre[i] + (ds.partLines[i] || 0);
         for (i = 0; i < recs.length; i++) {
           var r = recs[i];
           r.line = pre[r.w || 0] + (r.l || 0) + 1;
           delete r.w; delete r.l;
           if (r.k === '#error') { (ds.parseErrors || (ds.parseErrors = [])).push(r); continue; }
-          var key = r.id || ('@' + r.o);
+          r.ts.forEach(function (t, j) { t.nth = j; }); // position of the time slice in its own XML fragment
+          var key = r.id || ('@' + (r.f || 0) + ':' + r.o);
           var ex = byId.get(key);
           if (ex && ex.k === r.k) {
-            if (!ex.occ) ex.occ = [{ o: ex.o, n: ex.n, line: ex.line }];
-            ex.occ.push({ o: r.o, n: r.n, line: r.line });
-            r.ts.forEach(function (t) { t.occ = ex.occ.length - 1; });
-            ex.ts = ex.ts.concat(r.ts);
+            if (!ex.occ) ex.occ = [occOf(ex)];
+            ex.occ.push(occOf(r));
+            var oi = ex.occ.length - 1;
+            // the same time slice delivered twice (e.g. in a baseline file and in a difference file) is kept once
+            r.ts.forEach(function (t) { t.occ = oi; if (!ex.ts.some(function (x) { return sameSlice(x, t); })) ex.ts.push(t); });
             if (r.chg) ex.chg = r.chg;
             continue;
           }
@@ -72,7 +76,7 @@ var MODEL = (function () {
         }
       },
       function () {
-        out.sort(function (a, b) { return a.o - b.o; });
+        out.sort(function (a, b) { return (a.f || 0) - (b.f || 0) || a.o - b.o; });
         out.forEach(function (r, idx) { r.i = idx; });
         ds.recs = out;
         ds.byId = byId;
@@ -88,13 +92,14 @@ var MODEL = (function () {
       function () { buildRefIndex(ds); },
       function () { computeOwners(ds); },
       function () {
-        ds.byType = {};
-        out.forEach(function (r) { (ds.byType[r.k] || (ds.byType[r.k] = [])).push(r); });
+        byTypeOf(ds);
         computeMeta(ds);
         ds.tFinalize = Date.now() - t0;
       }
     ];
   }
+  function occOf(r) { var o = { o: r.o, n: r.n, line: r.line }; if (r.f) o.f = r.f; return o; }
+  function sameSlice(a, b) { return a.i === b.i && a.s === b.s && a.c === b.c && a.b === b.b && a.e === b.e; }
   function finalize(ds) {
     finalizeStages(ds).forEach(function (f) { f(); });
     return ds;
@@ -123,25 +128,48 @@ var MODEL = (function () {
   function harmonizeStates(list) {
     var strong = list.filter(function (d) { return d.icaoPrefix && /OrganisationAuthority|ICAO location|library folder/.test(d.stateSource || ''); });
     list.forEach(function (d) {
-      if (!/file name|FIR name|header origin|ICAO location|geographic/.test(d.stateSource || '') || d.lib) return;
+      if (!/file name|FIR name|header origin|ICAO location|geographic|metadata/.test(d.stateSource || '') || d.lib) return;
       var hit = strong.filter(function (o) { return o !== d && (o.icaoPrefix === d.icaoPrefix || (d.prefixes || []).indexOf(o.icaoPrefix) >= 0) && o.state !== d.state; })[0];
-      if (hit && (/file name|FIR name|header origin|geographic/.test(d.stateSource) || /OrganisationAuthority|library/.test(hit.stateSource))) {
+      if (hit && (/file name|FIR name|header origin|geographic|metadata/.test(d.stateSource) || /OrganisationAuthority|library/.test(hit.stateSource))) {
         d.stateDetected = d.state; d.state = hit.state; d.stateSource = 'same ICAO prefix ' + hit.icaoPrefix + ' as ' + hit.name;
       }
     });
   }
   function resolveAll(ds, t) {
     ds.viewDate = t;
-    var recs = ds.recs;
-    for (var i = 0; i < recs.length; i++) {
+    var recs = ds.recs, i, j;
+    // the moment the AIP shows: the chosen date, or for the latest data the latest start of a time slice in the data
+    var at = t;
+    if (at === null || at === undefined) {
+      at = null;
+      for (i = 0; i < recs.length; i++) for (j = 0; j < recs[i].ts.length; j++) {
+        var x = recs[i].ts[j];
+        if (x.i === 'TEMPDELTA') continue;
+        var b = AX.tms(x.b);
+        if (b !== null && (at === null || b > at)) at = b;
+      }
+    }
+    for (i = 0; i < recs.length; i++) {
       var r = recs[i];
       r.cur = AX.resolve(r, t);
+      // withdrawn: the feature's lifetime has ended, or its last time slice ended, before that moment
+      if (at !== null && r.cur.idx >= 0) {
+        var c = r.ts[r.cur.idx], le = AX.tms(c.le), ce = AX.tms(r.cur.e), later = false;
+        if (ce !== null && ce <= at) for (j = 0; j < r.ts.length && !later; j++) { var o = r.ts[j]; if (o.i !== 'TEMPDELTA' && j !== r.cur.idx && (AX.tms(o.b) || 0) >= ce && (AX.tms(o.b) || 0) <= at) later = true; }
+        if ((le !== null && le <= at) || (ce !== null && ce <= at && !later)) r.cur.gone = true;
+      }
       delete r._lbl;
       r.geo = undefined;
     }
   }
+  // features by type, without withdrawn ones (they stay in ds.recs for the change lists and the XML view)
+  function byTypeOf(ds) {
+    ds.byType = {}; ds.withdrawn = 0;
+    ds.recs.forEach(function (r) { if (r.cur && r.cur.gone) { ds.withdrawn++; return; } (ds.byType[r.k] || (ds.byType[r.k] = [])).push(r); });
+  }
   function setViewDate(ds, t) {
     resolveAll(ds, t);
+    byTypeOf(ds);
     buildRefIndex(ds);
     computeOwners(ds);
   }
@@ -171,9 +199,10 @@ var MODEL = (function () {
     var rev = new Map();
     ds.recs.forEach(function (r) {
       r.refs = [];
+      if (r.cur.gone) return; // withdrawn features are not linked (not owned by an aerodrome, not listed)
       eachRef(r.cur.p, function (ref, prop) {
         var t = target(ds, ref);
-        if (!t || t === r) return;
+        if (!t || t === r || t.cur.gone) return;
         r.refs.push([prop, t]);
         var l = rev.get(t);
         if (!l) rev.set(t, l = []);
@@ -203,7 +232,7 @@ var MODEL = (function () {
       return res;
     }
     var owner = new Map();
-    ds.recs.forEach(function (r) { var o = own(r, 0); if (o && o !== r) owner.set(r, o); });
+    ds.recs.forEach(function (r) { if (r.cur.gone) return; var o = own(r, 0); if (o && o !== r) owner.set(r, o); });
     // pass ownership down (navaid -> equipment, services -> channels, obstacle area -> obstacles)
     ds.recs.forEach(function (r) {
       var o = owner.get(r), props = PASS_DOWN[r.k];
@@ -228,6 +257,19 @@ var MODEL = (function () {
       }
     });
     ds.owner = owner;
+    // withdrawn features are not listed with their aerodrome, but the change lists still name its AD section
+    ds.goneOwner = new Map();
+    ds.recs.forEach(function (r) {
+      if (!r.cur.gone) return;
+      r.refs = [];
+      eachRef(r.cur.p, function (ref, prop) { var x = target(ds, ref); if (x && x !== r) r.refs.push([prop, x]); }, '', 0);
+    });
+    ds.recs.forEach(function (r) { if (r.cur.gone) { memo.delete(r); var o = own(r, 0); if (o && o !== r) ds.goneOwner.set(r, o); } });
+    ds.recs.forEach(function (r) {
+      var o = ds.goneOwner.get(r), props = PASS_DOWN[r.k];
+      if (o && props) r.refs.forEach(function (x) { if (props.indexOf(x[0]) >= 0 && x[1].cur.gone && !ds.goneOwner.has(x[1])) ds.goneOwner.set(x[1], o); });
+    });
+    ds.recs.forEach(function (r) { if (r.cur.gone) r.refs = []; });
     var owned = new Map();
     owner.forEach(function (o, r) { var l = owned.get(o); if (!l) owned.set(o, l = []); l.push(r); });
     ds.owned = owned;
@@ -747,6 +789,7 @@ var MODEL = (function () {
     else if (state && byPrefix && byPrefix.toUpperCase().indexOf(state.toUpperCase()) < 0) ds.stateAlt = byPrefix;
     if (!state && fir.length) { state = s(fir[0].cur.p.name); src = 'FIR name'; }
     if (!state && sn.header && sn.header.origin && /[a-z]{3}/i.test(sn.header.origin) && !/^(SDO|EAD|AIXM|OFMX)$/i.test(sn.header.origin)) { state = sn.header.origin; src = 'AIXM 4.5 header origin'; }
+    if (!state && sn.metaCountry) { state = sn.metaCountry; src = 'data provider country in the message metadata'; }
     if (!state && locator) { // geographic position of the data inside a country outline
       var pts = [], step = Math.max(1, Math.floor(ds.recs.length / 1500));
       for (var pi = 0; pi < ds.recs.length; pi += step) { var pp = pointOf(ds, ds.recs[pi]); if (pp && typeof pp[0] === 'number') pts.push(pp); }
@@ -765,9 +808,11 @@ var MODEL = (function () {
     ds.prefixes = Object.keys(counts);
     // Effective date: file name date, header, or latest baseline start
     var cands = [];
-    var fm = /(20\d\d|19\d\d)[-_]?(0[1-9]|1[0-2])[-_]?(0[1-9]|[12]\d|3[01])/.exec(ds.name);
-    if (fm) cands.push({ t: Date.UTC(+fm[1], +fm[2] - 1, +fm[3]), src: 'file name' });
+    // a date in the file name, with the time when one follows it (…_EFF202610281600_…: 16:00Z)
+    var fm = /(20\d\d|19\d\d)[-_]?(0[1-9]|1[0-2])[-_]?(0[1-9]|[12]\d|3[01])(?:[T_-]?([01]\d|2[0-3])([0-5]\d)(?!\d))?/.exec(ds.name);
+    if (fm) cands.push({ t: Date.UTC(+fm[1], +fm[2] - 1, +fm[3], +(fm[4] || 0), +(fm[5] || 0)), src: 'file name' });
     if (sn.header && sn.header.effective) { var he = AX.tms(sn.header.effective); if (he !== null) cands.unshift({ t: he, src: 'AIXM 4.5 header (effective)' }); }
+    if (ds.delivery && ds.delivery.effective) { var de = AX.tms(ds.delivery.effective); if (de !== null) cands.unshift({ t: de, src: 'effective time in the checksum list of the delivery' }); }
     var maxB = null, minB = null, begins = {};
     ds.recs.forEach(function (r) {
       r.ts.forEach(function (t) {

@@ -30,6 +30,8 @@
   /* ------------------------------------------------------------- state */
   var S = {
     files: [],            // {id, file, name, size, sniff, status, progress, error}
+    sets: {},             // files of one delivery read as one data set: key -> {id, name, join, status, members…}
+    manifests: [],        // checksum lists delivered with the files (file names + SHA-256)
     datasets: [],
     view: 'files',
     active: 0,            // active dataset index
@@ -258,18 +260,27 @@
   var fileSeq = 0;
   async function addFiles(list) {
     var arrF = Array.prototype.slice.call(list || []);
+    S.adding = (S.adding || 0) + 1; // files of one drop are grouped once all of them are read
     for (var i = 0; i < arrF.length; i++) {
       var f = arrF[i];
       if (/\.zip$/i.test(f.name)) {
         toast('Unpacking ' + f.name + ' …');
         try {
-          var inner = await unzip(f);
+          var inner = await unzip(f), skipped = 0;
           if (!inner.length) toast('No XML files found in ' + f.name);
-          for (var j = 0; j < inner.length; j++) await addOne(inner[j], f.name);
+          for (var j = 0; j < inner.length; j++) {
+            var it = await addOne(inner[j], f.name);
+            // other XML of a delivery (schemas, ISO code lists, metadata) is left out quietly
+            if (it && it.status === 'invalid') { S.files = S.files.filter(function (x) { return x !== it; }); skipped++; }
+          }
+          if (skipped) toast(skipped + ' other XML file(s) in ' + f.name + ' (schemas, code lists, metadata) are not AIXM data and were left out.', 6000);
         } catch (err) { toast('Could not unzip ' + f.name + ': ' + err.message, 6000); }
       } else await addOne(f);
     }
+    S.adding--;
+    applyManifests();
     renderFileList();
+    verifyChecksums();
   }
   async function addOne(f, from) {
     var item = { id: ++fileSeq, file: f, name: f.name, size: f.size, from: from || null, status: 'checking', progress: 0 };
@@ -279,9 +290,88 @@
       var head = await f.slice(0, Math.min(f.size, 262144)).text();
       item.sniff = AX.sniff(head, f.name);
       item.status = item.sniff.family ? 'ready' : 'invalid';
-      if (!item.sniff.family) item.error = item.sniff.notes.join('; ') || 'Not an AIXM file';
+      if (!item.sniff.family) {
+        // a delivery's checksum list (file names with SHA-256) checks and groups the files; it is not listed itself
+        var man = f.size < 5242880 ? parseManifest(f.size > 262144 ? await f.text() : head) : null;
+        if (man) { man.source = f.name; S.manifests.push(man); S.files = S.files.filter(function (x) { return x !== item; }); renderFileList(); return null; }
+        item.error = item.sniff.notes.join('; ') || 'Not an AIXM file';
+      }
     } catch (e) { item.status = 'invalid'; item.error = String(e.message || e); }
-    renderFileList();
+    return item;
+  }
+
+  /* ------------- one data set delivered as several files (one per feature type, baseline + differences, …) */
+  // the files of one delivery are read together as one data set, so references between the files resolve
+  function parseManifest(text) {
+    var files = [], re = /<(?:[\w-]+:)?filename>([^<]+)<\/(?:[\w-]+:)?filename>\s*<(?:[\w-]+:)?sha256sum>\s*([0-9a-fA-F]{64})\s*</g, m;
+    while ((m = re.exec(text))) files.push({ path: m[1].trim(), name: m[1].trim().split(/[\\/]/).pop(), sha: m[2].toLowerCase() });
+    if (!files.length) return null;
+    function tag(n) { var x = new RegExp('<(?:[\\w-]+:)?' + n + '>\\s*([^<]+?)\\s*<').exec(text); return x ? x[1] : null; }
+    return { uid: tag('uid') || files.map(function (x) { return x.sha.slice(0, 6); }).join(''), files: files, effective: tag('effectiveTime'), issued: tag('issueTime'),
+      product: tag('product'), number: tag('pubNo'), variant: tag('dataVariant'), version: tag('version') };
+  }
+  function applyManifests() {
+    S.manifests.forEach(function (man) {
+      S.files.forEach(function (f) {
+        var e = man.files.filter(function (x) { return x.name === f.name; })[0];
+        if (e && !f.manifest) { f.manifest = man; f.shaWant = e.sha; }
+      });
+    });
+  }
+  async function verifyChecksums() {
+    if (!(window.crypto && crypto.subtle)) return;
+    var todo = S.files.filter(function (f) { return f.shaWant && !f.shaState && f.size <= 268435456; });
+    for (var i = 0; i < todo.length; i++) {
+      var f = todo[i];
+      try {
+        var d = new Uint8Array(await crypto.subtle.digest('SHA-256', await f.file.arrayBuffer()));
+        f.shaState = Array.prototype.map.call(d, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('') === f.shaWant ? 'ok' : 'bad';
+      } catch (e) { f.shaState = 'unchecked'; }
+    }
+    if (todo.length) renderFileList();
+  }
+  var VARIANT_WORD = /^(baseline|bl|diff|difference|differences|delta|deltas|permdelta|tempdelta|snapshot|supplementary|full|complete|changes?|updates?|incremental|inc)$/i;
+  var DIFF_WORD = /^(diff|difference|differences|delta|deltas|permdelta|changes?|updates?|incremental|inc)$/i, featSets = {};
+  function nameParts(f) {
+    var sn = f.sniff, v = sn.family + '|' + sn.version;
+    var names = featSets[v] || (featSets[v] = new Set(featureNames(sn)));
+    var kept = [], typed = false, diff = false;
+    f.name.replace(/\.(xml|aixm|gml)$/i, '').split(/[_\s.]+/).forEach(function (tk) {
+      if (!tk) return;
+      if (names.has(tk)) { typed = true; return; }
+      var ws = tk.split('-');
+      if (ws.every(function (x) { return VARIANT_WORD.test(x); })) { if (ws.some(function (x) { return DIFF_WORD.test(x); })) diff = true; return; }
+      kept.push(tk);
+    });
+    return { typed: typed, kept: kept, diff: diff };
+  }
+  // key of the delivery a file belongs to: listed in the same checksum list, or a name that differs from the others
+  // only by feature type and variant (…_Runway_BASELINE_EFF… / …_VOR_DIFF_EFF…); "Combine" sets its own key
+  function setKeyOf(f) {
+    if (!f.sniff || !f.sniff.family) return null;
+    if (f.manualSet) return f.manualSet;
+    if (f.manifest) return 'm:' + f.manifest.uid;
+    var p = nameParts(f);
+    if (!p.typed) return null;
+    return f.sniff.family + '|' + f.sniff.version + '|' + (p.kept.length ? p.kept.join('_').toLowerCase() : 'zip:' + (f.from || ''));
+  }
+  // the delivery (2 or more files) a file is read with, or null when it is read on its own
+  function setOf(f) {
+    var key = S.adding ? null : setKeyOf(f);
+    if (!key) return null;
+    var members = S.files.filter(function (x) { return setKeyOf(x) === key; });
+    if (members.length < 2) return null;
+    var g = S.sets[key];
+    if (!g) {
+      var p = nameParts(members[0]);
+      g = S.sets[key] = { id: ++fileSeq, key: key, join: true, status: 'ready', progress: 0,
+        name: p.kept.length && key.indexOf('u:') !== 0 ? p.kept.join('_') : (members[0].from || 'Combined data set').replace(/\.zip$/i, '') };
+    }
+    if (!g.join) return null;
+    g.members = members.sort(function (a, b) { var da = nameParts(a).diff, db = nameParts(b).diff; return da - db || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
+    var man = members[0].manifest;
+    if (man) g.delivery = { effective: man.effective, issued: man.issued, product: man.product, number: man.number, version: man.version, listed: man.files.length };
+    return g;
   }
   function unzip(file) {
     return new Promise(function (resolve, reject) {
@@ -300,7 +390,8 @@
           var cap = S.zipMax || APP_SETTINGS.zipMaxBytes; // S.zipMax: lower limit for tests
           if (total > cap) { chunks.length = 0; stop(new Error('its contents are larger than ' + fmtSize(cap) + ' — unpack it and open the XML files directly')); return; }
           chunks.push(dat);
-          if (final) { out.push(new File(chunks, f.name.split('/').pop(), { type: 'text/xml' })); pending--; if (ended && !pending) resolve(out); }
+          // the zip's date: the same zip opened again gives the same saved-copy key
+          if (final) { out.push(new File(chunks, f.name.split('/').pop(), { type: 'text/xml', lastModified: file.lastModified })); pending--; if (ended && !pending) resolve(out); }
         };
         f.start();
       };
@@ -316,37 +407,74 @@
       })();
     });
   }
+  var STATUS_CHIP = { ready: '<span class="chip">ready</span>', parsing: '<span class="chip info"><span class="spinner" style="width:11px;height:11px"></span> reading</span>',
+    indexing: '<span class="chip info"><span class="spinner" style="width:11px;height:11px"></span> indexing</span>', done: '<span class="chip ok">✓ extracted</span>', error: '<span class="chip err">error</span>',
+    cancelled: '<span class="chip warn">cancelled</span>', checking: '', invalid: '' };
+  function fileItemHtml(f) {
+    var sn = f.sniff || {};
+    var badge = f.status === 'checking' ? '<span class="chip">checking…</span>' : f.status === 'invalid' ? '<span class="chip err">not AIXM</span>' :
+      '<span class="chip brand">' + esc(sn.versionLabel || '') + '</span>' + (sn.isUpdate ? '<span class="chip info">AIXM update</span>' : '');
+    var info = f.status === 'invalid' ? '<div class="muted" style="color:var(--err)">' + esc(f.error || '') + '</div>' :
+      '<div class="muted" style="font-size:12.5px">' + fmtSize(f.size) + (sn.root ? ' · root &lt;' + esc(sn.root) + '&gt;' : '') + (f.from ? ' · from ' + esc(f.from) : '') + (f.detail ? ' · ' + f.detail : '') + '</div>';
+    var prog = f.status === 'parsing' || f.status === 'indexing' ? '<div class="progress"><div style="width:' + (f.progress * 100).toFixed(1) + '%"></div></div>' : '';
+    return '<div class="fileitem card" data-fid="' + f.id + '"><div class="ficon">' + (sn.family === '45' ? '4.5' : sn.version ? esc(sn.version) : 'XML') + '</div>' +
+      '<div class="grow"><div class="row wrap"><span class="fname">' + esc(f.name) + '</span>' + badge + (STATUS_CHIP[f.status] || '') + '</div>' + info + prog + '</div>' +
+      '<div class="row">' + (f.status === 'parsing' ? '<button class="btn small" data-cancel="' + f.id + '">Cancel</button>' : '') +
+      (f.status !== 'parsing' && f.status !== 'indexing' ? '<button class="btn small ghost" data-remove="' + f.id + '" title="Remove">' + I.trash + '</button>' : '') + '</div></div>';
+  }
+  // several files of one delivery, read as one data set
+  function setItemHtml(g) {
+    var m = g.members, size = 0, sn = m[0].sniff || {}, busy = g.status === 'parsing' || g.status === 'indexing';
+    m.forEach(function (x) { size += x.size; });
+    var ok = m.filter(function (x) { return x.shaState === 'ok'; }).length, bad = m.filter(function (x) { return x.shaState === 'bad'; });
+    var listed = m[0].manifest ? m[0].manifest.files.length : 0, missing = listed ? listed - m.filter(function (x) { return x.manifest === m[0].manifest; }).length : 0;
+    var sums = !listed ? '' : bad.length ? ' · <span style="color:var(--err)">⚠ ' + bad.length + ' file(s) differ from the checksum list</span>' :
+      ok ? ' · checksum list: ' + ok + ' of ' + m.length + ' files match ✓' : ' · checking checksums…';
+    if (missing > 0) sums += ' · <span style="color:var(--warn)">' + missing + ' listed file(s) not added</span>';
+    var prog = busy ? '<div class="progress"><div style="width:' + (g.progress * 100).toFixed(1) + '%"></div></div>' : '';
+    return '<div class="fileitem card fileset" data-fid="' + g.id + '"><div class="ficon" title="' + m.length + ' files">⧉ ' + m.length + '</div>' +
+      '<div class="grow"><div class="row wrap"><span class="fname">' + esc(g.name) + '</span><span class="chip brand">' + esc(sn.versionLabel || '') + '</span>' +
+      '<span class="chip info">' + m.length + ' files → one data set</span>' + (STATUS_CHIP[g.status] || '') + '</div>' +
+      '<div class="muted" style="font-size:12.5px">' + fmtSize(size) + (g.detail ? ' · ' + g.detail : ' · read together, so references between the files resolve') + sums + '</div>' + prog +
+      '<details class="set-files"><summary>The ' + m.length + ' files</summary>' + m.map(function (x) {
+        return '<div class="set-file"><span class="mono">' + esc(x.name) + '</span><span class="muted">' + fmtSize(x.size) + (x.shaState === 'ok' ? ' · ✓' : x.shaState === 'bad' ? ' · <b style="color:var(--err)">checksum differs</b>' : '') + '</span>' +
+          (busy ? '' : '<button class="btn small ghost" data-remove="' + x.id + '" title="Remove this file">' + I.trash + '</button>') + '</div>';
+      }).join('') + '</details></div>' +
+      '<div class="row">' + (g.status === 'parsing' ? '<button class="btn small" data-cancel="' + g.id + '">Cancel</button>' : '') +
+      (busy || g.status === 'done' ? '' : '<button class="btn small" data-split="' + esc(g.key) + '" title="Read each file as its own data set">Separate</button>') +
+      (busy ? '' : '<button class="btn small ghost" data-remove-set="' + esc(g.key) + '" title="Remove all ' + m.length + ' files">' + I.trash + '</button>') + '</div></div>';
+  }
   function renderFileList() {
     var host = $('#filelist');
     if (!host) return;
-    host.innerHTML = S.files.map(function (f) {
-      var sn = f.sniff || {};
-      var badge = f.status === 'checking' ? '<span class="chip">checking…</span>' : f.status === 'invalid' ? '<span class="chip err">not AIXM</span>' :
-        '<span class="chip brand">' + esc(sn.versionLabel || '') + '</span>' + (sn.isUpdate ? '<span class="chip info">AIXM update</span>' : '');
-      var st = { ready: '<span class="chip">ready</span>', parsing: '<span class="chip info"><span class="spinner" style="width:11px;height:11px"></span> reading</span>',
-        indexing: '<span class="chip info"><span class="spinner" style="width:11px;height:11px"></span> indexing</span>', done: '<span class="chip ok">✓ extracted</span>', error: '<span class="chip err">error</span>',
-        cancelled: '<span class="chip warn">cancelled</span>', checking: '', invalid: '' }[f.status] || '';
-      var info = f.status === 'invalid' ? '<div class="muted" style="color:var(--err)">' + esc(f.error || '') + '</div>' :
-        '<div class="muted" style="font-size:12.5px">' + fmtSize(f.size) + (sn.root ? ' · root &lt;' + esc(sn.root) + '&gt;' : '') + (f.from ? ' · from ' + esc(f.from) : '') + (f.detail ? ' · ' + f.detail : '') + '</div>';
-      var prog = f.status === 'parsing' || f.status === 'indexing' ? '<div class="progress"><div style="width:' + (f.progress * 100).toFixed(1) + '%"></div></div>' : '';
-      return '<div class="fileitem card" data-fid="' + f.id + '"><div class="ficon">' + (sn.family === '45' ? '4.5' : sn.version ? esc(sn.version) : 'XML') + '</div>' +
-        '<div class="grow"><div class="row wrap"><span class="fname">' + esc(f.name) + '</span>' + badge + st + '</div>' + info + prog + '</div>' +
-        '<div class="row">' + (f.status === 'parsing' ? '<button class="btn small" data-cancel="' + f.id + '">Cancel</button>' : '') +
-        (f.status !== 'parsing' && f.status !== 'indexing' ? '<button class="btn small ghost" data-remove="' + f.id + '" title="Remove">' + I.trash + '</button>' : '') + '</div></div>';
-    }).join('');
+    var shown = {}, html = [];
+    S.files.forEach(function (f) {
+      var g = f.status !== 'invalid' && f.status !== 'checking' ? setOf(f) : null;
+      if (!g) { html.push(fileItemHtml(f)); return; }
+      if (shown[g.key]) return;
+      shown[g.key] = true;
+      html.push(setItemHtml(g));
+    });
+    host.innerHTML = html.join('');
     $$('[data-remove]', host).forEach(function (b) { b.onclick = function () { var id = +b.getAttribute('data-remove'); S.files = S.files.filter(function (f) { return f.id !== id; }); renderFileList(); }; });
+    $$('[data-remove-set]', host).forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-remove-set'); S.files = S.files.filter(function (f) { return setKeyOf(f) !== k; }); delete S.sets[k]; renderFileList(); }; });
+    $$('[data-split]', host).forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-split'); S.sets[k].join = false; S.files.forEach(function (f) { if (f.manualSet === k) delete f.manualSet; }); renderFileList(); }; });
     $$('[data-cancel]', host).forEach(function (b) { b.onclick = function () { cancelExtraction(+b.getAttribute('data-cancel')); }; });
     var bar = $('#extract-bar');
     var ready = S.files.filter(function (f) { return f.status === 'ready'; });
     var busy = S.files.some(function (f) { return f.status === 'parsing' || f.status === 'indexing'; });
     if (!S.files.length) { bar.classList.add('hidden'); return; }
     bar.classList.remove('hidden');
+    // files read one by one that could be combined (same AIXM family): "Combine" makes them one data set
+    var loose = ready.filter(function (f) { return !setOf(f); }), canJoin = loose.length > 1 && loose.every(function (f) { return f.sniff.family === loose[0].sniff.family; });
     var big = S.files.some(function (f) { return f.size > liteAuto(); }) || memPlan(ready).lite;
     bar.innerHTML = '<div class="grow"><b>' + S.files.length + ' file(s)</b> <span class="muted">· ' + ready.length + ' ready to extract · parallel threads: ' + threads() + '</span></div>' +
+      (canJoin && !busy ? '<button class="btn" id="join-btn" title="Read the ' + loose.length + ' files as one data set, e.g. a State that delivers one AIRAC cycle in several files">⧉ Combine ' + loose.length + ' files into one data set</button>' : '') +
       '<label class="muted" title="Lite keeps less detail in memory (individual light and marking elements are counted, not stored) so files of 2–5 GB fit in the browser. Auto uses Lite when all loaded files together exceed 1.5 GB or would not fit in the memory left.">Memory ' +
       '<select class="inp small" id="mem-mode"><option value="auto">Auto' + (big ? ' (Lite for large files)' : '') + '</option><option value="full">Full detail</option><option value="lite">Lite (2–5 GB files)</option></select></label>' +
       (S.datasets.length ? '<button class="btn" id="goto-dash">' + I.dash + ' Open dashboard</button>' : '') +
       '<button class="btn primary big" id="extract-btn"' + (!ready.length || busy ? ' disabled' : '') + '>' + I.play + ' Extract</button>';
+    var jb = $('#join-btn'); if (jb) jb.onclick = function () { var k = 'u:' + (++fileSeq); loose.forEach(function (f) { f.manualSet = k; }); renderFileList(); };
     var eb = $('#extract-btn'); if (eb) eb.onclick = function () { extractAll(); };
     var mm = $('#mem-mode'); if (mm) { mm.value = S.memMode || 'auto'; mm.onchange = function () { S.memMode = mm.value; try { localStorage.setItem('aixm-mem', mm.value); } catch (e) { /* storage unavailable */ } }; }
     var gd = $('#goto-dash'); if (gd) gd.onclick = function () { go('dash'); };
@@ -452,13 +580,29 @@
     var list = S.files.filter(function (f) { return f.status === 'ready'; });
     var plan = memPlan(list);
     if (plan.warn) toast(plan.warn, 12000);
-    for (var i = 0; i < list.length; i++) {
-      var f = list[i], key = dropKey(f.file);
+    // the files of one delivery are read as one data set, the others one by one
+    var units = [], seen = {};
+    list.forEach(function (f) {
+      var g = setOf(f);
+      if (!g) { units.push({ item: f, members: [f] }); return; }
+      if (seen[g.key]) return;
+      seen[g.key] = true;
+      var members = g.members.filter(function (m) { return m.status === 'ready'; });
+      if (members.length > 1 && members.every(function (m) { return m.sniff.family === members[0].sniff.family; })) units.push({ item: g, members: members });
+      else members.forEach(function (m) { units.push({ item: m, members: [m] }); });
+    });
+    for (var i = 0; i < units.length; i++) {
+      var u = units[i], f = u.item, multi = u.members.length > 1, size = 0;
+      u.members.forEach(function (m) { size += m.size; });
+      var key = multi ? setCacheKey(u.members) : dropKey(f.file);
       // a saved copy is used only when it was read in the memory mode that applies now (Lite / Full)
-      var wantLite = S.memMode === 'lite' || (S.memMode !== 'full' && (f.size > liteAuto() || !!plan.lite));
-      var cached = await openFromCache(key, f.file, null, wantLite);
-      if (cached) { f.status = 'done'; f.detail = 'opened from saved data (instant) · ' + num(cached.recs.length) + ' features · ' + esc(cached.state); renderFileList(); continue; }
-      await extractOne(f, plan);
+      var wantLite = S.memMode === 'lite' || (S.memMode !== 'full' && (size > liteAuto() || !!plan.lite));
+      var cached = await openFromCache(key, multi ? null : f.file, null, wantLite, multi ? u.members.map(function (m) { return m.file; }) : null);
+      if (cached) {
+        f.status = 'done'; if (multi) u.members.forEach(function (m) { m.status = 'done'; });
+        f.detail = 'opened from saved data (instant) · ' + num(cached.recs.length) + ' features · ' + esc(cached.state); renderFileList(); continue;
+      }
+      await extractSet(u.members, f, plan);
     }
     renderFileList();
     if (S.datasets.length) { initSearch(); renderDsSelect(); memGauge(); if (!checkPending()) go('dash'); }
@@ -470,79 +614,109 @@
     r.workers.forEach(function (w) { w.terminate(); });
     if (r.resolve) r.resolve();
   }
-  function extractOne(f, plan) {
-    return new Promise(function (resolve) {
-      var sn = f.sniff, size = f.size;
-      var nParts = Math.max(1, Math.min(threads(), Math.floor(size / (6 * 1024 * 1024)) || 1));
-      if (sn.family === '45' && sn.isUpdate) nParts = Math.min(nParts, 4);
-      var ds = { id: f.id, name: f.name, file: f.file, size: size, sniff: sn, family: sn.family, version: sn.version, recs: [], partLines: new Array(nParts), viewDate: S.asOf };
-      var liteOn = S.memMode === 'lite' || (S.memMode !== 'full' && (size > liteAuto() || !!(plan && plan.lite)));
-      var cfg = { family: sn.family, names: featureNames(sn), aixmPrefixes: sn.aixmPrefixes, eventPrefixes: sn.eventPrefixes, gmlPrefixes: sn.gmlPrefixes, isUpdate: sn.isUpdate, effective: sn.header && sn.header.effective, lite: liteOn };
-      ds.lite = liteOn;
-      var done = new Array(nParts).fill(0), finished = 0, t0 = performance.now(), counts = 0, errors = 0, strs = new Interner();
-      var workers = [];
-      var ctl = { workers: workers, cancelled: false, resolve: function () { f.status = 'cancelled'; running.delete(f.id); renderFileList(); resolve(); } };
-      running.set(f.id, ctl);
-      f.status = 'parsing'; f.progress = 0; f.detail = 'starting ' + nParts + ' reader thread(s)…';
-      renderFileList();
-      var lastUi = 0;
-      function ui() {
-        var now = performance.now();
-        if (now - lastUi < 150) return;
-        lastUi = now;
-        var bytes = done.reduce(function (a, b) { return a + b; }, 0), sec = (now - t0) / 1000;
-        f.progress = size ? bytes / size : 1;
-        var rate = bytes / Math.max(sec, 0.001);
-        var eta = rate > 0 ? (size - bytes) / rate : 0;
-        f.detail = fmtSize(bytes) + ' of ' + fmtSize(size) + ' · ' + (rate / 1048576).toFixed(1) + ' MB/s · ' + num(counts + ds.recs.length) + ' features · ' + (eta > 1 ? '~' + Math.ceil(eta) + ' s left' : 'finishing…') + ' · ' + nParts + ' thread(s)';
-        updateFileItem(f);
-      }
+  function partsFor(f) {
+    var n = Math.max(1, Math.min(threads(), Math.floor(f.size / (6 * 1024 * 1024)) || 1));
+    return f.sniff.family === '45' && f.sniff.isUpdate ? Math.min(n, 4) : n;
+  }
+  // reads one file with parallel reader threads; onBatch gets the features, onBytes the bytes read so far
+  function scanFile(f, nParts, liteOn, ctl, onBatch, onBytes) {
+    var sn = f.sniff, size = f.size;
+    var cfg = { family: sn.family, names: featureNames(sn), aixmPrefixes: sn.aixmPrefixes, eventPrefixes: sn.eventPrefixes, gmlPrefixes: sn.gmlPrefixes, isUpdate: sn.isUpdate, effective: sn.header && sn.header.effective, lite: liteOn };
+    return new Promise(function (resolve, reject) {
+      var done = new Array(nParts).fill(0), lines = new Array(nParts), finished = 0, errors = 0;
       for (var p = 0; p < nParts; p++) {
         var w = makeWorker();
-        workers.push(w);
+        ctl.workers.push(w);
         (function (part, worker) {
           worker.onmessage = function (ev) {
             var m = ev.data;
-            if (m.type === 'batch') { strs.recs(m.recs); for (var i = 0; i < m.recs.length; i++) ds.recs.push(m.recs[i]); ui(); }
-            else if (m.type === 'progress') { done[part] = m.done; ui(); }
+            if (m.type === 'batch') onBatch(m.recs);
+            else if (m.type === 'progress') { done[part] = m.done; onBytes(done.reduce(function (a, b) { return a + b; }, 0)); }
             else if (m.type === 'done') {
-              ds.partLines[part] = m.lines; errors += m.errors; done[part] = Math.floor(size * (part + 1) / nParts) - Math.floor(size * part / nParts);
+              lines[part] = m.lines; errors += m.errors; done[part] = Math.floor(size * (part + 1) / nParts) - Math.floor(size * part / nParts);
               worker.terminate();
-              if (++finished === nParts) complete();
-            } else if (m.type === 'error') {
-              worker.terminate(); f.status = 'error'; f.error = m.msg; running.delete(f.id); renderFileList(); toast('Error reading ' + f.name + ': ' + m.msg, 8000); resolve();
-            }
+              if (++finished === nParts) resolve({ lines: lines, errors: errors });
+            } else if (m.type === 'error') { worker.terminate(); reject(new Error(m.msg)); }
           };
-          worker.onerror = function (e) { f.status = 'error'; f.error = e.message; running.delete(f.id); renderFileList(); resolve(); };
+          worker.onerror = function (e) { reject(new Error(e.message)); };
           worker.postMessage({ cmd: 'scan', file: f.file, start: Math.floor(size * part / nParts), end: Math.floor(size * (part + 1) / nParts), cfg: cfg, jobId: f.id, part: part, chunk: 16 * 1024 * 1024 });
         })(p, w);
       }
+    });
+  }
+  function extractOne(f, plan) { return extractSet([f], f, plan); }
+  // one data set from one file, or from several files of one delivery (members) shown as one item in the file list
+  function extractSet(members, item, plan) {
+    return new Promise(function (resolve) {
+      var multi = members.length > 1, sn = members[0].sniff, size = 0;
+      members.forEach(function (m) { size += m.size; });
+      var ds = { id: item.id, name: item.name, file: multi ? null : members[0].file, size: size, sniff: sn, family: sn.family, version: sn.version, recs: [], partLines: [], viewDate: S.asOf };
+      if (multi) { ds.files = members.map(function (m) { return m.file; }); ds.partFile = []; if (item.delivery) ds.delivery = item.delivery; }
+      var liteOn = S.memMode === 'lite' || (S.memMode !== 'full' && (size > liteAuto() || !!(plan && plan.lite)));
+      ds.lite = liteOn;
+      var t0 = performance.now(), errors = 0, strs = new Interner(), base = 0, nThreads = 1;
+      var ctl = { workers: [], cancelled: false, resolve: function () { setStatus('cancelled'); running.delete(item.id); renderFileList(); resolve(); } };
+      running.set(item.id, ctl);
+      function setStatus(st) { item.status = st; if (multi) members.forEach(function (m) { m.status = st; }); }
+      setStatus('parsing'); item.progress = 0; item.detail = 'starting reader threads…';
+      renderFileList();
+      var lastUi = 0;
+      function ui(bytes) {
+        var now = performance.now();
+        if (now - lastUi < 150) return;
+        lastUi = now;
+        bytes += base;
+        var sec = (now - t0) / 1000, rate = bytes / Math.max(sec, 0.001), eta = rate > 0 ? (size - bytes) / rate : 0;
+        item.progress = size ? bytes / size : 1;
+        item.detail = fmtSize(bytes) + ' of ' + fmtSize(size) + ' · ' + (rate / 1048576).toFixed(1) + ' MB/s · ' + num(ds.recs.length) + ' features · ' + (eta > 1 ? '~' + Math.ceil(eta) + ' s left' : 'finishing…') + ' · ' + nThreads + ' thread(s)';
+        updateFileItem(item);
+      }
+      (async function () {
+        try {
+          for (var fi = 0; fi < members.length; fi++) {
+            var m = members[fi], np = partsFor(m), pb = ds.partLines.length;
+            nThreads = np;
+            var res = await scanFile(m, np, liteOn, ctl, function (recs) {
+              strs.recs(recs);
+              for (var i = 0; i < recs.length; i++) { var r = recs[i]; if (multi) { r.f = fi; r.w = pb + (r.w || 0); } ds.recs.push(r); }
+              ui(0);
+            }, ui);
+            if (ctl.cancelled) return;
+            for (var p = 0; p < np; p++) { ds.partLines.push(res.lines[p]); if (multi) ds.partFile.push(fi); }
+            errors += res.errors; base += m.size;
+          }
+        } catch (err) {
+          if (ctl.cancelled) return;
+          ctl.workers.forEach(function (w) { w.terminate(); });
+          setStatus('error'); item.error = err.message; running.delete(item.id); renderFileList(); toast('Error reading ' + item.name + ': ' + err.message, 8000); resolve(); return;
+        }
+        complete();
+      })();
       function complete() {
-        if (ctl.cancelled) return;
         var tRead = performance.now() - t0;
         strs = null;
-        f.status = 'indexing'; f.progress = 1; f.detail = 'building indexes and AIP model for ' + num(ds.recs.length) + ' features…';
+        setStatus('indexing'); item.progress = 1; item.detail = 'building indexes and AIP model for ' + num(ds.recs.length) + ' features…';
         renderFileList();
         setTimeout(async function () {
           try {
-            await M.finalizeAsync(ds, function (q) { f.progress = 1; f.detail = 'building indexes and AIP model for ' + num(ds.recs.length) + ' features… ' + Math.round(q * 100) + ' %'; updateFileItem(f); });
+            await M.finalizeAsync(ds, function (q) { item.progress = 1; item.detail = 'building indexes and AIP model for ' + num(ds.recs.length) + ' features… ' + Math.round(q * 100) + ' %'; updateFileItem(item); });
             ds.tRead = tRead; ds.tTotal = performance.now() - t0; ds.errors = errors;
-            applyLib(ds, f.lib);
-            ds.cacheKey = f.lib ? f.lib.key : dropKey(f.file);
+            applyLib(ds, item.lib);
+            ds.cacheKey = item.lib ? item.lib.key : multi ? setCacheKey(members) : dropKey(item.file);
             if (ds.size <= APP_SETTINGS.cacheMaxBytes) saveCache(ds); // large data sets are not duplicated into browser storage
             S.datasets = S.datasets.filter(function (x) { return x.id !== ds.id; });
             S.datasets.push(ds);
             M.harmonizeStates(S.datasets);
-            f.status = 'done';
-            f.detail = num(ds.recs.length) + ' features · ' + esc(ds.state) + (ds.airac ? ' · AIRAC ' + ds.airac.id : '') + ' · read in ' + (tRead / 1000).toFixed(1) + ' s (' + (size / 1048576 / (tRead / 1000)).toFixed(1) + ' MB/s)';
+            setStatus('done');
+            item.detail = num(ds.recs.length) + ' features · ' + esc(ds.state) + (ds.airac ? ' · AIRAC ' + ds.airac.id : '') + ' · read in ' + (tRead / 1000).toFixed(1) + ' s (' + (size / 1048576 / (tRead / 1000)).toFixed(1) + ' MB/s)';
           } catch (err) {
             console.error(err);
-            f.status = 'error'; f.error = String(err.stack || err); toast('Error while indexing ' + f.name + ': ' + err.message, 8000);
+            setStatus('error'); item.error = String(err.stack || err); toast('Error while indexing ' + item.name + ': ' + err.message, 8000);
           }
-          running.delete(f.id);
+          running.delete(item.id);
           renderFileList();
           renderNav();
-          resolve(f.status === 'done' ? ds : null);
+          resolve(item.status === 'done' ? ds : null);
         }, 30);
       }
     });
@@ -551,6 +725,8 @@
   /* ======================================================= LIBRARY */
   var LIB = { scan: null, status: 'none', cached: new Set(), timer: null, sig: '' };
   function dropKey(file) { return file ? 'drop:' + file.name + '|' + file.size + '|' + file.lastModified : null; }
+  // saved copy of a data set read from several files: the same files (name, size, date) in the same order
+  function setCacheKey(members) { return 'set:' + members.map(function (m) { return dropKey(m.file).slice(5); }).join('||'); }
   function applyLib(ds, lib) {
     if (!lib) return;
     ds.lib = lib;
@@ -563,7 +739,7 @@
     LIBRARY.saveDataset(ds.cacheKey, ds).then(function () { LIB.cached.add(ds.cacheKey); if (S.view === 'library') renderLibrary(); })
       .catch(function (e) { console.warn('cache save failed', e); });
   }
-  async function openFromCache(key, file, lib, wantLite) {
+  async function openFromCache(key, file, lib, wantLite, files) {
     if (!key || typeof LIBRARY === 'undefined') return null;
     var hit = S.datasets.filter(function (d) { return d.cacheKey === key; })[0];
     if (hit) return hit;
@@ -572,6 +748,7 @@
     if (!ds) return null;
     if (wantLite !== undefined && !!ds.lite !== !!wantLite) return null; // saved in the other memory mode: read the file again
     ds.id = ++fileSeq; ds.file = file; ds.viewDate = S.asOf; ds.cacheKey = key;
+    if (files) ds.files = files;
     new Interner().recs(ds.recs);
     M.finalize(ds);
     applyLib(ds, lib || ds.lib);
@@ -946,7 +1123,7 @@
       card.innerHTML = '<div class="ds-head"><div><div class="state">' + esc(ds.state) + '</div><div class="meta">' + esc(ds.name) + ' · ' + fmtSize(ds.size) + ' · state from ' + esc(ds.stateSource) + '</div></div>' +
         '<div class="kpis"><div class="kpi-h"><b>' + esc((ds.sniff.versionLabel || '').replace('AIXM ', '')) + '</b><span>AIXM version</span></div>' +
         '<div class="kpi-h"><b>' + (ds.airac ? ds.airac.id : '—') + '</b><span>AIRAC cycle' + (ds.airac ? ' · ' + M.fmtDate(ds.airac.date) : '') + '</span></div>' +
-        '<div class="kpi-h"><b>' + (ds.effective !== null ? M.fmtDate(ds.effective) : '—') + '</b><span title="' + esc(ds.effectiveSource) + '">Effective date</span></div>' +
+        '<div class="kpi-h"><b>' + (ds.effective !== null ? M.fmtDate(localEff(ds) ? ds.airac.date : ds.effective) : '—') + '</b><span title="' + esc(ds.effectiveSource + (localEff(ds) ? ' · ' + localEff(ds) : '')) + '">Effective date</span></div>' +
         '<div class="kpi-h"><b>' + num(ds.recs.length) + '</b><span>AIXM features</span></div></div></div>' +
         '<div class="tiles">' + TILE_TYPES.filter(function (t) { return (ds.byType[t[0]] || []).length; }).map(function (t) {
           return '<div class="tile" data-type="' + t[0] + '"><b>' + num(ds.byType[t[0]].length) + '</b><span>' + t[1] + '</span></div>';
@@ -960,11 +1137,11 @@
             '</td><td>' + (AIP.isHeliport(a) ? 'AD 3' : 'AD 2') + '</td></tr>';
         }).join('') + '</tbody></table></div>' : '<div class="muted">No aerodromes in this data set.</div>') + '</div>' +
         '<div><h3 style="margin:4px 0 8px">Data set details</h3><table class="mini-table">' +
-        [['AIXM version', ds.sniff.versionLabel], ['Namespace / root', (ds.sniff.namespace || '') + ' <' + ds.sniff.root + '>'], ['Effective date', ds.effective !== null ? M.fmtDate(ds.effective, true) + ' (' + ds.effectiveSource + ')' : '—'],
+        [['AIXM version', ds.sniff.versionLabel], ['Namespace / root', (ds.sniff.namespace || '') + ' <' + ds.sniff.root + '>'], ['Effective date', ds.effective !== null ? M.fmtDate(ds.effective, true) + (localEff(ds) ? ' = ' + localEff(ds) : '') + ' (' + ds.effectiveSource + ')' : '—'],
           ['AIRAC cycle', ds.airac ? ds.airac.id + ' — cycle start ' + M.fmtDate(ds.airac.date) + (ds.airac.exact ? ' (exact AIRAC date)' : ' (effective date falls inside this cycle)') : '—'],
           ['Data valid from', ds.dataFrom !== null ? M.fmtDate(ds.dataFrom) : '—'], ['Latest time slice start', ds.dataLatest !== null ? M.fmtDate(ds.dataLatest, true) : '—'],
           ['ICAO prefixes', (ds.prefixes || []).join(', ')], ['Created', ds.created || '—'], ['Read time', (ds.tRead / 1000).toFixed(2) + ' s · ' + (ds.size / 1048576 / (ds.tRead / 1000)).toFixed(1) + ' MB/s'], ['Memory mode', ds.lite ? 'Lite — light and marking elements are counted, not kept (open the AIXM code to see them)' : 'Full detail'],
-          ['Parse warnings', ds.parseErrors ? ds.parseErrors.length : 0]].map(function (r) { return '<tr><td class="muted">' + r[0] + '</td><td>' + esc(r[1]) + '</td></tr>'; }).join('') + '</table>' +
+          ['Parse warnings', ds.parseErrors ? ds.parseErrors.length : 0]].concat(ds.files ? [['Read from', ds.files.length + ' files, as one data set' + (ds.delivery ? ' (delivery checksum list: ' + ds.delivery.listed + ' files)' : '')]] : []).map(function (r) { return '<tr><td class="muted">' + r[0] + '</td><td>' + esc(r[1]) + '</td></tr>'; }).join('') + '</table>' +
         '<div class="btn-group" style="margin-top:12px"><button class="btn primary" data-act="aip">' + I.book + ' Open AIP</button><button class="btn" data-act="map">' + I.map + ' Map</button><button class="btn" data-act="export">' + I.export + ' Export</button><button class="btn" data-act="remove">' + I.trash + ' Remove</button></div></div></div>';
       card.addEventListener('click', function (e) {
         S.active = idx; renderDsSelect();
@@ -997,7 +1174,7 @@
       (!ds.prevCmp && S.datasets.length > 1 ? '<button class="btn small" data-prev="1">Compare with previous cycle</button>' : '') + '</div>' +
       (cc.count ? '<ul style="margin:8px 0 0 18px;padding:0">' + top + (cc.count > 6 ? '<li class="muted">… and ' + (cc.count - 6) + ' more</li>' : '') + '</ul>' :
         '<div style="margin-top:6px">No time slice in this file starts in this cycle' + (ds.prevCmp ? ' and nothing differs from ' + esc(ds.prevCmp.a.name) : '. To see every value that changes, add the previous cycle\'s file of this State and press "Compare with previous cycle".') + '</div>') +
-      '<div class="muted" style="margin-top:6px;font-size:12px">Sources: ' + esc(cc.sources.join('; ') || 'none yet') + '</div></div></div>';
+      '<div class="muted" style="margin-top:6px;font-size:12px">Sources: ' + esc(cc.sources.join('; ') || 'none yet') + (cc.reissued ? ' · ' + num(cc.reissued) + ' feature(s) re-issued with unchanged values are not counted' : '') + '</div></div></div>';
   }
   function emptyState(t, d) { return '<div class="empty">' + I.plane + '<h2>' + t + '</h2><p>' + d + '</p></div>'; }
 
@@ -1176,7 +1353,7 @@
     }).join('');
     var rem = (cc.removed || []).map(function (it) { return '<tr><td>' + esc(it.sec.no) + '</td><td>' + esc(M.label(cc.removed && ds.prevCmp.a, it.a)) + '</td><td><span class="chip del">removed (not in this cycle)</span></td></tr>'; }).join('');
     back.innerHTML = '<div class="modal" style="width:min(1100px,100%)"><div class="modal-head"><h3>Changes in AIRAC ' + esc(cc.cycle.id) + ' — effective ' + esc(M.fmtDate(cc.cycle.date)) + '</h3><span class="sp"></span><button class="btn small primary" data-m="amdt">' + I.amdt + ' AMDT report</button><button class="btn small" data-m="pdf">' + I.pdf + ' PDF</button><button class="btn small" data-m="xlsx">' + I.xls + ' Excel</button><button class="btn small ghost" data-m="close">' + I.x + '</button></div>' +
-      '<div class="modal-body cycle-list"><p class="muted">Sources: ' + esc(cc.sources.join('; ') || 'none') + '. Click a feature to open its AIP page with the changed values highlighted in red.</p>' +
+      '<div class="modal-body cycle-list"><p class="muted">Sources: ' + esc(cc.sources.join('; ') || 'none') + (cc.reissued ? ' (' + num(cc.reissued) + ' feature(s) re-issued with unchanged values are not listed)' : '') + '. Click a feature to open its AIP page with the changed values highlighted in red.</p>' +
       (rows || rem ? '<table class="aip"><thead><tr><th>AIP section</th><th>Feature</th><th>What changes (old → new)</th></tr></thead><tbody>' + rows + rem + '</tbody></table>' : '<div class="card card-pad">No changes found for this cycle. Load the previous cycle\'s file to compare every value.</div>') + '</div></div>';
     document.body.appendChild(back);
     back.addEventListener('click', function (e) {
@@ -1418,9 +1595,18 @@
       return '<span class="x-t">' + open + name + '</span>' + a + '<span class="x-t">' + close + '</span>';
     });
   }
-  function occList(r) { return r.occ || [{ o: r.o, n: r.n, line: r.line }]; }
+  function occList(r) { return r.occ || [{ o: r.o, n: r.n, line: r.line, f: r.f }]; }
+  // the file a feature was read from (a data set can be read from several files)
+  // a cycle that starts at local midnight east of Greenwich: "00:00 local time (UTC+8) on 29 OCT 2026"
+  function localEff(ds) {
+    if (!ds.airac || !ds.airac.local || ds.effective === null) return '';
+    var h = (ds.airac.date - ds.effective) / 3600000;
+    return '00:00 local time (UTC+' + (h % 1 ? h.toFixed(2).replace(/0$/, '') : h) + ') on ' + M.fmtDate(ds.airac.date);
+  }
+  function srcFile(ds, fi) { return ds.files ? ds.files[fi || 0] : ds.file; }
+  function srcName(ds, fi) { var f = srcFile(ds, fi); return ds.files && f ? f.name : ds.name; }
   async function readFragment(ds, occ) {
-    var buf = await ds.file.slice(occ.o, occ.o + occ.n).arrayBuffer();
+    var buf = await srcFile(ds, occ.f).slice(occ.o, occ.o + occ.n).arrayBuffer();
     return new TextDecoder('utf-8').decode(buf);
   }
   // AIXM 4.5 element names of the AIXM 5 properties used by the AIP pages (for highlighting in 4.5 files)
@@ -1483,11 +1669,11 @@
     var occ = occs[oi];
     drawer.innerHTML = '<div class="drawer-head"><div class="grow"><div class="muted" style="font-size:12px">' + esc(M.typeName(r)) + ' · ' + esc(AIP.sectionOf(ds, r).no) + '</div><h3>' + esc(M.label(ds, r)) + '</h3></div>' +
       '<button class="btn small" id="dx-copy">' + I.copy + ' Copy XML</button><button class="btn small" id="dx-dl">' + I.export + ' Save</button><button class="btn small" id="dx-detail">' + I.list + ' All data</button><button class="btn small ghost" id="dx-close">' + I.x + '</button></div>' +
-      '<div class="loc-grid"><b>File</b><span>' + esc(ds.name) + '</span><b>Location</b><span>line ' + num(occ.line) + ' · byte offset ' + num(occ.o) + ' · length ' + num(occ.n) + ' bytes</span>' +
+      '<div class="loc-grid"><b>File</b><span>' + esc(srcName(ds, occ.f)) + '</span><b>Location</b><span>line ' + num(occ.line) + ' · byte offset ' + num(occ.o) + ' · length ' + num(occ.n) + ' bytes</span>' +
       '<b>Feature</b><span class="mono">' + esc(r.s45 ? r.s45 + ' (AIXM 4.5) → ' + r.k : r.k) + ' ' + esc(r.id || '') + '</span>' +
       (prop ? '<b>Property</b><span class="mono">' + esc(prop) + (M.propDef(r.k, prop) && M.propDef(r.k, prop).d ? ' — ' + esc(M.propDef(r.k, prop).d) : '') + '</span>' : '') +
       '<b>Validity</b><span>' + esc(tsSummary(r)) + '</span></div>' + drawerChgBox(ds, r) +
-      (occs.length > 1 ? '<div class="drawer-tabs">' + occs.map(function (o, i) { return '<button data-occ="' + i + '" class="' + (i === oi ? 'active' : '') + '">Part ' + (i + 1) + ' · line ' + num(o.line) + '</button>'; }).join('') + '</div>' : '') +
+      (occs.length > 1 ? '<div class="drawer-tabs">' + occs.map(function (o, i) { return '<button data-occ="' + i + '" class="' + (i === oi ? 'active' : '') + '"' + (ds.files ? ' title="' + esc(srcName(ds, o.f)) + '"' : '') + '>Part ' + (i + 1) + ' · line ' + num(o.line) + '</button>'; }).join('') + '</div>' : '') +
       '<div class="drawer-body"><div class="empty"><span class="spinner"></span></div></div>';
     drawer.classList.add('open'); drawer.setAttribute('aria-hidden', 'false');
     $('#dx-close').onclick = closeDrawer;
@@ -1498,7 +1684,8 @@
     var lines = txt.split('\n');
     // the time slice shown in the AIP (several time slices of one feature can be in the same fragment)
     var cur = r.cur && r.cur.idx !== undefined ? r.cur.idx : 0, nth = 0;
-    for (var k = 0; k < cur; k++) if ((r.ts[k].occ || 0) === oi) nth++;
+    if (r.ts[cur] && r.ts[cur].nth !== undefined && (r.ts[cur].occ || 0) === oi) nth = r.ts[cur].nth;
+    else for (var k = 0; k < cur; k++) if ((r.ts[k].occ || 0) === oi) nth++;
     var loc = prop || valueText ? locateValue(lines, prop, valueText, sliceRange(lines, nth)) : { hl: new Set(), how: '' }, hl = loc.hl;
     var locNote = !prop && !valueText ? '' : loc.how === 'text' ? 'Highlighted where the value appears: it is assembled from the data of this feature, not one AIXM element.' :
       loc.how === '' ? 'This value is derived by the converter (from related data or a default), so it is not a single element of this feature; the feature\'s AIXM code is shown in full.' : '';
@@ -1507,7 +1694,7 @@
     $('.drawer-body', drawer).innerHTML = (locNote ? '<div class="note-box" style="margin:8px 12px">' + esc(locNote) + '</div>' : '') + '<pre class="xml">' + html + '</pre>';
     if (first > 0) { var n = $$('.ln', drawer)[first]; if (n) n.scrollIntoView({ block: 'center' }); }
     $('#dx-copy').onclick = function () { EXPORTS.copyText(txt).then(function (ok) { toast(ok ? 'AIXM XML copied to the clipboard' : 'Copy failed — select the text manually'); }); };
-    $('#dx-dl').onclick = function () { EXPORTS.download(EXPORTS.safeName(M.label(ds, r)) + '.xml', new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n<!-- extracted from ' + ds.name + ', line ' + occ.line + ' -->\n' + txt], { type: 'text/xml' })); };
+    $('#dx-dl').onclick = function () { EXPORTS.download(EXPORTS.safeName(M.label(ds, r)) + '.xml', new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n<!-- extracted from ' + srcName(ds, occ.f) + ', line ' + occ.line + ' -->\n' + txt], { type: 'text/xml' })); };
   }
   function tsSummary(r) {
     var c = r.cur;
@@ -2299,11 +2486,24 @@
           else if (k === 'shp') EXPORTS.download(base + '_shapefile.zip', CONVERT.toShapefile(ds));
           else if (k === '45') { var r45 = CONVERT.writer45(ds); EXPORTS.download(base + '_AIXM-5.1.1.xml', r45.blob); showReport(r45.report); }
           else if (k === 'ver') {
-            if (!ds.file) { toast('The original file is not connected — open it again from Files or the Library.'); return; }
+            if (!ds.file && !ds.files) { toast('The original file is not connected — open it again from Files or the Library.'); return; }
             var tgt = $('#cv-target', v).value, ov = overlay('Converting to AIXM ' + tgt);
-            var res = await CONVERT.convertVersion(ds, tgt, function (f) { var bb = $('#ov-bar'); if (bb) bb.style.width = (f * 100).toFixed(0) + '%'; });
-            ov.remove();
-            EXPORTS.download(base + '_AIXM-' + tgt + '.xml', res.blob); showReport(res.report);
+            var bar = function (f) { var bb = $('#ov-bar'); if (bb) bb.style.width = (f * 100).toFixed(0) + '%'; };
+            if (ds.files) {
+              // a data set read from several files: each file converted, all in one zip
+              var zf = {}, rep = null;
+              for (var fi = 0; fi < ds.files.length; fi++) {
+                var one = await CONVERT.convertVersion(ds, tgt, function (q) { bar((fi + q) / ds.files.length); }, ds.files[fi]);
+                zf[ds.files[fi].name.replace(/\.(xml|aixm|gml)$/i, '') + '_AIXM-' + tgt + '.xml'] = new Uint8Array(await one.blob.arrayBuffer());
+                if (!rep) rep = one.report; else rep.renamed += one.report.renamed;
+              }
+              ov.remove();
+              EXPORTS.download(base + '_AIXM-' + tgt + '.zip', new Blob([fflate.zipSync(zf, { level: 6 })], { type: 'application/zip' })); showReport(rep);
+            } else {
+              var res = await CONVERT.convertVersion(ds, tgt, bar);
+              ov.remove();
+              EXPORTS.download(base + '_AIXM-' + tgt + '.xml', res.blob); showReport(res.report);
+            }
           }
         } catch (err) { var o2 = $('#overlay'); if (o2) o2.remove(); toast('Conversion failed: ' + err.message, 7000); }
       };
@@ -2536,6 +2736,7 @@
     var recs = ds.recs;
     while (idx.i < recs.length && (until === Infinity || (idx.i & 255) || performance.now() < until)) {
       var r = recs[idx.i++];
+      if (r.cur && r.cur.gone) continue; // withdrawn
       idx.list.push([M.searchText(ds, r), r]);
     }
     if (idx.i >= recs.length) { ds.searchIdx = idx.list; ds._idxPart = null; return true; }

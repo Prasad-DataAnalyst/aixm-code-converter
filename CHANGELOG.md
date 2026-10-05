@@ -7,6 +7,32 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.9.0 — 2026-10-05 — one AIRAC cycle delivered in several files
+
+- **Several files, one data set.** Some States deliver one AIRAC cycle as many files (one per feature type, baseline
+  and difference files, a checksum list, the schemas) — often in one zip. Dropped together, these files now show as
+  **one item** ("30 files → one data set") and are read as **one data set**, so every reference between the files
+  resolves (runways to their aerodrome, navaids to their equipment, route segments to their points…). Detected from
+  a checksum list delivered with the files or from names that differ only by feature type and variant; **⧉ Combine**
+  joins any other files, **Separate** reads them one by one. The checksums (SHA-256) are verified and shown; schema,
+  code-list and metadata XML in a zip are left out with a note. A time slice delivered twice (in a baseline and a
+  difference file) is kept once; the XML code view shows the file and line a feature came from; the saved copy is
+  reused when the same files are opened again; *Convert AIXM version* converts every file into one zip.
+- **Withdrawn features** — the feature's lifetime ends, or its last time slice ends with nothing after it — are no
+  longer shown in the AIP, map, search and counts as if current; the change list reports them as withdrawn.
+- **AIRAC cycle at local midnight:** effective times written as the evening before in UTC (e.g. 16:00Z = 00:00 at
+  UTC+8) belong to the next cycle — the cycle, the dashboard's effective date and the cycle's change list now match
+  the published AIRAC date. A date with a time in a file name (`…EFF202610281600…`) is read with its time.
+- **Re-issued, not changed:** a new time slice with exactly the same values (only new dates and sequence number) is
+  counted apart ("N features re-issued with unchanged values") instead of as a change.
+- **Identifiers that are not hexadecimal UUIDs** (some equipment IDs are derived from their navaid's UUID, e.g.
+  `…bac9ndb`) now resolve; before, such links were reported as unresolved.
+- The data provider's country in the message metadata is used as a State clue for files without aerodromes.
+- Files from a zip keep the zip's date, so opening the same zip again reuses the saved data.
+- Tests: `multi_file.js` (a delivery built from the Donlon sample: grouping, checksums, references, duplicates,
+  withdrawn feature, non-hexadecimal identifier, local-midnight AIRAC, XML view, Separate / Combine, saved copy,
+  conversion); unit tests for the AIRAC cycle at local midnight.
+
 ## 1.8.0 — 2026-10-05 — live traffic on the map
 
 - **✈ Live traffic is now an on / off switch on the map itself.** Switched on, the free adsb.lol live flight map

@@ -140,6 +140,10 @@ security problem privately.
 | AIXM 5.2 (5.2.0, `wip`, RC) | namespace and `schemaLocation` | New 5.2 features (AirportSign, GBAS, Gangway, RVR equipment, SatelliteSystem…). |
 | Times | ISO 8601; times without a zone are UTC (as AIXM requires), whatever the laptop's time zone | |
 | GML | `EPSG:4326/4269` (lat/lon) and `CRS84` (lon/lat) axis order | Point, LineString, GeodesicString, Geodesic, ArcByCenterPoint, CircleByCenterPoint, Arc (3-point), Polygon, Surface/patches, Ring/curveMember, and `xlink` border-following to GeoBorder curves. |
+| One AIRAC cycle in several files | names that differ only by feature type and variant (`…_Runway_BASELINE_EFF…`, `…_VOR_DIFF_EFF…`), a checksum list delivered with them (file name + SHA-256), or **⧉ Combine** in Files | The files show as one item and are read as **one data set**: references between the files resolve, a time slice delivered twice (baseline and difference files) is kept once, the XML code view opens the file a feature came from, the checksums are verified, schema and code-list XML in a zip are left out, **Separate** reads them one by one. Version conversion gives one zip with every file converted. |
+| Withdrawn features | the feature's lifetime ends, or its last time slice ends with nothing after it, before the date shown | Not shown in the AIP, map, search or counts; listed as *withdrawn* in the changes of their cycle. |
+| AIRAC cycle at local midnight | effective times up to 14 h before an AIRAC date (e.g. 16:00Z = 00:00 at UTC+8) | Belong to that cycle; the effective date shows the AIRAC date, the exact UTC time is in the details. A new time slice with exactly the same values counts as a re-issue, not a change. |
+| Identifiers | `urn:uuid:` with any identifier, also not hexadecimal (`…bac9ndb`) | Matched like the feature's `gml:identifier`. |
 
 ## Knowledge built into the file
 
@@ -195,7 +199,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.8.0, set in `src/config.js`; version 2 will add digital charts).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.9.0, set in `src/config.js`; version 2 will add digital charts).
 
 ```bash
 cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core

@@ -1092,7 +1092,7 @@ var AIP = (function () {
     RadioCommunicationChannel: 'GEN 3.4', SearchRescueService: 'GEN 3.6', InformationService: 'GEN 3.1', RulesProcedures: 'ENR 1', SpecialNavigationSystem: 'ENR 4.2',
     SpecialNavigationStation: 'ENR 4.2', SpecialDate: 'GEN 2.1', SatelliteSystem: 'ENR 4.3', GBAS: 'ENR 4.3', GeoBorder: 'ENR 2', SignificantPointInAirspace: 'ENR 4.4' };
   function sectionOf(ds, r) {
-    var ad = r.k === 'AirportHeliport' ? r : ds.owner.get(r);
+    var ad = r.k === 'AirportHeliport' ? r : ds.owner.get(r) || (ds.goneOwner && ds.goneOwner.get(r));
     if (ad) {
       var n = AD_SUB[r.k] || 23;
       if (r.k === 'RunwayCentrelinePoint' && r.cur.p.associatedDeclaredDistance && s(arr(r.cur.p.associatedDeclaredDistance)[0] && arr(r.cur.p.associatedDeclaredDistance)[0].type)) n = 13;

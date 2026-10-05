@@ -176,6 +176,10 @@ label.chk input { accent-color: var(--brand); width: 15px; height: 15px; }
 .fileitem { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; }
 .fileitem .ficon { width: 44px; height: 44px; border-radius: 10px; background: var(--surface-3); display: grid; place-items: center; color: var(--brand); font-weight: 700; font-size: 11px; }
 .fileitem .fname { font-weight: 600; word-break: break-all; }
+.fileset .set-files { margin-top: 6px; font-size: 12.5px; }
+.fileset .set-files summary { cursor: pointer; color: var(--brand); }
+.fileset .set-file { display: flex; align-items: center; gap: 10px; padding: 2px 0; }
+.fileset .set-file .mono { flex: 1; min-width: 0; word-break: break-all; font-size: 12px; }
 .progress { height: 8px; background: var(--surface-3); border-radius: 4px; overflow: hidden; margin-top: 6px; }
 .progress > div { height: 100%; background: linear-gradient(90deg, var(--brand), var(--brand-3)); width: 0; transition: width .2s; }
 .extract-bar { position: sticky; bottom: -60px; margin-top: 18px; display: flex; gap: 12px; align-items: center; padding: 14px 18px; }
