@@ -17,9 +17,10 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - Both search boxes (map and top bar) understand the words people type: "twy C", "taxiway A", "rwy 09L",
   "EADD stand 5", "airway UL123", "obstacle 0001" — every word is matched, in any order.
 - **Fixed — top bar on laptops:** once a file was loaded, the title ran under the search box at 1366 px and narrower
-  (since 1.0) and also at 1440 px (since 1.4). The title now never overlaps: the Feedback button shows only ✉ below
-  1600 px, the subtitle hides below 1400 px, the memory gauge below 1100 px, and very narrow windows shorten the
-  title with "…". The layout test now checks this in all languages.
+  (since 1.0) and also at 1440 px (since 1.4). Now, at every width from 761 to 1920 px: no overlap, nothing pushed
+  off-screen, and the full title from 1024 px up — the Feedback button shows only ✉ below 1600 px, the subtitle hides
+  below 1400 px, the memory gauge below 1180 px, the compact header spacing starts at 1279 px, and only windows
+  narrower than 1024 px shorten the title with "…". The layout test now checks this in all languages.
 - Tests: `map_search.js` (12 searches, picks, Esc, phone); `layout.js` checks the title against the search box.
 
 ## 1.5.0 — 2026-10-05 — 15 free online maps, no API key; AIP list fix

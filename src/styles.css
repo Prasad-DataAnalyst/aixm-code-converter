@@ -366,7 +366,7 @@ pre.xml .ln.hl { background: var(--hl); }
 }
 
 /* ------------------------------------------------------------ responsive */
-@media (max-width: 1240px) and (min-width: 761px) {
+@media (max-width: 1279px) and (min-width: 761px) {
   .brand-title { font-size: 14px; }
   #state-btn { max-width: 210px; }
   .topbar { gap: 8px; }
@@ -807,14 +807,14 @@ pre, .xml, .notam-text { text-align: left; }
 #fb-btn { white-space: nowrap; }
 /* top bar on laptop widths: once a file is loaded the bar is full; the title never slides under the search box (it is
    shortened with "…" if it must), and the least needed parts make room first */
-.brand { overflow: hidden; flex-shrink: 0.01; }
+.brand { overflow: hidden; flex-shrink: 0; }
 .topbar #state-btn { min-width: 96px; }
 .brand > div { min-width: 0; }
 .brand-title, .brand-sub { overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 1600px) { .fb-btn-t { display: none; } }
 @media (max-width: 1400px) { .brand-sub { display: none; } }
-@media (max-width: 1100px) { .mem-chip { display: none; } }
-@media (max-width: 1000px) { .topbar .search { min-width: 120px; } .topbar #asof-mode { max-width: 118px; } .topbar .lang-sel { max-width: 64px; } }
+@media (max-width: 1180px) { .mem-chip { display: none; } }
+@media (max-width: 1023px) { .brand { flex-shrink: 1; } .topbar .search { min-width: 120px; } .topbar #asof-mode { max-width: 118px; } .topbar .lang-sel { max-width: 64px; } }
 
 /* system dark mode (no theme chosen in the tool): the same dark colours as the dark theme above */
 @media (prefers-color-scheme: dark) {
