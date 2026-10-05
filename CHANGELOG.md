@@ -7,6 +7,21 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.5.0 — 2026-10-05 — 15 free online maps, no API key
+
+- The CARTO maps (Voyager, light, dark) now answer a downloaded, local page with an "API KEY REQUIRED" picture, so
+  they are replaced. The map offers **15 free online maps that need no API key** and load from the downloaded file:
+  - Street maps: Esri world street map (recommended), OpenStreetMap standard, humanitarian and German styles.
+  - Plain backgrounds, best under aeronautical data: light grey and dark grey with place names (Esri).
+  - Terrain: Esri topographic, OpenTopoMap (contours), shaded relief with place names, National Geographic style,
+    ocean and sea floor.
+  - Satellite: Esri imagery with or without place names, NASA Blue Marble, Earth at night (NASA).
+- Grouped list in the map panel; place names on satellite and relief maps stay under the aeronautical data; a
+  refused or failing map switches to the Esri street map (or to the offline map without internet); a CARTO choice
+  saved by an older version opens its free replacement.
+- Tests: `base_maps.js` (every offered map is free and keyless, no internet needed); `tools/check_maps.js` loads
+  every map for real and saves screenshots (run before a release).
+
 ## 1.4.1 — 2026-10-04
 
 - Dark mode from the computer's or phone's system setting now uses the same dark colours as the tool's own dark theme

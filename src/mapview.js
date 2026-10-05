@@ -496,15 +496,33 @@ var MAPVIEW = (function () {
     grp.grat = grat;
     return grp;
   }
+  // Online base maps: all free and without an API key, and all load from a downloaded (local) file. CARTO and
+  // Thunderforest now answer such pages with an "API key required" picture, so they are not offered.
+  var ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/', OSMA = '© OpenStreetMap contributors';
   var ONLINE = {
-    voyager: { name: 'OpenStreetMap – CARTO Voyager (recommended)', url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors © CARTO', maxZoom: 20, sub: 'abcd' },
-    osm: { name: 'OpenStreetMap (standard server – may refuse local files)', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors', maxZoom: 19 },
-    osmde: { name: 'OpenStreetMap (German style mirror)', url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors', maxZoom: 18 },
-    cartoLight: { name: 'OSM data – CARTO light', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors © CARTO', maxZoom: 20, sub: 'abcd' },
-    cartoDark: { name: 'OSM data – CARTO dark', url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors © CARTO', maxZoom: 20, sub: 'abcd' },
-    topo: { name: 'OSM data – OpenTopoMap (terrain)', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', attr: '© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)', maxZoom: 17, sub: 'abc' },
-    esri: { name: 'Satellite imagery (Esri)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri', maxZoom: 19 }
+    esriStreet: { group: 'Street maps', name: 'World street map (Esri) — recommended', url: ESRI + 'World_Street_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, USGS, NGA, OpenStreetMap contributors', maxZoom: 19 },
+    osm: { group: 'Street maps', name: 'OpenStreetMap (standard)', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attr: OSMA, maxZoom: 19 },
+    osmhot: { group: 'Street maps', name: 'OpenStreetMap (humanitarian style)', url: 'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png', attr: OSMA + ', tiles by HOT / OSM France', maxZoom: 19 },
+    osmde: { group: 'Street maps', name: 'OpenStreetMap (German style)', url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png', attr: OSMA, maxZoom: 18 },
+    esriGray: { group: 'Plain backgrounds (best under aeronautical data)', name: 'Light grey with place names (Esri)', url: ESRI + 'Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap contributors', maxZoom: 16 },
+    esriDark: { group: 'Plain backgrounds (best under aeronautical data)', name: 'Dark grey with place names (Esri)', url: ESRI + 'Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap contributors', maxZoom: 16 },
+    esriTopo: { group: 'Terrain', name: 'World topographic map (Esri)', url: ESRI + 'World_Topo_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, USGS, NGA, OpenStreetMap contributors', maxZoom: 19 },
+    topo: { group: 'Terrain', name: 'OpenTopoMap (contours, relief)', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', attr: OSMA + ', SRTM | © OpenTopoMap (CC-BY-SA)', maxZoom: 17, sub: 'abc' },
+    esriRelief: { group: 'Terrain', name: 'Shaded relief with place names (Esri)', url: ESRI + 'World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, USGS', maxZoom: 13 },
+    esriNatGeo: { group: 'Terrain', name: 'National Geographic style (Esri)', url: ESRI + 'NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — National Geographic, Esri, Garmin, HERE, UNEP-WCMC, USGS, NASA', maxZoom: 16 },
+    esriOcean: { group: 'Terrain', name: 'Ocean and sea floor (Esri)', url: ESRI + 'Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — GEBCO, NOAA, National Geographic, Garmin, HERE', maxZoom: 13 },
+    esri: { group: 'Satellite', name: 'Satellite imagery (Esri)', url: ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, Maxar, Earthstar Geographics', maxZoom: 19 },
+    esriHybrid: { group: 'Satellite', name: 'Satellite with place names (Esri)', url: ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, Maxar, Earthstar Geographics', maxZoom: 19 },
+    nasa: { group: 'Satellite', name: 'Blue Marble — whole Earth (NASA)', url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg', attr: 'Imagery © NASA EOSDIS GIBS', maxZoom: 8 },
+    nasaNight: { group: 'Satellite', name: 'Earth at night (NASA)', url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png', attr: 'Imagery © NASA EOSDIS GIBS', maxZoom: 8 }
   };
+  var BASE_DEFAULT = 'esriStreet';
+  var RENAMED = { voyager: 'esriStreet', cartoLight: 'esriGray', cartoDark: 'esriDark' }; // older choices that need a key now
+  // place names drawn over a base map stay under the aeronautical data
+  function labelPane() {
+    if (!map.getPane('baseLabels')) { var p = map.createPane('baseLabels'); p.style.zIndex = 250; p.style.pointerEvents = 'none'; }
+    return 'baseLabels';
+  }
   function setBase(key) {
     if (base.current === key && (key !== 'offline' || map.hasLayer(base.offline))) return;
     if (base.current === 'offline') map.removeLayer(base.offline);
@@ -513,19 +531,20 @@ var MAPVIEW = (function () {
     if (key === 'offline') { map.addLayer(base.offline); base.offline.restyle(); return; }
     var d = ONLINE[key];
     if (!base.online[key]) {
-      base.online[key] = L.tileLayer(d.url, { attribution: d.attr, maxZoom: d.maxZoom, subdomains: d.sub || 'abc', crossOrigin: true, referrerPolicy: 'strict-origin-when-cross-origin' });
+      var tl = L.tileLayer(d.url, { attribution: d.attr, maxZoom: 19, maxNativeZoom: d.maxZoom, subdomains: d.sub || 'abc', crossOrigin: true, referrerPolicy: 'strict-origin-when-cross-origin' });
+      base.online[key] = d.labels ? L.layerGroup([tl, L.tileLayer(d.labels, { maxZoom: 19, maxNativeZoom: d.maxZoom, crossOrigin: true, pane: labelPane() })]) : tl;
       var errors = 0, loaded = 0;
-      base.online[key].on('tileload', function () { loaded++; });
-      base.online[key].on('tileerror', function () {
+      tl.on('tileload', function () { loaded++; });
+      tl.on('tileerror', function () {
         if (++errors !== 5 || loaded) return;
-        // The standard OSM servers refuse requests without a web-site referrer (a local file has none):
-        // fall back to the same OpenStreetMap data served by CARTO, or to the offline map.
-        if (key !== 'voyager' && key !== 'offline') {
+        // a server that refuses a local file (no web-site referrer) or is down: fall back to the recommended map,
+        // or to the offline map
+        if (key !== BASE_DEFAULT && key !== 'offline') {
           checkOnline(function (on) {
             if (base.current !== key) return;
-            var to = on ? 'voyager' : 'offline';
+            var to = on ? BASE_DEFAULT : 'offline';
             setBase(to); var sel = document.getElementById('map-base'); if (sel) sel.value = to;
-            if (hooks) hooks.toast(on ? ONLINE[key].name + ' refused the tiles — switched to OpenStreetMap (CARTO Voyager).' : 'No internet — switched to the offline map.', 6000);
+            if (hooks) hooks.toast(on ? ONLINE[key].name + ' refused the tiles — switched to ' + ONLINE[BASE_DEFAULT].name.replace(/ — .*/, '') + '.' : 'No internet — switched to the offline map.', 6000);
           });
         } else if (hooks) hooks.toast('Online map tiles are not loading (no internet or blocked). The offline map always works.');
       });
@@ -534,14 +553,14 @@ var MAPVIEW = (function () {
     if (state.showOfflineBorders) { map.addLayer(base.offline); }
   }
   function saveBase(key) { try { localStorage.setItem('aixm-map-base', key); } catch (e) { /* storage unavailable */ } }
-  function savedBase() { try { return localStorage.getItem('aixm-map-base') || ''; } catch (e) { return ''; } }
+  function savedBase() { try { var b = localStorage.getItem('aixm-map-base') || ''; return RENAMED[b] || b; } catch (e) { return ''; } }
   function checkOnline(cb) {
     if (!navigator.onLine) { cb(false); return; }
     var img = new Image(), done = false;
     var t = setTimeout(function () { if (!done) { done = true; cb(false); } }, 4000);
     img.onload = function () { if (!done) { done = true; clearTimeout(t); cb(true); } };
     img.onerror = function () { if (!done) { done = true; clearTimeout(t); cb(false); } };
-    img.src = 'https://a.basemaps.cartocdn.com/light_all/0/0/0.png?_=' + Date.now();
+    img.src = ESRI + 'World_Street_Map/MapServer/tile/0/0/0?_=' + Date.now();
   }
 
   /* ------------------------------------------------------------ overlays */
@@ -992,7 +1011,12 @@ var MAPVIEW = (function () {
     h += '<div class="row"><b>Map</b><span class="sp"></span><span class="chip" id="map-online">checking internet…</span></div>';
     if (datasets.length > 1) h += '<h4>Data set</h4><select class="inp" id="map-ds" style="width:100%">' + datasets.map(function (d, i) { return '<option value="' + i + '">' + esc(d.state + ' – ' + d.name) + '</option>'; }).join('') + '</select>';
     h += '<h4>Base map</h4><select class="inp" id="map-base" style="width:100%"><option value="offline">Offline world map (built in)</option>';
-    Object.keys(ONLINE).forEach(function (k) { h += '<option value="' + k + '">' + ONLINE[k].name + ' — online</option>'; });
+    var grp = '';
+    Object.keys(ONLINE).forEach(function (k) {
+      if (ONLINE[k].group !== grp) { h += (grp ? '</optgroup>' : '') + '<optgroup label="' + ONLINE[k].group + ' — online, free">'; grp = ONLINE[k].group; }
+      h += '<option value="' + k + '">' + ONLINE[k].name + '</option>';
+    });
+    h += '</optgroup>';
     h += '</select><div class="muted" style="font-size:11.5px;margin-top:4px">Online maps need the laptop\'s internet connection. The offline map always works.</div>';
     h += '<h4>Aeronautical layers</h4>';
     LAYER_DEF.forEach(function (d) { h += '<label class="chk"><input type="checkbox" data-layer="' + d[0] + '"' + (d[2] ? ' checked' : '') + '> ' + d[1] + ' <span class="muted" data-count="' + d[0] + '"></span></label>'; });
@@ -1493,5 +1517,6 @@ var MAPVIEW = (function () {
   function datasetBounds(ds) { var b = dsBounds(ds); return b ? [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] : null; }
 
   return { countryAt: countryAt, mount: mount, show: show, release: release, focus: focus, showProcs: showProcs, airportView: airportView, closeAirportView: closeAdCard, open3d: open3d, asCat: asCat, COLORS: COLORS, procPaths: procPaths, setCompare: setCompare, refreshTheme: refreshTheme, renderImage: renderImage, boundsAround: boundsAround, datasetBounds: datasetBounds,
+    baseMaps: function () { return { list: ONLINE, def: BASE_DEFAULT, renamed: RENAMED }; }, savedBase: savedBase,
     isMounted: function () { return !!map; }, leaflet: function () { return map; }, invalidate: function () { if (map) map.invalidateSize(); } };
 })();

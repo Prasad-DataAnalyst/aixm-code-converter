@@ -28,7 +28,7 @@ Phones and tablets get their own layout — see [Phones and tablets](#phones-and
 | **6. Valid on date** | The top bar switches between *Latest data* and **data valid on a chosen date**, following AIXM temporality: BASELINE, PERMDELTA, TEMPDELTA, sequence and correction numbers, feature lifetime. |
 | **7. Changes** | **What changed, where and when** inside a file: new baselines, permanent and temporary changes, corrections, withdrawals, and AIXM 4.5 Update (New/Changed/Withdrawn). Each shows old → new values and the AIP section. |
 | **8. Compare** | Two files of the **same State**, e.g. two AIRAC cycles, even of different AIXM versions. The result lists added, removed and modified items with every changed value, filters by section, and can be drawn on the map in green, red and amber. |
-| **9. Map** | A complete **offline world map** is built in (Natural Earth countries 1:50m/1:10m, places, graticule). When online it can switch to **OpenStreetMap** or OSM-based styles (CARTO light/dark, OpenTopoMap) or satellite imagery. It shows airspace by category, ATS routes, runways, aprons and taxiways, navaids with aeronautical symbols, designated points, obstacles (clustered) and ground lights. Clicking a feature gives the AIP section, AIXM code or all its data. Also: measuring tool (distance NM/km, true bearing), coordinate readout (DMS and decimal) with terrain elevation, and PNG snapshots. Labels never overlap; navaids show information boxes (frequency, channel), airspace shows name, class and limits, routes their designators. |
+| **9. Map** | A complete **offline world map** is built in (Natural Earth countries 1:50m/1:10m, places, graticule). When online it can switch to **15 free online maps — no API key needed**: street maps (Esri, OpenStreetMap standard/humanitarian/German), plain light and dark grey backgrounds, terrain (Esri topographic, OpenTopoMap, shaded relief, National Geographic, ocean floor) and satellite (Esri imagery with or without place names, NASA Blue Marble, Earth at night). It shows airspace by category, ATS routes, runways, aprons and taxiways, navaids with aeronautical symbols, designated points, obstacles (clustered) and ground lights. Clicking a feature gives the AIP section, AIXM code or all its data. Also: measuring tool (distance NM/km, true bearing), coordinate readout (DMS and decimal) with terrain elevation, and PNG snapshots. Labels never overlap; navaids show information boxes (frequency, channel), airspace shows name, class and limits, routes their designators. |
 | **9a. Airport chart** | *Airport view*: runways to scale with ICAO markings, designators, bearings and THR elevations, ILS feathers, taxiway signs, aprons, stands, holding positions, hot spots, plus an information card (runways, declared distances, ILS, frequencies, navaids). |
 | **9b. Terrain and 3D** | Built-in terrain model (offline) and high-resolution terrain online; grid MORA; **3D view** with airspace volumes between their vertical limits and the airspace column under the mouse; **approach and departure crew views** with altitude, terrain clearance and current airspace. |
 | **9c. Second window** | *⧉ New window* puts the map on another screen while the main window shows the data. |
@@ -60,7 +60,7 @@ Phones and tablets get their own layout — see [Phones and tablets](#phones-and
 | **Saved views and links** | ☆ saves a named view (file, page, AIP section, cycle, side-by-side, date, map position). The address of every view can be copied and shared: opening it and loading the same file restores the view. |
 | **Languages** | English, العربية (right-to-left layout), Français, Español for menus, headings, AIP section titles and common item labels. AIXM values are never translated. |
 | **Map print** | Drag an area, choose A4/A3 portrait/landscape; legend of the layers shown, north arrow, coordinate grid and scale; PDF, PNG or print. |
-| **Online maps** | OpenStreetMap through CARTO Voyager (works from a local file); if a tile server refuses the page, the map switches automatically. The chosen base map is remembered. |
+| **Online maps** | 15 free maps from Esri, OpenStreetMap, OpenTopoMap and NASA — none needs an API key, all load from the downloaded file; if a tile server refuses the page, the map switches automatically. The chosen base map is remembered. |
 | **State detection** | STATE authority, ICAO location indicators (aerodromes, FIRs, NOTAM locations, procedure names, reference titles) and, if nothing else, the country under the data; a file with only a weak guess takes the State of a loaded file with the same ICAO prefix. |
 
 Theme: navy blue and white with magenta accents (the colours of ICAO aeronautical charts), in light and dark modes.
@@ -194,7 +194,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.4.1, set in `src/config.js`; version 2 will add digital charts).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.5.0, set in `src/config.js`; version 2 will add digital charts).
 
 ```bash
 cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core
@@ -208,6 +208,7 @@ EVAL='return JSON.stringify((await RULES.run(ds)).summary)' node tools/test_aip.
 node tools/e2e.js                                     # full UI test in headless Chromium + exports
 node --test tools/tests/unit/*.test.js               # unit tests (npm run test:unit)
 node tools/tests/run_all.js                           # all feature and layout tests (npm test runs both)
+node tools/check_maps.js                              # needs internet: loads every online base map, screenshots
 cd tools && npm run lint                              # ESLint over src/
 node tools/make_big.js testdata/Donlon_ALL_Baseline_2025.xml 1000 /tmp/big.xml   # 1 GB test file (unique UUIDs per copy)
 node tools/bench_big.js /tmp/big.xml [/tmp/big2.xml …]   # time, memory and longest freeze of every step
@@ -227,8 +228,9 @@ that the committed `AIXM-Code-Converter.html` matches the sources, and all brows
 - CRC32Q fingerprints are computed by this tool from the formatted values; CRC values published by other systems use their
   own input conventions and are listed, not recomputed.
 - A browser cannot send e-mail by itself. The e-mail feature produces a formatted message (clipboard, `.eml` or `.html`) for Outlook.
-- Online base maps need internet. Some tile servers (e.g. the standard OSM server) may refuse requests from a local
-  `file://` page; the OSM-based CARTO/OpenTopoMap styles are offered as alternatives, and the offline map always works.
+- Online base maps need internet. All 15 offered maps are free and keyless (CARTO and Thunderforest, which now ask for
+  an API key, are not used); if a server refuses the page the map switches to the Esri street map, and the offline map
+  always works. Free map services can change their terms; the list is checked by the tests.
 - AIXM does not contain charts. ENR 6 and AD 2.24 point to the map and list the procedures that are in the data.
 - The EUROCONTROL AIXM Coding Guidelines site is protected against automated access, so its content is not built in. The
   AIP ↔ AIXM mapping here follows the official Donlon data sets and the AIXM ADM/SDO report templates. If you download the
