@@ -7,6 +7,20 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.8.0 — 2026-10-05 — live traffic on the map
+
+- **✈ Live traffic is now an on / off switch on the map itself.** Switched on, the free adsb.lol live flight map
+  (community ADS-B data, Open Database Licence, no account) appears inside the map, under the aeronautical data, at
+  exactly the same position and zoom, and follows panning and zooming; switched off, the chosen base map returns. A
+  note shows the live state and *Aircraft details ↗*, which opens the full adsb.lol map (aircraft information,
+  history) in a new tab. Works on computers, tablets, phones and in the separate map window.
+- How: the free live-traffic services do not let a page opened from a file read their data, so adsb.lol's own map
+  page is embedded, sandboxed (it cannot open windows or change the tool), twice the size of the view so panning needs
+  no reload; a zoom loads it again and the old view stays until the new one has its aircraft. adsb.lol receives only
+  the map position and zoom. Off by default; nothing is requested until it is switched on.
+- Test: `safety.js` switches live traffic on and off (address, sandbox, centring, zoom, base map, credit) with a
+  stand-in page, so it needs no internet.
+
 ## 1.7.1 — 2026-10-05 — offline map in dark mode
 
 - **Fixed — the offline map looked black in dark mode.** With dark mode set in Windows, macOS, Android or iOS, the

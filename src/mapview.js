@@ -565,11 +565,82 @@ var MAPVIEW = (function () {
   }
   function saveBase(key) { try { localStorage.setItem('aixm-map-base', key); } catch (e) { /* storage unavailable */ } }
   function savedBase() { try { var b = localStorage.getItem('aixm-map-base') || ''; return RENAMED[b] || b; } catch (e) { return ''; } }
-  // live air traffic: the free adsb.lol map (open data, no account) at the same place and zoom, in its own tab;
-  // nothing is loaded into this page
-  function trafficUrl() {
-    var c = map.getCenter(), z = Math.max(3, Math.min(14, Math.round(map.getZoom())));
-    return 'https://adsb.lol/?lat=' + c.lat.toFixed(4) + '&lon=' + c.lng.toFixed(4) + '&zoom=' + z;
+  /* ------------------------------------------------------------ live air traffic */
+  // The free adsb.lol live map (community ADS-B data, Open Database Licence, no account), switched on and off with
+  // ✈ Live traffic and shown inside this map, under the aeronautical data, at the same place and zoom. A page opened
+  // from a file may not read the adsb.lol data (the service does not allow it), so its own map page is embedded,
+  // sandboxed (it cannot open windows or change this page). It is twice the size of the view, so panning needs no
+  // reload; a zoom, or a pan past its edge, loads it again (the old view stays until the new one has its aircraft).
+  var traffic = null;
+  var TRAFFIC_ATTR = 'Traffic <a href="https://adsb.lol/" target="_blank" rel="noopener noreferrer">adsb.lol</a> (ODbL) · © OpenStreetMap';
+  function trafficUrl(embed) {
+    var c = map.getCenter(), z = Math.round(map.getZoom());
+    return 'https://adsb.lol/?lat=' + c.lat.toFixed(5) + '&lon=' + L.Util.wrapNum(c.lng, [-180, 180], true).toFixed(5) + '&zoom=' + z + (embed ? '&hideSidebar&hideButtons' : '');
+  }
+  function hideBase() {
+    if (base.offline) map.removeLayer(base.offline);
+    if (base.online[base.current]) map.removeLayer(base.online[base.current]);
+    map.getContainer().classList.remove('dark-base');
+  }
+  function showBase() { var k = base.current; base.current = ''; setBase(k); }
+  function trafficUi() {
+    var on = !!traffic, b = document.getElementById('map-traffic'), n = document.getElementById('map-traffic-note'), s = document.getElementById('map-base');
+    if (b) { b.classList.toggle('primary', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+    if (n) n.classList.toggle('hidden', !on);
+    if (s) { s.disabled = on; s.title = on ? 'Switch live traffic off to change the base map' : ''; }
+  }
+  function trafficStatus(loading) { var n = document.getElementById('map-traffic-state'); if (n) n.textContent = loading ? 'loading…' : 'live'; }
+  function trafficLoad() {
+    if (!traffic || !map) return;
+    var size = map.getSize(), w = Math.min(size.x * 2, 4096), h = Math.min(size.y * 2, 4096);
+    var lp = map.latLngToLayerPoint(map.getCenter()), x = Math.round(lp.x - w / 2), y = Math.round(lp.y - h / 2);
+    var f = L.DomUtil.create('iframe', 'traffic-frame', map.getPane('trafficPane'));
+    f.title = 'Live air traffic (adsb.lol)';
+    f.setAttribute('tabindex', '-1');
+    f.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+    f.setAttribute('referrerpolicy', 'no-referrer');
+    f.style.width = w + 'px'; f.style.height = h + 'px'; f.style.opacity = '0';
+    L.DomUtil.setPosition(f, L.point(x, y));
+    traffic.frame = f; traffic.zoom = Math.round(map.getZoom()); traffic.box = L.bounds(L.point(x, y), L.point(x + w, y + h));
+    trafficStatus(true);
+    f.addEventListener('load', function () {
+      // the page is there; its aircraft follow a moment later
+      setTimeout(function () {
+        if (!traffic || traffic.frame !== f) return;
+        f.style.opacity = '1';
+        Array.prototype.slice.call(f.parentNode.querySelectorAll('.traffic-frame')).forEach(function (o) { if (o !== f) o.remove(); });
+        trafficStatus(false);
+      }, 1200);
+    });
+    f.src = trafficUrl(true);
+  }
+  function trafficZoomStart() { if (traffic) Array.prototype.forEach.call(map.getPane('trafficPane').children, function (o) { o.style.opacity = '0'; }); }
+  function trafficMoved() {
+    if (!traffic) return;
+    var size = map.getSize(), a = map.containerPointToLayerPoint([0, 0]), b = map.containerPointToLayerPoint(size);
+    if (Math.round(map.getZoom()) !== traffic.zoom || !traffic.box.contains(a) || !traffic.box.contains(b)) trafficLoad();
+  }
+  function trafficOn() {
+    if (traffic || !map) return;
+    if (navigator.onLine === false) { if (hooks) hooks.toast('Live traffic needs internet.'); return; }
+    if (!map.getPane('trafficPane')) { var p = map.createPane('trafficPane'); p.style.zIndex = 150; p.style.pointerEvents = 'none'; }
+    traffic = { frame: null, zoom: null, box: null };
+    hideBase();
+    map.attributionControl.addAttribution(TRAFFIC_ATTR);
+    map.on('zoomstart', trafficZoomStart); map.on('moveend', trafficMoved); map.on('resize', trafficLoad);
+    trafficUi();
+    trafficLoad();
+  }
+  function trafficOff() {
+    if (!traffic) return;
+    traffic = null;
+    if (map) {
+      map.off('zoomstart', trafficZoomStart); map.off('moveend', trafficMoved); map.off('resize', trafficLoad);
+      map.getPane('trafficPane').innerHTML = '';
+      map.attributionControl.removeAttribution(TRAFFIC_ATTR);
+      showBase();
+    }
+    trafficUi();
   }
   function showOnline(on) {
     var c = document.getElementById('map-online');
@@ -1053,7 +1124,7 @@ var MAPVIEW = (function () {
     h += '<h4>Display</h4><label class="chk"><input type="checkbox" id="map-labels" checked> Labels</label>';
     h += '<label class="chk"><input type="checkbox" id="map-cmp" disabled> Show comparison result (added / removed / modified)</label>';
     h += '</div>';
-    h += '<div class="map-tools"><button class="btn small" id="map-fit" title="Zoom to data">⤢ Fit data</button><button class="btn small" id="map-measure" title="Measure distance and bearing">📏 Measure</button><button class="btn small" id="map-png" title="Save the current view as PNG">🖼 Save PNG</button><button class="btn small" id="map-print" title="Print or save the map as PDF: choose area, paper, legend, north arrow">🖨 Print map</button><button class="btn small" id="map-3d" title="3D view: terrain, airspace volumes with their vertical limits, approach and departure crew views">🗻 3D view</button><a class="btn small" id="map-traffic" href="https://adsb.lol/" target="_blank" rel="noopener noreferrer" title="Live air traffic at this map position on adsb.lol, a free community flight-tracking map (opens in a new tab; needs internet)">✈ Live traffic</a><button class="btn small" id="map-panel-toggle">☰ Layers</button>' +
+    h += '<div class="map-tools"><button class="btn small" id="map-fit" title="Zoom to data">⤢ Fit data</button><button class="btn small" id="map-measure" title="Measure distance and bearing">📏 Measure</button><button class="btn small" id="map-png" title="Save the current view as PNG">🖼 Save PNG</button><button class="btn small" id="map-print" title="Print or save the map as PDF: choose area, paper, legend, north arrow">🖨 Print map</button><button class="btn small" id="map-3d" title="3D view: terrain, airspace volumes with their vertical limits, approach and departure crew views">🗻 3D view</button><button class="btn small" id="map-traffic" aria-pressed="false" title="Live air traffic on this map, on or off (adsb.lol, free community flight tracking; needs internet)">✈ Live traffic</button><button class="btn small" id="map-panel-toggle">☰ Layers</button>' +
       (hooks.popout ? '<button class="btn small" id="map-popout" title="Open the map in its own window (for a second screen); the main window keeps the data">⧉ New window</button>' : '') +
       (hooks.dock ? '<button class="btn small" id="map-dock" title="Close this window and show the map in the main window again">⇲ Back to main window</button>' : '') + '</div>';
     h += '<div class="card map-status" id="map-status">' + (touchDev() ? 'Tap the map to read the position' : 'Move the mouse over the map') + '</div>';
@@ -1063,12 +1134,13 @@ var MAPVIEW = (function () {
   function mount(container, datasets, _hooks, opts) {
     hooks = _hooks;
     opts = opts || {};
-    container.innerHTML = '<div class="map-wrap"><div id="map"></div>' + searchHtml() + panelHtml(datasets) + '<div class="card map-adcard hidden" id="map-adcard"></div></div>';
+    container.innerHTML = '<div class="map-wrap"><div id="map"></div>' + searchHtml() + panelHtml(datasets) + '<div class="card map-adcard hidden" id="map-adcard"></div>' +
+      '<div class="map-traffic-note hidden" id="map-traffic-note">✈ Live traffic <b id="map-traffic-state">loading…</b> · adsb.lol, community data · <a id="map-traffic-full" href="https://adsb.lol/" target="_blank" rel="noopener noreferrer">aircraft details ↗</a></div></div>';
     var mdiv = container.querySelector('#map');
     if (devKind() === 'phone' || (devKind() === 'tablet' && window.innerHeight > window.innerWidth)) container.querySelector('#map-panel').classList.add('hidden'); // phones, upright tablets: map first, Layers opens the panel
     VIEW3D.close();
     if (map) { map.remove(); map = null; base = { offline: null, current: 'offline', online: {} }; over = {}; vec = null; }
-    live = []; state.adView = null; state.all = datasets; tipLayer = null;
+    live = []; traffic = null; state.adView = null; state.all = datasets; tipLayer = null;
     map = L.map(mdiv, { zoomControl: false, worldCopyJump: true, preferCanvas: true, minZoom: 2, maxZoom: 20 }).setView([30, 10], 3);
     map.createPane('asPane').style.zIndex = 380;    // airspace: below routes, aerodrome surfaces and obstacles
     map.createPane('adPane').style.zIndex = 420;    // airport chart: above airspace / taxiway vectors
@@ -1117,8 +1189,9 @@ var MAPVIEW = (function () {
     q('#map-png').addEventListener('click', function () { hooks.savePng(renderImage(state.ds, map.getBounds(), 1600, 1000, { title: state.ds ? state.ds.state : '', layers: currentLayers() })); });
     q('#map-print').addEventListener('click', function () { printDialog(null); });
     q('#map-3d').addEventListener('click', function () { open3d('area', state.adView && state.adView.ds === state.ds ? state.adView.ad : null); });
-    // the link follows the map, so it opens the live map where the user is looking
-    q('#map-traffic').addEventListener('click', function (e) { e.currentTarget.href = trafficUrl(); });
+    q('#map-traffic').addEventListener('click', function () { if (traffic) trafficOff(); else trafficOn(); });
+    // the full adsb.lol map (aircraft details, history) opens in its own tab at the same place
+    q('#map-traffic-full').addEventListener('click', function (e) { e.currentTarget.href = trafficUrl(false); });
     q('#map-panel-toggle').addEventListener('click', function () { q('#map-panel').classList.toggle('hidden'); });
     bindSearch(container);
     if (q('#map-popout')) q('#map-popout').addEventListener('click', function () { hooks.popout(state.ds, state.adView ? state.adView.ad : null); });
@@ -1162,7 +1235,7 @@ var MAPVIEW = (function () {
     if (!used) return;
     VIEW3D.close();
     if (map) { map.remove(); map = null; }
-    over = {}; live = []; vec = null; tipLayer = null; el = {};
+    over = {}; live = []; traffic = null; vec = null; tipLayer = null; el = {};
     state.ds = null; state.all = null; state.cmp = null; state.adView = null; state.procAd = null;
     base = { offline: null, current: 'offline', online: {} };
   }

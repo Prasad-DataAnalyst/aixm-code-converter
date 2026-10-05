@@ -3,7 +3,8 @@
 // Safety checks: CSV cells that a spreadsheet would run as a formula are made plain text (numbers stay numbers);
 // a zip whose contents are larger than the limit is refused instead of filling the memory; saved (cached) data is only
 // reused in the memory mode (Full / Lite) that applies now; the map asks no server anything while the offline map is
-// shown; the Live traffic link opens adsb.lol at the map position in a new tab.
+// shown; ✈ Live traffic switches the adsb.lol live map on inside the map (sandboxed, at the map position and zoom,
+// under the aeronautical data, base map hidden, credit shown), follows a zoom, and switches off again.
 const fs = require('fs');
 const path = require('path');
 const env = require('./_env');
@@ -39,15 +40,34 @@ const DONLON = ROOT + '/testdata/Donlon_ALL_Baseline_2025.xml';
   await page.setInputFiles('#file-input', [zip]);
   await page.waitForFunction(() => window.__AIXM.S.files.length === 1 && window.__AIXM.S.files[0].status === 'ready', null, { timeout: 15000 }).catch(() => fails.push('zip under the limit not added'));
 
-  // the map: offline map, no request to any server; Live traffic follows the map
+  // the map: offline map, no request to any server
   await page.evaluate(() => document.querySelector('#extract-btn').click());
   await page.waitForFunction(() => window.__AIXM.S.view === 'dash', null, { timeout: 60000 });
   await page.evaluate(() => window.__AIXM.go('map')); await page.waitForTimeout(1500);
   if (requests.length) fails.push('offline map asked servers: ' + requests.slice(0, 3).join(', '));
   if (!/offline map/.test(await page.textContent('#map-online'))) fails.push('internet chip: ' + await page.textContent('#map-online'));
-  const link = await page.evaluate(() => { const a = document.querySelector('#map-traffic'); a.addEventListener('click', (e) => e.preventDefault()); a.click(); return { href: a.href, target: a.target, rel: a.rel }; });
-  if (!/^https:\/\/adsb\.lol\/\?lat=-?\d+\.\d{4}&lon=-?\d+\.\d{4}&zoom=\d+$/.test(link.href)) fails.push('live traffic link ' + link.href);
-  if (link.target !== '_blank' || !/noopener/.test(link.rel)) fails.push('live traffic link should open a new tab without access to this page');
+  // live traffic on / off (the adsb.lol page is replaced by a stand-in: the test needs no internet)
+  await ctx.route('https://adsb.lol/**', (r) => r.fulfill({ contentType: 'text/html', body: '<!doctype html><title>stand-in</title>' }));
+  await page.evaluate(() => MAPVIEW.leaflet().setView([51.47, -0.4543], 9, { animate: false }));
+  await page.click('#map-traffic');
+  await page.waitForFunction(() => { const f = document.querySelector('.traffic-frame'); return f && f.style.opacity === '1'; }, null, { timeout: 10000 }).catch(() => fails.push('live traffic did not show'));
+  const on = await page.evaluate(() => {
+    const f = document.querySelector('.traffic-frame'), m = MAPVIEW.leaflet(), r = f.getBoundingClientRect(), c = m.getContainer().getBoundingClientRect();
+    return { src: f.src, sandbox: f.getAttribute('sandbox'), pressed: document.querySelector('#map-traffic').getAttribute('aria-pressed'), note: !document.querySelector('#map-traffic-note').classList.contains('hidden'),
+      attr: document.querySelector('.leaflet-control-attribution').textContent, base: !!document.querySelector('#map-base').disabled,
+      land: m.getPane('tilePane').querySelectorAll('canvas').length, dx: Math.round(r.left + r.width / 2 - (c.left + c.width / 2)), dy: Math.round(r.top + r.height / 2 - (c.top + c.height / 2)) };
+  });
+  if (!/^https:\/\/adsb\.lol\/\?lat=51\.47000&lon=-0\.45430&zoom=9&hideSidebar&hideButtons$/.test(on.src)) fails.push('live traffic address ' + on.src);
+  if (on.sandbox !== 'allow-scripts allow-same-origin') fails.push('live traffic must be sandboxed: ' + on.sandbox);
+  if (on.pressed !== 'true' || !on.note || !/adsb\.lol/.test(on.attr)) fails.push('live traffic state, note or credit missing ' + JSON.stringify(on));
+  if (!on.base || on.land) fails.push('base map should be hidden and locked while live traffic is on');
+  if (Math.abs(on.dx) > 1 || Math.abs(on.dy) > 1) fails.push('live traffic not centred on the map: ' + on.dx + ',' + on.dy);
+  await page.evaluate(() => MAPVIEW.leaflet().setZoom(7, { animate: false })); await page.waitForTimeout(1600);
+  const z = await page.evaluate(() => [...document.querySelectorAll('.traffic-frame')].map((f) => f.src));
+  if (z.length !== 1 || !/&zoom=7&/.test(z[0])) fails.push('live traffic did not follow the zoom: ' + z.join(' '));
+  await page.click('#map-traffic');
+  const off = await page.evaluate(() => ({ frames: document.querySelectorAll('.traffic-frame').length, pressed: document.querySelector('#map-traffic').getAttribute('aria-pressed'), base: document.querySelector('#map-base').disabled, attr: document.querySelector('.leaflet-control-attribution').textContent, land: MAPVIEW.leaflet().getPane('tilePane').querySelectorAll('canvas').length }));
+  if (off.frames || off.pressed !== 'false' || off.base || /adsb/.test(off.attr) || !off.land) fails.push('live traffic did not switch off cleanly ' + JSON.stringify(off));
 
   // saved data is reused only in the same memory mode
   async function reopen(mode) {

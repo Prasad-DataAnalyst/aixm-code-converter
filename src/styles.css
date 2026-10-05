@@ -295,6 +295,10 @@ pre.xml .ln.hl { background: var(--hl); }
 .map-panel .sw { width: 14px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 2px; border: 1px solid rgba(0, 0, 0, .2); }
 .map-tools { position: absolute; top: 12px; right: 12px; z-index: 500; display: flex; flex-direction: column; gap: 6px; }
 .map-tools .btn { box-shadow: var(--shadow); }
+.traffic-frame { position: absolute; left: 0; top: 0; border: 0; background: transparent; transition: opacity .3s; }
+.map-traffic-note { position: absolute; right: 64px; bottom: 34px; z-index: 500; max-width: calc(100% - 24px); padding: 5px 10px; border-radius: 8px; background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 12px; }
+.map-traffic-note a { color: var(--brand); }
+:root[data-device="phone"] .map-traffic-note { left: 12px; right: 64px; bottom: 84px; font-size: 11px; }
 .map-status { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 500; padding: 5px 12px; font: 12px var(--mono); }
 /* airport view: information card next to the layer panel */
 .map-adcard { position: absolute; top: 12px; left: 314px; z-index: 510; width: 420px; max-width: calc(100% - 380px); max-height: calc(100% - 70px); overflow: auto; padding: 12px 14px; font-size: 12.5px; }

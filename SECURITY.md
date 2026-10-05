@@ -6,7 +6,9 @@ are read inside your browser. Nothing is requested from any server unless you as
 - **online base maps** (and the internet check that goes with them) — only after you pick an online map, which is
   then remembered; the built-in offline world map needs nothing;
 - **3D terrain tiles** — only when you open the 3D view with terrain;
-- **Live traffic** — opens the free adsb.lol map in a new browser tab; nothing from it is loaded into the tool.
+- **Live traffic** — only while it is switched on: the free adsb.lol live map is shown inside the map in a sandboxed
+  frame (it cannot open windows or touch the tool or your data); adsb.lol receives the map position and zoom, nothing
+  else. *Aircraft details ↗* opens adsb.lol in a new tab.
 
 No AIXM data, file names or search text is ever sent. Map tile servers see only the tile coordinates.
 
@@ -21,7 +23,7 @@ Please **do not open a public issue** for security problems. Report them private
 - GitHub: **Security → Report a vulnerability** on this repository (private advisory), or
 - e-mail: prasad2t@gmail.com
 
-Include the version (top bar, e.g. v1.7), the browser, and steps or a sample file that shows the problem.
+Include the version (top bar, e.g. v1.8), the browser, and steps or a sample file that shows the problem.
 You will get an answer within 7 days.
 
 ## Verify your download
