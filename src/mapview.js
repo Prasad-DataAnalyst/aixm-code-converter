@@ -423,9 +423,18 @@ var MAPVIEW = (function () {
   }
 
   /* ------------------------------------------------------------ base map */
+  // dark theme: chosen in the tool, or the system setting when the tool follows it (same test as the page colours)
+  function isDark() {
+    var t = document.documentElement.getAttribute('data-theme');
+    return t === 'dark' || (!t && !!window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  }
+  function darkOutline() {
+    var k = base.current;
+    map.getContainer().classList.toggle('dark-base', !!(ONLINE[k] && ONLINE[k].dark) || (k === 'offline' && isDark()));
+  }
   function landStyle() {
-    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-    return { stroke: true, color: dark ? '#5a4a55' : '#b9aca4', weight: 0.8, fillColor: dark ? '#2a2229' : '#f3efe9', fillOpacity: 1, interactive: false };
+    var dark = isDark();
+    return { stroke: true, color: dark ? '#6b7788' : '#b9aca4', weight: 0.8, fillColor: dark ? '#353e4b' : '#f3efe9', fillOpacity: 1, interactive: false };
   }
   // land areas drawn as shape layers (Leaflet GeoJSON built ~660,000 coordinate objects for the detailed map: a
   // one-second freeze and ~60 MB the first time the map was zoomed in)
@@ -466,7 +475,7 @@ var MAPVIEW = (function () {
     // graticule + place names
     var grat = new CanvasLayer(function (ctx, m, size) {
       var z = m.getZoom(), step = z < 4 ? 10 : z < 6 ? 5 : z < 8 ? 1 : 0.5;
-      var b = m.getBounds(), dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      var b = m.getBounds(), dark = isDark();
       ctx.strokeStyle = dark ? 'rgba(255,255,255,.08)' : 'rgba(40,40,80,.10)'; ctx.lineWidth = 1;
       ctx.font = '10px ui-monospace, monospace'; ctx.fillStyle = dark ? 'rgba(255,255,255,.35)' : 'rgba(40,40,80,.4)';
       for (var lat = Math.ceil(Math.max(-85, b.getSouth()) / step) * step; lat <= Math.min(85, b.getNorth()); lat += step) {
@@ -529,7 +538,7 @@ var MAPVIEW = (function () {
     else if (base.online[base.current]) map.removeLayer(base.online[base.current]);
     base.current = key;
     // dark and satellite maps: the aeronautical data gets a thin white outline so the ICAO colours stay readable
-    map.getContainer().classList.toggle('dark-base', !!(ONLINE[key] && ONLINE[key].dark));
+    darkOutline();
     if (key === 'offline') { map.addLayer(base.offline); base.offline.restyle(); return; }
     var d = ONLINE[key];
     if (!base.online[key]) {
@@ -1067,7 +1076,7 @@ var MAPVIEW = (function () {
     map.on('moveend zoomend resize viewreset', scheduleDraw);
     map.on('zoomstart', hideAll);
     base.offline = buildOffline();
-    map.addLayer(base.offline);
+    map.addLayer(base.offline); darkOutline();
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.control.scale({ imperial: true, metric: true, position: 'bottomleft' }).addTo(map);
     el.status = container.querySelector('#map-status');
@@ -1419,7 +1428,7 @@ var MAPVIEW = (function () {
     }
     return null;
   }
-  function refreshTheme() { if (base.offline && base.offline.restyle) base.offline.restyle(); if (base.offline && base.offline.grat) base.offline.grat.redraw(); }
+  function refreshTheme() { if (map) darkOutline(); if (base.offline && base.offline.restyle) base.offline.restyle(); if (base.offline && base.offline.grat) base.offline.grat.redraw(); }
 
   /* ------------------------------------------------ static map renderer */
   // Renders the offline base map + aeronautical features of `ds` inside `bounds` to a PNG data URL.

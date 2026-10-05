@@ -288,7 +288,7 @@ pre.xml .ln.hl { background: var(--hl); }
 /* -------------------------------------------------------------------- map */
 .map-wrap { isolation: isolate;  position: absolute; inset: 0; }
 #map { position: absolute; inset: 0; background: #cfe3ee; }
-:root[data-theme="dark"] #map { background: #0e1b24; }
+:root[data-theme="dark"] #map { background: #1d3549; }
 .map-panel { position: absolute; top: 12px; left: 12px; z-index: 500; width: 290px; max-height: calc(100% - 24px); overflow: auto; padding: 12px 14px; }
 .map-panel h4 { margin: 10px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
 .map-panel label.chk { font-size: 13px; padding: 2px 0; display: flex; }
@@ -821,7 +821,7 @@ pre, .xml, .notam-text { text-align: left; }
 
 /* system dark mode (no theme chosen in the tool): the same dark colours as the dark theme above */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) #map { background: #0e1b24; }
+  :root:not([data-theme="light"]) #map { background: #1d3549; }
   :root:not([data-theme="light"]) .cycle-bar { background: #3a1616; border-color: #6b2626; color: #ffc9c9; }
   :root:not([data-theme="light"]) .sbs-head.old { background: #2b3236; color: #cfd8dc; }
   :root:not([data-theme="light"]) .sbs .sbs-old { background: #4a3b10; color: #ffe08a; }

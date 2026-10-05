@@ -222,6 +222,8 @@
     applyTheme(dark ? 'light' : 'dark');
   });
   try { applyTheme(localStorage.getItem('aixm-theme') || null); } catch (e) { applyTheme(null); }
+  // following the system setting: repaint the map when the system switches between light and dark
+  if (window.matchMedia) { var mq = window.matchMedia('(prefers-color-scheme: dark)'); var onMq = function () { if (!S.theme) applyTheme(null); }; if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq); }
 
   /* ======================================================== FILES VIEW */
   function viewFiles(v) {
