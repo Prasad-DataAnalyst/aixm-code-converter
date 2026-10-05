@@ -7,6 +7,14 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.12.1 — 2026-10-05 — About page brought up to date
+
+- **About this tool**: new *What's new* section (1.2 – 1.12); feature cards for deliveries of many files, search on the
+  map, live air traffic and aircraft details, one AIXM file for the cycle, phones and tablets, accessibility; updated
+  map, changes, exports and library cards; *Good to know* now says exactly when the internet is used, how to send
+  feedback, where the licence texts are and how to check a download. The ? box lists the live-traffic and flight-data
+  sources.
+
 ## 1.12.0 — 2026-10-05 — one AIXM file per cycle, deliveries in the Library, equipment positions
 
 - **One AIXM file for this cycle** (Export): writes the data set — one file, or all the files of a delivery

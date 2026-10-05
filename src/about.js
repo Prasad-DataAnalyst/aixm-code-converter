@@ -23,9 +23,12 @@ var ABOUT = (function () {
   ];
   var FEATURES = [
     ['Reads every AIXM version', 'AIXM 4.5 (Snapshot / Update), 5.0, 5.1, 5.1.1 and 5.2, detected automatically. Multi-gigabyte files are streamed by parallel threads.'],
+    ['One cycle in many files', 'States that deliver one AIRAC cycle as many files (one per feature type, baseline and difference files, a checksum list) — loose or in a .zip — get one data set: references between the files resolve, checksums are verified, schema files are left out. Combine or separate files by hand at any time.'],
     ['ICAO AIP layout', 'GEN, ENR 1–6 and AD 2 / AD 3 for every aerodrome and heliport, as in the ICAO specimen AIP; each value opens its AIXM code.'],
-    ['Changes and AIRAC cycles', 'Changes inside a file, comparison of two files, values changed in the selected AIRAC cycle in red, AMDT report, side-by-side view, timeline and Digital NOTAM text.'],
-    ['Aeronautical map', 'Offline world map (OpenStreetMap or satellite when online), airspace with class and limits, routes, navaids with frequencies, points, obstacles, procedures, measuring, print to A4 / A3.'],
+    ['Changes and AIRAC cycles', 'Changes inside a file, comparison of two files, values changed in the selected AIRAC cycle in red, AMDT report, side-by-side view, timeline and Digital NOTAM text. Withdrawn features are listed as withdrawn and no longer shown as current; re-issues with unchanged values are counted apart; cycles that start at local midnight (e.g. 16:00 UTC) get their published AIRAC date.'],
+    ['Aeronautical map', 'Built-in offline world map (light and dark) or 15 free online maps — street, plain, terrain and satellite, none needs a key. Airspace with class and limits, routes, navaids with frequencies, points, obstacles, procedures, measuring, print to A4 / A3.'],
+    ['Search on the map', 'Type an airway, waypoint, navaid, aerodrome, runway, taxiway, stand, airspace or obstacle: the map zooms to it, outlines it and opens its information. Understands “twy C”, “rwy 09L”, “EADD stand 5”.'],
+    ['Live air traffic', '✈ Live traffic shows live aircraft on the map, under the aeronautical data, at the same place and zoom (free community data, adsb.lol). Aircraft details open inside the tool: click an aircraft, or find a flight by callsign, registration or ICAO address for a card with airline, route, aircraft and photo, while the live map follows it.'],
     ['Airport chart', 'Runways to scale with markings, designators, bearings and threshold elevations, ILS feathers, taxiway signs, aprons, stands, holding positions and an airport information card.'],
     ['Terrain model', 'A global terrain model is built in (works offline); high-resolution terrain is loaded automatically when online. Grid MORA per 1° square on the map, terrain elevation under the mouse, online terrain shading.'],
     ['3D view', 'Terrain with airspace volumes drawn between their lower and upper limits, runways, aerodromes, obstacles and procedures at their published altitudes. Point anywhere to see the airspace column above it.'],
@@ -36,12 +39,26 @@ var ABOUT = (function () {
     ['Data integrity (CRC32Q)', 'Critical, essential and routine data classified as in PANS-AIM with the required and declared accuracy, a CRC32Q fingerprint for each item, and verification of a new delivery against a saved CRC list.'],
     ['Approach profile', 'The vertical profile of each instrument approach, as on an approach chart: fixes, distances, altitude constraints, glide path, minima, missed approach, rate-of-descent and timing table.'],
     ['Custom data export', 'Choose aerodromes and exactly which data — single AD items such as the magnetic variation, runways, declared distances, operational hours, rescue and firefighting, airspace by type (P, R, D, TMA, CTR …), ENR / GEN sections — for one or several files, in Excel, CSV, JSON, PDF, e-mail, GeoJSON, KML or Shapefile.'],
-    ['Exports and conversions', 'JSON, Excel, CSV, PDF, print, e-mail; AIXM 5.1 ↔ 5.1.1 ↔ 5.2, AIXM 4.5 → 5.1.1, GeoJSON, KML, Shapefile.'],
-    ['State library', 'One folder per State on your disk; extracted data is cached for instant reopening. Bookmarks and shareable links.'],
+    ['Exports and conversions', 'JSON, Excel, CSV (formula-safe), PDF, print, e-mail; AIXM 5.1 ↔ 5.1.1 ↔ 5.2, AIXM 4.5 → 5.1.1, GeoJSON, KML, Shapefile.'],
+    ['One AIXM file for the cycle', 'Writes a data set — or every file of a delivery — as one clean AIXM file of what is valid from the cycle: the original XML of each feature, ended time slices and withdrawn features left out, duplicates kept once, with a report.'],
+    ['State library', 'One folder per State on your disk; a cycle delivered as many files (also in sub-folders) is one entry. Extracted data is saved for instant reopening. Bookmarks and shareable links.'],
+    ['Computers, tablets and phones', 'The desktop layout on computers; layouts made for iPhone, Android phones, iPad and Android tablets, upright or sideways.'],
+    ['Accessible', 'Every control is named for screen readers and colours keep enough contrast in light and dark themes (checked with axe-core, WCAG 2.1 AA).'],
     ['Languages', 'English, العربية (right-to-left), Français and Español; light and dark themes.']
   ];
+  var NEWS = [
+    ['1.12', 'One AIXM file for the cycle (Export); deliveries of many files in the State library; navaid equipment without coordinates shown at its navaid\'s position.'],
+    ['1.11', 'Find an aircraft by callsign, registration or ICAO address: a details card in this tool\'s style, and the live map follows the aircraft.'],
+    ['1.10', 'Aircraft details inside the tool — click any aircraft on the live map, no new tab.'],
+    ['1.9', 'One AIRAC cycle delivered as many files is read as one data set; withdrawn features; AIRAC cycles at local midnight; identifiers that are not hexadecimal UUIDs.'],
+    ['1.8', 'Live air traffic on the map as an on / off switch.'],
+    ['1.7', 'Code audit fixes: safer CSV, zip size limit, saved data per memory mode, no internet use with the offline map, accessibility, licences of all built-in parts, updated build pipelines; offline map readable in dark mode.'],
+    ['1.6', 'Search on the map; top bar fixed on laptops.'],
+    ['1.5', '15 free online maps without a key; AIP section list folds and unfolds correctly.'],
+    ['1.2 – 1.4', 'Layouts for phones and tablets; feedback form; footer with author and licence.']
+  ];
   var STEPS = [
-    ['Open', 'Drop one or more AIXM files (or a .zip) on the Files page, or connect a State library folder.'],
+    ['Open', 'Drop one or more AIXM files (or a .zip) on the Files page — the files of one delivery become one data set — or connect a State library folder.'],
     ['Extract', 'Press Extract. The State, AIXM version, AIRAC cycle and effective date are detected.'],
     ['Use', 'Read the AIP, look at the map and the airport charts, list the changes, compare cycles, check quality and export.']
   ];
@@ -74,12 +91,15 @@ var ABOUT = (function () {
       '<li><b>Obstacle limitation surfaces (ICAO Annex 14).</b> <i>Quality → Obstacle surfaces</i> builds, for every runway, the approach and take-off climb surfaces (Tables 4-1 and 4-2), the transitional surfaces along the strip, the inner horizontal surface (45 m) and the conical surface (5 %). The runway code number comes from the runway length and the approach type from the ILS and instrument approaches in the data. Every obstacle of all loaded files within 11 NM is checked; penetrations are listed with the surface, the permitted elevation and the height above it, and <b>🗻 Show in 3D</b> draws the surfaces with the penetrating obstacles in red. The airport card shows the result too. The inner approach / OFZ surfaces are not included and the official survey prevails.</li>' +
       '<li><b>Data integrity (Annex 15, PANS-AIM).</b> <i>Quality → Data integrity</i> lists every critical, essential and routine data item (thresholds, runway ends, holding positions, ILS, navaids, points, obstacles, aerodrome reference point and elevation) with the accuracy PANS-AIM requires and the accuracy declared in the data. Each item gets a <b>CRC32Q</b> fingerprint (the 32-bit CRC of the aeronautical data chain). <b>Save CRC list</b> keeps the fingerprints; <b>Verify against a CRC list</b> shows which items changed, disappeared or are new in a later delivery. CRC values published in the file (AIXM 4.5 valCrc, FAS data blocks) are listed.</li>' +
       '<li><b>Approach profile.</b> Every instrument approach in AD 2.22 shows its vertical profile: IAF / IF / FAF / MAPt with distances to the threshold, altitude constraints with chart bars (at or above, at or below, at), courses, glide slope or vertical angle with TCH, minima, missed approach and the terrain under the track, followed by the rate-of-descent table (ft/min for 70–160 kt) and the time from the FAF to the MAPt. It prints with the AIP page.</li></ul></section>';
+    h += '<section><h2>What\'s new</h2><ul class="ab-list">' + NEWS.map(function (x) { return '<li><b>' + esc(x[0]) + '</b> — ' + esc(x[1]) + '</li>'; }).join('') + '</ul><p class="muted">Every change is listed in CHANGELOG.md of the release.</p></section>';
     h += '<section><h2>How to start</h2><ol class="ab-steps">' + STEPS.map(function (x) { return '<li><b>' + esc(x[0]) + '</b> — ' + esc(x[1]) + '</li>'; }).join('') + '</ol></section>';
     h += '<section><h2>Good to know</h2><ul class="ab-list">' +
-      '<li><b>Privacy:</b> everything runs in your browser. Only the optional online map tiles use the internet.</li>' +
+      '<li><b>Privacy:</b> everything runs in your browser; your AIXM data never leaves it. The internet is used only when you ask: online maps and terrain, live traffic (adsb.lol, in a sandboxed frame), and <i>Find aircraft</i> (what you type goes to adsbdb.com; the photo comes from airport-data.com).</li>' +
+      '<li><b>Feedback:</b> ✉ in the top bar, on this page and at the bottom of every page — your own e-mail program sends it to the author.</li>' +
       '<li><b>Time:</b> AIXM times are UTC; “Latest data / Valid on date” shows the data valid on any day (BASELINE, PERMDELTA, TEMPDELTA).</li>' +
       '<li><b>Large files:</b> several files of 1 GB can be open together. The <i>Memory</i> gauge in the top bar shows how much of the browser\'s memory is in use; when files would not fit, the Lite memory mode is used automatically and the tool says so. <i>Dashboard → Remove</i> frees the memory of a data set.</li>' +
-      '<li><b>Sources:</b> AIXM schemas, code lists and business rules from aixm.aero (EUROCONTROL, FAA); base map Natural Earth; terrain from the Terrain Tiles (Mapzen / AWS Open Data: SRTM, GMTED2010, ETOPO1); libraries Leaflet, three.js, SheetJS, jsPDF, fflate, topojson.</li></ul></section>';
+      '<li><b>Sources:</b> AIXM schemas, code lists and business rules from aixm.aero (EUROCONTROL, FAA); base map Natural Earth; terrain from the Terrain Tiles (Mapzen / AWS Open Data: SRTM, GMTED2010, ETOPO1); libraries Leaflet, three.js, SheetJS, jsPDF, fflate, topojson (full licence texts in THIRD-PARTY-LICENSES.txt); live traffic adsb.lol (ODbL); flight and aircraft data adsbdb.com.</li>' +
+      '<li><b>Safe download:</b> each release lists the SHA-256 checksum of its files and has a signed build record (see SECURITY.md).</li></ul></section>';
     h += '<section class="ab-author"><h2>Author</h2><p>Created by <b>' + esc(APP_INFO.author) + '</b> · <a href="mailto:' + esc(APP_INFO.email) + '">' + esc(APP_INFO.email) + '</a> · <a href="' + esc(APP_INFO.linkedin) + '" target="_blank" rel="noopener">LinkedIn</a></p>' +
       '<p class="muted">© ' + esc(APP_INFO.year) + ' ' + esc(APP_INFO.author) + '. Open source under the Apache License 2.0 — redistributions and modified versions must keep this attribution (LICENSE and NOTICE).</p>' +
       '<span class="ab-sig" aria-hidden="true">' + zw(SIG) + '</span></section>';
