@@ -4,7 +4,7 @@
 // local file without a key), the list is grouped in the map panel, and a choice saved by an older version for a map
 // that now needs a key (CARTO) opens its free replacement; dark maps outline the aeronautical data in white. In dark
 // mode (chosen in the tool or set in the system) the offline map is navy sea and slate land, never near-black or
-// half light. No internet needed: tools/check_maps.js loads the tiles.
+// half light, without the costly outline. No internet needed: tools/check_maps.js loads the tiles.
 const env = require('./_env');
 const { PNG } = require(require('path').join(env.ROOT, 'tools', 'node_modules', 'pngjs'));
 const ROOT = env.ROOT;
@@ -66,7 +66,7 @@ const KEYED = /cartocdn|carto\.com|thunderforest|stadiamaps|mapbox|maptiler|tomt
     const r = await p.evaluate(() => ({ sea: getComputedStyle(document.querySelector('#map')).backgroundColor, outline: document.querySelector('.leaflet-container').classList.contains('dark-base') }));
     const sea = lum(r.sea);
     if (sea < 35 || sea > 90) fails.push(how + ' dark: offline sea should be navy, got ' + r.sea);
-    if (!r.outline) fails.push(how + ' dark: aeronautical data should have the white outline');
+    if (r.outline) fails.push(how + ' dark: the offline map needs no outline (a costly CSS filter that slowed the map)');
     // no light land (the light-mode colour #f3efe9) left on the dark map
     const box = await p.evaluate(() => { const b = document.querySelector('#map').getBoundingClientRect(); return { x: Math.round(b.left), y: Math.round(b.top), width: Math.round(b.width), height: Math.round(b.height) }; });
     const img = PNG.sync.read(await p.screenshot({ clip: box }));

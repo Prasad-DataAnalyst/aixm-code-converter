@@ -430,7 +430,7 @@ var MAPVIEW = (function () {
   }
   function darkOutline() {
     var k = base.current;
-    map.getContainer().classList.toggle('dark-base', !!(ONLINE[k] && ONLINE[k].dark) || (k === 'offline' && isDark()));
+    map.getContainer().classList.toggle('dark-base', !!(ONLINE[k] && ONLINE[k].dark)); // a CSS outline: costly, so not on the offline map
   }
   function landStyle() {
     var dark = isDark();

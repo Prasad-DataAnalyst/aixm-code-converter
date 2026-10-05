@@ -11,21 +11,11 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 
 - **Fixed — the offline map looked black in dark mode.** With dark mode set in Windows, macOS, Android or iOS, the
   built-in map had a near-black sea under light land; with dark mode chosen in the tool, sea and land were both
-  near-black (since 1.0). Now dark mode, from either place, gives a navy sea with slate-grey land, and the aeronautical
-  data gets the thin white outline already used on dark online maps, so every line stays visible. The map also
-  repaints when the system switches between light and dark while the tool is open. Light mode, online maps and saved
-  or printed map images are unchanged.
-- Test: `base_maps.js` checks the dark offline map (system and tool setting): sea colour, outline, no light land.
-
-## 1.7.1 — 2026-10-05 — offline map in dark mode
-
-- **Fixed — the offline map looked black in dark mode.** With dark mode set in Windows, macOS, Android or iOS, the
-  built-in map had a near-black sea under light land; with dark mode chosen in the tool, sea and land were both
-  near-black (since 1.0). Now dark mode, from either place, gives a navy sea with slate-grey land, and the aeronautical
-  data gets the thin white outline already used on dark online maps, so every line stays visible. The map also
-  repaints when the system switches between light and dark while the tool is open. Light mode, online maps and saved
-  or printed map images are unchanged.
-- Test: `base_maps.js` checks the dark offline map (system and tool setting): sea colour, outline, no light land.
+  near-black (since 1.0). Now dark mode, from either place, gives a mid-navy sea with slate-grey land, light enough
+  for the dark-blue boundaries and routes to stay visible. The map also repaints when the system switches between
+  light and dark while the tool is open. Light mode, online maps and saved or printed map images are unchanged.
+- Test: `base_maps.js` checks the dark offline map (system and tool setting): sea colour, no light land, and no
+  costly outline filter.
 
 ## 1.7.0 — 2026-10-05 — live traffic link; safety, accessibility and pipeline fixes from the code audit
 
