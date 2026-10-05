@@ -805,7 +805,16 @@ pre, .xml, .notam-text { text-align: left; }
 .fb-card { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; border-left: 4px solid var(--brand-3); }
 @media (max-width: 600px) { .fb-grid { grid-template-columns: 1fr; } }
 #fb-btn { white-space: nowrap; }
-@media (max-width: 1240px) { .fb-btn-t { display: none; } }
+/* top bar on laptop widths: once a file is loaded the bar is full; the title never slides under the search box (it is
+   shortened with "…" if it must), and the least needed parts make room first */
+.brand { overflow: hidden; flex-shrink: 0.01; }
+.topbar #state-btn { min-width: 96px; }
+.brand > div { min-width: 0; }
+.brand-title, .brand-sub { overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1600px) { .fb-btn-t { display: none; } }
+@media (max-width: 1400px) { .brand-sub { display: none; } }
+@media (max-width: 1100px) { .mem-chip { display: none; } }
+@media (max-width: 1000px) { .topbar .search { min-width: 120px; } .topbar #asof-mode { max-width: 118px; } .topbar .lang-sel { max-width: 64px; } }
 
 /* system dark mode (no theme chosen in the tool): the same dark colours as the dark theme above */
 @media (prefers-color-scheme: dark) {
@@ -818,3 +827,27 @@ pre, .xml, .notam-text { text-align: left; }
 }
 /* map: on dark and satellite base maps the aeronautical data (canvas layers) gets a thin white outline */
 .leaflet-container.dark-base .aixm-canvas { filter: drop-shadow(0 0 1px rgba(255, 255, 255, .9)); }
+
+/* ------------------------------------------------------------ search on the map */
+.map-search { position: absolute; top: 12px; left: 12px; z-index: 520; width: 290px; }
+.map-search .inp { width: 100%; height: 38px; padding: 0 10px 0 34px; border-radius: 10px; box-shadow: var(--shadow);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2378879a' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 11px center; }
+.map-sr { position: absolute; top: 44px; left: 0; width: max(100%, 360px); max-height: min(60vh, 440px); overflow: auto; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg); padding: 4px; }
+.map-sr .msr { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.map-sr .msr .grow { display: flex; flex-direction: column; min-width: 0; }
+.map-sr .msr b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-sr .msr small { color: var(--muted); font-size: 11.5px; }
+.map-sr .msr .chip { flex: none; font-size: 11px; }
+.map-sr .msr.active, .map-sr .msr:hover { background: var(--brand-soft); }
+.map-wrap .map-panel { top: 60px; max-height: calc(100% - 72px); }
+@media (min-width: 901px) { .map-panel.hidden ~ .map-adcard { top: 60px; } }
+@media (max-width: 760px) { .map-search { width: 220px; } }
+.leaflet-searchPane-pane { animation: map-hl 0.9s ease-in-out 3; }
+@keyframes map-hl { 50% { opacity: 0.35; } }
+:root[data-device="tablet"] .map-search { width: 300px; }
+:root[data-device="phone"] .map-search { top: 52px; left: 8px; right: 8px; width: auto; }
+:root[data-device="phone"] .map-sr { width: 100%; max-height: 45vh; }
+:root[data-device="phone"] .map-wrap .map-panel { top: 98px; max-height: calc(100% - 158px); }
+:root[data-device="phone"][data-orient="landscape"] .map-search { right: auto; width: min(340px, 60%); }

@@ -7,6 +7,21 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.6.0 — 2026-10-05 — search on the map
+
+- **Search on the map** (box at the top left of the map, also on phones, tablets and in the pop-out map window):
+  airways, waypoints, navaids, aerodromes, runways, taxiways, aprons, stands, airspace, obstacles, lights… of all
+  loaded data. Results show the kind and the AIP section; exact names come first. A pick zooms there, outlines the
+  feature in magenta (airways, taxiways and aprons with all their parts) and opens its information; an aerodrome
+  opens the airport view. Arrow keys and Enter work; Esc closes the list, a second Esc clears the outline.
+- Both search boxes (map and top bar) understand the words people type: "twy C", "taxiway A", "rwy 09L",
+  "EADD stand 5", "airway UL123", "obstacle 0001" — every word is matched, in any order.
+- **Fixed — top bar on laptops:** once a file was loaded, the title ran under the search box at 1366 px and narrower
+  (since 1.0) and also at 1440 px (since 1.4). The title now never overlaps: the Feedback button shows only ✉ below
+  1600 px, the subtitle hides below 1400 px, the memory gauge below 1100 px, and very narrow windows shorten the
+  title with "…". The layout test now checks this in all languages.
+- Tests: `map_search.js` (12 searches, picks, Esc, phone); `layout.js` checks the title against the search box.
+
 ## 1.5.0 — 2026-10-05 — 15 free online maps, no API key; AIP list fix
 
 - The CARTO maps (Voyager, light, dark) now answer a downloaded, local page with an "API KEY REQUIRED" picture, so

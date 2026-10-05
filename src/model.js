@@ -810,12 +810,30 @@ var MODEL = (function () {
     if (withTime && iso.slice(11, 16) !== '00:00') out += ' ' + iso.slice(11, 16) + 'Z';
     return out;
   }
+  // Text a feature is found by (search box and map search): its label, designators, name, ICAO / IATA codes, type,
+  // frequency, plus the words people type for its kind ("twy", "stand", "airway", "waypoint"…) and, for aerodrome
+  // surfaces, the aerodrome — so "TWY A", "EADD stand 5" or "airway UL9" find what they mean.
+  var KIND_WORDS = { Taxiway: 'twy taxiway', TaxiwayElement: 'twy taxiway', Apron: 'apron', ApronElement: 'apron', AircraftStand: 'stand parking',
+    Runway: 'rwy runway', RunwayDirection: 'rwy runway', RunwayElement: 'rwy runway', Route: 'airway awy route', RouteSegment: 'airway awy route segment',
+    DesignatedPoint: 'waypoint wpt fix point', VerticalStructure: 'obstacle obst', AirportHeliport: 'aerodrome airport', Navaid: 'navaid',
+    AeronauticalGroundLight: 'light', Airspace: 'airspace', GuidanceLine: 'guidance line', TouchDownLiftOff: 'tlof helipad' };
+  var OWN_WORDS = /^(Runway|RunwayDirection|RunwayElement|Taxiway|TaxiwayElement|Apron|ApronElement|AircraftStand|GuidanceLine|TouchDownLiftOff)$/;
+  function searchText(ds, r) {
+    var p = r.cur.p, own = OWN_WORDS.test(r.k) && ds.owner ? ds.owner.get(r) : null;
+    return [label(ds, r), s(p.designator), s(p.name), s(p.locationIndicatorICAO), s(p.designatorIATA), r.k, r.k === 'RadioCommunicationChannel' ? fFreq(r) : '', s(p.channel),
+      KIND_WORDS[r.k] || '', own ? shortName(own) : ''].join(' ').toLowerCase();
+  }
+  // a search matches when every word of it is found (in any order); words people add for the kind ("twy", "stand")
+  // are left out when checking for an exact name
+  function searchMatch(text, words) { for (var i = 0; i < words.length; i++) if (text.indexOf(words[i]) < 0) return false; return true; }
+  var KIND_WORD_SET = new Set(Object.keys(KIND_WORDS).reduce(function (a, k) { return a.concat(KIND_WORDS[k].split(' ')); }, []));
+  function searchCore(words) { var w = words.filter(function (x) { return !KIND_WORD_SET.has(x); }); return (w.length ? w : words).join(' '); }
   function fmtTs(str) { if (typeof str === 'number') return fmtDate(str, true); var t = AX.tms(str); return t === null ? (str || '') : fmtDate(t, true); }
 
   return {
     setDict: setDict, dict: dict, finalize: finalize, finalizeAsync: finalizeAsync, setViewDate: setViewDate, harmonizeStates: harmonizeStates, setLocator: setLocator, target: target, eachRef: eachRef,
     geometry: geometry, pointOf: pointOf, findGeo: findGeo, segPoint: segPoint, segPointLabel: segPointLabel, segPointRec: segPointRec,
-    label: label, shortName: shortName, typeName: typeName, routeDesignator: routeDesignator, s: s,
+    label: label, shortName: shortName, typeName: typeName, routeDesignator: routeDesignator, s: s, searchText: searchText, searchMatch: searchMatch, searchCore: searchCore,
     fq: fq, fLimit: fLimit, fPoint: fPoint, fElev: fElev, fTimesheet: fTimesheet, fSchedule: fSchedule, noteText: noteText, notesOf: notesOf,
     fContact: fContact, fFreq: fFreq, fv: fv, propDef: propDef, featureDef: featureDef, codeDef: codeDef, def45: def45,
     adEffective: adEffective, fmtDate: fmtDate, fmtTs: fmtTs, AD_COMPONENT: AD_COMPONENT, EQUIPMENT: EQUIPMENT, SERVICE: SERVICE, UOM: UOM

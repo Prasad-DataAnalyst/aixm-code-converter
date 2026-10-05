@@ -2523,8 +2523,8 @@
     var idx = ds._idxPart || (ds._idxPart = { list: [], i: 0, date: ds.viewDate });
     var recs = ds.recs;
     while (idx.i < recs.length && (until === Infinity || (idx.i & 255) || performance.now() < until)) {
-      var r = recs[idx.i++], p = r.cur.p;
-      idx.list.push([[M.label(ds, r), s(p.designator), s(p.name), s(p.locationIndicatorICAO), s(p.designatorIATA), r.k, r.k === 'RadioCommunicationChannel' ? M.fFreq(r) : '', s(p.channel)].join(' ').toLowerCase(), r]);
+      var r = recs[idx.i++];
+      idx.list.push([M.searchText(ds, r), r]);
     }
     if (idx.i >= recs.length) { ds.searchIdx = idx.list; ds._idxPart = null; return true; }
     return false;
@@ -2553,12 +2553,13 @@
     q = q.trim().toLowerCase();
     var box = $('#search-results');
     if (q.length < 2) { box.classList.add('hidden'); return; }
-    var res = [];
+    var res = [], words = q.split(/\s+/);
     S.datasets.forEach(function (ds) {
       var idx = buildIndex(ds);
       for (var i = 0; i < idx.length && res.length < 400; i++) {
-        var t = idx[i][0], pos = t.indexOf(q);
-        if (pos >= 0) res.push({ ds: ds, r: idx[i][1], score: (pos === 0 ? 0 : 1) + (RANK[idx[i][1].k] === undefined ? 8 : RANK[idx[i][1].k]) });
+        var t = idx[i][0];
+        if (!M.searchMatch(t, words)) continue; // every word, in any order ("twy a", "eadd stand 5")
+        res.push({ ds: ds, r: idx[i][1], score: (t.indexOf(q) === 0 ? 0 : 1) + (RANK[idx[i][1].k] === undefined ? 8 : RANK[idx[i][1].k]) });
       }
     });
     res.sort(function (a, b) { return a.score - b.score; });
@@ -2604,7 +2605,7 @@
       '<p><b>Effective dates.</b> The header shows the State, AIXM version, AIRAC cycle and effective date. Every row shows the effective date of its feature. Use <b>Latest data / Valid on date</b> (top bar) to see the data valid on any date (AIXM temporality: BASELINE, PERMDELTA, TEMPDELTA).</p>' +
       '<p><b>Changes.</b> <i>Changes</i> lists the time slices inside one file (what changes, where, when). <i>Compare</i> compares two files of the same State (e.g. two AIRAC cycles, any versions) and lists added / removed / modified data with old → new values; results can also be shown on the map.</p>' +
       '<p><b>AIRAC cycle changes.</b> Values that change in the selected AIRAC cycle are shown <span class="chg-badge">in red</span> on every AIP page; <b>List all changes</b> and <b>AMDT report</b> give the amendment (publication and effective dates, affected sections, insert/amend/delete). <b>⇆ Side by side</b> on any section shows before/after a cycle, or two files. <i>Timeline</i> shows the changes per AIRAC cycle and temporary changes; <i>NOTAM</i> shows Digital NOTAM events as ICAO NOTAM text.</p>' +
-      '<p><b>Map.</b> A complete offline world map is built in. When the laptop is online you can switch to 15 free online maps that need no API key: street maps (Esri, OpenStreetMap), plain light/dark backgrounds, terrain and relief, ocean floor, satellite imagery (Esri, NASA) and the Earth at night. Instrument procedures can be drawn per aerodrome. <b>Airport view</b>: airport chart (runways to scale with markings, taxiway signs, stands, ILS) and an information card. <b>🗻 3D view</b>: terrain, airspace volumes, approach and departure crew views; <i>Grid MORA</i> and terrain elevation on the map. <b>⧉ New window</b> puts the map on a second screen. <b>Print map</b>: drag an area, choose A4/A3, legend, north arrow and grid.</p>' +
+      '<p><b>Map.</b> <b>Search on the map</b> (box at the top left): airways, waypoints, navaids, aerodromes, runways, taxiways, aprons, stands, airspace, obstacles — also as you would say them, e.g. "twy C", "EADD stand 5", "airway UL123"; a pick zooms there and outlines it in magenta (Esc clears). A complete offline world map is built in. When the laptop is online you can switch to 15 free online maps that need no API key: street maps (Esri, OpenStreetMap), plain light/dark backgrounds, terrain and relief, ocean floor, satellite imagery (Esri, NASA) and the Earth at night. Instrument procedures can be drawn per aerodrome. <b>Airport view</b>: airport chart (runways to scale with markings, taxiway signs, stands, ILS) and an information card. <b>🗻 3D view</b>: terrain, airspace volumes, approach and departure crew views; <i>Grid MORA</i> and terrain elevation on the map. <b>⧉ New window</b> puts the map on a second screen. <b>Print map</b>: drag an area, choose A4/A3, legend, north arrow and grid.</p>' +
       '<p><b>Quality.</b> Basic checks, the official AIXM 5.1 business rules (SBVR) and their catalogue, the ICAO Annex 14 obstacle limitation surfaces (penetrations, also in 3D) and data integrity (PANS-AIM accuracy, CRC32Q fingerprints, verification against a saved CRC list). Instrument approaches in AD 2.22 show their vertical profile.</p>' +
       '<p><b>Library, links and languages.</b> Connect a folder with one sub-folder per State; extracted data is kept for instant reopening. ☆ saves views; the address (#…) of any view can be shared. The interface is available in English, العربية (right-to-left), Français and Español. Files over 1.5 GB use the Lite memory mode automatically.</p>' +
       '<p><b>Exports.</b> Any single section or the whole data set: JSON (with source references), Excel, printable PDF, print, or an e-mail to paste into Outlook (.eml opens as a draft).</p>' +
