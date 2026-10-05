@@ -7,7 +7,7 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
-## 1.5.0 — 2026-10-05 — 15 free online maps, no API key
+## 1.5.0 — 2026-10-05 — 15 free online maps, no API key; AIP list fix
 
 - The CARTO maps (Voyager, light, dark) now answer a downloaded, local page with an "API KEY REQUIRED" picture, so
   they are replaced. The map offers **15 free online maps that need no API key** and load from the downloaded file:
@@ -19,8 +19,14 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - Grouped list in the map panel; place names on satellite and relief maps stay under the aeronautical data; a
   refused or failing map switches to the Esri street map (or to the offline map without internet); a CARTO choice
   saved by an older version opens its free replacement.
-- Tests: `base_maps.js` (every offered map is free and keyless, no internet needed); `tools/check_maps.js` loads
-  every map for real and saves screenshots (run before a release).
+- On dark and satellite maps (dark grey, satellite, Blue Marble, Earth at night) the aeronautical data gets a thin
+  white outline, so routes, airspace borders and navaids stay readable; light maps are unchanged.
+- **Fixed — AIP sections list:** the arrow of an aerodrome (and a second click on the aerodrome shown) now folds it
+  back up — it used to open but never close; the arrow no longer jumps to that aerodrome's page; the filter text is
+  kept when a group is folded; on phones and upright tablets an arrow tap no longer closes the whole ☰ list.
+- Tests: `base_maps.js` (every offered map is free and keyless, no internet needed); `aip_tree.js` (folding and
+  unfolding on a computer and a phone); `tools/check_maps.js` loads every map for real and saves screenshots (run
+  before a release).
 
 ## 1.4.1 — 2026-10-04
 

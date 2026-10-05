@@ -505,16 +505,16 @@ var MAPVIEW = (function () {
     osmhot: { group: 'Street maps', name: 'OpenStreetMap (humanitarian style)', url: 'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png', attr: OSMA + ', tiles by HOT / OSM France', maxZoom: 19 },
     osmde: { group: 'Street maps', name: 'OpenStreetMap (German style)', url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png', attr: OSMA, maxZoom: 18 },
     esriGray: { group: 'Plain backgrounds (best under aeronautical data)', name: 'Light grey with place names (Esri)', url: ESRI + 'Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap contributors', maxZoom: 16 },
-    esriDark: { group: 'Plain backgrounds (best under aeronautical data)', name: 'Dark grey with place names (Esri)', url: ESRI + 'Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap contributors', maxZoom: 16 },
+    esriDark: { dark: true, group: 'Plain backgrounds (best under aeronautical data)', name: 'Dark grey with place names (Esri)', url: ESRI + 'Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap contributors', maxZoom: 16 },
     esriTopo: { group: 'Terrain', name: 'World topographic map (Esri)', url: ESRI + 'World_Topo_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, USGS, NGA, OpenStreetMap contributors', maxZoom: 19 },
     topo: { group: 'Terrain', name: 'OpenTopoMap (contours, relief)', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', attr: OSMA + ', SRTM | © OpenTopoMap (CC-BY-SA)', maxZoom: 17, sub: 'abc' },
     esriRelief: { group: 'Terrain', name: 'Shaded relief with place names (Esri)', url: ESRI + 'World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, USGS', maxZoom: 13 },
     esriNatGeo: { group: 'Terrain', name: 'National Geographic style (Esri)', url: ESRI + 'NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — National Geographic, Esri, Garmin, HERE, UNEP-WCMC, USGS, NASA', maxZoom: 16 },
     esriOcean: { group: 'Terrain', name: 'Ocean and sea floor (Esri)', url: ESRI + 'Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — GEBCO, NOAA, National Geographic, Garmin, HERE', maxZoom: 13 },
-    esri: { group: 'Satellite', name: 'Satellite imagery (Esri)', url: ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, Maxar, Earthstar Geographics', maxZoom: 19 },
-    esriHybrid: { group: 'Satellite', name: 'Satellite with place names (Esri)', url: ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, Maxar, Earthstar Geographics', maxZoom: 19 },
-    nasa: { group: 'Satellite', name: 'Blue Marble — whole Earth (NASA)', url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg', attr: 'Imagery © NASA EOSDIS GIBS', maxZoom: 8 },
-    nasaNight: { group: 'Satellite', name: 'Earth at night (NASA)', url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png', attr: 'Imagery © NASA EOSDIS GIBS', maxZoom: 8 }
+    esri: { dark: true, group: 'Satellite', name: 'Satellite imagery (Esri)', url: ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, Maxar, Earthstar Geographics', maxZoom: 19 },
+    esriHybrid: { dark: true, group: 'Satellite', name: 'Satellite with place names (Esri)', url: ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, Maxar, Earthstar Geographics', maxZoom: 19 },
+    nasa: { dark: true, group: 'Satellite', name: 'Blue Marble — whole Earth (NASA)', url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg', attr: 'Imagery © NASA EOSDIS GIBS', maxZoom: 8 },
+    nasaNight: { dark: true, group: 'Satellite', name: 'Earth at night (NASA)', url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png', attr: 'Imagery © NASA EOSDIS GIBS', maxZoom: 8 }
   };
   var BASE_DEFAULT = 'esriStreet';
   var RENAMED = { voyager: 'esriStreet', cartoLight: 'esriGray', cartoDark: 'esriDark' }; // older choices that need a key now
@@ -528,6 +528,8 @@ var MAPVIEW = (function () {
     if (base.current === 'offline') map.removeLayer(base.offline);
     else if (base.online[base.current]) map.removeLayer(base.online[base.current]);
     base.current = key;
+    // dark and satellite maps: the aeronautical data gets a thin white outline so the ICAO colours stay readable
+    map.getContainer().classList.toggle('dark-base', !!(ONLINE[key] && ONLINE[key].dark));
     if (key === 'offline') { map.addLayer(base.offline); base.offline.restyle(); return; }
     var d = ONLINE[key];
     if (!base.online[key]) {

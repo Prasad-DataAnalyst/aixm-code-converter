@@ -128,10 +128,11 @@
     wrap.querySelector('.side').addEventListener('click', function (e) {
       if (b.offsetParent && e.target.closest('.node[data-sec]:not([data-toggle]), [data-t]')) setTimeout(function () { wrap.classList.remove('side-open'); }, 0);
     });
-    // a tap on the page beside the open list closes it
+    // a tap on the page beside the open list closes it. Checked before the tap is handled (capture), because folding
+    // or opening an entry redraws the list, and a tapped arrow that is no longer in the page looked like a tap outside
     wrap.addEventListener('click', function (e) {
       if (wrap.classList.contains('side-open') && b.offsetParent && !e.target.closest('.side, .m-side-btn')) wrap.classList.remove('side-open');
-    });
+    }, true);
   }
   function renderNav() {
     var has = S.datasets.length > 0;
@@ -1005,6 +1006,7 @@
   }
   function renderTree(ds, cat) {
     var side = $('#aip-side');
+    var keepFilter = ($('#tree-filter', side) || {}).value || ''; // a folded or unfolded group keeps the filter text
     var bs = S.hlOn ? (getCyc(ds) || {}).bySection || {} : {};
     function bdg(id) { return bs[id] ? '<span class="cbadge" title="' + bs[id] + ' feature(s) change in this AIRAC cycle">' + bs[id] + '</span>' : ''; }
     var h = '<div class="side-head"><input class="inp grow" id="tree-filter" placeholder="Filter sections / aerodromes"></div><ul class="tree">';
@@ -1028,11 +1030,17 @@
     });
     h += '</ul>';
     side.innerHTML = h;
+    // GEN / ENR / AD rows fold and unfold. An aerodrome row: its arrow folds and unfolds; its name opens the aerodrome
+    // (and unfolds it), and a second click on the name of the shown aerodrome folds it again.
     side.onclick = function (e) {
       var n = e.target.closest('.node');
       if (!n) return;
       var tg = n.getAttribute('data-toggle'), sec = n.getAttribute('data-sec');
-      if (tg && (!sec || e.target.closest('.caret') || S.aipSel === sec)) { S.aipOpen[tg] = !(tg in S.aipOpen ? S.aipOpen[tg] : tg === 'GEN' || tg === 'ENR' || tg === 'AD'); if (tg === 'GEN' || tg === 'ENR' || tg === 'AD') S.aipOpen[tg] = !n.classList.contains('open'); renderTree(ds, cat); if (!sec) return; }
+      if (tg && (!sec || e.target.closest('.caret') || S.aipSel === sec)) {
+        S.aipOpen[tg] = !n.classList.contains('open');
+        renderTree(ds, cat);
+        return;
+      }
       if (sec) { S.aipSel = sec; if (tg) S.aipOpen[tg] = true; renderTree(ds, cat); renderSection(ds, sec); }
     };
     var tf = $('#tree-filter', side);
@@ -1040,6 +1048,7 @@
       var q = tf.value.toLowerCase();
       $$('li[data-f]', side).forEach(function (li) { li.style.display = !q || li.getAttribute('data-f').indexOf(q) >= 0 ? '' : 'none'; });
     };
+    if (keepFilter) { tf.value = keepFilter; tf.oninput(); }
   }
   var cellRegistry = [];
   /* ---------------------------------------------- cycle change highlighting */

@@ -816,3 +816,5 @@ pre, .xml, .notam-text { text-align: left; }
   :root:not([data-theme="light"]) .notam-text { background: #2d2a18; color: #f5e9b8; border-color: #5a5130; }
   :root:not([data-theme="light"]) .adc-ils { color: #d48be4; }
 }
+/* map: on dark and satellite base maps the aeronautical data (canvas layers) gets a thin white outline */
+.leaflet-container.dark-base .aixm-canvas { filter: drop-shadow(0 0 1px rgba(255, 255, 255, .9)); }

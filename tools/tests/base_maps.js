@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 // Online base maps: every map offered is free and needs no API key (only servers known to serve a downloaded,
 // local file without a key), the list is grouped in the map panel, and a choice saved by an older version for a map
-// that now needs a key (CARTO) opens its free replacement. No internet needed: tools/check_maps.js loads the tiles.
+// that now needs a key (CARTO) opens its free replacement; dark maps outline the aeronautical data in white. No
+// internet needed: tools/check_maps.js loads the tiles.
 const env = require('./_env');
 const ROOT = env.ROOT;
 const FREE = /^https:\/\/(server\.arcgisonline\.com|tile\.openstreetmap\.(org|de)|tile-\{s\}\.openstreetmap\.fr|\{s\}\.tile\.opentopomap\.org|gibs\.earthdata\.nasa\.gov)\//;
@@ -40,6 +41,13 @@ const KEYED = /cartocdn|carto\.com|thunderforest|stadiamaps|mapbox|maptiler|tomt
   const sel = await page.evaluate(() => ({ first: document.querySelector('#map-base option').value, n: document.querySelectorAll('#map-base optgroup option').length, groups: [...document.querySelectorAll('#map-base optgroup')].map((g) => g.label) }));
   console.log('map panel groups:', sel.groups.join(' | '));
   if (sel.first !== 'offline' || sel.n !== bm.list.length || sel.groups.length < 4) fails.push('map panel list: ' + JSON.stringify(sel));
+  // dark and satellite maps outline the aeronautical data in white; light maps and the offline map do not
+  for (const [k, want] of [['esriDark', true], ['esriHybrid', true], ['nasaNight', true], ['esriGray', false], ['esriStreet', false], ['offline', false]]) {
+    await page.selectOption('#map-base', k);
+    const has = await page.evaluate(() => document.querySelector('.leaflet-container').classList.contains('dark-base'));
+    if (has !== want) fails.push(k + ': white outline should be ' + (want ? 'on' : 'off'));
+  }
+  await page.evaluate(() => localStorage.removeItem('aixm-map-base'));
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no errors');
   console.log(fails.length ? 'FAIL:\n  ' + fails.join('\n  ') : 'base maps OK (all free, no API key)');
   if (errors.length || fails.length) process.exitCode = 1;
