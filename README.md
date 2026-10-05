@@ -60,7 +60,8 @@ Phones and tablets get their own layout — see [Phones and tablets](#phones-and
 | **Saved views and links** | ☆ saves a named view (file, page, AIP section, cycle, side-by-side, date, map position). The address of every view can be copied and shared: opening it and loading the same file restores the view. |
 | **Languages** | English, العربية (right-to-left layout), Français, Español for menus, headings, AIP section titles and common item labels. AIXM values are never translated. |
 | **Map print** | Drag an area, choose A4/A3 portrait/landscape; legend of the layers shown, north arrow, coordinate grid and scale; PDF, PNG or print. |
-| **Online maps** | 15 free maps from Esri, OpenStreetMap, OpenTopoMap and NASA — none needs an API key, all load from the downloaded file; if a tile server refuses the page, the map switches automatically. The chosen base map is remembered. |
+| **Online maps** | 15 free maps from Esri, OpenStreetMap, OpenTopoMap and NASA — none needs an API key, all load from the downloaded file; if a tile server refuses the page, the map switches automatically. The chosen base map is remembered. The offline map asks no server anything; the internet is checked only when an online map is chosen. |
+| **Live traffic** | *✈ Live traffic* on the map opens the free [adsb.lol](https://adsb.lol/) live flight map (community ADS-B data under the Open Database Licence, no account) in a new tab at the same position and zoom. Nothing from it is loaded into the tool, so the tool itself stays offline. |
 | **State detection** | STATE authority, ICAO location indicators (aerodromes, FIRs, NOTAM locations, procedure names, reference titles) and, if nothing else, the country under the data; a file with only a weak guess takes the State of a loaded file with the same ICAO prefix. |
 
 Theme: navy blue and white with magenta accents (the colours of ICAO aeronautical charts), in light and dark modes.
@@ -194,7 +195,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.6.0, set in `src/config.js`; version 2 will add digital charts).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.7.0, set in `src/config.js`; version 2 will add digital charts).
 
 ```bash
 cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core
@@ -207,9 +208,9 @@ node tools/test_aip.js testdata/Donlon_ALL_Baseline_2025.xml "^AD 2\.1[23]$"   #
 EVAL='return JSON.stringify((await RULES.run(ds)).summary)' node tools/test_aip.js testdata/Donlon_ALL_Baseline_2025.xml   # any expression
 node tools/e2e.js                                     # full UI test in headless Chromium + exports
 node --test tools/tests/unit/*.test.js               # unit tests (npm run test:unit)
-node tools/tests/run_all.js                           # all feature and layout tests (npm test runs both)
+node tools/tests/run_all.js                           # all feature, layout, accessibility (axe-core) and safety tests (npm test runs both)
 node tools/check_maps.js                              # needs internet: loads every online base map, screenshots
-cd tools && npm run lint                              # ESLint over src/
+cd tools && npm run lint                              # ESLint 10 over src/ and tools/ (tools/eslint.config.js)
 node tools/make_big.js testdata/Donlon_ALL_Baseline_2025.xml 1000 /tmp/big.xml   # 1 GB test file (unique UUIDs per copy)
 node tools/bench_big.js /tmp/big.xml [/tmp/big2.xml …]   # time, memory and longest freeze of every step
 node tools/e2e_big.js /path/to/1gb.xml                # large-file timing and memory (MEM=lite to force Lite mode)
@@ -223,6 +224,10 @@ that the committed `AIXM-Code-Converter.html` matches the sources, and all brows
 - Terrain, grid MORA and the 3D views are indicative: the built-in terrain grid is about 28 km (peaks are smoothed); online
   terrain is finer. The 3D view needs WebGL. Not for navigation.
 - The separate map window needs pop-ups allowed for the file.
+- A zip file is unpacked in memory; zips whose XML contents exceed 4 GB are refused (unpack them and open the XML files
+  directly — those are streamed and have no such limit).
+- Live traffic is a link to adsb.lol, not an overlay on the AIXM map: the free live-traffic services do not allow
+  loading their data into a page opened from a file, and an overlay would need an account or a paid service.
 - Obstacle limitation surfaces: the basic Annex 14 surfaces only (no inner approach, inner transitional, balked landing or
   outer horizontal surface; transitional surfaces along the strip only); runway code number estimated from the length.
 - CRC32Q fingerprints are computed by this tool from the formatted values; CRC values published by other systems use their
@@ -262,4 +267,5 @@ GeoJSON, KML and Shapefile) and in the header of every source file.
 AIXM schemas, business rules and sample data © EUROCONTROL & FAA (see the notices in the files). Base map: Natural Earth (public domain).
 Terrain: Terrain Tiles (Mapzen / AWS Open Data: SRTM, GMTED2010, ETOPO1 and others).
 Libraries embedded in the HTML: Leaflet (BSD-2), three.js (MIT), SheetJS Community Edition (Apache-2.0), jsPDF and jsPDF-AutoTable (MIT),
-fflate (MIT), TopoJSON client (ISC), world-atlas (ISC).
+fflate (MIT), TopoJSON client (ISC), world-atlas (ISC). The full licence texts are in
+[THIRD-PARTY-LICENSES.txt](THIRD-PARTY-LICENSES.txt), which is also included in every release zip.

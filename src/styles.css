@@ -20,7 +20,7 @@
   --border-strong: #c3ccd8;
   --ok: #1f7a4d;
   --ok-soft: #e4f4ec;
-  --warn: #9a6400;
+  --warn: #8f5c00;
   --warn-soft: #fcf1dc;
   --err: #b3261e;
   --err-soft: #fbe6e4;
@@ -45,7 +45,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --brand: #6fa8e8; --brand-2: #8dbcf0; --brand-3: #e38ac0; --brand-soft: #16263b; --brand-ink: #ffffff;
+    --brand: #6fa8e8; --brand-2: #8dbcf0; --brand-3: #e38ac0; --brand-soft: #16263b; --brand-ink: #0a1a2e;
     --bg: #0a0f17; --surface: #111824; --surface-2: #16202e; --surface-3: #1d2939; --text: #eef2f7; --muted: #a3aebd;
     --border: #26344a; --border-strong: #37475f; --ok: #5bc48f; --ok-soft: #173326; --warn: #e3b14c; --warn-soft: #3a2d12;
     --err: #ff8a80; --err-soft: #3d1b19; --info: #7fb6ea; --info-soft: #172a3d; --added: #5bc48f; --removed: #ff8a80; --modified: #e3b14c;
@@ -53,7 +53,7 @@
   }
 }
 :root[data-theme="dark"] {
-  --brand: #6fa8e8; --brand-2: #8dbcf0; --brand-3: #e38ac0; --brand-soft: #16263b; --brand-ink: #ffffff;
+  --brand: #6fa8e8; --brand-2: #8dbcf0; --brand-3: #e38ac0; --brand-soft: #16263b; --brand-ink: #0a1a2e;
   --bg: #0a0f17; --surface: #111824; --surface-2: #16202e; --surface-3: #1d2939; --text: #eef2f7; --muted: #a3aebd;
   --border: #26344a; --border-strong: #37475f; --ok: #5bc48f; --ok-soft: #173326; --warn: #e3b14c; --warn-soft: #3a2d12;
   --err: #ff8a80; --err-soft: #3d1b19; --info: #7fb6ea; --info-soft: #172a3d; --added: #5bc48f; --removed: #ff8a80; --modified: #e3b14c;
@@ -118,15 +118,18 @@ a { color: var(--brand); }
 /* ------------------------------------------------------------------ widgets */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
 .card-pad { padding: 16px 18px; }
-.card h3 { margin: 0 0 10px; font-size: 15px; }
+h2.h3 { font-size: 1.17em; }
+.card h3, .card h2.h3 { margin: 0 0 10px; font-size: 15px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 h1.view-title { font-size: 22px; margin: 0 0 4px; }
 .view-sub { color: var(--muted); margin: 0 0 18px; }
 .btn { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 14px; border-radius: 9px; border: 1px solid var(--border-strong);
   background: var(--surface); cursor: pointer; font-weight: 500; white-space: nowrap; }
 .btn:hover { border-color: var(--brand-3); color: var(--brand); }
+a.btn { color: var(--text); text-decoration: none; }
 .btn svg { width: 16px; height: 16px; }
-.btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
-.btn.primary:hover { background: var(--brand-2); color: #fff; }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+.btn.primary:hover { background: var(--brand-2); color: var(--brand-ink); }
 .btn.big { height: 46px; padding: 0 24px; font-size: 15px; border-radius: 12px; }
 .btn.small { height: 28px; padding: 0 10px; font-size: 12.5px; border-radius: 8px; }
 .btn.ghost { border-color: transparent; background: transparent; }
@@ -597,7 +600,7 @@ pre, .xml, .notam-text { text-align: left; }
 /* -------------------------------------------------- not for operational use */
 .nfo-box { border: 1px solid var(--err); border-left: 5px solid var(--err); background: var(--err-soft); color: var(--text); border-radius: 8px; padding: 10px 12px; margin: 8px 0 12px; font-size: 13px; line-height: 1.5; }
 .nfo-box h2 { color: var(--err) !important; border: 0 !important; margin: 0 0 6px !important; padding: 0 !important; }
-.ver-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--brand-3); color: #fff; font-size: 10.5px; font-weight: 700; vertical-align: 2px; letter-spacing: .3px; }
+.ver-badge { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--brand-3); color: var(--brand-ink); font-size: 10.5px; font-weight: 700; vertical-align: 2px; letter-spacing: .3px; }
 .v3d-fly { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; }
 .v3d-fly .inp { padding: 4px 6px; }
 .v3d-clock { font: 700 12.5px var(--mono); color: var(--brand); min-width: 92px; }

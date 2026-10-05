@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write      # create the release
+  actions: read        # check that CI passed on the commit
   id-token: write      # sign the build record (attestation)
   attestations: write
 
@@ -19,9 +20,18 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - name: Only release a commit whose CI passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          c=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&status=completed" --jq '.workflow_runs[0].conclusion // "none"')
+          if [ "$c" != success ]; then
+            echo "::error::CI result on $GITHUB_SHA is '$c' - wait until CI has passed on this commit, then run the release again"; exit 1
+          fi
+
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -46,12 +56,12 @@ jobs:
 
       - name: Package and checksums
         run: |
-          zip -j AIXM-Code-Converter.zip AIXM-Code-Converter.html LICENSE NOTICE README.md CHANGELOG.md
+          zip -j AIXM-Code-Converter.zip AIXM-Code-Converter.html LICENSE NOTICE THIRD-PARTY-LICENSES.txt README.md CHANGELOG.md
           sha256sum AIXM-Code-Converter.html AIXM-Code-Converter.zip > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Signed build record (provenance) of the released files
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             AIXM-Code-Converter.html

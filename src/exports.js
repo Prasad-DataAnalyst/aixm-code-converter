@@ -86,7 +86,10 @@ var EXPORTS = (function () {
     return out;
   }
   // CSV: one file per table (UTF-8 with BOM so Excel shows accents); several tables are put in a ZIP
-  function csvCell(v) { v = v === undefined || v === null ? '' : String(v); return /[",\n\r;]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  // A cell that starts with = + - @ (or a tab / carriage return) would run as a formula when the CSV is opened in a
+  // spreadsheet ("CSV injection"); such text gets a leading apostrophe. Plain numbers such as -12.5 and a lone "-" stay as they are.
+  function csvSafe(v) { return /^[=+\-@\t\r]/.test(v) && v.length > 1 && !/^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(v) ? "'" + v : v; }
+  function csvCell(v) { v = csvSafe(v === undefined || v === null ? '' : String(v)); return /[",\n\r;]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
   function exportCSV(scope) {
     var files = [], used = {};
     flatSections(scope.sections).forEach(function (sec) {
@@ -393,5 +396,5 @@ var EXPORTS = (function () {
   }
 
   return { CREDIT: CREDIT, AUTHOR: AUTHOR, AUTHOR_EMAIL: AUTHOR_EMAIL, exportJSON: exportJSON, exportCSV: exportCSV, exportExcel: exportExcel, exportPDF: exportPDF, print: print, emailContent: emailContent, emlBlob: emlBlob, copyRich: copyRich, copyText: copyText,
-    download: download, safeName: safeName, flatSections: flatSections, fmtSize: fmtSize, toJSON: toJSON, blockRows: blockRows, secTitle: secTitle };
+    download: download, safeName: safeName, csvCell: csvCell, flatSections: flatSections, fmtSize: fmtSize, toJSON: toJSON, blockRows: blockRows, secTitle: secTitle };
 })();

@@ -1,6 +1,6 @@
 // AIXM Code Converter - Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com>
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
-const path=require('path');const {chromium}=require('./_env').playwright;
+const {chromium}=require('./_env').playwright;
 const ROOT = require('./_env').ROOT;const OUT = process.argv[2] || require('./_env').out('aixm45');
 (async()=>{const b=await chromium.launch({executablePath:require('./_env').chrome});const p=await (await b.newContext({viewport:{width:1500,height:920}})).newPage();
 const errs=[];p.on('pageerror',e=>errs.push(e.message));

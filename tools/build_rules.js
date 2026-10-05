@@ -13,7 +13,7 @@ const wb = XLSX.readFile(path.join(ROOT, 'schemas/rules/aixm-br-sbvr-0.9.xlsx'))
 const sheet = wb.Sheets[wb.SheetNames[0]];
 const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
-const norm = (s) => String(s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
+const norm = (s) => String(s || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
 const list = (s) => (s.match(/'([^']*)'/g) || []).map((x) => x.slice(1, -1).trim());
 const lastClass = (chain) => chain.split(' specialisation ').pop().trim();
 

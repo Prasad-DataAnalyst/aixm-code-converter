@@ -20,7 +20,7 @@ await p.keyboard.press('Escape');
 // compare-based: 20181206 vs 20190131
 await p.evaluate(()=>{const S=window.__AIXM.S;S.active=S.datasets.findIndex(d=>/20190131_AIRAC/.test(d.name));window.__AIXM.go('dash');});
 await p.waitForTimeout(300);
-await p.evaluate(()=>{const b=[...document.querySelectorAll('[data-prev]')].find(x=>{let c=x.parentElement;while(c&&!/20190131_AIRAC/.test(c.textContent||'')||(c&&/2611/.test(c.textContent)&&c.parentElement&&/20190131_AIRAC/.test(c.parentElement.textContent)&&false))c=c.parentElement;return c&&c.textContent.indexOf('20190131_AIRAC.xml')>=0&&c.textContent.indexOf('AIRAC2611.xml')<0;}); console.log(!!b); b&&b.click();});
+await p.evaluate(()=>{const b=[...document.querySelectorAll('[data-prev]')].find(x=>{let c=x.parentElement;while(c&&!/20190131_AIRAC/.test(c.textContent||'')||(c&&/2611/.test(c.textContent)&&c.parentElement&&/20190131_AIRAC/.test(c.parentElement.textContent)&&false))c=c.parentElement;return c&&c.textContent.indexOf('20190131_AIRAC.xml')>=0&&c.textContent.indexOf('AIRAC2611.xml')<0;}); console.log(!!b); if(b) b.click();});
 await p.waitForTimeout(2500);
 await p.screenshot({path:OUT+'/hl-dash2.png'});
 await p.evaluate(()=>{const S=window.__AIXM.S;S.aipSel='ENR 4.4';window.__AIXM.go('aip');});await p.waitForTimeout(700);

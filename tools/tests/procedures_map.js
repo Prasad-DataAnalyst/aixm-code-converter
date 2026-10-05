@@ -1,6 +1,5 @@
 // AIXM Code Converter - Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com>
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
-const path = require('path'); const fs = require('fs');
 const { chromium } = require('./_env').playwright;
 const ROOT = require('./_env').ROOT, OUT = require('./_env').out('procedures_map');
 (async () => {
@@ -15,7 +14,7 @@ const ROOT = require('./_env').ROOT, OUT = require('./_env').out('procedures_map
   await page.waitForFunction(() => window.__AIXM.S.files.every((f) => f.status === 'ready'));
   await page.click('#extract-btn');
   await page.waitForFunction(() => window.__AIXM.S.view === 'dash', null, { timeout: 60000 });
-  const i = await page.evaluate(() => { const ds = window.__AIXM.S.datasets[0]; const ad = ds.byType.AirportHeliport.find((a) => /EADD/.test(JSON.stringify(a.cur.p.locationIndicatorICAO))); window.__AIXM.S.aipSel = 'AD2.22:' + ad.i; window.__AIXM.S.aipOpen['AD:' + ad.i] = true; window.__AIXM.go('aip'); return ad.i; });
+  await page.evaluate(() => { const ds = window.__AIXM.S.datasets[0]; const ad = ds.byType.AirportHeliport.find((a) => /EADD/.test(JSON.stringify(a.cur.p.locationIndicatorICAO))); window.__AIXM.S.aipSel = 'AD2.22:' + ad.i; window.__AIXM.S.aipOpen['AD:' + ad.i] = true; window.__AIXM.go('aip'); return ad.i; });
   await page.waitForSelector('table.aip'); await page.waitForTimeout(500);
   await page.screenshot({ path: OUT + '/ad222.png' });
   await page.click('[data-x="map"]');

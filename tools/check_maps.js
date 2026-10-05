@@ -23,7 +23,7 @@ const ROOT = env.ROOT, OUT = env.out('maps');
     const onRes = (r) => { if (r.request().resourceType() === 'image' && /^https/.test(r.url())) { if (r.status() >= 400) failed++; else ok++; } };
     const onFail = (r) => { if (r.resourceType() === 'image' && /^https/.test(r.url())) failed++; };
     page.on('response', onRes); page.on('requestfailed', onFail);
-    await page.evaluate(() => MAPVIEW.leaflet().eachLayer(function (l) { if (l._url) l.redraw && l.redraw(); }));
+    await page.evaluate(() => MAPVIEW.leaflet().eachLayer(function (l) { if (l._url && l.redraw) l.redraw(); }));
     await page.selectOption('#map-base', k); await page.waitForTimeout(3500);
     page.off('response', onRes); page.off('requestfailed', onFail);
     const now = await page.evaluate(() => document.querySelector('#map-base').value);

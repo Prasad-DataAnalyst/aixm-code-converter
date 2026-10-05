@@ -13,7 +13,7 @@
 <meta name="author" content="Prasad Selvaraj <prasad2t@gmail.com>">
 <meta name="copyright" content="Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com> - Apache-2.0">
 <meta name="generator" content="AIXM Code Converter by Prasad Selvaraj (prasad2t@gmail.com)">
-<meta name="description" content="Offline desktop viewer and converter for AIXM 4.5, 5.1, 5.1.1 and 5.2 files: ICAO AIP layout, map, change detection, comparison and JSON/Excel/PDF/e-mail export.">
+<meta name="description" content="Offline viewer and converter for AIXM 4.5, 5.1, 5.1.1 and 5.2 files on computers, tablets and phones: ICAO AIP layout, map, change detection, comparison and JSON/Excel/PDF/e-mail export.">
 <script>/*@@INLINE_JS:src/device.js@@*/</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b2a4a'/%3E%3Cpath d='M14 38l36-14-10 26-6-10-10 6z' fill='%23fff'/%3E%3C/svg%3E">
 <style>
@@ -42,15 +42,15 @@
     <button class="tb-btn m-only" id="m-search-btn" title="Search">⌕</button>
     <button class="tb-btn hidden" id="state-btn" title="Switch State / AIRAC cycle"></button>
     <button class="tb-btn" id="bm-btn" title="Saved views and links (bookmarks)">☆</button>
-    <select id="ds-select" title="Active data set" class="hidden"></select>
+    <select id="ds-select" title="Active data set" aria-label="Active data set" class="hidden"></select>
     <div class="row" title="Show the data valid at this date (AIXM temporality)">
-      <select id="asof-mode">
+      <select id="asof-mode" aria-label="Data valid at">
         <option value="latest">Latest data</option>
         <option value="date">Valid on date…</option>
       </select>
       <input type="date" id="asof-date" class="hidden">
     </div>
-    <select id="lang-sel" class="lang-sel" title="Language / اللغة"><option value="en">EN</option><option value="ar">العربية</option><option value="fr">FR</option><option value="es">ES</option></select>
+    <select id="lang-sel" class="lang-sel" title="Language / اللغة" aria-label="Language"><option value="en">EN</option><option value="ar">العربية</option><option value="fr">FR</option><option value="es">ES</option></select>
     <button class="tb-btn" id="theme-btn" title="Light / dark theme"></button>
     <button class="tb-btn" id="fb-btn" data-feedback title="Send feedback to the creator">✉ <span class="fb-btn-t">Feedback</span></button>
     <button class="tb-btn" id="help-btn" title="Help">?</button>

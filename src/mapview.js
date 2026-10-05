@@ -556,6 +556,18 @@ var MAPVIEW = (function () {
   }
   function saveBase(key) { try { localStorage.setItem('aixm-map-base', key); } catch (e) { /* storage unavailable */ } }
   function savedBase() { try { var b = localStorage.getItem('aixm-map-base') || ''; return RENAMED[b] || b; } catch (e) { return ''; } }
+  // live air traffic: the free adsb.lol map (open data, no account) at the same place and zoom, in its own tab;
+  // nothing is loaded into this page
+  function trafficUrl() {
+    var c = map.getCenter(), z = Math.max(3, Math.min(14, Math.round(map.getZoom())));
+    return 'https://adsb.lol/?lat=' + c.lat.toFixed(4) + '&lon=' + c.lng.toFixed(4) + '&zoom=' + z;
+  }
+  function showOnline(on) {
+    var c = document.getElementById('map-online');
+    if (!c) return;
+    c.textContent = on === null ? 'offline map' : on ? 'internet: online' : 'internet: offline';
+    c.className = 'chip ' + (on === null ? '' : on ? 'ok' : 'warn');
+  }
   function checkOnline(cb) {
     if (!navigator.onLine) { cb(false); return; }
     var img = new Image(), done = false;
@@ -1010,9 +1022,9 @@ var MAPVIEW = (function () {
   /* ---------------------------------------------------------------- UI */
   function panelHtml(datasets) {
     var h = '<div class="card map-panel" id="map-panel">';
-    h += '<div class="row"><b>Map</b><span class="sp"></span><span class="chip" id="map-online">checking internet…</span></div>';
-    if (datasets.length > 1) h += '<h4>Data set</h4><select class="inp" id="map-ds" style="width:100%">' + datasets.map(function (d, i) { return '<option value="' + i + '">' + esc(d.state + ' – ' + d.name) + '</option>'; }).join('') + '</select>';
-    h += '<h4>Base map</h4><select class="inp" id="map-base" style="width:100%"><option value="offline">Offline world map (built in)</option>';
+    h += '<div class="row"><b>Map</b><span class="sp"></span><span class="chip" id="map-online">offline map</span></div>';
+    if (datasets.length > 1) h += '<h4>Data set</h4><select class="inp" id="map-ds" aria-label="Data set" style="width:100%">' + datasets.map(function (d, i) { return '<option value="' + i + '">' + esc(d.state + ' – ' + d.name) + '</option>'; }).join('') + '</select>';
+    h += '<h4>Base map</h4><select class="inp" id="map-base" aria-label="Base map" style="width:100%"><option value="offline">Offline world map (built in)</option>';
     var grp = '';
     Object.keys(ONLINE).forEach(function (k) {
       if (ONLINE[k].group !== grp) { h += (grp ? '</optgroup>' : '') + '<optgroup label="' + ONLINE[k].group + ' — online, free">'; grp = ONLINE[k].group; }
@@ -1022,9 +1034,9 @@ var MAPVIEW = (function () {
     h += '</select><div class="muted" style="font-size:11.5px;margin-top:4px">Online maps need the laptop\'s internet connection. The offline map always works.</div>';
     h += '<h4>Aeronautical layers</h4>';
     LAYER_DEF.forEach(function (d) { h += '<label class="chk"><input type="checkbox" data-layer="' + d[0] + '"' + (d[2] ? ' checked' : '') + '> ' + d[1] + ' <span class="muted" data-count="' + d[0] + '"></span></label>'; });
-    h += '<h4>Airport view</h4><select class="inp" id="map-adview" style="width:100%"><option value="">Choose an aerodrome…</option></select>';
+    h += '<h4>Airport view</h4><select class="inp" id="map-adview" aria-label="Airport view" style="width:100%"><option value="">Choose an aerodrome…</option></select>';
     h += '<div class="muted" style="font-size:11.5px;margin-top:2px">Airport chart with runway markings, taxiways, stands, ILS and an information card.</div>';
-    h += '<h4>Procedures</h4><div class="row" style="gap:6px;flex-wrap:wrap"><select class="inp" id="map-proc-ad" style="flex:1;min-width:0"><option value="">All aerodromes</option></select></div>';
+    h += '<h4>Procedures</h4><div class="row" style="gap:6px;flex-wrap:wrap"><select class="inp" id="map-proc-ad" aria-label="Procedures of aerodrome" style="flex:1;min-width:0"><option value="">All aerodromes</option></select></div>';
     h += '<div class="row" style="gap:10px;margin-top:4px">' + ['SID', 'STAR', 'IAP'].map(function (k) { var col = { SID: '#1565c0', STAR: '#2e7d32', IAP: '#8e24aa' }[k]; return '<label class="chk" style="margin:0"><input type="checkbox" data-pk="' + k + '" checked> <span class="sw" style="background:' + col + '"></span> ' + k + '</label>'; }).join('') + '</div>';
     h += '<div class="muted" style="font-size:11.5px;margin-top:2px">Dashed: missed approach, or a leg ending at an altitude (drawn along its course).</div>';
     h += '<h4>Airspace</h4>';
@@ -1032,7 +1044,7 @@ var MAPVIEW = (function () {
     h += '<h4>Display</h4><label class="chk"><input type="checkbox" id="map-labels" checked> Labels</label>';
     h += '<label class="chk"><input type="checkbox" id="map-cmp" disabled> Show comparison result (added / removed / modified)</label>';
     h += '</div>';
-    h += '<div class="map-tools"><button class="btn small" id="map-fit" title="Zoom to data">⤢ Fit data</button><button class="btn small" id="map-measure" title="Measure distance and bearing">📏 Measure</button><button class="btn small" id="map-png" title="Save the current view as PNG">🖼 Save PNG</button><button class="btn small" id="map-print" title="Print or save the map as PDF: choose area, paper, legend, north arrow">🖨 Print map</button><button class="btn small" id="map-3d" title="3D view: terrain, airspace volumes with their vertical limits, approach and departure crew views">🗻 3D view</button><button class="btn small" id="map-panel-toggle">☰ Layers</button>' +
+    h += '<div class="map-tools"><button class="btn small" id="map-fit" title="Zoom to data">⤢ Fit data</button><button class="btn small" id="map-measure" title="Measure distance and bearing">📏 Measure</button><button class="btn small" id="map-png" title="Save the current view as PNG">🖼 Save PNG</button><button class="btn small" id="map-print" title="Print or save the map as PDF: choose area, paper, legend, north arrow">🖨 Print map</button><button class="btn small" id="map-3d" title="3D view: terrain, airspace volumes with their vertical limits, approach and departure crew views">🗻 3D view</button><a class="btn small" id="map-traffic" href="https://adsb.lol/" target="_blank" rel="noopener noreferrer" title="Live air traffic at this map position on adsb.lol, a free community flight-tracking map (opens in a new tab; needs internet)">✈ Live traffic</a><button class="btn small" id="map-panel-toggle">☰ Layers</button>' +
       (hooks.popout ? '<button class="btn small" id="map-popout" title="Open the map in its own window (for a second screen); the main window keeps the data">⧉ New window</button>' : '') +
       (hooks.dock ? '<button class="btn small" id="map-dock" title="Close this window and show the map in the main window again">⇲ Back to main window</button>' : '') + '</div>';
     h += '<div class="card map-status" id="map-status">' + (touchDev() ? 'Tap the map to read the position' : 'Move the mouse over the map') + '</div>';
@@ -1085,7 +1097,7 @@ var MAPVIEW = (function () {
     map.on('mousemove', shapeTip);
     map.on('mouseout', function () { if (tipLayer) { map.closeTooltip(tipLayer); tipLayer = null; } });
     var q = function (sel) { return container.querySelector(sel); };
-    q('#map-base').addEventListener('change', function (e) { setBase(e.target.value); saveBase(e.target.value); });
+    q('#map-base').addEventListener('change', function (e) { setBase(e.target.value); saveBase(e.target.value); if (ONLINE[e.target.value]) checkOnline(showOnline); else showOnline(null); });
     container.querySelectorAll('[data-layer]').forEach(function (cb) {
       cb.addEventListener('change', function () { state.filters[cb.getAttribute('data-layer')] = cb.checked; applyLayers(); });
     });
@@ -1096,6 +1108,8 @@ var MAPVIEW = (function () {
     q('#map-png').addEventListener('click', function () { hooks.savePng(renderImage(state.ds, map.getBounds(), 1600, 1000, { title: state.ds ? state.ds.state : '', layers: currentLayers() })); });
     q('#map-print').addEventListener('click', function () { printDialog(null); });
     q('#map-3d').addEventListener('click', function () { open3d('area', state.adView && state.adView.ds === state.ds ? state.adView.ad : null); });
+    // the link follows the map, so it opens the live map where the user is looking
+    q('#map-traffic').addEventListener('click', function (e) { e.currentTarget.href = trafficUrl(); });
     q('#map-panel-toggle').addEventListener('click', function () { q('#map-panel').classList.toggle('hidden'); });
     bindSearch(container);
     if (q('#map-popout')) q('#map-popout').addEventListener('click', function () { hooks.popout(state.ds, state.adView ? state.adView.ad : null); });
@@ -1107,14 +1121,15 @@ var MAPVIEW = (function () {
       cb.addEventListener('change', function () { state.procKinds = state.procKinds || {}; state.procKinds[cb.getAttribute('data-pk')] = cb.checked; showProcs(state.ds, state.procAd); });
     });
     q('#map-cmp').addEventListener('change', function (e) { if (e.target.checked) buildCompare(state.cmp); else buildCompare(null); });
-    checkOnline(function (on) {
-      var c = q('#map-online');
-      if (!c) return;
-      c.textContent = on ? 'internet: online' : 'internet: offline';
-      c.className = 'chip ' + (on ? 'ok' : 'warn');
-      var sb = savedBase();
-      if (on && sb && ONLINE[sb] && base.current === 'offline') { setBase(sb); var bs = q('#map-base'); if (bs) bs.value = sb; }
-    });
+    // the internet is only checked when an online map is wanted (one saved from last time, or picked now):
+    // with the offline map nothing is requested from any server
+    var sb = savedBase();
+    if (sb && ONLINE[sb]) {
+      checkOnline(function (on) {
+        showOnline(on);
+        if (on && base.current === 'offline') { setBase(sb); var bs = q('#map-base'); if (bs) bs.value = sb; }
+      });
+    } else showOnline(null);
     var ds = opts.ds || datasets[0];
     if (dsSel && ds) dsSel.value = String(datasets.indexOf(ds));
     datasets = null; // the handlers above use state.all, which Remove can clear (release)

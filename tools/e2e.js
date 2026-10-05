@@ -24,7 +24,7 @@ function exe() {
   const ctx = await browser.newContext({ viewport: { width: 1500, height: 920 }, acceptDownloads: true });
   const page = await ctx.newPage();
   const errors = [];
-  page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(m.type() + ': ' + m.text()); });
+  page.on('console', (m) => { if ((m.type() === 'error' || m.type() === 'warning') && !/net::|Failed to load resource/.test(m.text())) errors.push(m.type() + ': ' + m.text()); }); // offline: blocked tiles are not app errors
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message + '\n' + e.stack));
   const t0 = Date.now();
   await page.goto('file://' + path.join(ROOT, 'AIXM-Code-Converter.html'));

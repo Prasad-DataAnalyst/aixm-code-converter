@@ -5,6 +5,11 @@ updates:
     directory: /tools
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
+    ignore:
+      # three.js 0.148+ removed the classic examples/js OrbitControls that the 3D view builds in; moving to the
+      # module version is a separate change, so three stays on 0.147 until then
+      - dependency-name: three
+        versions: ['>= 0.148.0']
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }

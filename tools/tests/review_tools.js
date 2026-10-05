@@ -1,6 +1,5 @@
 // AIXM Code Converter - Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com>
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
-const path = require('path');
 const { chromium } = require('./_env').playwright;
 const ROOT = require('./_env').ROOT, OUT = require('./_env').out('review_tools');
 (async () => {
@@ -20,7 +19,7 @@ const ROOT = require('./_env').ROOT, OUT = require('./_env').out('review_tools')
   const names = await page.evaluate(() => window.__AIXM.S.datasets.map((d) => d.name + ' | ' + d.state + ' | ' + (d.airac && d.airac.id)));
   console.log(names.join('\n'));
   // activate the 2611 file, AD 2.12 EADD, side by side before/from 2611
-  const idx = await page.evaluate(() => { const S = window.__AIXM.S; const i = S.datasets.findIndex((d) => /2611/.test(d.name)); S.active = i; const ds = S.datasets[i]; const ad = ds.byType.AirportHeliport.find((a) => /EADD/.test(JSON.stringify(a.cur.p.locationIndicatorICAO))); S.aipSel = 'AD2.12:' + ad.i; S.aipOpen['AD:' + ad.i] = true; S.sbs = { key: 'cyc:2611' }; window.__AIXM.go('aip'); return i; });
+  await page.evaluate(() => { const S = window.__AIXM.S; const i = S.datasets.findIndex((d) => /2611/.test(d.name)); S.active = i; const ds = S.datasets[i]; const ad = ds.byType.AirportHeliport.find((a) => /EADD/.test(JSON.stringify(a.cur.p.locationIndicatorICAO))); S.aipSel = 'AD2.12:' + ad.i; S.aipOpen['AD:' + ad.i] = true; S.sbs = { key: 'cyc:2611' }; window.__AIXM.go('aip'); return i; });
   await page.waitForSelector('.sbs'); await page.waitForTimeout(500);
   console.log('sbs date:', await page.evaluate(() => document.querySelector('.sbs-bar').innerText.replace(/\s+/g, ' ')));
   console.log('red cells right:', await page.evaluate(() => Array.from(document.querySelectorAll('.sbs-col:nth-child(2) .sbs-new')).map((n) => n.textContent).join(' ; ')));

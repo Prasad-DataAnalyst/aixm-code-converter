@@ -283,7 +283,8 @@
   }
   function unzip(file) {
     return new Promise(function (resolve, reject) {
-      var out = [], pending = 0, ended = false;
+      var out = [], pending = 0, ended = false, total = 0, stopped = false;
+      function stop(err) { if (stopped) return; stopped = true; try { reader.cancel(); } catch (e) { /* already closed */ } reject(err); }
       var uz = new fflate.Unzip();
       uz.register(fflate.UnzipInflate);
       uz.onfile = function (f) {
@@ -291,7 +292,11 @@
         var chunks = [];
         pending++;
         f.ondata = function (err, dat, final) {
-          if (err) { reject(err); return; }
+          if (err) { stop(err); return; }
+          if (stopped) return;
+          total += dat.length;
+          var cap = S.zipMax || APP_SETTINGS.zipMaxBytes; // S.zipMax: lower limit for tests
+          if (total > cap) { chunks.length = 0; stop(new Error('its contents are larger than ' + fmtSize(cap) + ' — unpack it and open the XML files directly')); return; }
           chunks.push(dat);
           if (final) { out.push(new File(chunks, f.name.split('/').pop(), { type: 'text/xml' })); pending--; if (ended && !pending) resolve(out); }
         };
@@ -299,11 +304,13 @@
       };
       var reader = file.stream().getReader();
       (function pump() {
+        if (stopped) return;
         reader.read().then(function (r) {
+          if (stopped) return;
           if (r.done) { uz.push(new Uint8Array(0), true); ended = true; if (!pending) resolve(out); return; }
-          uz.push(r.value);
+          try { uz.push(r.value); } catch (e) { stop(e); return; }
           pump();
-        }).catch(reject);
+        }).catch(stop);
       })();
     });
   }
@@ -445,7 +452,9 @@
     if (plan.warn) toast(plan.warn, 12000);
     for (var i = 0; i < list.length; i++) {
       var f = list[i], key = dropKey(f.file);
-      var cached = await openFromCache(key, f.file, null);
+      // a saved copy is used only when it was read in the memory mode that applies now (Lite / Full)
+      var wantLite = S.memMode === 'lite' || (S.memMode !== 'full' && (f.size > liteAuto() || !!plan.lite));
+      var cached = await openFromCache(key, f.file, null, wantLite);
       if (cached) { f.status = 'done'; f.detail = 'opened from saved data (instant) · ' + num(cached.recs.length) + ' features · ' + esc(cached.state); renderFileList(); continue; }
       await extractOne(f, plan);
     }
@@ -552,13 +561,14 @@
     LIBRARY.saveDataset(ds.cacheKey, ds).then(function () { LIB.cached.add(ds.cacheKey); if (S.view === 'library') renderLibrary(); })
       .catch(function (e) { console.warn('cache save failed', e); });
   }
-  async function openFromCache(key, file, lib) {
+  async function openFromCache(key, file, lib, wantLite) {
     if (!key || typeof LIBRARY === 'undefined') return null;
     var hit = S.datasets.filter(function (d) { return d.cacheKey === key; })[0];
     if (hit) return hit;
     var ds;
     try { ds = await LIBRARY.loadDataset(key); } catch (e) { ds = null; }
     if (!ds) return null;
+    if (wantLite !== undefined && !!ds.lite !== !!wantLite) return null; // saved in the other memory mode: read the file again
     ds.id = ++fileSeq; ds.file = file; ds.viewDate = S.asOf; ds.cacheKey = key;
     new Interner().recs(ds.recs);
     M.finalize(ds);
@@ -661,7 +671,7 @@
     var sup = typeof LIBRARY !== 'undefined' && LIBRARY.supported;
     var h = '<h1 class="view-title">State library</h1><p class="view-sub">Keep one folder per State on your drive (for example <b>D:\\AIXM\\Saudi</b>, <b>D:\\AIXM\\UAE</b>, <b>D:\\AIXM\\India</b>). Connect the parent folder once — it is remembered. New files copied into a State folder appear automatically; files dropped on a State card are saved into that folder. Extracted data is kept, so switching States is instant.</p>';
     if (!LIBRARY.isConnected() || LIB.status !== 'granted') {
-      h += '<div class="card card-pad" style="max-width:820px"><h3>' + (LIB.status === 'prompt' ? 'Reconnect your library' : 'Connect your AIXM library folder') + '</h3>' +
+      h += '<div class="card card-pad" style="max-width:820px"><h2 class="h3">' + (LIB.status === 'prompt' ? 'Reconnect your library' : 'Connect your AIXM library folder') + '</h2>' +
         (LIB.status === 'prompt' ? '<p>The browser needs your permission again to read <b>' + esc(LIBRARY.rootName() || 'the library folder') + '</b>.</p><button class="btn primary big" id="lib-reconnect">' + I.upload + ' Reconnect to ' + esc(LIBRARY.rootName() || 'folder') + '</button> ' : '') +
         (sup ? '<button class="btn ' + (LIB.status === 'prompt' ? '' : 'primary big') + '" id="lib-connect">' + I.upload + ' Choose library folder…</button>' : '<div class="note-box">This browser cannot keep a folder connected (use Chrome or Edge for that). You can still pick the folder for this session.</div>') +
         ' <button class="btn" id="lib-pick">Pick folder for this session only</button><input type="file" id="lib-dir" webkitdirectory multiple class="hidden">' +
@@ -941,7 +951,7 @@
         }).join('') + '<div class="tile" data-go="changes"><b>' + num(nTs) + '</b><span>features with changes / time slices</span></div>' +
         '<div class="tile" data-go="explorer"><b>' + Object.keys(ds.byType).length + '</b><span>feature types</span></div></div>' +
         cycleCardHtml(ds) +
-        '<div class="ds-body"><div><h3 style="margin:4px 0 8px">Aerodromes and heliports <span class="muted" style="font-weight:400">(effective date of each AD)</span></h3>' +
+        '<div class="ds-body"><div><h2 class="h3" style="margin:4px 0 8px">Aerodromes and heliports <span class="muted" style="font-weight:400">(effective date of each AD)</span></h2>' +
         (ads.length ? '<div class="tbl-wrap" style="max-height:340px"><table class="mini-table"><thead><tr><th>ICAO</th><th>Name</th><th>Type</th><th>Effective</th><th>AIP</th></tr></thead><tbody>' + ads.map(function (a) {
           var eff = M.adEffective(ds, a);
           return '<tr class="click" data-ad="' + a.i + '"><td class="mono"><b>' + esc(M.shortName(a)) + '</b></td><td>' + esc(s(a.cur.p.name)) + '</td><td>' + esc(s(a.cur.p.type)) + '</td><td>' + M.fmtDate(eff) +
@@ -1101,7 +1111,7 @@
       }
       var limit = rowLimit || 400;
       var rows = b.rows.slice(0, limit);
-      h += '<div class="tbl-wrap"><table class="aip" data-block="' + bi + '"><thead><tr>' + b.cols.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '<th>Effective</th><th></th></tr></thead><tbody>' +
+      h += '<div class="tbl-wrap"><table class="aip" data-block="' + bi + '"><thead><tr>' + b.cols.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '<th>Effective</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
         rowsHtml(ds, rows) + '</tbody></table>' +
         (b.rows.length > limit ? '<div class="more-rows"><button class="btn small" data-more="' + bi + '" data-shown="' + limit + '">Show more (' + num(b.rows.length - limit) + ' more rows)</button></div>' : '') + '</div>';
       if (b.note) h += '<div class="muted" style="margin:6px 2px 0">Note: ' + esc(b.note) + '</div>';
@@ -1122,7 +1132,7 @@
     var cc = getCyc(ds);
     if (!cc || !cc.cycle) return '';
     var cycles = ANALYSIS.changeCycles(ds);
-    var sel = '<select data-cyc="1" title="AIRAC cycle to check">' + cycles.map(function (c) {
+    var sel = '<select data-cyc="1" title="AIRAC cycle to check" aria-label="AIRAC cycle to check">' + cycles.map(function (c) {
       return '<option value="' + c.cycle.id + '"' + (c.cycle.id === cc.cycle.id ? ' selected' : '') + '>AIRAC ' + c.cycle.id + ' · ' + M.fmtDate(c.cycle.date) + (c.n ? ' · ' + c.n + ' in file' : '') + '</option>';
     }).join('') + '</select>';
     var prev = ds.prevCmp ? 'vs <b>' + esc(ds.prevCmp.a.name) + '</b>' : (S.datasets.length > 1 || (ds.lib && libPrevFile(ds)) ? '<button class="btn small" data-prev="1">Compare with previous cycle</button>' : '<span>load the previous cycle file to see every difference</span>');
@@ -1278,7 +1288,7 @@
     if (ds.lib && libPrevFile(ds) && !S.datasets.some(function (d) { return d.lib && d.lib.path === libPrevFile(ds).path; })) o.push('<option value="lib">⇆ With the previous cycle in the Library</option>');
     if (o.length < 2) return '';
     var cur = S.sbs ? S.sbs.key : '';
-    return '<select class="inp small sbs-sel" data-sbs="1" title="Show this section side by side with another cycle">' + o.join('').replace('value="' + cur + '"', 'value="' + cur + '" selected') + '</select>';
+    return '<select class="inp small sbs-sel" data-sbs="1" title="Show this section side by side with another cycle" aria-label="Side by side with cycle">' + o.join('').replace('value="' + cur + '"', 'value="' + cur + '" selected') + '</select>';
   }
   async function sbsFromLibrary(ds) {
     var lp = libPrevFile(ds);
@@ -1643,7 +1653,7 @@
       '<div class="stat-row">' + ['Permanent change (new BASELINE)', 'Permanent change (PERMDELTA)', 'Temporary change (TEMPDELTA)', 'Correction', 'Feature withdrawn (end of life)', 'New feature', 'Changed (AIXM 4.5 update)', 'Withdrawn'].filter(function (k) { return kinds[k]; }).map(function (k) {
         return '<div class="card stat click" data-k="' + esc(k) + '" style="cursor:pointer' + (filt === k ? ';outline:2px solid var(--brand)' : '') + '"><b>' + num(kinds[k]) + '</b><span class="muted">' + esc(k) + '</span></div>';
       }).join('') + '<div class="card stat" data-k="" style="cursor:pointer"><b>' + num(ev.length) + '</b><span class="muted">all events</span></div></div>' +
-      '<div class="toolbar"><input class="inp" id="ch-q" placeholder="Filter by feature, section, property…" style="min-width:320px"><select class="inp" id="ch-when"><option value="">Any date</option><option value="future">Effective in the future</option><option value="past">Already effective</option></select><span class="sp"></span>' +
+      '<div class="toolbar"><input class="inp" id="ch-q" aria-label="Filter changes" placeholder="Filter by feature, section, property…" style="min-width:320px"><select class="inp" id="ch-when" aria-label="Effective date"><option value="">Any date</option><option value="future">Effective in the future</option><option value="past">Already effective</option></select><span class="sp"></span>' +
       '<button class="btn small" id="ch-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="ch-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="ch-json">' + I.json + ' JSON</button><button class="btn small" id="ch-mail">' + I.mail + ' E-mail</button></div>' +
       '<div id="ch-list"></div>';
     $('#go-cmp', v).onclick = function (e) { e.preventDefault(); go('compare'); };
@@ -1661,7 +1671,7 @@
     function draw() {
       var list = current(), shown = Math.min(list.length, 300);
       $('#ch-list').innerHTML = !list.length ? '<div class="card card-pad muted">No changes found' + (ev.length ? ' for this filter.' : ' — every feature in this file has a single time slice (a pure baseline / snapshot). Use Compare to find differences between two files.') + '</div>' :
-        '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Effective from</th><th>Until</th><th>AIP section</th><th>Feature</th><th>Change</th><th>What changed (old → new)</th><th></th></tr></thead><tbody>' + list.slice(0, shown).map(changeRow).join('') + '</tbody></table>' +
+        '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Effective from</th><th>Until</th><th>AIP section</th><th>Feature</th><th>Change</th><th>What changed (old → new)</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>' + list.slice(0, shown).map(changeRow).join('') + '</tbody></table>' +
         (list.length > shown ? '<div class="more-rows muted">Showing ' + shown + ' of ' + num(list.length) + ' — refine the filter or export to see all.</div>' : '') + '</div>';
     }
     function changeRow(e) {
@@ -1962,8 +1972,8 @@
     var F = S.rulesF || { sev: '', src: '', q: '' };
     v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">The official <b>AIXM 5.1 business rules</b> (' + esc(RULES.source()) + '): minimal data, data consistency, coding rules and ICAO standards. Severities follow the EAD profile. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('rules') +
       '<div class="toolbar"><button class="btn primary" id="r-run">' + I.check + (res ? ' Run again' : ' Run business rules') + '</button>' +
-      '<select class="inp" id="r-sev"><option value="">All severities</option><option value="Error">Errors</option><option value="Warning">Warnings</option><option value="Info">Other</option></select>' +
-      '<select class="inp" id="r-src"><option value="">All rule sources</option><option value="std">ICAO / standards only</option><option value="ead">EAD-specific only</option></select>' +
+      '<select class="inp" id="r-sev" aria-label="Severity"><option value="">All severities</option><option value="Error">Errors</option><option value="Warning">Warnings</option><option value="Info">Other</option></select>' +
+      '<select class="inp" id="r-src" aria-label="Rule source"><option value="">All rule sources</option><option value="std">ICAO / standards only</option><option value="ead">EAD-specific only</option></select>' +
       '<input class="inp" id="r-q" placeholder="Filter rules, features…" value="' + esc(F.q) + '"><span class="sp"></span>' +
       '<button class="btn small" id="r-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="r-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="r-mail">' + I.mail + ' E-mail</button></div><div id="r-out"></div>';
     $('#r-sev').value = F.sev; $('#r-src').value = F.src;
@@ -1998,7 +2008,7 @@
           var rows = x.fails.slice(0, 200).map(function (f) { var idx = cellRegistry.push({ ds: ds, r: f.rec }) - 1; return '<tr><td><a href="#" data-det="' + idx + '">' + esc(M.label(ds, f.rec)) + '</a><div class="muted" style="font-size:11px">' + esc(f.rec.k) + '</div></td><td>' + esc(f.msg) + (f.n > 1 ? ' <span class="chip">× ' + f.n + '</span>' : '') + '</td><td class="nowrap">' + esc(AIP.sectionOf(ds, f.rec).no) + '</td><td><span class="srcbtn" data-xml="' + idx + '">&lt;/&gt;</span></td></tr>'; }).join('');
           return '<details class="card rule-card"' + (i < 3 ? ' open' : '') + '><summary><span class="sev-' + sev + ' rule-sev">' + esc(r.s) + '</span> <b>' + esc(r.n || RULES.describe(r.k)) + '</b> <span class="chip">' + num(x.fails.length) + ' finding(s)</span> <span class="muted" style="font-size:11.5px">' + esc(r.id) + ' · ' + esc(r.src || '') + (r.g ? ' · ' + esc(r.g) : '') + '</span></summary>' +
             '<div class="rule-text">' + esc(r.x) + '</div>' + (r.cm ? '<div class="muted" style="font-size:12px;margin:4px 0 6px">' + esc(r.cm) + '</div>' : '') +
-            '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Feature</th><th>Finding</th><th>AIP section</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' + (x.fails.length > 200 ? '<div class="more-rows muted">Showing 200 of ' + num(x.fails.length) + ' — export for all.</div>' : '') + '</div></details>';
+            '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Feature</th><th>Finding</th><th>AIP section</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>' + rows + '</tbody></table>' + (x.fails.length > 200 ? '<div class="more-rows muted">Showing 200 of ' + num(x.fails.length) + ' — export for all.</div>' : '') + '</div></details>';
         }).join('') : '<div class="card card-pad" style="color:var(--ok)">✓ No findings for this filter.</div>');
     }
     function upd() { F = { sev: $('#r-sev').value, src: $('#r-src').value, q: $('#r-q').value }; S.rulesF = F; draw(); }
@@ -2023,7 +2033,7 @@
   function viewRuleCatalogue(v) {
     var all = RULES.catalogue(), q = S.catQ || '', auto = S.catAuto || '';
     v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">All ' + num(all.length) + ' AIXM 5.1 business rules (' + esc(RULES.source()) + '). Rules marked <b>auto</b> are checked by <i>Run business rules</i>; the others are listed for reference.</p>' + qTabs('cat') +
-      '<div class="toolbar"><input class="inp" id="c-q" style="min-width:320px" placeholder="Search rule text, class, ID…" value="' + esc(q) + '"><select class="inp" id="c-auto"><option value="">All rules</option><option value="1">Checked automatically</option><option value="0">Reference only</option></select><span class="sp"></span><button class="btn small" id="c-xlsx">' + I.xls + ' Excel</button></div><div id="c-out"></div>';
+      '<div class="toolbar"><input class="inp" id="c-q" aria-label="Search rules" style="min-width:320px" placeholder="Search rule text, class, ID…" value="' + esc(q) + '"><select class="inp" id="c-auto" aria-label="Rule type"><option value="">All rules</option><option value="1">Checked automatically</option><option value="0">Reference only</option></select><span class="sp"></span><button class="btn small" id="c-xlsx">' + I.xls + ' Excel</button></div><div id="c-out"></div>';
     $('#c-auto').value = auto;
     function list() { var ql = q.toLowerCase(); return all.filter(function (r) { return (!auto || (auto === '1') === !!r.k) && (!ql || (r.id + ' ' + r.n + ' ' + r.x + ' ' + r.c + ' ' + r.g).toLowerCase().indexOf(ql) >= 0); }); }
     function draw() {
@@ -2055,7 +2065,7 @@
     if (S.qTab === 'integrity') { viewIntegrity(v, ds); return; }
     var iss = S.quality.get(ds);
     v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Checks based on the AIXM schema code lists, AIXM temporality rules and the minimum ICAO AIP data: coordinates, references, frequencies, bearings, missing mandatory AIP items. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('basic') +
-      '<div class="toolbar"><button class="btn primary" id="q-run">' + I.check + (iss ? ' Run again' : ' Run checks') + '</button><select class="inp" id="q-sev"><option value="">All severities</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Info</option></select><input class="inp" id="q-q" placeholder="Filter…"><span class="sp"></span>' +
+      '<div class="toolbar"><button class="btn primary" id="q-run">' + I.check + (iss ? ' Run again' : ' Run checks') + '</button><select class="inp" id="q-sev" aria-label="Severity"><option value="">All severities</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Info</option></select><input class="inp" id="q-q" aria-label="Filter issues" placeholder="Filter…"><span class="sp"></span>' +
       '<button class="btn small" id="q-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="q-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="q-mail">' + I.mail + ' E-mail</button></div><div id="q-out"></div>';
     $('#q-run').onclick = async function () {
       $('#q-out').innerHTML = '<div class="card card-pad"><span class="spinner"></span> Checking ' + num(ds.recs.length) + ' features…<div class="progress"><div id="q-bar"></div></div></div>';
@@ -2074,7 +2084,7 @@
       var list = cur();
       cellRegistry = [];
       $('#q-out').innerHTML = '<div class="stat-row"><div class="card stat"><b class="sev-err">' + num(c.error) + '</b><span class="muted">errors</span></div><div class="card stat"><b class="sev-warn">' + num(c.warning) + '</b><span class="muted">warnings</span></div><div class="card stat"><b class="sev-info">' + num(c.info) + '</b><span class="muted">info</span></div></div>' +
-        (list.length ? '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Severity</th><th>Rule</th><th>Message</th><th>Feature</th><th>AIP section</th><th></th></tr></thead><tbody>' + list.slice(0, 1000).map(function (i) {
+        (list.length ? '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Severity</th><th>Rule</th><th>Message</th><th>Feature</th><th>AIP section</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>' + list.slice(0, 1000).map(function (i) {
           var ok = i.rec && i.rec.k && i.rec.cur;
           var idx = ok ? cellRegistry.push({ ds: ds, r: i.rec }) - 1 : -1;
           return '<tr><td class="sev-' + (i.sev === 'error' ? 'err' : i.sev === 'warning' ? 'warn' : 'info') + '">' + i.sev + '</td><td>' + esc(i.rule) + '</td><td>' + esc(i.msg) + '</td><td>' + (ok ? '<a href="#" data-det="' + idx + '">' + esc(M.label(ds, i.rec)) + '</a>' : '') + '</td><td>' + (ok ? esc(AIP.sectionOf(ds, i.rec).no) : '') + '</td><td>' + (idx >= 0 ? '<span class="srcbtn" data-xml="' + idx + '">&lt;/&gt;</span>' : '') + '</td></tr>';
@@ -2138,8 +2148,8 @@
     var by = { OK: 0, 'Accuracy not declared': 0, 'Insufficient accuracy': 0 };
     list.forEach(function (it) { by[it.status]++; });
     v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Data integrity (ICAO Annex 15, PANS-AIM): every critical, essential and routine data item with the accuracy PANS-AIM requires and the accuracy declared in the data, and its <b>CRC32Q</b> fingerprint. Save the CRC list and verify a later delivery against it to prove that nothing changed unnoticed. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('integrity') +
-      '<div class="toolbar"><select class="inp" id="i-cls"><option value="">All classes</option><option value="critical">Critical</option><option value="essential">Essential</option><option value="routine">Routine</option></select>' +
-      '<select class="inp" id="i-st"><option value="">All results</option><option>OK</option><option>Accuracy not declared</option><option>Insufficient accuracy</option></select><input class="inp" id="i-q" placeholder="Filter…" value="' + esc(F.q) + '"><span class="sp"></span>' +
+      '<div class="toolbar"><select class="inp" id="i-cls" aria-label="Data class"><option value="">All classes</option><option value="critical">Critical</option><option value="essential">Essential</option><option value="routine">Routine</option></select>' +
+      '<select class="inp" id="i-st" aria-label="Result"><option value="">All results</option><option>OK</option><option>Accuracy not declared</option><option>Insufficient accuracy</option></select><input class="inp" id="i-q" aria-label="Filter data items" placeholder="Filter…" value="' + esc(F.q) + '"><span class="sp"></span>' +
       '<button class="btn small" id="i-csv">⬇ Save CRC list</button><button class="btn small" id="i-ver">✓ Verify against a CRC list…</button><input type="file" id="i-file" accept=".csv,.txt" class="hidden">' +
       '<button class="btn small" id="i-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="i-xlsx">' + I.xls + ' Excel</button></div>' +
       '<div class="stat-row"><div class="card stat"><b>' + num(list.length) + '</b><span class="muted">data items</span></div><div class="card stat"><b style="color:var(--ok)">' + num(by.OK) + '</b><span class="muted">accuracy OK</span></div><div class="card stat"><b class="sev-warn">' + num(by['Accuracy not declared']) + '</b><span class="muted">accuracy not declared</span></div><div class="card stat"><b class="sev-err">' + num(by['Insufficient accuracy']) + '</b><span class="muted">insufficient accuracy</span></div></div>' +
@@ -2151,7 +2161,7 @@
     function draw() {
       var l = cur();
       cellRegistry = [];
-      $('#i-out').innerHTML = '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Class</th><th>Data item</th><th>Feature</th><th>Position</th><th>Elevation</th><th>Required accuracy (H / V)</th><th>Declared (H / V)</th><th>Result</th><th>CRC32Q</th><th></th></tr></thead><tbody>' +
+      $('#i-out').innerHTML = '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Class</th><th>Data item</th><th>Feature</th><th>Position</th><th>Elevation</th><th>Required accuracy (H / V)</th><th>Declared (H / V)</th><th>Result</th><th>CRC32Q</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
         l.slice(0, 1500).map(function (it) {
           var idx = cellRegistry.push({ ds: ds, r: it.rec }) - 1;
           function a(x) { return x === null ? '—' : x + ' m'; }
@@ -2261,7 +2271,7 @@
       expCard('mail', I.mail, 'E-mail for Outlook', 'Formatted e-mail you can copy & paste into Outlook, or save as .eml (opens as a draft) / .html.') + '</div>' +
       '<h3 style="margin:22px 0 10px">3 · Convert AIXM and GIS formats <span class="muted" style="font-weight:400">(whole data set)</span></h3><div class="export-grid">' +
       (ds.family === '5' ? '<div class="card export-card"><h4>' + I.code + 'Convert AIXM version</h4><div class="muted" style="font-size:13px;flex:1">Rewrites this ' + esc(ds.sniff.versionLabel) + ' file as another AIXM 5 version (namespaces, schema location, renamed 5.2 features). Streams the original file — works for multi-GB files. A conversion report lists items to review.</div>' +
-        '<div class="row"><select class="inp" id="cv-target"><option value="5.2">AIXM 5.2</option><option value="5.1.1">AIXM 5.1.1</option><option value="5.1">AIXM 5.1</option></select><button class="btn primary" data-cv="ver">Convert</button></div></div>' :
+        '<div class="row"><select class="inp" id="cv-target" aria-label="Target AIXM version"><option value="5.2">AIXM 5.2</option><option value="5.1.1">AIXM 5.1.1</option><option value="5.1">AIXM 5.1</option></select><button class="btn primary" data-cv="ver">Convert</button></div></div>' :
         '<div class="card export-card"><h4>' + I.code + 'AIXM 4.5 → AIXM 5.1.1</h4><div class="muted" style="font-size:13px;flex:1">Writes an AIXM 5.1.1 BasicMessage from this 4.5 data set (aerodromes, runways, declared distances, lighting, navaids, points, airspace with borders, routes, obstacles, units, services, frequencies…). UUIDs are derived from the 4.5 identifiers.</div><button class="btn primary" data-cv="45">Convert to 5.1.1</button></div>') +
       '<div class="card export-card"><h4>' + I.map + 'GeoJSON</h4><div class="muted" style="font-size:13px;flex:1">All features with geometry (WGS 84) and key attributes, for QGIS, ArcGIS, web maps.</div><button class="btn primary" data-cv="geojson">Export GeoJSON</button></div>' +
       '<div class="card export-card"><h4>' + I.map + 'KML (Google Earth)</h4><div class="muted" style="font-size:13px;flex:1">Folders per feature type, styled airspace, routes, points and obstacles with attribute tables.</div><button class="btn primary" data-cv="kml">Export KML</button></div>' +
@@ -2329,7 +2339,7 @@
   function customExportHtml(ds) {
     var X = xsel(), list = xpDatasets(ds), cat = EXTRACT.catalog(list);
     function ck(k, label, extra) { return '<label class="chk"><input type="checkbox" data-k="' + esc(k) + '"' + (X.keys.has(k) ? ' checked' : '') + '> ' + label + (extra ? ' <span class="muted">' + extra + '</span>' : '') + '</label>'; }
-    var h = '<div class="card card-pad xp" id="xp"><div class="row wrap"><h3 style="margin:0">Custom data export</h3><span class="muted">Choose aerodromes and exactly which data — e.g. only the magnetic variation, runways and declared distances of three aerodromes, or only the danger areas — then any format.</span></div>';
+    var h = '<div class="card card-pad xp" id="xp"><div class="row wrap"><h2 class="h3" style="margin:0">Custom data export</h2><span class="muted">Choose aerodromes and exactly which data — e.g. only the magnetic variation, runways and declared distances of three aerodromes, or only the danger areas — then any format.</span></div>';
     if (S.datasets.length > 1) h += '<div class="xp-dss"><b>Data sets</b> ' + S.datasets.map(function (d) { return '<label class="chk"><input type="checkbox" data-xds="' + d.id + '"' + (list.indexOf(d) >= 0 ? ' checked' : '') + '> ' + esc(d.state + ' · ' + d.name) + '</label>'; }).join('') + '</div>';
     h += '<div class="xp-grid"><div class="xp-col"><h4>1 · Aerodromes <span class="muted" id="xp-adn"></span></h4>' +
       '<input class="inp" id="xp-adq" placeholder="Filter by code or name…">' +
@@ -2612,7 +2622,7 @@
       '<p><b>Sources.</b> AIXM schemas, code lists and definitions from aixm.aero (4.5 r2, 5.1, 5.1.1, 5.2), AIXM temporality and feature-identification concepts, ICAO Annex 15 / PANS-AIM AIP structure. Base map: Natural Earth (public domain). Terrain: Terrain Tiles (Mapzen / AWS Open Data: SRTM, GMTED2010, ETOPO1). Libraries: Leaflet, three.js, SheetJS, jsPDF, fflate, topojson.</p>' +
       '<p class="muted">Keyboard: <span class="kbd">Ctrl</span>+<span class="kbd">K</span> search · <span class="kbd">Esc</span> close panels.</p>' +
       '<div class="about-box" id="about"><b>About · version ' + APP_INFO.version + ' <button class="btn small" data-about-page style="float:right">About this tool</button></b><div>AIXM Code Converter — created by <b>Prasad Selvaraj</b> (<a href="mailto:prasad2t@gmail.com">prasad2t@gmail.com</a>).</div><div>© 2026 Prasad Selvaraj. Open source under the Apache License 2.0; redistributions must keep this attribution (see the NOTICE file).</div>' +
-      '<div class="muted" style="font-size:12px">Includes Leaflet (BSD-2), three.js (MIT), SheetJS CE (Apache-2.0), jsPDF and jsPDF-AutoTable (MIT), fflate (MIT), TopoJSON client and world-atlas (ISC), Natural Earth data (public domain), Terrain Tiles elevation data (Mapzen / AWS Open Data; SRTM, GMTED2010, ETOPO1 and others), AIXM schemas and business rules © EUROCONTROL & FAA (aixm.aero).</div></div></div></div>';
+      '<div class="muted" style="font-size:12px">Includes Leaflet (BSD-2), three.js (MIT), SheetJS CE (Apache-2.0), jsPDF and jsPDF-AutoTable (MIT), fflate (MIT), TopoJSON client and world-atlas (ISC), Natural Earth data (public domain), Terrain Tiles elevation data (Mapzen / AWS Open Data; SRTM, GMTED2010, ETOPO1 and others), AIXM schemas and business rules © EUROCONTROL & FAA (aixm.aero). Full licence texts: <a href="https://github.com/Prasad-DataAnalyst/aixm-code-converter/blob/main/THIRD-PARTY-LICENSES.txt" target="_blank" rel="noopener noreferrer">THIRD-PARTY-LICENSES.txt</a> (also in the release zip).</div></div></div></div>';
     document.body.appendChild(back);
     back.addEventListener('click', function (e) { if (e.target === back || e.target.closest('[data-close]') || e.target.closest('[data-about-page]')) back.remove(); });
     if (about) { var ab = back.querySelector('#about'); if (ab) ab.scrollIntoView({ block: 'center' }); }

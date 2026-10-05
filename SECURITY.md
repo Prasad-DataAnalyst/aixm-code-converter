@@ -1,7 +1,14 @@
 # Security policy
 
 AIXM Code Converter is a single offline HTML file. It does not upload, store or send your data anywhere: AIXM files
-are read inside your browser. The only network requests are the optional online map tiles.
+are read inside your browser. Nothing is requested from any server unless you ask for it:
+
+- **online base maps** (and the internet check that goes with them) — only after you pick an online map, which is
+  then remembered; the built-in offline world map needs nothing;
+- **3D terrain tiles** — only when you open the 3D view with terrain;
+- **Live traffic** — opens the free adsb.lol map in a new browser tab; nothing from it is loaded into the tool.
+
+No AIXM data, file names or search text is ever sent. Map tile servers see only the tile coordinates.
 
 ## Supported versions
 
@@ -14,7 +21,7 @@ Please **do not open a public issue** for security problems. Report them private
 - GitHub: **Security → Report a vulnerability** on this repository (private advisory), or
 - e-mail: prasad2t@gmail.com
 
-Include the version (top bar, e.g. v1.2.1), the browser, and steps or a sample file that shows the problem.
+Include the version (top bar, e.g. v1.7), the browser, and steps or a sample file that shows the problem.
 You will get an answer within 7 days.
 
 ## Verify your download

@@ -4,27 +4,31 @@
   "description": "Build and test tools for the AIXM Code Converter",
   "scripts": {
     "build": "node build.js",
-    "lint": "eslint --no-eslintrc -c .eslintrc.json ../src/*.js",
-    "test": "node --test tests/unit/core.test.js tests/unit/modules.test.js && node tests/run_all.js",
+    "lint": "cd .. && eslint -c tools/eslint.config.js src/*.js tools/*.js tools/tests/*.js tools/tests/unit/*.js",
+    "test": "node --test tests/unit/*.test.js && node tests/run_all.js",
     "test:e2e": "node e2e.js",
     "build:terrain": "node build_terrain.js 6",
-    "test:unit": "node --test tests/unit/core.test.js tests/unit/modules.test.js"
+    "test:unit": "node --test tests/unit/*.test.js"
   },
   "keywords": [],
   "author": "Prasad Selvaraj <prasad2t@gmail.com>",
   "license": "Apache-2.0",
   "dependencies": {
+    "fflate": "^0.8.3",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "leaflet": "^1.9.4",
-    "playwright-core": "^1.63.0",
     "three": "^0.147.0",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
-    "eslint": "^8.57.0",
+    "@eslint/js": "^10.0.1",
+    "axe-core": "^4.13.0",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "playwright-core": "^1.63.0",
     "pngjs": "^7.0.0"
   }
 }
