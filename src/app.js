@@ -755,6 +755,7 @@
     try { ds = await LIBRARY.loadDataset(key); } catch (e) { ds = null; }
     if (!ds) return null;
     if (wantLite !== undefined && !!ds.lite !== !!wantLite) return null; // saved in the other memory mode: read the file again
+    if (files && ds.fmt < 2) return null; // saved by 1.9 without the file of each feature: read the files again
     ds.id = ++fileSeq; ds.file = file; ds.viewDate = S.asOf; ds.cacheKey = key;
     if (files) ds.files = files;
     new Interner().recs(ds.recs);
@@ -778,7 +779,7 @@
     try {
       var sc = await LIBRARY.scan();
       var sig = sc.states.map(function (st) { return st.name + ':' + st.files.map(function (f) { return f.key; }).join(','); }).join(';');
-      var before = LIB.scan ? new Set([].concat.apply([], LIB.scan.states.map(function (st) { return st.files.map(function (f) { return f.key; }); }))) : null;
+      var before = LIB.scan ? new Set([].concat.apply([], LIB.scan.states.map(function (st) { return (st.raw || st.files).map(function (f) { return f.key; }); }))) : null;
       LIB.scan = sc; LIB.status = 'granted';
       if (before && sig !== LIB.sig) {
         sc.states.forEach(function (st) { st.files.forEach(function (f) { if (!before.has(f.key)) toast('New file in ' + st.name + ': ' + f.name); }); });
@@ -786,6 +787,8 @@
       LIB.sig = sig;
       // sniff new files in the background (version badges)
       sc.states.forEach(function (st) { st.files.forEach(function (f) { if (!f.sniff) LIBRARY.sniffOf(f).then(function (sn) { f.sniff = sn; if (S.view === 'library') scheduleLibRender(); }).catch(function () {}); }); });
+      // the files of one delivery (one AIRAC cycle in several files) are one library entry, opened as one data set
+      sc.states.forEach(function (st) { st.raw = st.files; st.files = groupLibFiles(st.raw); });
       renderStateBtn();
       if (S.view === 'library') renderLibrary();
     } catch (e) {
@@ -801,6 +804,65 @@
     window.addEventListener('focus', function () { if (LIB.status === 'granted' && LIBRARY.isConnected()) libRescan(true); });
   }
   function libStates() { return LIB.scan ? LIB.scan.states : []; }
+  // library entries: single files, and deliveries {set: true, files} grouped like dropped files (names that differ
+  // only by feature type and variant); newest first
+  var libNames = null;
+  function libKeyOf(f) {
+    if (!libNames) { libNames = new Set(Object.keys(DICT.v5.featureVersions)); }
+    var kept = [], typed = false;
+    f.name.replace(/\.(xml|aixm|gml)$/i, '').split(/[_\s.]+/).forEach(function (tk) {
+      if (!tk) return;
+      if (libNames.has(tk)) { typed = true; return; }
+      if (tk.split('-').every(function (x) { return VARIANT_WORD.test(x); })) return;
+      kept.push(tk);
+    });
+    return typed && kept.length ? { key: kept.join('_').toLowerCase(), name: kept.join('_') } : null;
+  }
+  function groupLibFiles(files) {
+    var groups = new Map(), out = [];
+    files.forEach(function (f) { var k = libKeyOf(f); if (k) { var g = groups.get(k.key); if (!g) groups.set(k.key, g = { name: k.name, files: [] }); g.files.push(f); } });
+    var done = new Set(), delivDirs = new Set();
+    files.forEach(function (f) {
+      var k = libKeyOf(f), g = k && groups.get(k.key);
+      if (!g || g.files.length < 2) { out.push(f); return; }
+      if (done.has(g)) return;
+      done.add(g);
+      var fs = g.files.slice().sort(function (a, b) { var da = /diff|delta|change|update/i.test(a.name), db = /diff|delta|change|update/i.test(b.name); return da - db || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
+      var size = 0, mtime = 0;
+      fs.forEach(function (x) { size += x.size; mtime = Math.max(mtime, x.mtime || 0); });
+      fs.forEach(function (x) { var dd = x.path.split('/'); delivDirs.add(dd.slice(0, Math.min(2, dd.length - 1)).join('/') + '/'); });
+      var u = { set: true, name: g.name, files: fs, size: size, mtime: mtime, path: fs[0].path.split('/')[0] + '/' + g.name, key: 'set:' + fs.map(function (x) { return x.key; }).join('||') };
+      Object.defineProperty(u, 'sniff', { get: function () { return fs[0].sniff; } });
+      out.push(u);
+    });
+    // other files in a delivery's folder (its checksum list, schema XML) are hidden once known not to be AIXM data
+    out.forEach(function (f) { if (!f.set && Array.from(delivDirs).some(function (d) { return f.path.indexOf(d) === 0; })) f.inDelivery = true; });
+    return out;
+  }
+  function libHidden(f) { return f.inDelivery && f.sniff && !f.sniff.family; }
+  function libCount(st) { return st.files.filter(function (f) { return !libHidden(f); }).length; }
+  async function openLibSet(stateName, u, opts) {
+    var lib = { state: stateName, key: u.key, path: u.path };
+    var loaded = S.datasets.filter(function (d) { return d.cacheKey === u.key; })[0];
+    if (loaded) { applyLib(loaded, lib); if (!opts.silent) activate(loaded); return loaded; }
+    var files = [];
+    for (var i = 0; i < u.files.length; i++) files.push(await LIBRARY.fileOf(u.files[i]));
+    var ds = await openFromCache(u.key, null, lib, undefined, files);
+    if (!ds) {
+      var members = [];
+      for (var j = 0; j < u.files.length; j++) {
+        var f = u.files[j], sn = f.sniff || await LIBRARY.sniffOf(f);
+        if (sn.family) members.push({ id: ++fileSeq, file: files[j], name: f.name, size: f.size, sniff: sn, status: 'ready', progress: 0, lib: lib, from: 'library ' + stateName });
+      }
+      if (!members.length) { toast('No AIXM file in ' + u.name); return null; }
+      var item = { id: ++fileSeq, name: u.name, size: u.size, status: 'ready', progress: 0, lib: lib, overlay: true };
+      var ov = overlay('Reading ' + stateName + ' — ' + u.name + ' (' + members.length + ' files)');
+      ds = await extractSet(members, item);
+      ov.remove();
+    }
+    if (ds && !opts.silent) activate(ds);
+    return ds;
+  }
   // eslint-disable-next-line no-unused-vars -- helper kept for future Library features
   function libFileFor(ds) {
     if (!ds || !ds.lib) return null;
@@ -811,7 +873,12 @@
     var st = libStates().filter(function (x) { return x.name === ds.lib.state; })[0];
     if (!st) return null;
     var i = st.files.findIndex(function (f) { return f.key === ds.lib.key; });
-    return i >= 0 ? st.files[i + 1] || null : null; // files are sorted newest first
+    return i >= 0 ? libNext(st, i) : null; // files are sorted newest first
+  }
+  // the next (older) library entry that is shown
+  function libNext(st, i) {
+    for (var j = i + 1; j < st.files.length; j++) if (!libHidden(st.files[j])) return st.files[j];
+    return null;
   }
   function overlay(title) {
     var o = document.createElement('div');
@@ -822,6 +889,7 @@
   }
   async function openLibFile(stateName, f, opts) {
     opts = opts || {};
+    if (f.set) return openLibSet(stateName, f, opts);
     var lib = { state: stateName, key: f.key, path: f.path };
     var loaded = S.datasets.filter(function (d) { return d.cacheKey === f.key; })[0];
     if (loaded) { applyLib(loaded, lib); if (!opts.silent) activate(loaded); return loaded; }
@@ -871,14 +939,15 @@
       if (!sc.states.length) h += '<div class="card card-pad">No State folders yet. Create one with <b>New State folder</b> or in Windows Explorer.</div>';
       h += '<div class="lib-grid">' + sc.states.map(function (st) {
         var latest = st.files[0];
-        return '<div class="card lib-card" data-state="' + esc(st.name) + '"><div class="lc-head"><b>' + esc(st.name) + '</b><span class="sp"></span><span class="chip" style="background:rgba(255,255,255,.18);color:#fff">' + st.files.length + ' file(s)</span>' +
+        return '<div class="card lib-card" data-state="' + esc(st.name) + '"><div class="lc-head"><b>' + esc(st.name) + '</b><span class="sp"></span><span class="chip" style="background:rgba(255,255,255,.18);color:#fff">' + libCount(st) + ' file(s)</span>' +
           (latest ? '<button class="btn small" data-open-latest="' + esc(st.name) + '">Open latest</button>' : '') + '</div>' +
           (st.files.length ? st.files.map(function (f, i) {
+            if (libHidden(f)) return '';
             var d = LIBRARY.fileDate(f), a = d ? AX.airac(d) : null, sn = f.sniff;
             var loaded = S.datasets.some(function (x) { return x.cacheKey === f.key; });
-            return '<div class="lib-file"><div><div><b>' + esc(f.name) + '</b></div><div class="muted" style="font-size:12px">' + (a ? 'AIRAC ' + a.id + ' · ' + M.fmtDate(d) + ' · ' : '') + fmtSize(f.size) + (sn && sn.versionLabel ? ' · ' + esc(sn.versionLabel) : '') +
+            return '<div class="lib-file"><div><div><b>' + esc(f.name) + '</b>' + (f.set ? ' <span class="chip info" title="' + esc(f.files.map(function (x) { return x.name; }).join('\n')) + '">⧉ ' + f.files.length + ' files · one data set</span>' : '') + '</div><div class="muted" style="font-size:12px">' + (a ? 'AIRAC ' + a.id + ' · ' + M.fmtDate(a.local ? a.date : d) + ' · ' : '') + fmtSize(f.size) + (sn && sn.versionLabel ? ' · ' + esc(sn.versionLabel) : '') +
               (LIB.cached.has(f.key) ? ' · <span style="color:var(--ok)">saved ✓</span>' : ' · not read yet') + (loaded ? ' · <b>open</b>' : '') + (f.path.split('/').length > 2 ? ' · ' + esc(f.path) : '') + '</div></div>' +
-              '<div class="row"><button class="btn small primary" data-open="' + esc(st.name) + '|' + i + '">Open</button>' + (st.files[i + 1] ? '<button class="btn small" data-cmpprev="' + esc(st.name) + '|' + i + '" title="Compare with the previous file and highlight changes">Changes vs prev</button>' : '') + '</div></div>';
+              '<div class="row"><button class="btn small primary" data-open="' + esc(st.name) + '|' + i + '">Open</button>' + (libNext(st, i) ? '<button class="btn small" data-cmpprev="' + esc(st.name) + '|' + i + '" title="Compare with the previous file and highlight changes">Changes vs prev</button>' : '') + '</div></div>';
           }).join('') : '<div class="lib-file muted">Empty — drop AIXM files here</div>') +
           '<div class="lib-file muted" style="font-size:12px">⇩ Drop AIXM files on this card to save them into ' + esc(st.name) + '</div></div>';
       }).join('') + '</div>';
@@ -933,8 +1002,9 @@
       h += '<div class="sp-h">Library — ' + esc(LIBRARY.rootName() || '') + '</div>';
       libStates().forEach(function (st) {
         var cur = dsOf() && dsOf().lib && dsOf().lib.state === st.name;
-        h += '<div class="sp-i' + (cur ? ' active' : '') + '" data-sps="' + esc(st.name) + '"><b>' + esc(st.name) + '</b><span class="sp"></span><span class="muted">' + st.files.length + ' file(s)</span></div>';
+        h += '<div class="sp-i' + (cur ? ' active' : '') + '" data-sps="' + esc(st.name) + '"><b>' + esc(st.name) + '</b><span class="sp"></span><span class="muted">' + libCount(st) + ' file(s)</span></div>';
         if (cur || st.files.length <= 3) h += '<div class="sp-files">' + st.files.slice(0, 8).map(function (f, i) {
+          if (libHidden(f)) return '';
           var d = LIBRARY.fileDate(f), a = d ? AX.airac(d) : null;
           return '<div class="sp-i" data-spf="' + esc(st.name) + '|' + i + '"><span>' + esc(a ? 'AIRAC ' + a.id + ' · ' + M.fmtDate(d) : f.name) + '</span><span class="sp"></span><span class="muted" style="font-size:11px">' + (LIB.cached.has(f.key) ? 'saved' : '') + '</span></div>';
         }).join('') + '</div>';
@@ -2468,7 +2538,9 @@
       expCard('mail', I.mail, 'E-mail for Outlook', 'Formatted e-mail you can copy & paste into Outlook, or save as .eml (opens as a draft) / .html.') + '</div>' +
       '<h3 style="margin:22px 0 10px">3 · Convert AIXM and GIS formats <span class="muted" style="font-weight:400">(whole data set)</span></h3><div class="export-grid">' +
       (ds.family === '5' ? '<div class="card export-card"><h4>' + I.code + 'Convert AIXM version</h4><div class="muted" style="font-size:13px;flex:1">Rewrites this ' + esc(ds.sniff.versionLabel) + ' file as another AIXM 5 version (namespaces, schema location, renamed 5.2 features). Streams the original file — works for multi-GB files. A conversion report lists items to review.</div>' +
-        '<div class="row"><select class="inp" id="cv-target" aria-label="Target AIXM version"><option value="5.2">AIXM 5.2</option><option value="5.1.1">AIXM 5.1.1</option><option value="5.1">AIXM 5.1</option></select><button class="btn primary" data-cv="ver">Convert</button></div></div>' :
+        '<div class="row"><select class="inp" id="cv-target" aria-label="Target AIXM version"><option value="5.2">AIXM 5.2</option><option value="5.1.1">AIXM 5.1.1</option><option value="5.1">AIXM 5.1</option></select><button class="btn primary" data-cv="ver">Convert</button></div></div>' +
+        '<div class="card export-card"><h4>' + I.code + 'One AIXM file for this cycle</h4><div class="muted" style="font-size:13px;flex:1">' + (ds.files ? 'Puts the ' + ds.files.length + ' files of this delivery (baseline and difference files) into one AIXM file' : 'Writes this data set as one clean AIXM file') +
+        ' of what is valid ' + (ds.atMoment !== null && ds.atMoment !== undefined ? 'from ' + esc(M.fmtTs(new Date(ds.atMoment).toISOString())) : 'now') + ': the original XML of every feature, ended time slices and withdrawn features left out, a time slice delivered twice kept once. A report lists what was added, changed and withdrawn.</div><button class="btn primary" data-cv="cycle">Write AIXM file</button></div>' :
         '<div class="card export-card"><h4>' + I.code + 'AIXM 4.5 → AIXM 5.1.1</h4><div class="muted" style="font-size:13px;flex:1">Writes an AIXM 5.1.1 BasicMessage from this 4.5 data set (aerodromes, runways, declared distances, lighting, navaids, points, airspace with borders, routes, obstacles, units, services, frequencies…). UUIDs are derived from the 4.5 identifiers.</div><button class="btn primary" data-cv="45">Convert to 5.1.1</button></div>') +
       '<div class="card export-card"><h4>' + I.map + 'GeoJSON</h4><div class="muted" style="font-size:13px;flex:1">All features with geometry (WGS 84) and key attributes, for QGIS, ArcGIS, web maps.</div><button class="btn primary" data-cv="geojson">Export GeoJSON</button></div>' +
       '<div class="card export-card"><h4>' + I.map + 'KML (Google Earth)</h4><div class="muted" style="font-size:13px;flex:1">Folders per feature type, styled airspace, routes, points and obstacles with attribute tables.</div><button class="btn primary" data-cv="kml">Export KML</button></div>' +
@@ -2493,6 +2565,19 @@
           else if (k === 'kml') EXPORTS.download(base + '.kml', CONVERT.toKML(ds));
           else if (k === 'shp') EXPORTS.download(base + '_shapefile.zip', CONVERT.toShapefile(ds));
           else if (k === '45') { var r45 = CONVERT.writer45(ds); EXPORTS.download(base + '_AIXM-5.1.1.xml', r45.blob); showReport(r45.report); }
+          else if (k === 'cycle') {
+            var ovc = overlay('Writing one AIXM file for ' + (ds.airac ? 'AIRAC ' + ds.airac.id : 'this data set'));
+            var cons = await CONVERT.consolidate(ds, function (q) { var bb = $('#ov-bar'); if (bb) bb.style.width = (q * 100).toFixed(0) + '%'; });
+            ovc.remove();
+            EXPORTS.download(base + (ds.airac ? '_AIRAC' + ds.airac.id : '') + '_one-file.xml', cons.blob);
+            var rp = cons.report, cc = ANALYSIS.cycleChanges(ds), notes = [];
+            notes.push(num(rp.features) + ' features written with ' + num(rp.slices) + ' time slices, from ' + (ds.files ? ds.files.length : 1) + ' file(s), the original XML of each feature kept.');
+            if (rp.ended) notes.push(num(rp.ended) + ' time slice(s) that had ended by then left out.');
+            if (rp.dup) notes.push(num(rp.dup) + ' time slice(s) delivered twice (e.g. in a baseline and a difference file) kept once.');
+            if (rp.withdrawn.length) notes.push(num(rp.withdrawn.length) + ' withdrawn feature(s) left out: ' + rp.withdrawn.slice(0, 25).map(function (r) { return M.typeName(r) + ' ' + M.label(ds, r); }).join('; ') + (rp.withdrawn.length > 25 ? '; …' : '') + '.');
+            if (cc.cycle) notes.push('AIRAC ' + cc.cycle.id + ': ' + num(cc.count) + ' feature(s) new, changed or withdrawn' + (cc.reissued ? ', ' + num(cc.reissued) + ' re-issued with unchanged values' : '') + ' (see Changes).');
+            showReport({ from: ds.files ? ds.files.length + ' files' : ds.name, to: 'one AIXM file' + (ds.airac ? ' · AIRAC ' + ds.airac.id : ''), notes: notes, renamed: 0, title: 'One AIXM file for the cycle' });
+          }
           else if (k === 'ver') {
             if (!ds.file && !ds.files) { toast('The original file is not connected — open it again from Files or the Library.'); return; }
             var tgt = $('#cv-target', v).value, ov = overlay('Converting to AIXM ' + tgt);
@@ -2697,7 +2782,7 @@
   function showReport(rep) {
     var back = document.createElement('div');
     back.className = 'modal-back';
-    back.innerHTML = '<div class="modal"><div class="modal-head"><h3>Conversion report — ' + esc(rep.from) + ' → ' + esc(rep.to) + '</h3><span class="sp"></span><button class="btn small ghost" data-close>' + I.x + '</button></div><div class="modal-body">' +
+    back.innerHTML = '<div class="modal"><div class="modal-head"><h3>' + esc(rep.title || 'Conversion report') + ' — ' + esc(rep.from) + ' → ' + esc(rep.to) + '</h3><span class="sp"></span><button class="btn small ghost" data-close>' + I.x + '</button></div><div class="modal-body">' +
       '<ul>' + rep.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + (rep.renamed ? '<li>' + rep.renamed + ' element tag(s) renamed.</li>' : '') + '</ul><p class="muted">The converted file has been downloaded.</p></div></div>';
     document.body.appendChild(back);
     back.addEventListener('click', function (e) { if (e.target === back || e.target.closest('[data-close]') || e.target.closest('[data-about-page]')) back.remove(); });

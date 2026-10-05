@@ -642,7 +642,7 @@ var AIP = (function () {
       var loc = arr(q.location)[0];
       return [C(join([typeTxt || eqType(eq), mv ? '(' + magVar(mv) + ')' : '', eq.k === 'Localizer' && s(p.signalPerformance) ? s(p.signalPerformance).replace(/_/g, ' ') : ''], ' '), eq, 'designator'),
         C(s(q.designator) || s(p.designator), eq, 'designator'), C(freq, eq, q.frequency ? 'frequency' : 'channel'), C(hoursOf(eq) || hours, eq, 'availability'),
-        C(loc ? M.fPoint(loc) : '', eq, 'location'), C(eq.k === 'DME' ? M.fElev(loc) : '', eq, 'location'), C(''),
+        C((loc ? M.fPoint(loc) : '') || (M.posFromNavaid(ds, eq) ? AX.fmtPos(M.pointOf(ds, eq), 2) + '\n(navaid position)' : ''), eq, 'location'), C(eq.k === 'DME' ? M.fElev(loc) : '', eq, 'location'), C(''),
         C(uniq(M.notesOf(q).concat(extra || [])).join('\n'), eq, 'annotation')];
     }
     if (comps.length) comps.forEach(function (eq) { rows.push(eqRow(eq)); });

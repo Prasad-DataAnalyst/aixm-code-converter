@@ -29,6 +29,9 @@ for (const b of blocks) { const k = typeOf(b), g = GROUPS.find((x) => x[1].test(
 const NAME = (g, v) => 'XD_AIP-DS_' + g + '_' + v + '_EFF202510291600_AIRAC_V0.xml';
 // an equipment identifier that is not a hexadecimal UUID (derived from its navaid, as some States do)
 const vor = blocks.find((b) => typeOf(b) === 'VOR'), vorId = /<gml:identifier[^>]*>([^<]+)</.exec(vor)[1], vorNew = vorId.slice(0, -3) + 'vor';
+// the VOR is published without coordinates (as some States do): it takes the position of its navaid
+const vorNoPos = vor.replace(/<aixm:location>[\s\S]*?<\/aixm:location>/, '<aixm:location xsi:nil="true" nilReason="unknown"/>');
+files.Navaid = files.Navaid.map((b) => (b === vor ? vorNoPos : b));
 // difference file: a re-issued designated point (old slice + the same new slice) and one whose validity ended
 const dp = files.DesignatedPoint.find((b) => (b.match(/<aixm:DesignatedPointTimeSlice /g) || []).length === 1);
 const dpSlice = /<aixm:timeSlice>[\s\S]*<\/aixm:timeSlice>/.exec(dp)[0];
@@ -99,7 +102,8 @@ fs.writeFileSync(ZIP, fflate.zipSync(Object.fromEntries(Object.entries(zipFiles)
     return { sets: S.datasets.length, files: d.files && d.files.length, n: d.recs.length, state: d.state, airac: d.airac && d.airac.id, exact: d.airac && d.airac.exact, effSrc: d.effectiveSource,
       unresolved: eval('(' + u + ')')(), vor: !!vor, navLinked: !!nav && nav.refs.some((x) => x[1] === vor), gone: !!g && !!g.cur.gone, goneListed: (d.byType.DesignatedPoint || []).includes(g),
       withdrawnEv: ANALYSIS.inFileChanges(d).some((e) => e.rec === g && /withdrawn/.test(e.kind)), dpSlices: dp && dp.ts.length, dpOcc: dp && dp.occ && dp.occ.length,
-      reissued: cc.reissued, tile: document.querySelector('.ds-card .kpis').textContent };
+      reissued: cc.reissued, tile: document.querySelector('.ds-card .kpis').textContent,
+      vorPos: !!vor && MODEL.posFromNavaid(d, vor) && JSON.stringify(MODEL.pointOf(d, vor)) === JSON.stringify(MODEL.pointOf(d, MODEL.navaidOf(d, vor))) };
   }, [unresolved.toString(), vorNew, goneId, /<gml:identifier[^>]*>([^<]+)</.exec(dp)[1]]);
   if (r.sets !== 1 || r.files !== N) fails.push('expected 1 data set from ' + N + ' files: ' + JSON.stringify(r));
   if (r.n !== ref.n + 1) fails.push('features: ' + r.n + ', expected ' + (ref.n + 1) + ' (the sample plus one withdrawn point)');
@@ -111,6 +115,7 @@ fs.writeFileSync(ZIP, fflate.zipSync(Object.fromEntries(Object.entries(zipFiles)
   if (!r.gone || r.goneListed || !r.withdrawnEv) fails.push('withdrawn point: gone ' + r.gone + ', listed ' + r.goneListed + ', change event ' + r.withdrawnEv);
   if (r.dpSlices !== 2 || r.dpOcc !== 2) fails.push('re-issued point: ' + r.dpSlices + ' time slices (2 expected, the duplicate kept once), ' + r.dpOcc + ' file occurrences');
   if (!(r.reissued >= 1)) fails.push('the unchanged re-issue should be counted apart');
+  if (!r.vorPos) fails.push('equipment without coordinates should take the position of its navaid');
   await page.screenshot({ path: OUT + '/dashboard.png' });
 
   // the XML code view opens the file the feature came from
@@ -152,6 +157,56 @@ fs.writeFileSync(ZIP, fflate.zipSync(Object.fromEntries(Object.entries(zipFiles)
   await page.evaluate(() => window.__AIXM.go('map')); await page.waitForTimeout(1200);
   const two = await page.evaluate(() => ({ n: window.__AIXM.S.datasets.length, files: window.__AIXM.S.datasets[0].files && window.__AIXM.S.datasets[0].files.length, mapList: !!document.querySelector('#map-ds') }));
   if (two.n !== 1 || two.files !== loose.length || two.mapList) fails.push('files added in two goes should give one data set and one map entry: ' + JSON.stringify(two));
+
+  // one AIXM file for the cycle: written from the delivery, read again: the same current features and references
+  await page.goto(URL); await page.waitForSelector('#drop');
+  await page.setInputFiles('#file-input', [ZIP]);
+  await page.waitForFunction((n) => window.__AIXM.S.files.length === n && window.__AIXM.S.files.every((f) => f.status === 'ready'), N, { timeout: 30000 });
+  await page.evaluate(() => document.querySelector('#extract-btn').click());
+  await page.waitForFunction(() => window.__AIXM.S.view === 'dash', null, { timeout: 120000 });
+  const live = () => { const d = window.__AIXM.S.datasets[0], t = {}; d.recs.forEach((x) => { if (!x.cur.gone) t[x.k] = (t[x.k] || 0) + 1; }); return { types: t, live: d.recs.filter((x) => !x.cur.gone).length }; };
+  const before = await page.evaluate(live);
+  await page.evaluate(() => window.__AIXM.go('export')); await page.waitForTimeout(300);
+  const [one] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), page.click('[data-cv="cycle"]')]);
+  const onePath = path.join(OUT, one.suggestedFilename()); await one.saveAs(onePath);
+  const rep1 = await page.evaluate(() => document.querySelector('.modal-body').textContent);
+  if (!/withdrawn feature\(s\) left out/.test(rep1) || !/delivered twice/.test(rep1)) fails.push('one-file report: ' + rep1.slice(0, 300));
+  const oneTxt = fs.readFileSync(onePath, 'utf8');
+  if (oneTxt.includes(goneId)) fails.push('the withdrawn feature should not be in the one-file export');
+  await page.goto(URL); await page.waitForSelector('#drop');
+  await page.setInputFiles('#file-input', [onePath]);
+  await page.waitForFunction(() => window.__AIXM.S.files.every((f) => f.status === 'ready'), null, { timeout: 30000 });
+  await page.evaluate(() => document.querySelector('#extract-btn').click());
+  await page.waitForFunction(() => window.__AIXM.S.view === 'dash', null, { timeout: 120000 });
+  const after = await page.evaluate(live), un1 = await page.evaluate((u) => eval('(' + u + ')')(), unresolved.toString());
+  if (after.live !== before.live || JSON.stringify(after.types) !== JSON.stringify(before.types)) fails.push('one-file export differs: ' + before.live + ' -> ' + after.live + ' features');
+  if (un1 !== ref.unresolved) fails.push('one-file export: ' + un1 + ' unresolved references, the sample has ' + ref.unresolved);
+
+  // the library: a State folder with the delivery in sub-folders shows one entry and opens one data set (the browser's
+  // private file system stands in for the folder; it needs a web address, so the page is served locally)
+  const srv = require('http').createServer((q, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end(fs.readFileSync(ROOT + '/AIXM-Code-Converter.html')); }).listen(8766);
+  await page.goto('http://localhost:8766/'); await page.waitForSelector('#drop');
+  const libFiles = Object.keys(zipFiles).filter((k) => /\.xml$/.test(k) && k !== 'checksum.xml' && !k.startsWith('schema/')).map((k) => [k, zipFiles[k].toString('utf8')]);
+  await page.evaluate(async (list) => {
+    const root = await navigator.storage.getDirectory();
+    for await (const name of root.keys()) await root.removeEntry(name, { recursive: true });
+    const st = await root.getDirectoryHandle('Testland', { create: true });
+    for (const [rel, txt] of list) {
+      const [dir, name] = rel.split('/');
+      const d = await st.getDirectoryHandle(dir, { create: true }), fh = await d.getFileHandle(name, { create: true }), w = await fh.createWritable();
+      await w.write(txt); await w.close();
+    }
+    await window.__AIXM.useHandle(root); window.__AIXM.go('library');
+  }, libFiles);
+  await page.waitForFunction(() => /one data set/.test(document.body.textContent), null, { timeout: 30000 }).catch(() => fails.push('library: the delivery is not shown as one entry'));
+  const lib = await page.evaluate(() => ({ entries: document.querySelectorAll('.lib-card [data-open]').length, txt: document.querySelector('.lib-card').textContent }));
+  if (lib.entries !== 1 || !lib.txt.includes(N + ' files · one data set')) fails.push('library entries: ' + lib.entries + ' ' + lib.txt.slice(0, 160));
+  await page.click('.lib-card [data-open]');
+  await page.waitForFunction(() => window.__AIXM.S.datasets.length === 1 && window.__AIXM.S.view === 'dash', null, { timeout: 120000 }).catch(() => fails.push('library: delivery did not open'));
+  const libDs = await page.evaluate(() => { const d = window.__AIXM.S.datasets[0]; return d ? { files: d.files && d.files.length, state: d.state, n: d.recs.length } : null; });
+  if (!libDs || libDs.files !== N || libDs.state !== 'Testland' || libDs.n !== r.n) fails.push('library delivery: ' + JSON.stringify(libDs));
+  await page.evaluate(async () => { LIBRARY.forget(); const root = await navigator.storage.getDirectory(); for await (const name of root.keys()) await root.removeEntry(name, { recursive: true }); });
+  srv.close();
 
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no errors');
   console.log(fails.length ? 'FAIL:\n  ' + fails.join('\n  ') : 'multi-file data set OK (' + N + ' files, ' + r.n + ' features)');

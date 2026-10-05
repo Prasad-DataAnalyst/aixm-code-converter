@@ -149,6 +149,7 @@ var MODEL = (function () {
         if (b !== null && (at === null || b > at)) at = b;
       }
     }
+    ds.atMoment = at;
     for (i = 0; i < recs.length; i++) {
       var r = recs[i];
       r.cur = AX.resolve(r, t);
@@ -386,7 +387,22 @@ var MODEL = (function () {
     if (g) return g.c;
     var any = findGeo(p, ['L', 'A'], 0);
     if (any) { var c = any.t === 'A' ? any.c[0] : any.c; if (c && c.length && typeof c[0][0] === 'number') return c[0]; }
+    // equipment published without coordinates (some States give only the navaid's position): the navaid's position
+    var nav = EQUIPMENT[r.k] ? navaidOf(ds, r) : null;
+    if (nav) return pointOf(ds, nav);
     return null;
+  }
+  // the Navaid that lists this equipment (VOR, DME, ILS parts, marker…)
+  function navaidOf(ds, eq) {
+    var users = ds.rev ? ds.rev.get(eq) || [] : [];
+    for (var i = 0; i < users.length; i++) if (users[i][1].k === 'Navaid') return users[i][1];
+    return null;
+  }
+  // true when the position shown for this equipment is its navaid's (it has none of its own)
+  function posFromNavaid(ds, eq) {
+    if (!EQUIPMENT[eq.k] || findGeo(eq.cur.p, ['P', 'L', 'A'], 0)) return false;
+    var nav = navaidOf(ds, eq);
+    return !!(nav && pointOf(ds, nav));
   }
   // Map geometry of a feature: {t:'P'|'L'|'A', c, parts?}
   function geometry(ds, r) {
@@ -877,7 +893,7 @@ var MODEL = (function () {
 
   return {
     setDict: setDict, dict: dict, finalize: finalize, finalizeAsync: finalizeAsync, setViewDate: setViewDate, harmonizeStates: harmonizeStates, setLocator: setLocator, target: target, eachRef: eachRef,
-    geometry: geometry, pointOf: pointOf, findGeo: findGeo, segPoint: segPoint, segPointLabel: segPointLabel, segPointRec: segPointRec,
+    geometry: geometry, pointOf: pointOf, posFromNavaid: posFromNavaid, navaidOf: navaidOf, findGeo: findGeo, segPoint: segPoint, segPointLabel: segPointLabel, segPointRec: segPointRec,
     label: label, shortName: shortName, typeName: typeName, routeDesignator: routeDesignator, s: s, searchText: searchText, searchMatch: searchMatch, searchCore: searchCore,
     fq: fq, fLimit: fLimit, fPoint: fPoint, fElev: fElev, fTimesheet: fTimesheet, fSchedule: fSchedule, noteText: noteText, notesOf: notesOf,
     fContact: fContact, fFreq: fFreq, fv: fv, propDef: propDef, featureDef: featureDef, codeDef: codeDef, def45: def45,

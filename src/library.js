@@ -164,6 +164,7 @@ var LIBRARY = (function () {
   }
   function slim(r) {
     var o = { k: r.k, id: r.id, ts: r.ts, o: r.o, n: r.n, line: r.line };
+    if (r.f) o.f = r.f; // which file of a data set read from several files
     if (r.s45) o.s45 = r.s45;
     if (r.gid) o.gid = r.gid;
     if (r.occ) o.occ = r.occ;
@@ -181,14 +182,14 @@ var LIBRARY = (function () {
       await put('chunks', key + '#' + i, ds.recs.slice(i * CH, (i + 1) * CH).map(slim));
     }
     await put('meta', key, { key: key, name: ds.name, size: ds.size, sniff: ds.sniff, family: ds.family, version: ds.version, chunks: n, count: ds.recs.length,
-      parseErrors: (ds.parseErrors || []).map(slim), tRead: ds.tRead, errors: ds.errors, savedAt: Date.now(), lib: ds.lib || null, state: ds.state, lite: !!ds.lite, delivery: ds.delivery || null });
+      parseErrors: (ds.parseErrors || []).map(slim), tRead: ds.tRead, errors: ds.errors, savedAt: Date.now(), lib: ds.lib || null, state: ds.state, lite: !!ds.lite, delivery: ds.delivery || null, fmt: 2 });
   }
   async function loadDataset(key) {
     var m = await get('meta', key);
     if (!m) return null;
     var recs = [];
     for (var i = 0; i < m.chunks; i++) { var c = await get('chunks', key + '#' + i); if (!c) return null; for (var j = 0; j < c.length; j++) recs.push(c[j]); }
-    return { name: m.name, size: m.size, sniff: m.sniff, family: m.family, version: m.version, recs: recs, parseErrors: m.parseErrors, tRead: m.tRead, errors: m.errors, prepared: true, lib: m.lib, cachedAt: m.savedAt, lite: m.lite, delivery: m.delivery || undefined };
+    return { name: m.name, size: m.size, sniff: m.sniff, family: m.family, version: m.version, recs: recs, parseErrors: m.parseErrors, tRead: m.tRead, errors: m.errors, prepared: true, lib: m.lib, cachedAt: m.savedAt, lite: m.lite, delivery: m.delivery || undefined, fmt: m.fmt || 1 };
   }
   async function cachedKeys() { try { return new Set(await keys('meta')); } catch (e) { return new Set(); } }
   async function cachedList() { try { return await getAll('meta'); } catch (e) { return []; } }

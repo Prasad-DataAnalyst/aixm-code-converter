@@ -7,6 +7,25 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.12.0 — 2026-10-05 — one AIXM file per cycle, deliveries in the Library, equipment positions
+
+- **One AIXM file for this cycle** (Export): writes the data set — one file, or all the files of a delivery
+  (baseline and difference files) — as one AIXM 5 file of what is valid from the cycle. The original XML of every
+  feature is kept; ended time slices and withdrawn features are left out; a time slice delivered twice is kept once;
+  the namespaces of all files are on one root element. A report lists the features and time slices written, what was
+  left out (withdrawn features by name) and the cycle's changes. Checked: the file read back gives the same current
+  features and references; schema validation finds no error the source files did not already have.
+- **Deliveries in the Library:** a State folder holding one cycle in several files (also in sub-folders such as
+  `Baseline/` and `Difference/`) shows one entry — "⧉ 30 files · one data set" — that opens, compares and is saved
+  as one data set. The delivery's checksum list and schema XML are no longer listed; the entry shows the AIRAC date
+  for cycles that start at local midnight.
+- **Equipment without coordinates** (VOR, DME, NDB, ILS parts, markers published without a position) is shown at the
+  position of its navaid — in AD 2.19 marked *(navaid position)*, and on the map.
+- Fixed: the saved copy of a delivery read from several files did not keep which file each feature came from, so
+  after reopening, the XML code view could show the wrong file; deliveries saved by 1.9–1.11 are read again once.
+- Tests: `multi_file.js` writes and re-reads the one-file export, opens a delivery from a Library State folder, and
+  checks equipment positions taken from the navaid.
+
 ## 1.11.0 — 2026-10-05 — aircraft details in the tool's own style
 
 - **Find an aircraft** in the *Aircraft details* window: type a callsign (BAW495), registration (G-EUYG) or ICAO

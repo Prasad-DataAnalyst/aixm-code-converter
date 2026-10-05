@@ -302,5 +302,92 @@ var CONVERT = (function () {
     return new Blob([fflate.zipSync(files, { level: 6 })], { type: 'application/zip' });
   }
 
-  return { convertVersion: convertVersion, writer45: writer45, toGeoJSON: toGeoJSON, toKML: toKML, toShapefile: toShapefile, uuidFor: uuidFor, gisFeatures: gisFeatures };
+  /* ------------------------------------------- one AIXM file for the cycle (consolidated) */
+  // Writes one AIXM 5 BasicMessage with what the data set holds at the moment shown (the cycle): every feature
+  // that is not withdrawn, with its original XML, keeping the time slices still valid then (and later ones), and a
+  // time slice delivered twice (baseline and difference files) only once. Works for one file or several files.
+  var TS_RE = /<([\w.-]+:)?timeSlice\b[^>]*>[\s\S]*?<\/\1timeSlice\s*>/g;
+  function rootInfo(head) {
+    var h = head.replace(/<\?[\s\S]*?\?>/g, '').replace(/<!--[\s\S]*?-->/g, '');
+    var m = /<([A-Za-z_][\w.:-]*)([^>]*)>/.exec(h);
+    if (!m) return null;
+    var ns = {}, a, re = /\s(xmlns(?::[\w.-]+)?)\s*=\s*("[^"]*"|'[^']*')/g;
+    while ((a = re.exec(m[2]))) ns[a[1]] = a[2];
+    var mem = /<([\w.-]+:)?(hasMember|member|featureMember)\b/.exec(h.slice(m.index + m[0].length));
+    return { name: m[1], attrs: m[2].replace(/\s*\/$/, ''), ns: ns, member: mem ? (mem[1] || '') + mem[2] : null };
+  }
+  // the feature element alone (a stored fragment can end with the closing tags of the file around it)
+  function featureXml(txt) {
+    var om = /<([A-Za-z_][\w.-]*(?::[A-Za-z_][\w.-]*)?)[\s>\/]/.exec(txt);
+    if (!om) return txt;
+    var close = '</' + om[1], ce = txt.lastIndexOf(close);
+    if (ce < 0) return txt.slice(om.index);
+    var gt = txt.indexOf('>', ce);
+    return txt.slice(om.index, gt < 0 ? txt.length : gt + 1);
+  }
+  async function consolidate(ds, onProgress) {
+    if (ds.family !== '5') throw new Error('One AIXM file for the cycle is made from AIXM 5.x data.');
+    var files = ds.files || [ds.file], at = ds.atMoment;
+    if (files.some(function (f) { return !f; })) throw new Error('The original file is not connected — open it again from Files or the Library.');
+    var roots = [];
+    for (var i = 0; i < files.length; i++) roots.push(rootInfo(await files[i].slice(0, Math.min(files[i].size, 262144)).text()));
+    var r0 = roots[0];
+    if (!r0) throw new Error('No XML root element in ' + files[0].name);
+    // namespaces of every file on one root (the features keep their prefixes)
+    var extra = '';
+    roots.forEach(function (r) { if (r) Object.keys(r.ns).forEach(function (k) { if (!r0.ns[k] && extra.indexOf(' ' + k + '=') < 0) extra += ' ' + k + '=' + r.ns[k]; }); });
+    var member = r0.member || (r0.name.indexOf(':') > 0 ? r0.name.split(':')[0] + ':hasMember' : 'hasMember');
+    // occurrences to read, file by file in order
+    var keep = [], rep = { features: 0, slices: 0, ended: 0, dup: 0, withdrawn: [] };
+    ds.recs.forEach(function (r) {
+      if (r.k === '#error') return;
+      if (r.cur && r.cur.gone) { rep.withdrawn.push(r); return; }
+      keep.push(r);
+    });
+    var occs = [];
+    keep.forEach(function (r) { (r.occ || [{ o: r.o, n: r.n, f: r.f }]).forEach(function (o, i) { occs.push({ r: r, i: i, o: o.o, n: o.n, f: o.f || 0 }); }); });
+    occs.sort(function (a, b) { return a.f - b.f || a.o - b.o; });
+    var text = new Map(), dec = new TextDecoder('utf-8'), CH = 8 * 1024 * 1024;
+    for (var k = 0; k < occs.length;) {
+      var f = occs[k].f, start = occs[k].o, end = start + occs[k].n, j = k + 1;
+      while (j < occs.length && occs[j].f === f && occs[j].o + occs[j].n - start <= CH) { end = Math.max(end, occs[j].o + occs[j].n); j++; }
+      var buf = new Uint8Array(await files[f].slice(start, end).arrayBuffer());
+      for (var q = k; q < j; q++) text.set(occs[q], featureXml(dec.decode(buf.subarray(occs[q].o - start, occs[q].o - start + occs[q].n))));
+      k = j;
+      if (onProgress) onProgress(k / occs.length * 0.9);
+    }
+    var byRec = new Map();
+    occs.forEach(function (x) { var l = byRec.get(x.r); if (!l) byRec.set(x.r, l = []); l.push(x); });
+    var parts = ['<?xml version="1.0" encoding="UTF-8"?>\n<!-- One AIXM file for ' + xesc(ds.airac ? 'AIRAC ' + ds.airac.id : 'this data set') + ', made by ' + CREDIT + ' on ' + new Date().toISOString().slice(0, 10) +
+      ' from ' + files.length + ' file(s): ' + xesc(files.map(function (x) { return x.name; }).join(', ')) + '. Time slices valid from ' + (at !== null && at !== undefined ? new Date(at).toISOString() : 'the data') + '; withdrawn features left out. -->\n<' + r0.name + r0.attrs + extra + '>\n'];
+    keep.forEach(function (r) {
+      var list = (byRec.get(r) || []).sort(function (a, b) { return a.i - b.i; });
+      if (!list.length) return;
+      var slices = [], hasNth = r.ts.some(function (y) { return y.nth !== undefined; }), firstEnd = -1, firstStart = -1;
+      list.forEach(function (x, li) {
+        var nth = 0;
+        text.get(x).replace(TS_RE, function (m, p1, off) {
+          if (li === 0) { if (firstStart < 0) firstStart = off; firstEnd = off + m.length; }
+          var mine = r.ts.filter(function (y) { return (y.occ || 0) === x.i; });
+          var t = hasNth ? mine.filter(function (y) { return y.nth === nth; })[0] : mine[nth];
+          nth++;
+          if (!t) { rep.dup++; return m; } // the same time slice from another file: kept once
+          var e = AX.tms(t.e);
+          if (e !== null && at !== null && at !== undefined && e <= at) { rep.ended++; return m; }
+          slices.push(m);
+          return m;
+        });
+      });
+      if (!slices.length) return;
+      var first = text.get(list[0]);
+      var head = firstStart >= 0 ? first.slice(0, firstStart) : first.slice(0, first.lastIndexOf('</')), tail = firstEnd >= 0 ? first.slice(firstEnd).trim() : first.slice(first.lastIndexOf('</'));
+      parts.push('  <' + member + '>\n    ' + head.replace(/\s+$/, '') + '\n' + slices.map(function (s) { return '      ' + s; }).join('\n') + '\n    ' + tail + '\n  </' + member + '>\n');
+      rep.features++; rep.slices += slices.length;
+    });
+    parts.push('</' + r0.name + '>\n');
+    if (onProgress) onProgress(1);
+    return { blob: new Blob(parts, { type: 'text/xml' }), report: rep };
+  }
+
+  return { convertVersion: convertVersion, consolidate: consolidate, writer45: writer45, toGeoJSON: toGeoJSON, toKML: toKML, toShapefile: toShapefile, uuidFor: uuidFor, gisFeatures: gisFeatures };
 })();
