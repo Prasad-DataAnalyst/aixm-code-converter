@@ -61,7 +61,7 @@ Phones and tablets get their own layout — see [Phones and tablets](#phones-and
 | **Languages** | English, العربية (right-to-left layout), Français, Español for menus, headings, AIP section titles and common item labels. AIXM values are never translated. |
 | **Map print** | Drag an area, choose A4/A3 portrait/landscape; legend of the layers shown, north arrow, coordinate grid and scale; PDF, PNG or print. |
 | **Online maps** | 15 free maps from Esri, OpenStreetMap, OpenTopoMap and NASA — none needs an API key, all load from the downloaded file; if a tile server refuses the page, the map switches automatically. The chosen base map is remembered. The offline map asks no server anything; the internet is checked only when an online map is chosen. |
-| **Live traffic** | *✈ Live traffic* switches live air traffic on and off **inside the map**: the free [adsb.lol](https://adsb.lol/) live flight map (community ADS-B data under the Open Database Licence, no account) appears under the aeronautical data at the same position and zoom and follows panning and zooming. *Aircraft details ↗* opens the full adsb.lol map (aircraft information, history) in a new tab. Off by default; needs internet only while it is on. |
+| **Live traffic** | *✈ Live traffic* switches live air traffic on and off **inside the map**: the free [adsb.lol](https://adsb.lol/) live flight map (community ADS-B data under the Open Database Licence, no account) appears under the aeronautical data at the same position and zoom and follows panning and zooming. *🛈 Aircraft details* opens the live map in a window over the map, inside the tool: click any aircraft for its callsign, registration, operator, type, route, altitude, speed, squawk and track; ✕ returns to the AIXM map. Off by default; needs internet only while it is on. |
 | **State detection** | STATE authority, ICAO location indicators (aerodromes, FIRs, NOTAM locations, procedure names, reference titles) and, if nothing else, the country under the data; a file with only a weak guess takes the State of a loaded file with the same ICAO prefix. |
 
 Theme: navy blue and white with magenta accents (the colours of ICAO aeronautical charts), in light and dark modes.
@@ -199,7 +199,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.9.1, set in `src/config.js`; version 2 will add digital charts).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.10.0, set in `src/config.js`; version 2 will add digital charts).
 
 ```bash
 cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core
@@ -231,8 +231,8 @@ that the committed `AIXM-Code-Converter.html` matches the sources, and all brows
 - A zip file is unpacked in memory; zips whose XML contents exceed 4 GB are refused (unpack them and open the XML files
   directly — those are streamed and have no such limit).
 - Live traffic shows the adsb.lol map page inside the map, because the free live-traffic services do not let a page
-  opened from a file read their data. So aircraft cannot be clicked in the tool (use *Aircraft details ↗*), the base
-  map is replaced by adsb.lol's own map while it is on, a zoom reloads the live view (a second or two), and saved or
+  opened from a file read their data. So aircraft are not clicked on the AIXM map itself, the base
+  map is replaced by adsb.lol's own map while it is on, aircraft are clicked in the *Aircraft details* window, a zoom reloads the live view (a second or two), and saved or
   printed map images do not include the aircraft.
 - Obstacle limitation surfaces: the basic Annex 14 surfaces only (no inner approach, inner transitional, balked landing or
   outer horizontal surface; transitional surfaces along the strip only); runway code number estimated from the length.

@@ -631,9 +631,36 @@ var MAPVIEW = (function () {
     trafficUi();
     trafficLoad();
   }
+  // aircraft details: the live map in a window over this map, where any aircraft can be clicked (its details open
+  // there: callsign, registration, operator, type, route, altitude, speed, squawk, photo). This map stays as it was.
+  function trafficDetails() {
+    if (!map) return;
+    var wrap = map.getContainer().parentNode, old = wrap.querySelector('.traffic-details');
+    if (old) { old.remove(); return; }
+    var d = document.createElement('div');
+    d.className = 'traffic-details card';
+    d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Live air traffic — aircraft details');
+    d.innerHTML = '<div class="td-head"><div class="grow"><b>✈ Live traffic — aircraft details</b><span class="muted">Click an aircraft for its details · drag and zoom as usual</span></div>' +
+      '<span class="muted td-credit">data <a href="https://adsb.lol/" target="_blank" rel="noopener noreferrer">adsb.lol</a> (ODbL) · map © OpenStreetMap</span>' +
+      '<button class="btn small ghost" data-td="close" title="Back to the map" aria-label="Close">✕</button></div>' +
+      '<div class="td-body"><div class="td-wait"><span class="spinner"></span> loading the live map…</div></div>';
+    var f = document.createElement('iframe');
+    f.title = 'Live air traffic (adsb.lol) — click an aircraft for its details';
+    f.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+    f.setAttribute('referrerpolicy', 'no-referrer');
+    f.addEventListener('load', function () { var w = d.querySelector('.td-wait'); if (w) w.remove(); });
+    f.src = trafficUrl(true);
+    d.querySelector('.td-body').appendChild(f);
+    function close() { d.remove(); document.removeEventListener('keydown', esc, true); }
+    function esc(e) { if (e.key === 'Escape') { e.stopPropagation(); close(); } }
+    d.querySelector('[data-td="close"]').addEventListener('click', close);
+    document.addEventListener('keydown', esc, true);
+    wrap.appendChild(d);
+  }
   function trafficOff() {
     if (!traffic) return;
     traffic = null;
+    var td = map && map.getContainer().parentNode.querySelector('.traffic-details'); if (td) td.remove();
     if (map) {
       map.off('zoomstart', trafficZoomStart); map.off('moveend', trafficMoved); map.off('resize', trafficLoad);
       map.getPane('trafficPane').innerHTML = '';
@@ -1135,7 +1162,7 @@ var MAPVIEW = (function () {
     hooks = _hooks;
     opts = opts || {};
     container.innerHTML = '<div class="map-wrap"><div id="map"></div>' + searchHtml() + panelHtml(datasets) + '<div class="card map-adcard hidden" id="map-adcard"></div>' +
-      '<div class="map-traffic-note hidden" id="map-traffic-note">✈ Live traffic <b id="map-traffic-state">loading…</b> · adsb.lol, community data · <a id="map-traffic-full" href="https://adsb.lol/" target="_blank" rel="noopener noreferrer">aircraft details ↗</a></div></div>';
+      '<div class="map-traffic-note hidden" id="map-traffic-note">✈ Live traffic <b id="map-traffic-state">loading…</b> · adsb.lol, community data · <button class="linkbtn" id="map-traffic-info" title="Click an aircraft to see its details, here in the tool">🛈 Aircraft details</button></div></div>';
     var mdiv = container.querySelector('#map');
     if (devKind() === 'phone' || (devKind() === 'tablet' && window.innerHeight > window.innerWidth)) container.querySelector('#map-panel').classList.add('hidden'); // phones, upright tablets: map first, Layers opens the panel
     VIEW3D.close();
@@ -1190,8 +1217,7 @@ var MAPVIEW = (function () {
     q('#map-print').addEventListener('click', function () { printDialog(null); });
     q('#map-3d').addEventListener('click', function () { open3d('area', state.adView && state.adView.ds === state.ds ? state.adView.ad : null); });
     q('#map-traffic').addEventListener('click', function () { if (traffic) trafficOff(); else trafficOn(); });
-    // the full adsb.lol map (aircraft details, history) opens in its own tab at the same place
-    q('#map-traffic-full').addEventListener('click', function (e) { e.currentTarget.href = trafficUrl(false); });
+    q('#map-traffic-info').addEventListener('click', function () { trafficDetails(); });
     q('#map-panel-toggle').addEventListener('click', function () { q('#map-panel').classList.toggle('hidden'); });
     bindSearch(container);
     if (q('#map-popout')) q('#map-popout').addEventListener('click', function () { hooks.popout(state.ds, state.adView ? state.adView.ad : null); });

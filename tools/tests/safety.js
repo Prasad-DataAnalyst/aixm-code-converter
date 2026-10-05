@@ -4,7 +4,8 @@
 // a zip whose contents are larger than the limit is refused instead of filling the memory; saved (cached) data is only
 // reused in the memory mode (Full / Lite) that applies now; the map asks no server anything while the offline map is
 // shown; ✈ Live traffic switches the adsb.lol live map on inside the map (sandboxed, at the map position and zoom,
-// under the aeronautical data, base map hidden, credit shown), follows a zoom, and switches off again.
+// under the aeronautical data, base map hidden, credit shown), follows a zoom, shows aircraft details in a window over
+// the map (not a new tab), and switches off again.
 const fs = require('fs');
 const path = require('path');
 const env = require('./_env');
@@ -65,7 +66,15 @@ const DONLON = ROOT + '/testdata/Donlon_ALL_Baseline_2025.xml';
   await page.evaluate(() => MAPVIEW.leaflet().setZoom(7, { animate: false })); await page.waitForTimeout(1600);
   const z = await page.evaluate(() => [...document.querySelectorAll('.traffic-frame')].map((f) => f.src));
   if (z.length !== 1 || !/&zoom=7&/.test(z[0])) fails.push('live traffic did not follow the zoom: ' + z.join(' '));
-  await page.click('#map-traffic');
+  // aircraft details: the live map in a window over this map (no new tab), closed with ✕
+  await page.click('#map-traffic-info');
+  const det = await page.evaluate(() => { const d = document.querySelector('.traffic-details'), f = d && d.querySelector('iframe'); return d ? { src: f.src, sandbox: f.getAttribute('sandbox'), head: d.querySelector('.td-head').textContent } : null; });
+  if (!det || !/^https:\/\/adsb\.lol\/\?lat=-?\d+\.\d{5}&lon=-?\d+\.\d{5}&zoom=7&hideSidebar&hideButtons$/.test(det.src) || det.sandbox !== 'allow-scripts allow-same-origin' || !/aircraft details/.test(det.head)) fails.push('aircraft details window ' + JSON.stringify(det));
+  await page.click('.traffic-details [data-td="close"]');
+  if (await page.$('.traffic-details')) fails.push('✕ should close the aircraft details window');
+  await page.click('#map-traffic-info');
+  await page.evaluate(() => document.querySelector('#map-traffic').click()); // the window covers the map buttons
+  if (await page.$('.traffic-details')) fails.push('switching live traffic off should close the aircraft details window');
   const off = await page.evaluate(() => ({ frames: document.querySelectorAll('.traffic-frame').length, pressed: document.querySelector('#map-traffic').getAttribute('aria-pressed'), base: document.querySelector('#map-base').disabled, attr: document.querySelector('.leaflet-control-attribution').textContent, land: MAPVIEW.leaflet().getPane('tilePane').querySelectorAll('canvas').length }));
   if (off.frames || off.pressed !== 'false' || off.base || /adsb/.test(off.attr) || !off.land) fails.push('live traffic did not switch off cleanly ' + JSON.stringify(off));
 

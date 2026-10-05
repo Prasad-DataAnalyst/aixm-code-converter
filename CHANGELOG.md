@@ -7,6 +7,16 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.10.0 — 2026-10-05 — aircraft details inside the tool
+
+- **🛈 Aircraft details** (in the live-traffic note on the map) opens the live map in a window over the map, inside
+  the tool — no new tab, no other application. Click any aircraft for its details: callsign, registration and
+  country, operator, type, route, squawk, ground speed, altitude and vertical rate, track, position, and its flight
+  path on the map. ✕ returns to the AIXM map, which stays exactly where it was. Works on computers, tablets and phones.
+- Why a window and not a card drawn by the tool: the free live-traffic services do not let a page opened from a file
+  read their data, and the browser does not tell the tool which aircraft was clicked inside the live map.
+- Test: `safety.js` opens and closes the aircraft details window (address, sandbox, no new tab).
+
 ## 1.9.1 — 2026-10-05 — a delivery added in several goes stays one data set
 
 - Files of one delivery added at different times (e.g. the baseline files first and read, the difference files

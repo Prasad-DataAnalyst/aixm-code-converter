@@ -8,7 +8,7 @@ are read inside your browser. Nothing is requested from any server unless you as
 - **3D terrain tiles** — only when you open the 3D view with terrain;
 - **Live traffic** — only while it is switched on: the free adsb.lol live map is shown inside the map in a sandboxed
   frame (it cannot open windows or touch the tool or your data); adsb.lol receives the map position and zoom, nothing
-  else. *Aircraft details ↗* opens adsb.lol in a new tab.
+  else. *Aircraft details* shows the same sandboxed live map in a window over the map.
 
 No AIXM data, file names or search text is ever sent. Map tile servers see only the tile coordinates.
 
