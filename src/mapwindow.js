@@ -37,7 +37,7 @@ var MAPWIN = (function () {
   // Main-window hooks wrapped so that the main window comes to the front for AIP / XML / details.
   function bridge(h, w) {
     function front(fn) { return function (ds, r) { try { window.focus(); } catch (e) { /* focus refused */ } fn(ds, r); }; }
-    return { toast: toastIn(w), openAip: front(h.openAip), openXml: front(h.openXml), openDetail: front(h.openDetail), savePng: h.savePng,
+    return { toast: toastIn(w), openAip: front(h.openAip), openXml: front(h.openXml), openDetail: front(h.openDetail), savePng: h.savePng, problem: h.problem,
       dock: function () { close(); if (h.dock) h.dock(); } };
   }
   function build(w) {

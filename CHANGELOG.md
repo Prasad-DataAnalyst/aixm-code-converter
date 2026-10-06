@@ -7,6 +7,22 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.18.1 — 2026-10-06 — Several files at once without the page closing
+
+- **Fewer reader threads where memory is short**: each parser thread needs about 150 MB while it reads, on top of the
+  data already open. Phones now use at most 2 threads and tablets 3; devices with little memory, or a tab that
+  already holds much data, use fewer; computers keep one per processor core. Reading six files (700 MB) at once
+  peaked at 1.8 GB on 7 threads and at 1.2 GB on 2.
+- **Page closed by the browser while reading**: when the browser closes the page while files are read (almost always
+  for lack of memory), the next start says which files were being read and reads the next ones the safe way (one
+  thread, Lite memory mode), with tips. A normal reload, or another window of the tool that is reading, does not count.
+- **Errors shown, not a page that stops**: an error appears in a bar at the bottom with its details to copy or send
+  to the creator (the feedback form opens filled in); a page that fails says so while the other pages keep working;
+  a feature the map cannot draw is left out and reported, and the rest of the map is drawn.
+- **Saved copies**: an aerodrome mapping data set opened again from browser storage no longer gains a made-up
+  "UNKNOWN" aerodrome; copies saved by an older parser are read again from the file.
+- A short pause between files lets the browser free the reader threads' memory before the next file starts.
+
 ## 1.18.0 — 2026-10-06 — Complete data, missing data, procedures for PANS-OPS / TERPS
 
 - **Completeness** (Quality tab): for every feature type of a data set — AIXM 4.5 to 5.2, AMXM, IFP — how many

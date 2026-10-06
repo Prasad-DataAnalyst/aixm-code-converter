@@ -118,7 +118,7 @@ var MODEL = (function () {
     var stands = new Map(), widths = new Map(), lengths = new Map();
     ds.recs.forEach(function (r) {
       var p = r.ts[0] && r.ts[0].p;
-      if (!p || !p._amxm) return;
+      if (!p || !p._amxm || r.syn) return;
       var ad = sv(p.idarpt) || 'UNKNOWN', adId = AX.amxmId(ad, 'ad', '');
       make('AirportHeliport', adId, r, { locationIndicatorICAO: ad, _amxm: 'aerodrome (named by idarpt)' });
       if (p.associatedRunway) {

@@ -70,6 +70,112 @@
   try { M.setLocator(MAPVIEW.countryAt); } catch (e) { /* map data missing */ }
   function copyText(txt) { EXPORTS.copyText(txt).then(function (ok) { toast(ok ? 'Copied to the clipboard' : 'Copy failed — select the text manually'); }); }
 
+  /* ------------------------------------------- problems: errors, the page closed by the browser */
+  // An error in a view or an action is shown in a bar at the bottom, with its details to copy or send to the creator;
+  // the rest of the tool keeps working (instead of a page that stops without a word).
+  var errLog = [], errBar = null;
+  function techSummary() {
+    var mi = memInfo();
+    return [APP_INFO.name + ' ' + APP_INFO.version + ' · ' + DEVICE.kind() + ' · ' + navigator.userAgent,
+      'View: ' + S.view + ' · reader threads: ' + threads() + (S.safeRead ? ' (safe mode)' : '') + ' · memory mode: ' + (S.memMode || 'auto') +
+        (mi ? ' · memory used ' + fmtSize(mi.used) + ' of ' + fmtSize(mi.limit) : '') + (navigator.deviceMemory ? ' · device memory ' + navigator.deviceMemory + ' GB' : ''),
+      'Data sets (' + S.datasets.length + '): ' + (S.datasets.map(function (d) {
+        return d.name + ' [' + (d.family === 'amxm' ? 'AMXM' : 'AIXM ' + (d.version || d.family)) + ', ' + fmtSize(d.size || 0) + ', ' + num(d.recs.length) + ' features' + (d.lite ? ', Lite' : '') + ']';
+      }).join('; ') || 'none'),
+      'Files (' + S.files.length + '): ' + (S.files.slice(0, 40).map(function (f) { return f.name + ' ' + fmtSize(f.size) + ' ' + f.status; }).join('; ') || 'none')].join('\n');
+  }
+  function errorText() {
+    return 'Problem report\n\n' + errLog.map(function (e) { return e.time + 'Z ' + e.msg + (e.where ? '\n  at ' + e.where : ''); }).join('\n') + '\n\n' + techSummary();
+  }
+  function reportError(msg, stack) {
+    msg = String(msg || 'Unknown error').slice(0, 400);
+    if (/ResizeObserver loop|^Script error\.?$/i.test(msg)) return; // browser notices, not errors of the tool
+    // where: the first lines of the stack, file names without their (long, local) path
+    var where = stack ? String(stack).split('\n').filter(function (l) { return /\d:\d/.test(l); }).slice(0, 4)
+      .map(function (l) { return l.trim().replace(/\(?(?:blob|file|https?):[^\s)]*\/([^/\s)]+)\)?/g, '$1'); }).join(' | ') : '';
+    var key = msg + '|' + where;
+    if (!errLog.some(function (e) { return e.key === key; })) {
+      errLog.push({ key: key, msg: msg, where: where, time: new Date().toISOString().slice(11, 19) });
+      if (errLog.length > 20) errLog.shift();
+    }
+    showErrBar();
+  }
+  function showErrBar() {
+    if (!errLog.length) return;
+    if (!errBar) {
+      errBar = document.createElement('div');
+      errBar.className = 'err-bar'; errBar.setAttribute('role', 'alert');
+      document.body.appendChild(errBar);
+      errBar.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-err]');
+        if (!b) return;
+        var a = b.getAttribute('data-err');
+        if (a === 'copy') copyText(errorText());
+        else if (a === 'send') FEEDBACK.open(toast, { subject: 'Problem: ' + errLog[errLog.length - 1].msg.slice(0, 90), desc: 'What I was doing:\n\n\n' + errorText() });
+        else if (a === 'close') { errBar.remove(); errBar = null; errLog = []; }
+      });
+    }
+    var last = errLog[errLog.length - 1];
+    errBar.innerHTML = '<span class="err-ic" aria-hidden="true">⚠</span><div class="grow"><b>Something went wrong' + (errLog.length > 1 ? ' (' + errLog.length + ' problems)' : '') + ':</b> ' + esc(last.msg) +
+      '<div class="muted">The rest of the tool keeps working. Copy the details, or send them to the creator so it can be fixed.</div></div>' +
+      '<button class="btn small" data-err="copy">Copy details</button><button class="btn small" data-err="send">✉ Send</button><button class="btn small ghost" data-err="close" title="Close" aria-label="Close">✕</button>';
+  }
+  window.addEventListener('error', function (e) { if (e.error || e.message) reportError(e.message || (e.error && e.error.message), e.error && e.error.stack); });
+  window.addEventListener('unhandledrejection', function (e) { var r = e.reason; reportError(r && r.message ? r.message : String(r), r && r.stack); });
+
+  // While files are read a mark is kept in this browser; a page closed normally removes it (pagehide). Found at the
+  // next start, it means the browser stopped the page while reading — almost always because it ran out of memory.
+  // The user is told what was being read, and the next files are read the safe way: one thread, Lite memory mode.
+  var BUSY_KEY = 'aixm-busy', busyTimer = null;
+  function busyStart(list) {
+    var mark = { t: Date.now(), v: APP_INFO.version, dev: DEVICE.kind(), threads: threads(), safe: !!S.safeRead, open: S.datasets.length,
+      loaded: loadedBytes(), files: list.slice(0, 30).map(function (f) { return { n: f.name, s: f.size }; }), more: Math.max(0, list.length - 30) };
+    function put() { mark.t = Date.now(); try { localStorage.setItem(BUSY_KEY, JSON.stringify(mark)); } catch (e) { /* storage unavailable */ } }
+    put();
+    clearInterval(busyTimer); busyTimer = setInterval(put, 2000); // fresh: another window of the tool is still reading
+  }
+  function busyEnd() { clearInterval(busyTimer); busyTimer = null; try { localStorage.removeItem(BUSY_KEY); } catch (e) { /* storage unavailable */ } }
+  window.addEventListener('pagehide', function () { if (busyTimer) busyEnd(); });
+  function readMark() { try { return JSON.parse(localStorage.getItem(BUSY_KEY) || 'null'); } catch (e) { return null; } }
+  function checkClosedWhileReading(again) {
+    var m = readMark();
+    if (!m || !m.t) return;
+    // a mark renewed in the last seconds: another window of the tool may be reading now. Look again in a moment; a
+    // mark nobody renews belongs to a page that was closed (e.g. reloaded right after the browser stopped it)
+    if (Date.now() - m.t < 6000 && !again) {
+      setTimeout(function () { var n = readMark(); if (n && n.t === m.t) checkClosedWhileReading(true); }, 4500);
+      return;
+    }
+    try { localStorage.removeItem(BUSY_KEY); } catch (e) { /* storage unavailable */ }
+    S.safeRead = true;
+    if (S.view === 'files') renderFileList();
+    var total = (m.files || []).reduce(function (n, f) { return n + (f.s || 0); }, 0), nf = (m.files || []).length + (m.more || 0);
+    var names = (m.files || []).slice(0, 8).map(function (f) { return esc(f.n) + ' <span class="muted">' + fmtSize(f.s || 0) + '</span>'; }).join('<br>') + (nf > 8 ? '<br><span class="muted">and ' + (nf - 8) + ' more</span>' : '');
+    var details = 'The browser closed the page while it was reading files\n' + new Date(m.t).toISOString().slice(0, 16).replace('T', ' ') + 'Z · version ' + m.v + ' · ' + m.dev +
+      ' · reader threads ' + m.threads + (m.safe ? ' (safe mode)' : '') + ' · data sets already open: ' + m.open + ' (' + fmtSize(m.loaded || 0) + ')\nFiles: ' +
+      (m.files || []).map(function (f) { return f.n + ' (' + fmtSize(f.s || 0) + ')'; }).join('; ') + (m.more ? '; and ' + m.more + ' more' : '') + '\n' + navigator.userAgent;
+    var back = document.createElement('div');
+    back.className = 'modal-back';
+    back.innerHTML = '<div class="modal crash-note" role="dialog" aria-label="The page was closed while reading"><div class="modal-head"><h3>⚠ The browser closed this page while it was reading files</h3><span class="sp"></span><button class="btn small ghost" data-cn="close" title="Close">✕</button></div>' +
+      '<div class="modal-body"><p>Last time the page stopped while reading <b>' + nf + ' file' + (nf === 1 ? '' : 's') + ' (' + fmtSize(total) + ')</b>' + (m.open ? ', with ' + m.open + ' data set' + (m.open === 1 ? '' : 's') + ' already open' : '') + ':</p>' +
+      '<p class="crash-files">' + names + '</p>' +
+      '<p>A browser closes a page like this when it runs out of memory — on a phone or tablet much sooner than on a computer. ' +
+      (m.safe ? 'It happened even in the safe way of reading, so these files need more memory than this browser gives a page.' : '') + '</p>' +
+      '<p><b>Files are now read the safe way</b>: one thread at a time and the Lite memory mode. Slower, but it needs much less memory.</p>' +
+      '<ul class="crash-tips"><li>Read fewer or smaller files at a time, then add the next ones.</li><li>Remove data sets you no longer need (Dashboard → Remove).</li><li>Close other browser tabs.</li>' +
+      (DEVICE.touch ? '<li>Large files work best on a computer.</li>' : '<li>Very large files (several GB): use Memory → Lite before Extract.</li>') + '</ul></div>' +
+      '<div class="modal-foot"><button class="btn ghost" data-cn="copy">Copy details</button><button class="btn" data-cn="send">✉ Tell the creator</button><button class="btn primary" data-cn="close">OK</button></div></div>';
+    document.body.appendChild(back);
+    back.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-cn]');
+      if (!b && e.target !== back) return;
+      var a = b ? b.getAttribute('data-cn') : 'close';
+      if (a === 'copy') { copyText(details); return; }
+      back.remove();
+      if (a === 'send') FEEDBACK.open(toast, { subject: 'Problem: the page closed while reading files', desc: 'What I was doing:\n\n\n' + details });
+    });
+  }
+
   /* ------------------------------------------------------------- icons */
   function ic(path, extra) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" ' + (extra || '') + '>' + path + '</svg>'; }
   var I = {
@@ -204,7 +310,15 @@
     var v = document.createElement('div');
     v.className = 'view' + (view === 'aip' || view === 'map' || view === 'explorer' ? ' full' : '');
     main.appendChild(v);
-    ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, timeline: viewTimeline, notam: viewNotam, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport, about: viewAbout, charts: viewCharts })[view](v, opts || {});
+    try {
+      ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, timeline: viewTimeline, notam: viewNotam, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport, about: viewAbout, charts: viewCharts })[view](v, opts || {});
+    } catch (err) {
+      // a page that fails (e.g. on unexpected data) says so; the other pages and data sets keep working
+      console.error(err);
+      v.insertAdjacentHTML('beforeend', '<div class="card card-pad view-fail"><h3>⚠ This page could not be shown completely</h3><p>' + esc(err && err.message || err) + '</p>' +
+        '<p class="muted">The other pages and data sets keep working. The details are in the bar at the bottom.</p></div>');
+      reportError(err && err.message || String(err), err && err.stack);
+    }
     MAPWIN.sync(S.datasets, S.cmp);
     updateHash();
   }
@@ -512,7 +626,19 @@
 
   /* ---------------------------------------------------- extraction engine */
   var workerUrl = null;
-  function threads() { return Math.max(1, Math.min(APP_SETTINGS.maxThreads, (navigator.hardwareConcurrency || 4) - 1)); }
+  // parser threads: one per CPU core, at most 2 on a phone and 3 on a tablet, and no more than the memory left allows
+  // (each thread needs about 150 MB while it reads, on top of the data already open: too many threads at once made the
+  // browser close the page when several files were read); 1 after the browser closed the page while reading (safe mode)
+  function threads() {
+    // the device itself, whatever layout is chosen: a phone (small screen) or a tablet
+    var cap = !DEVICE.touch ? APP_SETTINGS.maxThreads : Math.min(screen.width, screen.height) < 600 ? APP_SETTINGS.maxThreadsPhone : APP_SETTINGS.maxThreadsTablet;
+    var n = Math.max(1, Math.min(cap, (navigator.hardwareConcurrency || 4) - 1));
+    var gb = navigator.deviceMemory; // memory of the device in GB (Chrome, Edge; rounded down, at most 8)
+    if (gb && gb < 8) n = Math.min(n, Math.max(1, Math.floor(gb / 2)));
+    var mi = memInfo();
+    if (mi) n = Math.min(n, Math.max(1, Math.floor((mi.limit * 0.85 - mi.used) / APP_SETTINGS.threadMem)));
+    return S.safeRead ? 1 : n;
+  }
   function makeWorker() {
     if (!workerUrl) {
       var src = document.getElementById('src-core').textContent + '\n' + document.getElementById('src-worker').textContent;
@@ -584,6 +710,7 @@
     var add = list.reduce(function (n, f) { return n + f.size; }, 0), mi = memInfo();
     var plan = { total: loadedBytes() + add, lite: false, warn: '' };
     if (S.memMode === 'lite' || (S.memMode !== 'full' && plan.total > liteAuto())) plan.lite = true;
+    if (S.safeRead && S.memMode !== 'full') plan.lite = true; // the browser closed the page last time while reading
     if (mi) {
       var need = mi.used + add * MEM_PER_BYTE, free = mi.limit * 0.85;
       if (need > free && S.memMode !== 'full') plan.lite = true;
@@ -616,19 +743,24 @@
       if (members.length > 1 && members.every(function (m) { return m.sniff.family === members[0].sniff.family; })) units.push({ item: g, members: members });
       else members.forEach(function (m) { units.push({ item: m, members: [m] }); });
     });
-    for (var i = 0; i < units.length; i++) {
-      var u = units[i], f = u.item, multi = u.members.length > 1, size = 0;
-      u.members.forEach(function (m) { size += m.size; });
-      var key = multi ? setCacheKey(u.members) : dropKey(f.file);
-      // a saved copy is used only when it was read in the memory mode that applies now (Lite / Full)
-      var wantLite = S.memMode === 'lite' || (S.memMode !== 'full' && (size > liteAuto() || !!plan.lite));
-      var cached = await openFromCache(key, multi ? null : f.file, null, wantLite, multi ? u.members.map(function (m) { return m.file; }) : null);
-      if (cached) {
-        f.status = 'done'; if (multi) u.members.forEach(function (m) { m.status = 'done'; });
-        f.detail = 'opened from saved data (instant) · ' + num(cached.recs.length) + ' features · ' + esc(cached.state); renderFileList(); continue;
+    if (units.length) busyStart(list);
+    try {
+      for (var i = 0; i < units.length; i++) {
+        var u = units[i], f = u.item, multi = u.members.length > 1, size = 0;
+        u.members.forEach(function (m) { size += m.size; });
+        var key = multi ? setCacheKey(u.members) : dropKey(f.file);
+        // a saved copy is used only when it was read in the memory mode that applies now (Lite / Full)
+        var wantLite = S.memMode === 'lite' || (S.memMode !== 'full' && (size > liteAuto() || !!plan.lite));
+        var cached = await openFromCache(key, multi ? null : f.file, null, wantLite, multi ? u.members.map(function (m) { return m.file; }) : null);
+        if (cached) {
+          f.status = 'done'; if (multi) u.members.forEach(function (m) { m.status = 'done'; });
+          f.detail = 'opened from saved data (instant) · ' + num(cached.recs.length) + ' features · ' + esc(cached.state); renderFileList(); continue;
+        }
+        await extractSet(u.members, f, plan);
+        // a moment between files: the browser frees the memory of the reader threads before the next file starts
+        if (i < units.length - 1) await new Promise(function (r) { setTimeout(r, 120); });
       }
-      await extractSet(u.members, f, plan);
-    }
+    } finally { busyEnd(); }
     renderFileList();
     if (S.datasets.length) { initSearch(); renderDsSelect(); memGauge(); if (!checkPending()) go('dash'); }
   }
@@ -874,8 +1006,8 @@
       if (!members.length) { toast('No AIXM file in ' + u.name); return null; }
       var item = { id: ++fileSeq, name: u.name, size: u.size, status: 'ready', progress: 0, lib: lib, overlay: true };
       var ov = overlay('Reading ' + stateName + ' — ' + u.name + ' (' + members.length + ' files)');
-      ds = await extractSet(members, item);
-      ov.remove();
+      busyStart(members);
+      try { ds = await extractSet(members, item); } finally { busyEnd(); ov.remove(); }
     }
     if (ds && !opts.silent) activate(ds);
     return ds;
@@ -918,8 +1050,8 @@
       var item = { id: ++fileSeq, file: file, name: f.name, size: f.size, sniff: sn, status: 'ready', progress: 0, lib: lib, overlay: true, from: 'library ' + stateName };
       S.files.push(item);
       var ov = overlay('Reading ' + stateName + ' — ' + f.name);
-      ds = await extractOne(item);
-      ov.remove();
+      busyStart([item]);
+      try { ds = await extractOne(item); } finally { busyEnd(); ov.remove(); }
     }
     if (ds && !opts.silent) activate(ds);
     return ds;
@@ -2053,7 +2185,9 @@
       toast: toast, openAip: openAipFor, openXml: function (ds, r) { openXml(ds, r); }, openDetail: function (ds, r) { openDetail(ds, r); },
       savePng: function (url) { fetch(url).then(function (res) { return res.blob(); }).then(function (b) { EXPORTS.download('aixm-map.png', b); }); },
       popout: popOutMap,
-      dock: function () { go('map', { docked: true }); }
+      dock: function () { go('map', { docked: true }); },
+      // a feature the map could not draw (unexpected data): reported in the error bar, the rest is drawn
+      problem: function (e, r) { reportError('Map: ' + (r ? r.k + (r.id ? ' ' + r.id : '') + ' not drawn — ' : '') + (e && e.message || e), e && e.stack); }
     };
     if (inWindow) delete h.popout; else delete h.dock;
     return h;
@@ -3128,7 +3262,7 @@
     back.className = 'modal-back';
     back.innerHTML = '<div class="modal"><div class="modal-head">' + I.info.replace('<svg', '<svg width="20" height="20"') + '<h3>AIXM Code Converter — help</h3><span class="sp"></span><button class="btn small ghost" data-close>' + I.x + '</button></div><div class="modal-body">' +
       '<p><b>What it does.</b> Reads AIXM files of any version (4.5 Snapshot/Update, 5.0, 5.1, 5.1.1, 5.2 including pre-releases), detects the version, extracts the aeronautical data and presents it like the <b>ICAO specimen AIP</b> (GEN, ENR 1–6, AD 2 / AD 3 for every aerodrome and heliport). Everything runs offline inside this single HTML file — no data is uploaded anywhere.</p>' +
-      '<p><b>Large files.</b> Files are streamed in 16 MB chunks by parallel background threads; only the extracted values are kept in memory (repeated values once). The exact position (line, byte offset) of each feature is remembered, so <span class="kbd">&lt;/&gt;</span> opens the original AIXM code instantly, even for multi-GB files. The <b>Memory</b> gauge in the top bar shows the use; when files would not fit, Lite mode is used automatically. <i>Dashboard → Remove</i> frees the memory of a data set.</p>' +
+      '<p><b>Large files.</b> Files are streamed in 16 MB chunks by parallel background threads (one per processor core; fewer on phones, tablets and when memory is short); only the extracted values are kept in memory (repeated values once). The exact position (line, byte offset) of each feature is remembered, so <span class="kbd">&lt;/&gt;</span> opens the original AIXM code instantly, even for multi-GB files. The <b>Memory</b> gauge in the top bar shows the use; when files would not fit, Lite mode is used automatically. <i>Dashboard → Remove</i> frees the memory of a data set. If the browser ever closes the page while reading, the next start says so and reads the files the safe way (one thread, Lite). Any error is shown in a bar at the bottom with its details to copy or send.</p>' +
       '<p><b>Effective dates.</b> The header shows the State, AIXM version, AIRAC cycle and effective date. Every row shows the effective date of its feature. Use <b>Latest data / Valid on date</b> (top bar) to see the data valid on any date (AIXM temporality: BASELINE, PERMDELTA, TEMPDELTA).</p>' +
       '<p><b>Changes.</b> <i>Changes</i> lists the time slices inside one file (what changes, where, when). <i>Compare</i> compares two files of the same State (e.g. two AIRAC cycles, any versions) and lists added / removed / modified data with old → new values; results can also be shown on the map.</p>' +
       '<p><b>AIRAC cycle changes.</b> Values that change in the selected AIRAC cycle are shown <span class="chg-badge">in red</span> on every AIP page; <b>List all changes</b> and <b>AMDT report</b> give the amendment (publication and effective dates, affected sections, insert/amend/delete). <b>⇆ Side by side</b> on any section shows before/after a cycle, or two files. <i>Timeline</i> shows the changes per AIRAC cycle and temporary changes; <i>NOTAM</i> shows Digital NOTAM events as ICAO NOTAM text.</p>' +
@@ -3150,6 +3284,7 @@
   window.addEventListener('beforeunload', function (e) { if (S.datasets.length) { e.preventDefault(); e.returnValue = ''; } });
   renderNav();
   go('files');
+  checkClosedWhileReading();
   libInit().then(function () { if (LIB.status !== 'none') { startWatch(); if (!S.datasets.length) go('library'); } });
   window.__AIXM = { S: S, go: go, locateValue: locateValue, sliceRange: sliceRange, LIB: LIB, libRescan: libRescan, openLibFile: openLibFile, openLatest: openLatest, useHandle: async function (h) { await LIBRARY.useHandle(h); LIB.status = 'granted'; await libRescan(); startWatch(); }, addFiles: addFiles, extractAll: extractAll, openXml: openXml, openDetail: openDetail };
 })();

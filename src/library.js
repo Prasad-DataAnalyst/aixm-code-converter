@@ -13,7 +13,7 @@
  *    is instant (no re-reading of large files)
  *  Fallback (browsers without the API): pick the folder once per session.
  * ========================================================================== */
-/* global AX */
+/* global AX, APP_SETTINGS */
 var LIBRARY = (function () {
   'use strict';
   var DBN = 'aixm-code-converter', DBV = 2, dbp = null;
@@ -174,22 +174,27 @@ var LIBRARY = (function () {
     if (r.err) o.err = r.err;
     return o;
   }
+  // the features as read from the file: records the model builds itself (syn, e.g. the aerodrome an aerodrome mapping
+  // file names only by its code) are left out and built again when the copy is opened
   async function saveDataset(key, ds) {
-    var n = Math.ceil(ds.recs.length / CH);
+    var recs = ds.recs.filter(function (r) { return !r.syn; }), n = Math.ceil(recs.length / CH);
     for (var i = 0; i < n; i++) {
       await idle();
       if (ds.dropped) { for (var j = 0; j < i; j++) await del('chunks', key + '#' + j); return; } // removed meanwhile
-      await put('chunks', key + '#' + i, ds.recs.slice(i * CH, (i + 1) * CH).map(slim));
+      await put('chunks', key + '#' + i, recs.slice(i * CH, (i + 1) * CH).map(slim));
     }
-    await put('meta', key, { key: key, name: ds.name, size: ds.size, sniff: ds.sniff, family: ds.family, version: ds.version, chunks: n, count: ds.recs.length,
-      parseErrors: (ds.parseErrors || []).map(slim), tRead: ds.tRead, errors: ds.errors, savedAt: Date.now(), lib: ds.lib || null, state: ds.state, lite: !!ds.lite, delivery: ds.delivery || null, fmt: 2 });
+    await put('meta', key, { key: key, name: ds.name, size: ds.size, sniff: ds.sniff, family: ds.family, version: ds.version, chunks: n, count: recs.length,
+      parseErrors: (ds.parseErrors || []).map(slim), tRead: ds.tRead, errors: ds.errors, savedAt: Date.now(), lib: ds.lib || null, state: ds.state, lite: !!ds.lite, delivery: ds.delivery || null, fmt: 2,
+      pv: APP_SETTINGS.parserVersion });
   }
   async function loadDataset(key) {
     var m = await get('meta', key);
     if (!m) return null;
+    // saved by an older version of the parser: read the file again (and free the space)
+    if ((m.pv || 1) !== APP_SETTINGS.parserVersion) { removeCached(key).catch(function () {}); return null; }
     var recs = [];
     for (var i = 0; i < m.chunks; i++) { var c = await get('chunks', key + '#' + i); if (!c) return null; for (var j = 0; j < c.length; j++) recs.push(c[j]); }
-    return { name: m.name, size: m.size, sniff: m.sniff, family: m.family, version: m.version, recs: recs, parseErrors: m.parseErrors, tRead: m.tRead, errors: m.errors, prepared: true, lib: m.lib, cachedAt: m.savedAt, lite: m.lite, delivery: m.delivery || undefined, fmt: m.fmt || 1 };
+    return { name: m.name, size: m.size, sniff: m.sniff, family: m.family, version: m.version, recs: recs, parseErrors: m.parseErrors, tRead: m.tRead, errors: m.errors, prepared: true, lib: m.lib, cachedAt: m.savedAt, lite: m.lite, delivery: m.delivery || undefined, fmt: m.fmt || 1, pv: m.pv || 1 };
   }
   async function cachedKeys() { try { return new Set(await keys('meta')); } catch (e) { return new Set(); } }
   async function cachedList() { try { return await getAll('meta'); } catch (e) { return []; } }

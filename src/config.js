@@ -9,7 +9,7 @@
  * ========================================================================== */
 var APP_INFO = Object.freeze({
   name: 'AIXM Code Converter',
-  version: '1.18.0',
+  version: '1.18.1',
   year: '2026',
   author: 'Prasad Selvaraj',
   email: 'prasad2t@gmail.com',
@@ -32,7 +32,11 @@ var APP_SETTINGS = Object.freeze({
   warnPhone: 400 * 1024 * 1024,            // above this total a phone / tablet shows a "use a computer" note
   warnTablet: 900 * 1024 * 1024,
   cacheMaxBytes: 400 * 1024 * 1024,         // larger files are not copied into browser storage (reading the file again is as fast)
-  maxThreads: 8,                          // parallel parser threads (capped by the CPU count)
+  maxThreads: 8,                          // parallel parser threads (capped by the CPU count and the free memory)
+  maxThreadsPhone: 2,                     // phones and tablets give a browser tab far less memory: fewer threads
+  maxThreadsTablet: 3,
+  threadMem: 160 * 1024 * 1024,           // memory one parser thread uses while it reads (measured: about 150 MB)
+  parserVersion: 2,                       // saved copies made by an older parser are read again from the file
   zipMaxBytes: 4 * 1024 * 1024 * 1024,   // unpacking a .zip stops above this size (protects against "zip bombs")
   pdfMaxRows: 5000,                       // rows per table in PDF exports (Excel/JSON keep everything)
   airacPublishDays: 42                    // AIRAC amendments are published this many days before the effective date

@@ -75,7 +75,8 @@ var FEEDBACK = (function () {
   function gmail(m) { return 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(TO) + '&su=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.text.slice(0, 1800)); }
 
   // ------------------------------------------------------------------- form
-  function open(toast) {
+  // pre: {subject, desc} filled in (a problem report from the error bar)
+  function open(toast, pre) {
     toast = toast || function () {};
     var me = {};
     try { me = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { me = {}; }
@@ -99,6 +100,7 @@ var FEEDBACK = (function () {
     document.body.appendChild(back);
     var q = function (s) { return back.querySelector(s); };
     q('#fb-name').value = me.name || ''; q('#fb-email').value = me.email || ''; q('#fb-org').value = me.org || ''; q('#fb-pos').value = me.pos || '';
+    if (pre) { q('#fb-subj').value = pre.subject || ''; q('#fb-desc').value = pre.desc || ''; }
     setTimeout(function () { (me.name ? q('#fb-subj') : q('#fb-name')).focus(); }, 30);
 
     function drawFiles() {

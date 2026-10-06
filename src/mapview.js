@@ -829,8 +829,15 @@ var MAPVIEW = (function () {
   }
 
   // the layers of every data set shown (one, several or all loaded): each feature keeps its own data set
+  // a feature that cannot be drawn (unexpected data) is left out and reported; the rest of the map is drawn
+  var nSkipped = 0;
+  function skipped(r, e) {
+    if (nSkipped++ < 5) console.warn('Not drawn on the map:', r ? r.k + ' ' + (r.id || '') : '', e);
+    if (hooks.problem) hooks.problem(e, r);
+  }
+  function eachDs(list, fn) { list.forEach(function (ds) { try { fn(ds); } catch (e) { skipped(null, e); } }); }
   function buildOverlays(list) {
-    function each(k, fn) { list.forEach(function (ds) { (ds.byType[k] || []).forEach(function (r) { fn(r, ds); }); }); }
+    function each(k, fn) { list.forEach(function (ds) { (ds.byType[k] || []).forEach(function (r) { try { fn(r, ds); } catch (e) { skipped(r, e); } }); }); }
     Object.keys(over).forEach(function (k) { if (map.hasLayer(over[k])) map.removeLayer(over[k]); });
     over = {};
     vec = vec || L.canvas({ padding: 0.4, tolerance: 4 });
@@ -858,7 +865,7 @@ var MAPVIEW = (function () {
     // guidance lines yellow); runways that the airport chart can draw get an invisible line for clicks only
     var adSet = new ShapeSet();
     var charted = new Set();
-    list.forEach(function (ds) { ADCHART.all(ds).forEach(function (m) { m.runways.forEach(function (rm) { charted.add(rm.rw); }); }); });
+    eachDs(list, function (ds) { ADCHART.all(ds).forEach(function (m) { m.runways.forEach(function (rm) { charted.add(rm.rw); }); }); });
     each('Runway', function (rw, ds) {
       shapesOf(M.geometry(ds, rw), function (g) {
         var hidden = charted.has(rw) && g.t === 'L';
@@ -893,7 +900,7 @@ var MAPVIEW = (function () {
       adHits = [];
       var z = m.getZoom(), c = m.getCenter(), mpp = 40075016.686 * Math.cos(c.lat * Math.PI / 180) / Math.pow(2, z + 8);
       var bb = m.getBounds().pad(0.15), W = bb.getWest(), S = bb.getSouth(), E = bb.getEast(), N = bb.getNorth();
-      list.forEach(function (ds) {
+      eachDs(list, function (ds) {
         ADCHART.draw(ctx, ds, { P: function (q) { var pt = project(m, q[0], q[1]); return [pt.x, pt.y]; }, mpp: mpp, k: 1, occ: occ, hits: adHits,
           vis: function (b) { return b[2] >= W && b[0] <= E && b[3] >= S && b[1] <= N; } });
       });
@@ -980,7 +987,7 @@ var MAPVIEW = (function () {
   function annotLayer(list) {
     var areas = [], segs = [];
     list.forEach(function (ds) {
-      (ds.byType.Airspace || []).forEach(function (a) {
+      (ds.byType.Airspace || []).forEach(function (a) { try {
         var cat = asCat(s(a.cur.p.type)), vert = ADCHART.tidy(AIP.vertical(ds, a).split('\n')[0] || ''), cls = AIP.airspaceClass(a).split('\n').map(function (x) { return x.charAt(0); }).filter(Boolean);
         var lim = vert.split(' / ');
         shapesOf(M.geometry(ds, a), function (g) {
@@ -994,13 +1001,13 @@ var MAPVIEW = (function () {
           if (!inRingLL(c, ring)) return;
           areas.push({ cat: cat, bb: bb, c: c, name: M.label(ds, a).split(' ').filter(function (w, i, l) { return w !== l[i - 1]; }).join(' '), cls: cls.filter(function (x, i, l) { return l.indexOf(x) === i; }).join('/'), up: lim[0] || '', lo: lim[1] || '' });
         });
-      });
-      (ds.byType.RouteSegment || []).forEach(function (sg) {
+      } catch (e) { skipped(a, e); } });
+      (ds.byType.RouteSegment || []).forEach(function (sg) { try {
         var g = M.geometry(ds, sg), rt = M.target(ds, sg.cur.p.routeFormed);
         if (!g || g.t !== 'L' || !rt || g.c.length < 2) return;
         var a = g.c[0], b = g.c[g.c.length - 1];
         segs.push({ a: a, b: b, t: M.routeDesignator(rt.cur.p), rnav: /RNAV|RNP/.test(s(sg.cur.p.navigationType)) });
-      });
+      } catch (e) { skipped(sg, e); } });
     });
     var layer = new CanvasLayer(function (ctx, m) {
       if (!state.labels) return;
@@ -1154,7 +1161,7 @@ var MAPVIEW = (function () {
     list = Array.isArray(list) ? list : [list];
     var grp = L.layerGroup(), n = 0;
     ['StandardInstrumentDeparture', 'StandardInstrumentArrival', 'InstrumentApproachProcedure'].forEach(function (k) {
-      list.forEach(function (ds) { (ds.byType[k] || []).forEach(function (pr) {
+      list.forEach(function (ds) { (ds.byType[k] || []).forEach(function (pr) { try {
         if (onlyAd && ds.owner.get(pr) !== onlyAd) return;
         if (state.procKinds && state.procKinds[PROC_K[k]] === false) return;
         var name = PROC_K[k] + ' ' + (s(pr.cur.p.designator) || s(pr.cur.p.name));
@@ -1171,11 +1178,11 @@ var MAPVIEW = (function () {
           }
           n++;
         });
-      }); });
+      } catch (e) { skipped(pr, e); } }); });
     });
     // terminal holdings (racetracks) and minimum sector altitudes of the aerodrome(s), with the procedures
     list.forEach(function (ds) {
-      (ds.byType.HoldingPattern || []).forEach(function (h) {
+      (ds.byType.HoldingPattern || []).forEach(function (h) { try {
         var o = ds.owner.get(h);
         if (s(h.cur.p.type) !== 'TER' || !o || (onlyAd && o !== onlyAd)) return;
         var g = holdShape(ds, h, o);
@@ -1184,8 +1191,8 @@ var MAPVIEW = (function () {
         l.bindTooltip(esc(holdText(ds, h)), { sticky: true, opacity: 0.9 });
         l.on('click', function (e) { openPopup(ds, h, e.latlng); });
         grp.addLayer(l); n++;
-      });
-      (ds.byType.SafeAltitudeArea || []).forEach(function (a) {
+      } catch (e) { skipped(h, e); } });
+      (ds.byType.SafeAltitudeArea || []).forEach(function (a) { try {
         var o = ds.owner.get(a);
         if (!o || (onlyAd && o !== onlyAd)) return;
         msaShapes(ds, a, o).forEach(function (sh) {
@@ -1196,7 +1203,7 @@ var MAPVIEW = (function () {
           if (sh.at) grp.addLayer(L.marker(ll(sh.at), { interactive: false, keyboard: false, icon: L.divIcon({ className: 'msa-alt', html: esc(sh.alt), iconSize: null }) }));
         });
         n++;
-      });
+      } catch (e) { skipped(a, e); } });
     });
     grp.count = n;
     return grp;
