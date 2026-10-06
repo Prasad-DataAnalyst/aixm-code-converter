@@ -47,6 +47,7 @@ var ABOUT = (function () {
     ['Languages', 'English, العربية (right-to-left), Français and Español; light and dark themes.']
   ];
   var NEWS = [
+    ['1.16', 'Airport view for every aerodrome with a position, also when the data has no runway coordinates (runways listed from the data, with a note of what the data set does not give); thresholds without coordinates flagged.'],
     ['1.15', 'Data issues shown where you read: the AIP marks the sections and values with an issue and explains each one (what was found, what is expected); new checks for 0°N 0°E positions, duplicates, implausible elevations, lengths and limits.'],
     ['1.14', 'Several data sets on one map: tick any mix of the States loaded (e.g. Qatar, Saudi Arabia, UAE and China), or show all of them.'],
     ['1.13', 'Faster map (dark and satellite maps over 10× smoother to drag); live aircraft drawn over the aeronautical data with your base map kept; aircraft details in a side panel; a blocked street map removed.'],

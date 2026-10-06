@@ -7,6 +7,17 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.16.0 — 2026-10-06 — Airport view without runway positions
+
+- **Airport view for every aerodrome with a position**: the map's *Airport view* list, a map search hit and *Show on
+  map* now open the airport information card for every aerodrome with a reference point, also when the data set
+  gives no runway positions. Its runways are listed from the runway data — dimensions, surface and strength, true
+  bearing, threshold elevation, TORA / TODA / ASDA / LDA — with communications and radio navigation aids. A note
+  says what the data set does not give for the aerodrome (runway threshold positions, so the runways are not
+  drawn; taxiways, aprons and stands), so that nothing missing on the map looks like a fault of the tool.
+- **New check**: thresholds and displaced thresholds without coordinates (e.g. an empty gml:pos with only the
+  elevation) are flagged in the Quality tab and in AD 2.12.
+
 ## 1.15.0 — 2026-10-06 — Data issues flagged in the AIP and the Quality tab
 
 - **Data issues where you read**: the data quality checks run by themselves when the AIP or the Quality tab is

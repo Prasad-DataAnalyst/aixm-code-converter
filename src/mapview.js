@@ -1520,7 +1520,7 @@ var MAPVIEW = (function () {
     var ds = x.ds, r = x.r;
     showAlso(ds);
     highlight(x.shapes);
-    if (r.k === 'AirportHeliport' && ADCHART.of(ds, r)) { airportView(ds, r); return; } // aerodromes open the airport view
+    if (r.k === 'AirportHeliport' && (ADCHART.of(ds, r) || M.pointOf(ds, r))) { airportView(ds, r); return; } // aerodromes open the airport view
     var b = null;
     x.shapes.forEach(function (sh) {
       var pts = sh.t === 'P' ? [sh.c] : sh.t === 'L' ? sh.c : (sh.c[0] || []);
@@ -1581,12 +1581,18 @@ var MAPVIEW = (function () {
   function fillAdView(dsl) {
     var sel = document.getElementById('map-adview');
     if (!sel) return;
+    // every aerodrome with a position: those without runway positions in the data get the information card too
     var list = [];
-    dsl.forEach(function (ds) { ADCHART.all(ds).forEach(function (m) { list.push({ ds: ds, m: m }); }); });
-    list.sort(function (a, b) { return M.shortName(a.m.ad).localeCompare(M.shortName(b.m.ad)); });
+    dsl.forEach(function (ds) {
+      (ds.byType.AirportHeliport || []).forEach(function (ad) {
+        if (ad.cur.gone || (!ADCHART.of(ds, ad) && !M.pointOf(ds, ad))) return;
+        var m = ADCHART.of(ds, ad), n = m && m.runways.length ? m.runways.length : (AIP.directions(ds, ad) || []).reduce(function (acc, x) { if (x.rwy && acc.indexOf(x.rwy) < 0) acc.push(x.rwy); return acc; }, []).length;
+        list.push({ ds: ds, ad: ad, n: n });
+      });
+    });
+    list.sort(function (a, b) { return M.shortName(a.ad).localeCompare(M.shortName(b.ad)); });
     sel.innerHTML = '<option value="">Choose an aerodrome… (' + list.length + ')</option>' + list.map(function (x) {
-      var m = x.m;
-      return '<option value="' + recOpt(x.ds, m.ad) + '">' + esc(M.shortName(m.ad) + ' — ' + (s(m.ad.cur.p.name) || '')) + (m.runways.length ? ' · ' + m.runways.length + ' RWY' : '') + '</option>';
+      return '<option value="' + recOpt(x.ds, x.ad) + '">' + esc(M.shortName(x.ad) + ' — ' + (s(x.ad.cur.p.name) || '')) + (x.n ? ' · ' + x.n + ' RWY' : '') + '</option>';
     }).join('');
     sel.value = state.adView && dsl.indexOf(state.adView.ds) >= 0 ? recOpt(state.adView.ds, state.adView.ad) : '';
   }
@@ -1680,7 +1686,7 @@ var MAPVIEW = (function () {
   }
   function focus(ds, r) {
     if (!map) return;
-    if (r && r.k === 'AirportHeliport' && ADCHART.of(ds, r)) { airportView(ds, r); return; } // aerodromes open the airport view
+    if (r && r.k === 'AirportHeliport' && (ADCHART.of(ds, r) || M.pointOf(ds, r))) { airportView(ds, r); return; } // aerodromes open the airport view
     showAlso(ds);
     var g = M.geometry(ds, r), b = null;
     shapesOf(g, function (x) {

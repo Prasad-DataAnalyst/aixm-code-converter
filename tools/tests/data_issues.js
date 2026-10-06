@@ -4,7 +4,9 @@
 // indicator for two aerodromes, an implausible field elevation and runway length, a route segment lower limit above its
 // upper limit). The Quality tab runs the checks by itself and lists each issue with what was found and what is
 // expected, grouped by kind; the AIP tab marks the sections (⚠ badge), shows the issues of the open section in a box
-// and marks the values concerned; a Quality row opens its AIP section.
+// and marks the values concerned; a Quality row opens its AIP section. A copy whose runway thresholds have no
+// coordinates (as in some deliveries): each threshold is flagged, and the map's airport view still opens with the
+// runways listed from the data and a note of what the data set does not give.
 const fs = require('fs');
 const path = require('path');
 const env = require('./_env');
@@ -22,6 +24,9 @@ const lo = swap(/<aixm:lowerLimit uom="M">900</, '<aixm:lowerLimit uom="FL">250<
 swap(/<aixm:lowerLimitReference>MSL</, '<aixm:lowerLimitReference>STD<', lo - 1);
 const FILE = path.join(OUT, 'Donlon_with_issues.xml');
 fs.writeFileSync(FILE, lines.join('\n'));
+const NOTHR = path.join(OUT, 'Donlon_no_threshold_positions.xml');
+fs.writeFileSync(NOTHR, fs.readFileSync(ROOT + '/testdata/Donlon_ALL_Baseline_2025.xml', 'utf8')
+  .replace(/<aixm:RunwayCentrelinePoint [\s\S]*?<\/aixm:RunwayCentrelinePoint>/g, (b) => b.replace(/<gml:pos[^>]*>[^<]*<\/gml:pos>/g, '<gml:pos/>')));
 
 (async () => {
   const browser = await env.playwright.chromium.launch({ executablePath: env.chrome });
@@ -64,7 +69,20 @@ fs.writeFileSync(FILE, lines.join('\n'));
   await page.click('.q-box [data-qon]'); await page.waitForTimeout(400);
   if (await page.evaluate(() => document.querySelectorAll('.src.qflag').length)) fails.push('"Mark them in the tables" off should remove the marks');
   await page.click('.q-box [data-qon]'); await page.waitForTimeout(400);
-  console.log(iss.length + ' issues; kinds: ' + tab.kinds.join(', '));
+  // thresholds without coordinates
+  await page.goto(URL); await page.waitForSelector('#drop');
+  await page.setInputFiles('#file-input', [NOTHR]);
+  await page.waitForFunction(() => window.__AIXM.S.files.every((f) => f.status === 'ready'));
+  await page.evaluate(() => document.querySelector('#extract-btn').click());
+  await page.waitForFunction(() => window.__AIXM.S.view === 'dash', null, { timeout: 60000 });
+  const thr = await page.evaluate(async () => (await ANALYSIS.quality(window.__AIXM.S.datasets[0])).filter((i) => /hreshold without coordinates/.test(i.msg)).length);
+  if (!thr) fails.push('thresholds without coordinates should be flagged');
+  await page.evaluate(() => window.__AIXM.go('map')); await page.waitForTimeout(1000);
+  await page.evaluate(() => { const sel = document.querySelector('#map-adview'); const o = [...sel.options].find((x) => /^EADD/.test(x.textContent)); sel.value = o.value; sel.dispatchEvent(new Event('change')); });
+  await page.waitForTimeout(800);
+  const card = await page.evaluate(() => { const c = document.querySelector('#map-adcard'); return c && !c.classList.contains('hidden') ? c.textContent : ''; });
+  if (!/RWY 09L\/27R|RWY 09L/.test(card) || !/Not in this data set: runway threshold positions/.test(card)) fails.push('airport view without threshold positions: ' + card.slice(0, 300));
+  console.log(iss.length + ' issues; kinds: ' + tab.kinds.join(', ') + '; ' + thr + ' thresholds without coordinates');
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no errors');
   console.log(fails.length ? 'FAIL:\n  ' + fails.join('\n  ') : 'data issues OK (Quality tab and AIP)');
   if (errors.length || fails.length) process.exitCode = 1;

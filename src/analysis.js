@@ -267,6 +267,9 @@ var ANALYSIS = (function () {
           if (!ds.owner.get(r)) add('warning', 'AD 2.12', 'Runway not linked to an aerodrome', r, 'associatedAirportHeliport', 'associatedAirportHeliport is missing or names an aerodrome that is not in the data, so the runway appears under no aerodrome.');
           break;
         }
+        case 'RunwayCentrelinePoint':
+          if (/^(THR|DISTHR)$/.test(s(p.role)) && !zero && !M.findGeo(p, ['P'], 0)) add('warning', 'AD 2.12', (s(p.role) === 'DISTHR' ? 'Displaced threshold' : 'Threshold') + ' without coordinates', r, 'location', (p.location ? 'The location is given without coordinates (empty gml:pos)' + (arr(p.location)[0] && arr(p.location)[0].elevation ? ', only the elevation' : '') : 'No location is given') + '. AD 2.12 lists the threshold coordinates; without them the runway cannot be drawn on the map.');
+          break;
         case 'RunwayDirection':
           if (!s(p.trueBearing)) add('info', 'AD 2.12', 'Runway direction without true bearing', r, 'trueBearing', 'No trueBearing is given. AD 2.12 lists the true bearing of each runway direction.');
           break;

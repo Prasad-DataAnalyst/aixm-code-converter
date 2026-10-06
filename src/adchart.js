@@ -432,9 +432,20 @@ var ADCHART = (function () {
       '<div class="adc-name">' + esc(s(p.name)) + '</div></div><span class="sp"></span><button class="btn small ghost" data-adc="close" title="Close">✕</button></div>';
     h += '<div class="adc-kv">' + rows.join('') + '</div>';
     // runways: one header row per runway (dimensions, surface, strength), one row per direction
-    var dd = new Map(), rwRows = [];
-    (AIP.directions(ds, ad) || []).forEach(function (x) { dd.set(x.dir, AIP.declared(ds, x.dir)); });
-    (m ? m.runways : []).forEach(function (rm) {
+    var dd = new Map(), rwRows = [], dirs = AIP.directions(ds, ad) || [];
+    dirs.forEach(function (x) { dd.set(x.dir, AIP.declared(ds, x.dir)); });
+    // runways that cannot be drawn (no threshold positions in the data) are still listed from the runway data
+    var rwList = m && m.runways.length ? m.runways : [], noPos = !rwList.length && dirs.length;
+    if (noPos) {
+      var ils = ilsIndex(ds), byRw = new Map();
+      dirs.forEach(function (x) { var k = x.rwy || x.dir; if (!byRw.has(k)) byRw.set(k, []); byRw.get(k).push(endOf(ds, x.dir, ils)); });
+      byRw.forEach(function (ends, rw) {
+        var rp = rw.k === 'Runway' ? rw.cur.p : {};
+        ends.sort(function (a, b) { return (parseInt(a.desig, 10) || 99) - (parseInt(b.desig, 10) || 99); });
+        rwList.push({ name: s(rp.designator) || ends.map(function (e) { return e.desig; }).join('/'), dims: dimsText(rp), surf: AIP.surface(rp.surfaceProperties), pcn: AIP.pcn(rp.surfaceProperties) || M.notesOf(rp).join(' ').replace(/\s+/g, ' ').slice(0, 60), ends: ends });
+      });
+    }
+    rwList.forEach(function (rm) {
       rwRows.push('<tr class="adc-rw"><td colspan="4"><b>RWY ' + esc(rm.name) + '</b> · ' + esc([rm.dims, rm.surf, rm.pcn].filter(Boolean).join(' · ')) + '</td></tr>');
       rm.ends.forEach(function (e) {
         var d = e.dir ? dd.get(e.dir) || {} : {};
@@ -456,6 +467,11 @@ var ADCHART = (function () {
         (m.stands.length ? 'Stands: ' + m.stands.length : '') + (m.holds.length ? ' · Holding positions: ' + m.holds.length : '') + '</div>';
     }
     if (m && m.runways.some(function (rm) { return rm.est; })) h += '<div class="adc-note muted">Runway width not in the data: drawn 45 m wide.</div>';
+    // what the data set does not give for this aerodrome, so that nothing missing on the map looks like a fault of the tool
+    var gaps = [];
+    if (noPos) gaps.push('runway threshold positions (the thresholds have no coordinates), so the runways are not drawn on the map');
+    if (!m || (!m.twy.length && !m.apn.length && !m.stands.length)) gaps.push('taxiways, aprons and stands');
+    if (gaps.length) h += '<div class="adc-note adc-gap">ⓘ Not in this data set: ' + esc(gaps.join('; ')) + '. The map shows the aerodrome reference point and everything else the data gives.</div>';
     // obstacle limitation surfaces (ols.js, loaded after this module)
     if (m && m.runways.length && typeof OLS !== 'undefined') {
       var oc = OLS.check(ds, ad, opts && opts.obsSets);
