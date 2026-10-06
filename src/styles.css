@@ -474,6 +474,17 @@ button.q-chip { cursor: pointer; font: inherit; font-size: 11.5px; font-weight: 
 .q-box.q-ok a { color: var(--brand); }
 .q-box.q-wait { border-left-color: var(--border-strong); color: var(--muted); }
 .q-table td.q-det { font-size: 12px; color: var(--text); max-width: 460px; }
+.link-hint { margin: 0 0 12px; border-left: 4px solid var(--brand-3); display: block; }
+.link-hint .btn { margin-left: 6px; }
+.cp-type { margin: 0 0 8px; padding: 8px 12px; }
+.cp-type summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cp-table td { padding-top: 3px; padding-bottom: 3px; }
+.cp-bar { display: inline-flex; width: 140px; height: 9px; border-radius: 5px; background: var(--surface-3); overflow: hidden; vertical-align: middle; border: 1px solid var(--border); }
+.cp-bar i, .cp-key { display: inline-block; height: 100%; }
+.cp-bar .g, .cp-key.g { background: var(--ok); }
+.cp-bar .u, .cp-key.u { background: var(--warn); }
+.cp-bar .n, .cp-key.n { background: var(--info); }
+.cp-key { width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; margin: 0 2px 0 8px; }
 .q-rules { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0; }
 .q-rules a { color: var(--brand); font-size: 12.5px; }
 .src.qflag { text-decoration: underline dotted; text-decoration-thickness: 2px; text-underline-offset: 3px; }

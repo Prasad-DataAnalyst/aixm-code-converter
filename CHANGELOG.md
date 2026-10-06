@@ -7,6 +7,31 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.18.0 — 2026-10-06 — Complete data, missing data, procedures for PANS-OPS / TERPS
+
+- **Completeness** (Quality tab): for every feature type of a data set — AIXM 4.5 to 5.2, AMXM, IFP — how many
+  features give each property, mark it unknown (nilReason), declare it not applicable (xsi:nil) or leave it out,
+  with a bar per property; properties from the AIXM schema, the AMXM 2.0.2 schema or (AIXM 4.5) the fields
+  delivered. Filter, only gaps, Excel / PDF.
+- **AMXM attributes** (feature details): every attribute of the feature's AMXM type in schema order with its
+  definition, the delivered value, the meaning of code values (e.g. surftype 1 = Concrete Grooved) and whether it
+  is given, marked unknown or not in the file. Code lists and definitions come from the AMXM 2.0.2 schema (RTCA /
+  EUROCAE, BSD licence), now in `schemas/amxm/` and `data/amxm_dictionary.json`.
+- **AMXM read more exactly**: AMXM validity (stvalid / endvalid), feature lifetime (stfeat / endfeat) and
+  interpretation (snapshot, baseline, temporary / permanent change) become time slices; runway designators with a
+  period (07L.25R) are read; threshold type 1 is a displaced threshold; holding position categories are decoded.
+- **Instrument procedures for PANS-OPS / TERPS** (AD 2.22): design criteria, coding standard and flight check;
+  aircraft categories and PBN navigation specification; guidance facilities; the minimum sector altitude used;
+  course reversal instructions; the final approach segment (FAS) data block of SBAS / GBAS approaches; other
+  procedure data of the aerodrome (circling areas, procedure DMEs, navigation areas, altimeter sources …).
+- **New checks**: procedures without legs, not linked to an aerodrome, approaches without minima or landing runway,
+  without design criteria; legs whose start or end point cannot be located or without path terminator; holdings
+  without point, inbound course or turn direction; MSAs without sectors, altitude or centre; AMXM features without
+  aerodrome or name code, thresholds on no runway.
+- **Read together**: when one data set names many features found in another (an IFP data set read apart from its
+  AIP data set, for example), the Dashboard offers to read both as one data set, in one click.
+- **Faster**: a 47 MB AMXM file (62,000 features, 2,000 aerodromes) is read in under 2 s (was 13 s).
+
 ## 1.17.0 — 2026-10-06 — Aerodrome mapping (AMXM) and IFP data sets
 
 - **Aerodrome mapping data sets in AMXM 2.0** (EUROCAE ED-99 / RTCA DO-272, the aerodrome mapping exchange model) are

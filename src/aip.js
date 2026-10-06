@@ -690,6 +690,10 @@ var AIP = (function () {
     var msa = owned(ds, ad, ['SafeAltitudeArea']), taa = owned(ds, ad, ['TerminalArrivalArea']);
     if (msa.length) blocks.push(msaTable(ds, msa));
     if (taa.length) blocks.push(taaTable(ds, taa));
+    // any other procedure data of the aerodrome (circling areas, procedure DMEs, navigation areas, altimeter sources …)
+    var other = owned(ds, ad, IFP_OTHER);
+    procs.forEach(function (pr) { (ds.rev.get(pr) || []).forEach(function (x) { if (IFP_OTHER.indexOf(x[1].k) >= 0 && other.indexOf(x[1]) < 0) other.push(x[1]); }); });
+    if (other.length) blocks.push(table('Other instrument procedure data', ['Feature', 'Type', 'Details'], other.map(function (r) { return [C(M.label(ds, r), r), C(M.typeName(r)), C(M.fv(ds, r.cur.p).slice(0, 400), r)]; })));
     return blocks.length ? blocks : [note('NIL')];
   };
   // minimum sector / emergency safe altitudes (SafeAltitudeArea) and terminal arrival areas: one row per sector
@@ -751,6 +755,7 @@ var AIP = (function () {
     }));
   }
   /* ------------------------------------------------ procedure details (legs) */
+  var IFP_OTHER = ['CirclingArea', 'ProcedureDME', 'NavigationArea', 'NavigationAreaRestriction', 'AltimeterSource', 'MinimumAltitudeArea', 'ObstacleAssessmentArea', 'FlightRestriction'];
   var LEG_KINDS = ['DepartureLeg', 'ArrivalLeg', 'ArrivalFeederLeg', 'InitialLeg', 'IntermediateLeg', 'FinalLeg', 'MissedApproachLeg'];
   var ALT_I = { ABOVE_LOWER: 'at or above', BELOW_UPPER: 'at or below', AT_LOWER: 'at', AT: 'at', BETWEEN: 'between', RECOMMENDED: 'recommended', EXPECT_LOWER: 'expect', AS_ASSIGNED: 'as assigned' };
   function legAlt(p) {
@@ -779,7 +784,11 @@ var AIP = (function () {
     var blocks = [{ kind: 'kv', title: K + ' ' + (s(p.designator) || s(p.name)) + (s(p.name) && s(p.designator) ? ' — ' + s(p.name) : ''), rows: [
       row('', 'Type / RNAV', [C(join([K, s(p.approachPrefix), s(p.approachType), s(p.RNAV) === 'YES' ? 'RNAV' : ''], ' '), proc, 'RNAV')]),
       row('', 'Runway(s)', [C(uniq(rw).join(', '), proc, proc.k === 'InstrumentApproachProcedure' ? 'landing' : 'flightTransition')]),
-      row('', 'Communication failure / instructions', [C(join([s(p.communicationFailureInstruction), s(p.instruction)], '\n'), proc, 'communicationFailureInstruction')]),
+      row('', 'Design criteria / coding', [C(join([s(p.designCriteria).replace(/_/g, '-'), s(p.codingStandard).replace(/_/g, ' '), s(p.flightChecked) === 'YES' ? 'flight checked' : s(p.flightChecked) === 'NO' ? 'not flight checked' : ''], ' · '), proc, 'designCriteria')]),
+      row('', 'Aircraft / navigation (PBN)', [C(acftText(p), proc, 'aircraftCharacteristic')]),
+      row('', 'Guidance facility', [C(join(['guidanceFacility_navaid', 'guidanceFacility_specialNavigationSystem', 'guidanceFacility_radar', 'guidanceFacility_groundAugmentedGNSS', 'guidanceFacility_satelliteService'].map(function (k) { return arr(p[k]).map(function (x) { var t = M.target(ds, x); return t ? M.label(ds, t) : ''; }).join(', '); }), ', '), proc, 'guidanceFacility_navaid')]),
+      row('', 'Minimum sector altitude', [C(arr(p.safeAltitude).map(function (x) { var t = M.target(ds, x); return t ? (s(t.cur.p.safeAreaType) || 'MSA') + ' ' + centreOf(ds, t.cur.p, 'centrePoint') : ''; }).join(', '), proc, 'safeAltitude')]),
+      row('', 'Communication failure / instructions', [C(join([s(p.communicationFailureInstruction), s(p.instruction), s(p.courseReversalInstruction)], '\n'), proc, 'communicationFailureInstruction')]),
       row('', 'Remarks', [C(M.notesOf(p).join('\n'), proc, 'annotation')])
     ] }];
     var rows = legs.map(function (x) {
@@ -806,11 +815,33 @@ var AIP = (function () {
       });
     });
     if (mins.length) blocks.push(table('Minima', ['Aircraft category', 'Final approach', 'OCA / DA / MDA', 'OCH / DH / MDH', 'Visibility / RVR'], mins));
+    // final approach segment data block (SBAS / GBAS approaches)
+    legs.forEach(function (x) {
+      arr(x.leg.cur.p.FASData).forEach(function (f) {
+        if (!f || f.nil !== undefined) return;
+        blocks.push({ kind: 'kv', title: 'Final approach segment (FAS) data block', rows: [
+          row('', 'Operation / service provider', [C(join([s(f.operationType), s(f.serviceProviderSBAS)], ' · '), x.leg, 'FASData')]),
+          row('', 'Approach performance / route', [C(join([s(f.approachPerformanceDesignator), s(f.routeIndicator), s(f.referencePathDataSelector) ? 'RPDS ' + s(f.referencePathDataSelector) : '', s(f.referencePathIdentifier)], ' · '), x.leg, 'FASData')]),
+          row('', 'Course width / length offset', [C(join([M.fq(f.thresholdCourseWidth), M.fq(f.lengthOffset)], ' · '), x.leg, 'FASData')]),
+          row('', 'Alarm limits (HAL / VAL)', [C(join([M.fq(f.horizontalAlarmLimit), M.fq(f.verticalAlarmLimit)], ' / '), x.leg, 'FASData')]),
+          row('', 'CRC remainder', [C(s(f.CRCRemainder), x.leg, 'FASData')])
+        ] });
+      });
+    });
     // vertical profile of an approach (profile.js, loaded after this module)
     if (proc.k === 'InstrumentApproachProcedure' && typeof PROFILE !== 'undefined') blocks = blocks.concat(PROFILE.blocks(ds, proc));
     return blocks;
   }
 
+  // aircraft categories and the PBN navigation specification of a procedure
+  function acftText(p) {
+    var out = [];
+    arr(p.aircraftCharacteristic).forEach(function (a) {
+      if (!a || a.nil !== undefined) return;
+      out.push(join([s(a.aircraftLandingCategory) ? 'CAT ' + s(a.aircraftLandingCategory) : '', s(a.navigationSpecification).replace(/_/g, ' '), s(a.navigationType), s(a.typeAircraftICAO), s(a.type)], ' '));
+    });
+    return out.filter(Boolean).join('; ');
+  }
   function holdTable(ds, hold) {
     return table('Holding procedures', ['Holding fix', 'INBD TR (MAG)', 'Direction of PTN', 'Max IAS', 'MNM / MAX HLDG level', 'Time / Distance OUTBD', 'Remarks'], hold.map(function (h) {
       var p = h.cur.p, ib = arr(p.inboundCourse)[0] || {};

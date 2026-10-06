@@ -46,6 +46,7 @@ for (const [name, what, spdx] of PACKAGES) {
 }
 parts.push(LINE, 'AIXM 4.5 XML schemas (data dictionary built from them)', 'Licence: BSD-style (EUROCONTROL)', LINE, '', schemaNotice('4.5/AIXM-Update.xsd'), '');
 parts.push(LINE, 'AIXM 5.1 / 5.1.1 / 5.2 XML schemas, AIXM 5.1 business rules, Donlon sample data', 'Licence: BSD-style (EUROCONTROL & FAA)', LINE, '', schemaNotice('5.1.1/AIXM_Features.xsd'), '');
+parts.push(LINE, 'AMXM 2.0.2 XML schema (aerodrome mapping code lists and definitions, data/amxm_dictionary.json)', 'Licence: BSD-style (RTCA, EUROCAE)', LINE, '', schemaNotice('amxm/2.0.2/amxm.xsd'), '');
 parts.push(LINE, 'Natural Earth — country borders and coastlines of the offline world map', 'Licence: public domain', LINE, '',
   'Made with Natural Earth. Free vector and raster map data @ naturalearthdata.com.',
   'All versions of Natural Earth raster and vector map data are in the public domain.', '');

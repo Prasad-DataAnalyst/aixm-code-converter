@@ -48,6 +48,7 @@ var ABOUT = (function () {
     ['Languages', 'English, العربية (right-to-left), Français and Español; light and dark themes.']
   ];
   var NEWS = [
+    ['1.18', 'Completeness view (what every feature type gives, marks unknown or leaves out); AMXM attributes with their meaning; PANS-OPS / TERPS procedure details (design criteria, PBN, FAS data block); IFP and AMXM checks; related data sets offered to be read together; large aerodrome mapping files 7× faster.'],
     ['1.17', 'Aerodrome mapping in AMXM 2.0 (ED-99 / DO-272) on the map and the airport chart; IFP data sets read with their AIP data set; terminal holdings and minimum sector altitudes in AD 2.22 and on the map.'],
     ['1.16', 'Airport view for every aerodrome with a position, also when the data has no runway coordinates (runways listed from the data, with a note of what the data set does not give); thresholds without coordinates flagged.'],
     ['1.15', 'Data issues shown where you read: the AIP marks the sections and values with an issue and explains each one (what was found, what is expected); new checks for 0°N 0°E positions, duplicates, implausible elevations, lengths and limits.'],

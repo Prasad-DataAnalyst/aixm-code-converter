@@ -1206,9 +1206,59 @@
     ['VerticalStructure', 'Obstacles'], ['Unit', 'ATS units'], ['RadioCommunicationChannel', 'Frequencies'], ['InstrumentApproachProcedure', 'Approach procedures'],
     ['StandardInstrumentDeparture', 'SIDs'], ['StandardInstrumentArrival', 'STARs']
   ];
+  // data sets that name each other's features (an IFP data set read apart from its AIP data set, an obstacle or
+  // aerodrome mapping file in AIXM beside its AIP data set …): offered to be read together, as one data set
+  function unresolvedIds(ds) {
+    if (ds._unres && ds._unres.at === ds.viewDate) return ds._unres.ids;
+    var ids = new Set();
+    for (var i = 0; i < ds.recs.length && ids.size < 400; i++) {
+      var r = ds.recs[i];
+      if (r.cur.gone) continue;
+      M.eachRef(r.cur.p, function (ref) { if (ids.size < 400 && !M.target(ds, ref)) ids.add(ref); }, '', 0);
+    }
+    ds._unres = { at: ds.viewDate, ids: ids };
+    return ids;
+  }
+  function linkHints() {
+    var out = [];
+    S.datasets.forEach(function (a, i) {
+      if (a.family !== '5') return;
+      var ids = unresolvedIds(a);
+      if (ids.size < 3) return;
+      S.datasets.forEach(function (b, j) {
+        if (i === j || b.family !== '5') return;
+        var hit = 0;
+        ids.forEach(function (id) { if (b.byId.has(id)) hit++; });
+        if (hit >= 3 && hit >= ids.size * 0.2) out.push({ a: i, b: j, hit: hit, of: ids.size });
+      });
+    });
+    return out;
+  }
+  function linkHintsHtml() {
+    return linkHints().map(function (h) {
+      var a = S.datasets[h.a], b = S.datasets[h.b];
+      return '<div class="card card-pad link-hint" role="status"><b>⧉ ' + esc(a.name) + '</b> names features that are in <b>' + esc(b.name) + '</b> (' + num(h.hit) + (h.of >= 400 ? '+' : ' of its ' + num(h.of)) + ' references not found in its own file, e.g. procedures → waypoints, navaids, runways). ' +
+        'Read together as one data set, the references resolve and the procedures, obstacles or aerodrome parts appear with their aerodrome. <button class="btn small primary" data-together="' + h.a + '" data-with="' + h.b + '">Read together</button></div>';
+    }).join('');
+  }
+  // the files of both data sets become one delivery ("⧉ Combine") and are read again as one data set
+  function readTogether(i, j) {
+    var dsA = S.datasets[i], dsB = S.datasets[j];
+    if (!dsA || !dsB) return;
+    var files = [];
+    [dsA, dsB].forEach(function (d) { (d.files || [d.file]).forEach(function (f) { if (f) files.push(f); }); });
+    var items = S.files.filter(function (f) { return files.indexOf(f.file) >= 0; });
+    if (items.length < 2) { toast('The files of these data sets are no longer in the file list. Add them again and use ⧉ Combine.', 6000); return; }
+    var k = 'u:' + (++fileSeq);
+    items.forEach(function (f) { f.manualSet = k; });
+    items[0].status = 'ready';
+    toast('Reading ' + items.length + ' files as one data set…', 4000);
+    extractAll();
+  }
   function viewDash(v) {
     if (!S.datasets.length) { v.innerHTML = emptyState('No data yet', 'Open the Files view and extract an AIXM file.'); return; }
-    v.innerHTML = '<h1 class="view-title">Dashboard</h1><p class="view-sub">' + S.datasets.length + ' data set(s) extracted. Click a tile or an aerodrome to open it.</p><div class="ds-grid" id="ds-grid"></div>';
+    v.innerHTML = '<h1 class="view-title">Dashboard</h1><p class="view-sub">' + S.datasets.length + ' data set(s) extracted. Click a tile or an aerodrome to open it.</p>' + linkHintsHtml() + '<div class="ds-grid" id="ds-grid"></div>';
+    $$('[data-together]', v).forEach(function (b) { b.onclick = function () { readTogether(+b.getAttribute('data-together'), +b.getAttribute('data-with')); }; });
     var g = $('#ds-grid', v);
     S.datasets.forEach(function (ds, idx) {
       var nTs = ds.recs.filter(function (r) { return r.ts.length > 1 || r.chg; }).length;
@@ -1216,7 +1266,7 @@
       var card = document.createElement('div');
       card.className = 'card ds-card';
       card.innerHTML = '<div class="ds-head"><div><div class="state">' + esc(ds.state) + '</div><div class="meta">' + esc(ds.name) + ' · ' + fmtSize(ds.size) + ' · state from ' + esc(ds.stateSource) + '</div></div>' +
-        '<div class="kpis"><div class="kpi-h"><b>' + esc((ds.sniff.versionLabel || '').replace('AIXM ', '')) + '</b><span>AIXM version</span></div>' +
+        '<div class="kpis"><div class="kpi-h"><b>' + esc((ds.sniff.versionLabel || '').replace('AIXM ', '').replace(/ \(aerodrome mapping\)$/, '')) + '</b><span>' + (ds.family === 'amxm' ? 'Aerodrome mapping' : 'AIXM version') + '</span></div>' +
         '<div class="kpi-h"><b>' + (ds.airac ? ds.airac.id : '—') + '</b><span>AIRAC cycle' + (ds.airac ? ' · ' + M.fmtDate(ds.airac.date) : '') + '</span></div>' +
         '<div class="kpi-h"><b>' + (ds.effective !== null ? M.fmtDate(localEff(ds) ? ds.airac.date : ds.effective) : '—') + '</b><span title="' + esc(ds.effectiveSource + (localEff(ds) ? ' · ' + localEff(ds) : '')) + '">Effective date</span></div>' +
         '<div class="kpi-h"><b>' + num(ds.recs.length) + '</b><span>AIXM features</span></div></div></div>' +
@@ -1893,6 +1943,30 @@
     });
     return h;
   }
+  // AMXM features: every attribute of the type (schema order) with its definition, the value as delivered, the
+  // meaning of a code value, and whether it is given, marked unknown (nilReason) or not in the file
+  function amxmType(r) { var t = r && r.cur && r.cur.p && r.cur.p._amxm, d = t && M.amxmDict(); return d && d.features[t] ? t : null; }
+  function amxmVal(v) {
+    v = Array.isArray(v) ? v[0] : v;
+    if (v === undefined || v === null) return null;
+    if (typeof v === 'string') return v;
+    if (v.nil !== undefined) return { nil: v.nil };
+    if (v.v !== undefined) return v.v + (v.u ? ' ' + v.u : '');
+    if (v._geo) return v._geo.t === 'P' ? AX.fmtPos(v._geo.c, 1) : v._geo.t === 'L' ? 'line, ' + v._geo.c.length + ' points' : 'area, ' + (v._geo.c[0] || []).length + ' points';
+    return '';
+  }
+  function amxmHtml(r) {
+    var t = amxmType(r), f = M.amxmDict().features[t], p = r.cur.p, given = 0, unknown = 0, absent = 0;
+    var geo = p.extent || p.location || p.area || (p.part && (p.part.horizontalProjection_location || p.part.horizontalProjection_linearExtent || p.part.horizontalProjection_surfaceExtent)) || p.ARP;
+    var rows = f.attrs.map(function (a) {
+      var raw = /^geo(poly|line|pnt)$/.test(a.n) ? geo : p[a.n], v = amxmVal(raw), st, val = '';
+      if (v === null) { st = 'absent'; absent++; } else if (typeof v === 'object') { st = 'unknown'; unknown++; val = 'nilReason: ' + v.nil; } else { st = 'given'; given++; val = v; }
+      var mean = st === 'given' ? M.amxmMeaning(t, a.n, v) : '';
+      return '<tr class="am-' + st + '"><td class="mono">' + esc(a.n) + '</td><td>' + esc(a.d) + '</td><td>' + esc(val) + (mean ? ' <span class="muted">— ' + esc(mean) + '</span>' : '') + '</td><td><span class="chip ' + (st === 'given' ? 'ok' : st === 'unknown' ? 'warn' : '') + '">' + st + '</span></td></tr>';
+    }).join('');
+    return '<div class="ts-item"><b>AMXM ' + esc(t) + '</b> — ' + esc(f.doc) + '<div class="muted" style="font-size:12px;margin-top:4px">' + given + ' given · ' + unknown + ' marked unknown · ' + absent + ' not in the file (of ' + f.attrs.length + ' attributes of this type, AMXM 2.0.2)</div></div>' +
+      '<div class="tbl-wrap"><table class="aip"><thead><tr><th>Attribute</th><th>Definition</th><th>Value</th><th>State</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }
   function raw45Html(s45, o, depth) {
     var h = '';
     Object.keys(o || {}).forEach(function (k) {
@@ -1911,15 +1985,17 @@
     var sec = AIP.sectionOf(ds, r);
     var refsOut = r.refs || [], refsIn = ds.rev.get(r) || [];
     drawer.innerHTML = '<div class="drawer-head"><div class="grow"><div class="muted" style="font-size:12px">' + esc(M.typeName(r)) + ' · ' + esc(sec.no + (sec.ad ? ' ' + M.shortName(sec.ad) : '')) + '</div><h3>' + esc(M.label(ds, r)) + '</h3>' +
-      '<div class="muted" style="font-size:12px;margin-top:3px">' + esc(M.featureDef(r.k).slice(0, 220)) + '</div></div>' +
+      '<div class="muted" style="font-size:12px;margin-top:3px">' + esc(M.featureDef(r.k, r).slice(0, 220)) + '</div></div>' +
       '<button class="btn small" id="dd-xml">' + I.code + ' AIXM</button>' + (sec.id ? '<button class="btn small" id="dd-aip">' + I.book + ' AIP</button>' : '') + '<button class="btn small" id="dd-map">' + I.map + ' Map</button><button class="btn small ghost" id="dd-close">' + I.x + '</button></div>' +
       '<div class="loc-grid"><b>Identifier</b><span class="mono">' + esc(r.id) + '</span><b>Validity</b><span>' + esc(tsSummary(r)) + '</span><b>Source</b><span>' + esc(ds.name) + ' · line ' + num(r.line) + '</span></div>' +
-      '<div class="drawer-tabs"><button data-tab="props" class="' + (tab === 'props' ? 'active' : '') + '">Data</button>' + (r.raw ? '<button data-tab="raw" class="' + (tab === 'raw' ? 'active' : '') + '">AIXM 4.5 fields</button>' : '') +
+      '<div class="drawer-tabs"><button data-tab="props" class="' + (tab === 'props' ? 'active' : '') + '>Data</button>' + (r.raw ? '<button data-tab="raw" class="' + (tab === 'raw' ? 'active' : '') + '">AIXM 4.5 fields</button>' : '') +
+      (amxmType(r) ? '<button data-tab="amxm" class="' + (tab === 'amxm' ? 'active' : '') + '">AMXM attributes</button>' : '') +
       '<button data-tab="ts" class="' + (tab === 'ts' ? 'active' : '') + '">Time slices (' + r.ts.length + ')</button><button data-tab="refs" class="' + (tab === 'refs' ? 'active' : '') + '">References (' + refsOut.length + ' / ' + refsIn.length + ')</button></div>' +
       '<div class="drawer-body props" id="dd-body"></div>';
     var body = $('#dd-body', drawer);
     if (tab === 'props') body.innerHTML = propsHtml(ds, r.k, null, r.cur.p, 0) || '<div class="empty">No properties</div>';
     else if (tab === 'raw') body.innerHTML = raw45Html(r.s45, r.raw, 0);
+    else if (tab === 'amxm') body.innerHTML = amxmHtml(r);
     else if (tab === 'ts') {
       body.innerHTML = r.ts.map(function (t, i) {
         return '<div class="ts-item"><div class="row wrap"><span class="chip ' + (t.i === 'TEMPDELTA' ? 'warn' : t.i === 'PERMDELTA' ? 'info' : 'brand') + '">' + esc(t.i || 'SNAPSHOT') + '</span><b>#' + t.s + (t.c ? '.' + t.c : '') + '</b><span>' + esc(M.fmtTs(t.b)) + ' → ' + esc(t.e ? M.fmtTs(t.e) : 'no end') + '</span>' +
@@ -2410,7 +2486,7 @@
 
 
   function qTabs(active) {
-    return '<div class="pill-tabs q-tabs">' + [['basic', 'Basic checks'], ['rules', 'AIXM business rules (SBVR)'], ['cat', 'Rule catalogue'], ['ols', 'Obstacle surfaces (Annex 14)'], ['integrity', 'Data integrity (CRC32Q)']].map(function (x) { return '<button class="' + (active === x[0] ? 'active' : '') + '" data-qtab="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+    return '<div class="pill-tabs q-tabs">' + [['basic', 'Basic checks'], ['rules', 'AIXM business rules (SBVR)'], ['cat', 'Rule catalogue'], ['complete', 'Completeness'], ['ols', 'Obstacle surfaces (Annex 14)'], ['integrity', 'Data integrity (CRC32Q)']].map(function (x) { return '<button class="' + (active === x[0] ? 'active' : '') + '" data-qtab="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
   }
   function viewQuality(v) {
     var ds = dsOf();
@@ -2420,6 +2496,7 @@
     if (S.qTab === 'cat') { viewRuleCatalogue(v); return; }
     if (S.qTab === 'ols') { viewOls(v, ds); return; }
     if (S.qTab === 'integrity') { viewIntegrity(v, ds); return; }
+    if (S.qTab === 'complete') { viewCompleteness(v, ds); return; }
     var iss = S.quality.get(ds), ruleF = '';
     v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Checks based on the AIXM schema code lists, AIXM temporality rules and the minimum ICAO AIP data: coordinates (incl. 0°N 0°E placeholders), positions far from their aerodrome, references, duplicates, frequencies, bearings, implausible elevations, lengths and vertical limits, missing mandatory AIP items. Each issue says what was found and what is expected; the AIP marks the sections and values concerned. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('basic') +
       '<div class="toolbar"><button class="btn primary" id="q-run">' + I.check + (iss ? ' Run again' : ' Run checks') + '</button><select class="inp" id="q-sev" aria-label="Severity"><option value="">All severities</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Info</option></select><input class="inp" id="q-q" aria-label="Filter issues" placeholder="Filter…"><span class="sp"></span>' +
@@ -2469,6 +2546,52 @@
     draw();
     // the checks run by themselves the first time (the AIP may already have run them)
     if (!iss) $('#q-run').onclick('auto');
+  }
+
+  /* -------------------------------------------------------- completeness */
+  // which data the file gives, per feature type and property (AIXM 4.5 – 5.2, AMXM, IFP alike)
+  function viewCompleteness(v, ds) {
+    var res = ds._complete && ds._complete.at === ds.viewDate ? ds._complete.list : null;
+    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Completeness: for every feature type in ' + esc(ds.name) + ', how many features give each property, mark it <b>unknown</b> (nilReason), declare it <b>not applicable</b> (xsi:nil) or leave it <b>out</b>. Properties come from the AIXM schema (5.x), the AMXM 2.0.2 schema (aerodrome mapping) or, for AIXM 4.5, the fields delivered.</p>' + qTabs('complete') +
+      '<div class="toolbar"><input class="inp" id="cp-q" aria-label="Filter feature types and properties" placeholder="Filter feature type or property…"><label class="chk"><input type="checkbox" id="cp-gaps"' + (S.cpGaps !== false ? ' checked' : '') + '> Only properties not always given</label><span class="sp"></span><button class="btn small" id="cp-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="cp-pdf">' + I.pdf + ' PDF</button></div><div id="cp-out"><div class="card card-pad"><span class="spinner"></span> Counting…<div class="progress"><div id="cp-bar"></div></div></div></div>';
+    function propDef(t, k) {
+      var A = M.amxmDict(), D = M.dict();
+      if (/^AMXM /.test(t)) { var f = A && A.features[t.slice(5)], a = f && f.attrs.filter(function (x) { return x.n === k; })[0]; return a ? a.d : ''; }
+      var e = D && D.v5.features[t];
+      return e && e.p[k] ? e.p[k].d || '' : '';
+    }
+    function bar(r, n) {
+      var w = function (x) { return (100 * x / n).toFixed(1) + '%'; };
+      return '<span class="cp-bar" title="' + r.given + ' given · ' + r.unknown + ' unknown · ' + r.na + ' not applicable · ' + r.absent + ' not in the file"><i class="g" style="width:' + w(r.given) + '"></i><i class="u" style="width:' + w(r.unknown) + '"></i><i class="n" style="width:' + w(r.na) + '"></i></span>';
+    }
+    function draw() {
+      var q = ($('#cp-q').value || '').toLowerCase(), gaps = $('#cp-gaps').checked;
+      S.cpGaps = gaps;
+      var html = res.filter(function (t) { return !q || t.type.toLowerCase().indexOf(q) >= 0 || t.rows.some(function (r) { return r.prop.toLowerCase().indexOf(q) >= 0; }); }).slice(0, 400).map(function (t) {
+        var rows = t.rows.filter(function (r) { return (!gaps || r.given < t.n) && (!q || t.type.toLowerCase().indexOf(q) >= 0 || r.prop.toLowerCase().indexOf(q) >= 0); });
+        return '<details class="card cp-type"' + (q ? ' open' : '') + '><summary><b>' + esc(t.type) + '</b><span class="muted">' + num(t.n) + ' feature' + (t.n > 1 ? 's' : '') + '</span><span class="sp"></span>' +
+          '<span class="q-chip q-info">' + t.full + ' of ' + t.rows.length + ' always given</span>' + (t.never ? ' <span class="q-chip q-warn">' + t.never + ' never given</span>' : '') + '</summary>' +
+          (rows.length ? '<div class="tbl-wrap"><table class="aip cp-table"><thead><tr><th>Property</th><th>Given</th><th>Unknown</th><th>Not applicable</th><th>Not in the file</th><th></th></tr></thead><tbody>' + rows.map(function (r) {
+            return '<tr><td><span class="mono" title="' + esc(propDef(t.type, r.prop)) + '">' + esc(r.prop) + '</span></td><td>' + num(r.given) + '</td><td>' + (r.unknown ? num(r.unknown) : '') + '</td><td>' + (r.na ? num(r.na) : '') + '</td><td>' + (r.absent ? num(r.absent) : '') + '</td><td>' + bar(r, t.n) + '</td></tr>';
+          }).join('') + '</tbody></table></div>' : '<div class="muted" style="padding:8px 4px">Every property is given by every feature.</div>') + '</details>';
+      }).join('');
+      $('#cp-out').innerHTML = '<div class="muted" style="margin:6px 2px 10px">' + num(res.length) + ' feature types · ' + num(res.reduce(function (n, t) { return n + t.n; }, 0)) + ' features · bar: <i class="cp-key g"></i> given <i class="cp-key u"></i> unknown <i class="cp-key n"></i> not applicable, empty: not in the file</div>' + (html || '<div class="card card-pad muted">Nothing matches the filter.</div>');
+    }
+    function scope() {
+      var rows = [];
+      res.forEach(function (t) { t.rows.forEach(function (r) { rows.push([AIP.C(t.type), AIP.C(String(t.n)), AIP.C(r.prop), AIP.C(String(r.given)), AIP.C(String(r.unknown)), AIP.C(String(r.na)), AIP.C(String(r.absent))]); }); });
+      return { title: 'Data completeness', sub: ds.state + ' — ' + ds.name, ds: ds, sections: [{ no: 'COMPLETENESS', title: 'Properties given per feature type', blocks: [{ kind: 'table', cols: ['Feature type', 'Features', 'Property', 'Given', 'Unknown', 'Not applicable', 'Not in the file'], rows: rows }] }] };
+    }
+    $('#cp-xlsx').onclick = function () { if (res) runExport('xlsx', scope()); };
+    $('#cp-pdf').onclick = function () { if (res) runExport('pdf', scope()); };
+    $('#cp-q').oninput = function () { if (res) draw(); };
+    $('#cp-gaps').onchange = function () { if (res) draw(); };
+    if (res) { draw(); return; }
+    ANALYSIS.completeness(ds, function (f) { var b = $('#cp-bar'); if (b) b.style.width = (f * 100).toFixed(0) + '%'; }).then(function (list) {
+      ds._complete = { at: ds.viewDate, list: list };
+      res = list;
+      if ($('#cp-out')) draw();
+    });
   }
 
   /* ------------------------------------------- obstacle limitation surfaces */
@@ -3028,5 +3151,5 @@
   renderNav();
   go('files');
   libInit().then(function () { if (LIB.status !== 'none') { startWatch(); if (!S.datasets.length) go('library'); } });
-  window.__AIXM = { S: S, go: go, locateValue: locateValue, sliceRange: sliceRange, LIB: LIB, libRescan: libRescan, openLibFile: openLibFile, openLatest: openLatest, useHandle: async function (h) { await LIBRARY.useHandle(h); LIB.status = 'granted'; await libRescan(); startWatch(); }, addFiles: addFiles, extractAll: extractAll, openXml: openXml, openDetail: openDetail };
+  window.__AIXM = { S: S, go: go, openDetail: openDetail, locateValue: locateValue, sliceRange: sliceRange, LIB: LIB, libRescan: libRescan, openLibFile: openLibFile, openLatest: openLatest, useHandle: async function (h) { await LIBRARY.useHandle(h); LIB.status = 'granted'; await libRescan(); startWatch(); }, addFiles: addFiles, extractAll: extractAll, openXml: openXml, openDetail: openDetail };
 })();

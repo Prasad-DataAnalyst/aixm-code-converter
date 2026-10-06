@@ -125,7 +125,7 @@ var MODEL = (function () {
         var rid = p.associatedRunway.ref, w = parseFloat(sv(p.width)), l = parseFloat(sv(p.length));
         if (!isNaN(w)) widths.set(rid, Math.max(widths.get(rid) || 0, w));
         if (!isNaN(l)) lengths.set(rid, Math.max(lengths.get(rid) || 0, l));
-        var rp = { designator: sv(p.idrwy), type: /FATO/.test(sv(p.type)) ? 'FATO' : 'RWY', _ad: { ref: adId }, _amxm: 'runway (named by idrwy)' };
+        var rp = { designator: sv(p.idrwy).replace(/^([0-9]{2}[LRC]?)\.([0-9]{2}[LRC]?)$/, '$1/$2'), type: /FATO/.test(sv(p.type)) ? 'FATO' : 'RWY', _ad: { ref: adId }, _amxm: 'runway (named by idrwy)' };
         make('Runway', rid, r, rp);
       }
       if (p.associatedTaxiway) make('Taxiway', p.associatedTaxiway.ref, r, { designator: sv(p.idlin), _ad: { ref: adId }, _amxm: 'taxiway (named by idlin)' });
@@ -137,11 +137,13 @@ var MODEL = (function () {
       }
     });
     // runway directions: one per threshold, on the runway whose designator names it (e.g. 14L on "14L/32R")
+    var rwyEnd = new Map(); // aerodrome | threshold designator -> runway
+    // runway designators: "14L/32R", or with a period as AMXM writes them ("07L.25R")
+    add.forEach(function (x) { if (x.k === 'Runway') String(x.ts[0].p.designator || '').split(/[/.-]/).forEach(function (d) { var k = x.ts[0].p._ad.ref + '|' + d.trim(); if (!rwyEnd.has(k)) rwyEnd.set(k, x); }); });
     ds.recs.forEach(function (r) {
       var p = r.ts[0] && r.ts[0].p;
       if (!p || p._amxm !== 'RunwayThreshold' || !p.onRunway) return;
-      var ad = sv(p.idarpt) || 'UNKNOWN', thr = sv(p.idthr), rwy = null;
-      byId.forEach(function (x) { if (!rwy && x.syn && x.k === 'Runway' && x.ts[0].p._ad.ref === AX.amxmId(ad, 'ad', '') && x.ts[0].p.designator.split(/[/-]/).map(function (d) { return d.trim(); }).indexOf(thr) >= 0) rwy = x; });
+      var ad = sv(p.idarpt) || 'UNKNOWN', thr = sv(p.idthr), rwy = rwyEnd.get(AX.amxmId(ad, 'ad', '') + '|' + thr) || null;
       var dp = { designator: thr, _ad: { ref: AX.amxmId(ad, 'ad', '') }, _amxm: 'runway direction (named by idthr)' };
       if (sv(p.brngtrue)) dp.trueBearing = sv(p.brngtrue);
       if (sv(p.brngmag)) dp.magneticBearing = sv(p.brngmag);
@@ -157,7 +159,8 @@ var MODEL = (function () {
       var lp = e.loc.ts[0].p;
       if (lp.location) e.area.ts[0].p.location = lp.location;
       drop.add(e.loc);
-      byId.forEach(function (x, key) { if (x === e.loc) byId.delete(key); });
+      var lk = e.loc.id || ('@' + (e.loc.f || 0) + ':' + e.loc.o);
+      if (byId.get(lk) === e.loc) byId.delete(lk);
     });
     var list = ds.recs.filter(function (r) { return !drop.has(r); }).concat(add);
     list.sort(function (a, b) { return (a.f || 0) - (b.f || 0) || a.o - b.o || (a.syn ? 1 : 0) - (b.syn ? 1 : 0); });
@@ -833,7 +836,21 @@ var MODEL = (function () {
     if (e && e.p && e.p[prop]) return e.p[prop];
     return null;
   }
-  function featureDef(k) {
+  // AMXM 2.0 dictionary (feature types, attributes in schema order, code lists), read when first needed
+  var AMXM = null;
+  function amxmDict() {
+    if (AMXM === null) { try { AMXM = JSON.parse(document.getElementById('data-amxm').textContent); } catch (e) { AMXM = false; } }
+    return AMXM || null;
+  }
+  // meaning of an AMXM code value ('' when the attribute has no code list or the value is not in it)
+  function amxmMeaning(type, attr, value) {
+    var d = amxmDict(), f = d && d.features[type], a = f && f.attrs.filter(function (x) { return x.n === attr; })[0];
+    var cl = a && a.c && d.codes[a.c];
+    return cl && cl[String(value)] !== undefined ? cl[String(value)] : '';
+  }
+  function featureDef(k, r) {
+    var am = r && r.cur && r.cur.p && r.cur.p._amxm, ad = am && amxmDict();
+    if (ad && ad.features[am]) return 'AMXM ' + am + ': ' + ad.features[am].doc;
     if (!DICT) return '';
     if (k.indexOf('45:') === 0) { var f = DICT.v45.features[k.slice(3)]; return f ? f.d : ''; }
     var e = DICT.v5.features[k] || DICT.v5.objects[k];
@@ -989,7 +1006,7 @@ var MODEL = (function () {
   function fmtTs(str) { if (typeof str === 'number') return fmtDate(str, true); var t = AX.tms(str); return t === null ? (str || '') : fmtDate(t, true); }
 
   return {
-    setDict: setDict, dict: dict, finalize: finalize, finalizeAsync: finalizeAsync, setViewDate: setViewDate, harmonizeStates: harmonizeStates, setLocator: setLocator, target: target, eachRef: eachRef,
+    setDict: setDict, dict: dict, amxmDict: amxmDict, amxmMeaning: amxmMeaning, finalize: finalize, finalizeAsync: finalizeAsync, setViewDate: setViewDate, harmonizeStates: harmonizeStates, setLocator: setLocator, target: target, eachRef: eachRef,
     geometry: geometry, pointOf: pointOf, posFromNavaid: posFromNavaid, navaidOf: navaidOf, findGeo: findGeo, segPoint: segPoint, segPointLabel: segPointLabel, segPointRec: segPointRec,
     label: label, shortName: shortName, typeName: typeName, routeDesignator: routeDesignator, s: s, searchText: searchText, searchMatch: searchMatch, searchCore: searchCore,
     fq: fq, fLimit: fLimit, fPoint: fPoint, fElev: fElev, fTimesheet: fTimesheet, fSchedule: fSchedule, noteText: noteText, notesOf: notesOf,

@@ -584,6 +584,9 @@ var AX = (function () {
     'AerodromeSurfaceLighting', 'PositionMarking', 'VerticalPointStructure', 'VerticalLineStructure', 'VerticalPolygonalStructure', 'SurveyControlPoint',
     'ArrestingGearLocation', 'ArrestingSystemLocation', 'LandAndHoldShortOperationLocation', 'ATCBlindSpot', 'BridgeSide', 'AsrnNode', 'AsrnEdge'];
   var AM_UOM = { meters: 'M', metres: 'M', meter: 'M', feet: 'FT', foot: 'FT', degrees: 'DEG' };
+  // AMXM code values used to build the AIXM view (the full code lists are in data/amxm_dictionary.json)
+  var AM_INTERP = { 0: 'SNAPSHOT', 1: 'BASELINE', 2: 'TEMPDELTA', 3: 'PERMDELTA', 4: 'SNAPSHOT' };
+  var AM_CATSTOP = { 1: 'CAT_I', 2: 'CAT_II/III', 3: 'CAT_II', 4: 'CAT_III', 5: 'CAT_I/II/III', 6: 'CAT_I/II', 7: 'CAT_I/III' };
   function amTxt(v) { v = Array.isArray(v) ? v[0] : v; return typeof v === 'string' ? v.trim() : v && v.v !== undefined ? String(v.v).trim() : ''; }
   function amId(ad, kind, key) { return ('amxm-' + kind + '-' + ad + '-' + key).toLowerCase().replace(/\s+/g, '_'); }
   function amGeo(raw, t) { var g = raw.geopoly || raw.geoline || raw.geopnt; g = Array.isArray(g) ? g[0] : g; return g && g._geo ? { _t: t, _geo: g._geo } : undefined; }
@@ -629,7 +632,7 @@ var AX = (function () {
         break;
       case 'RunwayThreshold': case 'HelipadThreshold':
         key = amTxt(raw.idthr);
-        if (T === 'RunwayThreshold') { id = amId(ad, 'thr', key); p.role = /disp/i.test(amTxt(raw.thrtype)) || amTxt(raw.thrtype) === '2' ? 'DISTHR' : 'THR'; p.onRunway = { ref: amId(ad, 'rdn', key) }; }
+        if (T === 'RunwayThreshold') { id = amId(ad, 'thr', key); p.role = amTxt(raw.thrtype) === '1' ? 'DISTHR' : 'THR'; p.onRunway = { ref: amId(ad, 'rdn', key) }; } // thrtype 1: displaced
         if (pnt) { p.location = pnt; if (raw.elev && raw.elev.v !== undefined) p.location.elevation = raw.elev; }
         p.associatedDeclaredDistance = ['tora', 'toda', 'asda', 'lda'].filter(function (d) { return raw[d] && raw[d].v !== undefined; })
           .map(function (d) { return { _t: 'RunwayDeclaredDistance', type: d.toUpperCase(), declaredValue: { _t: 'RunwayDeclaredDistanceValue', distance: raw[d] } }; });
@@ -662,7 +665,7 @@ var AX = (function () {
           p.location = { _t: 'ElevatedPoint', _geo: { t: 'P', c: [(c0[0] + c1[0]) / 2, (c0[1] + c1[1]) / 2] } };
         }
         p.extent = line;
-        p.landingCategory = amTxt(raw.catstop) ? 'OTHER:' + amTxt(raw.catstop) : undefined;
+        p.landingCategory = AM_CATSTOP[amTxt(raw.catstop)] ? 'OTHER:' + AM_CATSTOP[amTxt(raw.catstop)] : undefined;
         break;
       }
       case 'Hotspot':
@@ -686,7 +689,11 @@ var AX = (function () {
         if (area) p.extent = area; else if (line) p.extent = line; else if (pnt) p.location = pnt;
     }
     for (var q in p) if (p[q] === undefined) delete p[q];
-    return { k: k, id: id, gid: gid || undefined, ts: [{ i: 'BASELINE', s: 1, c: 0, b: amTxt(raw.revdate) || null, e: null, p: p }] };
+    // AMXM states: stvalid / endvalid (validity), stfeat / endfeat (lifetime), interp (snapshot, baseline, delta…)
+    var t0 = { i: AM_INTERP[amTxt(raw.interp)] || 'BASELINE', s: 1, c: 0, b: amTxt(raw.stvalid) || null, e: amTxt(raw.endvalid) || null, p: p };
+    if (amTxt(raw.stfeat)) t0.lb = amTxt(raw.stfeat);
+    if (amTxt(raw.endfeat)) t0.le = amTxt(raw.endfeat);
+    return { k: k, id: id, gid: gid || undefined, ts: [t0] };
   }
 
   /* ------------------------------------------------------ AIXM 4.5 conversion */

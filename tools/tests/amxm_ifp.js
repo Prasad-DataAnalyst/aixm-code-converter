@@ -8,6 +8,9 @@
 //   testdata/ifp_test_EADD.xml) delivered beside the AIP data set (…_AIP_DS_… / …_IFP_DS_…): both files are read as
 //   one data set, so the procedures find their waypoints, navaids and runways; AD 2.22 lists the procedures, legs,
 //   minima, the terminal holding and the minimum sector altitude; the map draws the holding and the MSA sectors.
+// Also: the AMXM attributes of a feature (every attribute of its type, code values with their meaning, given /
+// unknown / not in the file), the Completeness view, procedure details for PANS-OPS (design criteria, PBN, FAS data
+// block), IFP checks, and two data sets that name each other's features offered to be read together.
 const fs = require('fs');
 const path = require('path');
 const env = require('./_env');
@@ -50,6 +53,16 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   if (!+((await page.textContent('[data-count="aerodrome"]')) || '0').replace(/\D/g, '')) fails.push('AMXM: aerodrome layer empty');
   await page.screenshot({ path: OUT + '/amxm.png' });
   for (const v of ['aip', 'explorer', 'quality']) { await page.evaluate((x) => window.__AIXM.go(x), v); await page.waitForTimeout(500); }
+  // the AMXM attributes of a runway element: all of its type, codes with their meaning
+  const tab = await page.evaluate(() => { const ds = window.__AIXM.S.datasets[0], r = ds.recs.find((x) => x.cur.p._amxm === 'RunwayElement'); window.__AIXM.openDetail(ds, r, 'amxm'); const b = document.querySelector('#dd-body'); return { text: b.textContent, rows: b.querySelectorAll('tbody tr').length, given: b.querySelectorAll('tr.am-given').length }; });
+  if (tab.rows < 20 || !/surftype/.test(tab.text) || !/Concrete Grooved/.test(tab.text) || !/given ·/.test(tab.text)) fails.push('AMXM attributes tab: ' + JSON.stringify({ rows: tab.rows, given: tab.given, text: tab.text.slice(0, 200) }));
+  await page.evaluate(() => { const c = document.querySelector('#dd-close'); if (c) c.click(); });
+  // completeness: AMXM types with the attributes of the schema
+  await page.evaluate(() => { window.__AIXM.S.qTab = 'complete'; window.__AIXM.go('quality'); });
+  await page.waitForSelector('.cp-type', { timeout: 30000 });
+  const cp = await page.evaluate(() => [...document.querySelectorAll('.cp-type summary b')].map((x) => x.textContent));
+  if (!cp.includes('AMXM RunwayElement') || !cp.includes('AMXM ParkingStandArea')) fails.push('completeness: ' + cp.join(', '));
+  await page.evaluate(() => { window.__AIXM.S.qTab = 'basic'; });
 
   // ---- IFP data set beside the AIP data set
   const aip = path.join(OUT, 'EA_AIP_DS_FULL_20251101.xml'), ifp = path.join(OUT, 'EA_IFP_DS_FULL_20251101.xml');
@@ -71,6 +84,22 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   const msa = await page.evaluate(() => [...document.querySelectorAll('.msa-alt')].map((x) => x.textContent).sort());
   if (msa.join() !== '3100 FT,4300 FT') fails.push('MSA sectors on the map: ' + msa.join());
   await page.screenshot({ path: OUT + '/ifp.png' });
+  // PANS-OPS detail: design criteria, PBN, FAS data block
+  const det = await page.evaluate(() => { const ds = window.__AIXM.S.datasets[0], ad = ds.byType.AirportHeliport.find((a) => a.cur.p.locationIndicatorICAO === 'EADD'); return AIP.adBlocks(ds, ad, 22).map((b) => (b.title || '') + ' ' + (b.rows || []).map((r) => (r.cells || r).map((c) => (c && c.t) || '').join(' ')).join(' ')).join(' | '); });
+  for (const want of ['PANS-OPS', 'ARINC 424 18', 'flight checked', 'CAT C RNP APCH', 'Final approach segment (FAS) data block', 'EGNOS', 'LPV', 'A1B2C3D4']) if (det.indexOf(want) < 0) fails.push('procedure detail misses ' + want);
+  // IFP checks: the STAR has no design criteria; all legs are located
+  const q = await page.evaluate(async () => (await ANALYSIS.quality(window.__AIXM.S.datasets[0])).filter((i) => i.rule === 'IFP').map((i) => i.msg));
+  if (q.join('|') !== 'STAR without design criteria') fails.push('IFP checks: ' + q.join(' | '));
+
+  // two data sets that name each other's features, read apart (names that do not pair): offered to read together
+  await load([ROOT + '/testdata/Donlon_ALL_Baseline_2025.xml', ROOT + '/testdata/ifp_test_EADD.xml']);
+  const two = await page.evaluate(() => window.__AIXM.S.datasets.length);
+  const hint = await page.evaluate(() => (document.querySelector('.link-hint') || {}).textContent || '');
+  if (two !== 2 || !/Read together/.test(hint)) fails.push('read together offer: ' + JSON.stringify({ two, hint: hint.slice(0, 200) }));
+  await page.click('.link-hint [data-together]');
+  await page.waitForFunction(() => window.__AIXM.S.datasets.length === 1 && window.__AIXM.S.view === 'dash', null, { timeout: 60000 }).catch(() => fails.push('read together did not give one data set'));
+  const one = await page.evaluate(() => { const ds = window.__AIXM.S.datasets[0], ad = ds.byType.AirportHeliport.find((a) => a.cur.p.locationIndicatorICAO === 'EADD'); return { files: (ds.files || []).length, procs: (ds.owned.get(ad) || []).filter((r) => /Procedure|Departure$|Arrival$/.test(r.k)).length, hint: !!document.querySelector('.link-hint') }; });
+  if (one.files !== 2 || one.procs !== 3 || one.hint) fails.push('read together: ' + JSON.stringify(one));
 
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no errors');
   console.log(fails.length ? 'FAIL:\n  ' + fails.join('\n  ') : 'aerodrome mapping (AMXM) and IFP data sets OK');

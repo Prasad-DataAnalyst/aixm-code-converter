@@ -243,6 +243,13 @@ var ANALYSIS = (function () {
           if (!(v in cl) && v.indexOf('OTHER') !== 0) add('warning', 'Code list', 'Value "' + v + '" of ' + pk + ' is not in ' + pd.t, r, pk, 'Allowed: ' + Object.keys(cl).slice(0, 12).join(', ') + (Object.keys(cl).length > 12 ? ' … (' + Object.keys(cl).length + ' values)' : '') + ', or OTHER:… for a value not in the list.');
         }
       }
+      // aerodrome mapping (AMXM): every feature names its aerodrome; runways, taxiways, aprons and stands by code
+      if (p._amxm && !r.syn) {
+        if (!s(p.idarpt)) add('error', 'AMXM', 'Feature without aerodrome (idarpt)', r, 'idarpt', 'idarpt (ICAO location indicator) links the feature to its aerodrome.');
+        var NAME = { RunwayElement: 'idrwy', RunwayThreshold: 'idthr', TaxiwayElement: 'idlin', TaxiwayGuidanceLine: 'idlin', ApronElement: 'idapron', ParkingStandArea: 'idstd', ParkingStandLocation: 'idstd', TaxiwayHoldingPosition: 'idlin' }[p._amxm];
+        if (NAME && !s(p[NAME])) add('warning', 'AMXM', p._amxm + ' without ' + NAME, r, NAME, NAME + ' ' + (p[NAME] && p[NAME].nil ? 'is marked ' + p[NAME].nil : 'is not given') + ': the feature cannot be named or grouped (runway, taxiway, apron or stand).');
+        if (p._amxm === 'RunwayThreshold') { var rd = M.target(ds, p.onRunway); if (rd && !rd.cur.p.usedRunway) add('warning', 'AMXM', 'Threshold ' + s(p.idthr) + ' on no runway', r, 'idthr', 'No RunwayElement idrwy names threshold ' + s(p.idthr) + ' (e.g. 09.27 for thresholds 09 and 27): the runway cannot be drawn from its thresholds.'); }
+      }
       // mandatory AIP information
       switch (r.k) {
         case 'AirportHeliport': {
@@ -301,6 +308,42 @@ var ANALYSIS = (function () {
           if (s(p.designator) && !zero) dpts.set(s(p.designator), (dpts.get(s(p.designator)) || []).concat([r]));
           if (s(p.type) === 'ICAO' && s(p.designator) && !/^[A-Z]{5}$/.test(s(p.designator))) add('info', 'ENR 4.4', 'ICAO name-code designator should be 5 letters: ' + s(p.designator), r, 'designator', 'Found "' + s(p.designator) + '". ICAO Annex 11 Appendix 2: a name-code designator has five letters.');
           break;
+        // instrument flight procedures (IFP data sets)
+        case 'StandardInstrumentDeparture': case 'StandardInstrumentArrival': case 'InstrumentApproachProcedure': {
+          var legs = AIP.procLegs(ds, r), nm = r.k === 'InstrumentApproachProcedure' ? 'Approach' : r.k === 'StandardInstrumentDeparture' ? 'SID' : 'STAR';
+          if (!legs.length) add('warning', 'IFP', nm + ' without legs', r, 'flightTransition', 'No segment leg belongs to the procedure (flightTransition / transitionLeg, or legs naming it). Its path cannot be drawn or checked.');
+          if (!ds.owner.get(r)) add('warning', 'IFP', nm + ' not linked to an aerodrome', r, 'airportHeliport', 'airportHeliport is missing or names an aerodrome that is not in the data. Read the procedure (IFP) data set with the AIP data set of its delivery.');
+          if (r.k === 'InstrumentApproachProcedure') {
+            if (!arr(p.landing).length) add('info', 'IFP', 'Approach without landing runway', r, 'landing', 'landing (LandingTakeoffAreaCollection) names the runway direction(s) served.');
+            var hasMin = legs.some(function (x) { return arr(x.leg.cur.p.condition).some(function (c) { return c && arr(c.minimumSet).length; }); });
+            if (legs.length && !hasMin) add('warning', 'IFP', 'Approach without minima', r, null, 'No leg gives an ApproachCondition with a minimumSet (OCA/H, DA/H or MDA/H, visibility). PANS-OPS and TERPS approaches publish minima.');
+          }
+          if (!s(p.designCriteria)) add('info', 'IFP', nm + ' without design criteria', r, 'designCriteria', 'designCriteria says which design standard the procedure follows (e.g. PANS_OPS, TERPS).');
+          break;
+        }
+        case 'DepartureLeg': case 'ArrivalLeg': case 'ArrivalFeederLeg': case 'InitialLeg': case 'IntermediateLeg': case 'FinalLeg': case 'MissedApproachLeg': {
+          ['startPoint', 'endPoint'].forEach(function (k) {
+            var pt = arr(p[k])[0];
+            if (pt && pt.nil === undefined && !M.segPoint(ds, pt)) add('warning', 'IFP', 'Leg ' + (k === 'endPoint' ? 'end' : 'start') + ' point cannot be located', r, k, 'The fix, navaid or runway point it names is not in the data (read the IFP data set with its AIP data set) or has no position.');
+          });
+          if (!s(p.legTypeARINC) && !s(p.legPath)) add('info', 'IFP', 'Leg without path terminator', r, 'legTypeARINC', 'legTypeARINC (ARINC 424 path terminator: IF, TF, CF, DF, RF …) defines how the leg is flown.');
+          break;
+        }
+        case 'HoldingPattern': {
+          var hpt = arr(p.holdingPoint)[0];
+          if (!hpt) add('warning', 'Holding', 'Holding without holding point', r, 'holdingPoint');
+          else if (!M.segPoint(ds, hpt)) add('warning', 'Holding', 'Holding point cannot be located', r, 'holdingPoint', 'The fix or navaid named is not in the data or has no position.');
+          if (!s(p.inboundCourse) && !(arr(p.inboundCourse)[0] && arr(p.inboundCourse)[0].course)) add('warning', 'Holding', 'Holding without inbound course', r, 'inboundCourse');
+          if (!s(p.turnDirection)) add('info', 'Holding', 'Holding without turn direction', r, 'turnDirection');
+          break;
+        }
+        case 'SafeAltitudeArea': {
+          var secs = arr(p.sector).filter(function (x) { return x && x.nil === undefined; });
+          if (!secs.length) add('warning', 'AD 2.22', 'Minimum sector altitude without sectors', r, 'sector', 'No SafeAltitudeAreaSector: the altitudes cannot be published.');
+          secs.forEach(function (sc, i) { var cs = arr(sc.sectorDefinition)[0]; if (!cs || !M.fLimit(cs.lowerLimit, cs.lowerLimitReference)) add('warning', 'AD 2.22', 'MSA sector ' + (i + 1) + ' without altitude', r, 'sector', 'The sector definition (CircleSector) gives no lowerLimit (the minimum altitude).'); });
+          if (!Object.keys(p).some(function (k) { return /^centrePoint_/.test(k); })) add('warning', 'AD 2.22', 'Minimum sector altitude without centre', r, 'centrePoint_navaidSystem');
+          break;
+        }
         case 'VerticalStructure':
           if (!M.pointOf(ds, r)) add('warning', 'ENR 5.4', 'Obstacle without position', r, 'part', 'No part of the obstacle has a position. ENR 5.4 and AD 2.10 list the position of every obstacle.');
           break;
@@ -335,6 +378,56 @@ var ANALYSIS = (function () {
     var rank = { error: 0, warning: 1, info: 2 };
     issues.sort(function (a, b) { return rank[a.sev] - rank[b.sev]; });
     return issues;
+  }
+
+  /* --------------------------------------------------------- completeness */
+  // Per feature type: how many features give each property, mark it unknown (nilReason) or not applicable (xsi:nil),
+  // or leave it out. Properties: AIXM 5.x from the schema dictionary, AMXM from the AMXM 2.0.2 schema, AIXM 4.5 the
+  // fields delivered. Features built by the tool (AMXM runways, taxiways… named by code) are not counted.
+  async function completeness(ds, onProgress) {
+    var D = M.dict(), A = M.amxmDict(), types = new Map();
+    function given(v) {
+      v = Array.isArray(v) ? v[0] : v;
+      if (v === undefined || v === null || v === '') return 'absent';
+      if (typeof v === 'object' && v.nil !== undefined && Object.keys(v).length === 1) return 'unknown';
+      return 'given';
+    }
+    for (var i = 0; i < ds.recs.length; i++) {
+      var r = ds.recs[i];
+      if (r.syn || r.cur.gone || r.k === '#error') continue;
+      var p = r.cur.p, am = p._amxm, key = am && A && A.features[am] ? 'AMXM ' + am : r.k, t = types.get(key);
+      if (!t) {
+        var props = null;
+        if (am && A && A.features[am]) props = A.features[am].attrs.map(function (a) { return a.n; });
+        else if (r.k.indexOf('45:') !== 0 && D && D.v5.features[r.k]) props = Object.keys(D.v5.features[r.k].p);
+        t = { type: key, n: 0, props: props, stat: new Map(), amxm: !!am };
+        types.set(key, t);
+      }
+      t.n++;
+      var na = p._na ? String(p._na).split(',') : [];
+      var list = t.props || Object.keys(r.raw || p).filter(function (k) { return k.charAt(0) !== '_' && k.charAt(0) !== '@'; });
+      for (var j = 0; j < list.length; j++) {
+        var k = list[j], st = t.stat.get(k);
+        if (!st) t.stat.set(k, st = { given: 0, unknown: 0, na: 0 });
+        var src = r.raw && !t.props ? r.raw : p;
+        var v = am && /^geo(poly|line|pnt)$/.test(k) ? (p.extent || p.location || p.area || p.part || p.ARP) : src[k];
+        var g = given(v);
+        if (g === 'given') st.given++; else if (g === 'unknown') st.unknown++; else if (na.indexOf(k) >= 0) st.na++;
+      }
+      if (i % 5000 === 0) { if (onProgress) onProgress(i / ds.recs.length); await yieldUI(); }
+    }
+    var out = [];
+    types.forEach(function (t) {
+      var rows = [];
+      (t.props || Array.from(t.stat.keys())).forEach(function (k) {
+        var st = t.stat.get(k) || { given: 0, unknown: 0, na: 0 };
+        rows.push({ prop: k, given: st.given, unknown: st.unknown, na: st.na, absent: t.n - st.given - st.unknown - st.na });
+      });
+      var never = rows.filter(function (x) { return !x.given; }).length;
+      out.push({ type: t.type, n: t.n, amxm: t.amxm, rows: rows, never: never, full: rows.filter(function (x) { return x.given === t.n; }).length });
+    });
+    out.sort(function (a, b) { return b.n - a.n; });
+    return out;
   }
 
   /* ------------------------------------------------ changes in one AIRAC cycle
@@ -400,5 +493,5 @@ var ANALYSIS = (function () {
     return Array.from(m.values()).sort(function (a, b) { return b.cycle.date - a.cycle.date; });
   }
 
-  return { cycleChanges: cycleChanges, changeCycles: changeCycles, topProp: topProp, inFileChanges: inFileChanges, compare: compare, quality: quality, prettyPath: prettyPath, displayVal: displayVal, naturalKey: naturalKey };
+  return { cycleChanges: cycleChanges, changeCycles: changeCycles, topProp: topProp, inFileChanges: inFileChanges, compare: compare, quality: quality, completeness: completeness, prettyPath: prettyPath, displayVal: displayVal, naturalKey: naturalKey };
 })();

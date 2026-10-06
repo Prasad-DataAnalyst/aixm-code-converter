@@ -9,25 +9,25 @@
 	</amxm:featureMember>
 	<amxm:featureMember>
 		<amxm:RunwayElement gml:id="ID_4">
-			<amxm:feattype>1</amxm:feattype><amxm:idnumber>N4</amxm:idnumber><amxm:idarpt>EAXM</amxm:idarpt><amxm:source>Fictitious test data</amxm:source><amxm:revdate>2026-10-29T00:00:00.000Z</amxm:revdate><amxm:hacc uom="meters">0.5</amxm:hacc><amxm:hres uom="DecimalDegrees">0.0000001</amxm:hres><amxm:integr>0.00001</amxm:integr><amxm:vacc uom="meters">0.5</amxm:vacc><amxm:vres uom="meters">0.01</amxm:vres><amxm:idrwy>09/27</amxm:idrwy><amxm:pcn>PCN 80/F/A/W/T</amxm:pcn><amxm:width uom="meters">45</amxm:width><amxm:length uom="meters">2800</amxm:length><amxm:surftype>1</amxm:surftype><amxm:status>1</amxm:status>
+			<amxm:feattype>1</amxm:feattype><amxm:idnumber>N4</amxm:idnumber><amxm:idarpt>EAXM</amxm:idarpt><amxm:source>Fictitious test data</amxm:source><amxm:revdate>2026-10-29T00:00:00.000Z</amxm:revdate><amxm:hacc uom="meters">0.5</amxm:hacc><amxm:hres uom="DecimalDegrees">0.0000001</amxm:hres><amxm:integr>0.00001</amxm:integr><amxm:vacc uom="meters">0.5</amxm:vacc><amxm:vres uom="meters">0.01</amxm:vres><amxm:idrwy>09.27</amxm:idrwy><amxm:pcn>PCN 80/F/A/W/T</amxm:pcn><amxm:width uom="meters">45</amxm:width><amxm:length uom="meters">2800</amxm:length><amxm:surftype>1</amxm:surftype><amxm:status>1</amxm:status>
 			<amxm:geopoly><gml:Polygon gml:id="ID_3" srsName="urn:ogc:def:crs:EPSG::4326"><gml:exterior><gml:LinearRing><gml:posList srsDimension="2">52.29979788 -32.12056550 52.29979788 -32.07943450 52.30020212 -32.07943450 52.30020212 -32.12056550 52.29979788 -32.12056550</gml:posList></gml:LinearRing></gml:exterior></gml:Polygon></amxm:geopoly>
 		</amxm:RunwayElement>
 	</amxm:featureMember>
 	<amxm:featureMember>
 		<amxm:RunwayThreshold gml:id="ID_6">
-			<amxm:feattype>3</amxm:feattype><amxm:idnumber>N6</amxm:idnumber><amxm:idarpt>EAXM</amxm:idarpt><amxm:source>Fictitious test data</amxm:source><amxm:revdate>2026-10-29T00:00:00.000Z</amxm:revdate><amxm:hacc uom="meters">0.5</amxm:hacc><amxm:hres uom="DecimalDegrees">0.0000001</amxm:hres><amxm:integr>0.00001</amxm:integr><amxm:vacc uom="meters">0.5</amxm:vacc><amxm:vres uom="meters">0.01</amxm:vres><amxm:idthr>09</amxm:idthr><amxm:brngtrue uom="degrees">90.0</amxm:brngtrue><amxm:brngmag uom="degrees">93</amxm:brngmag><amxm:tora uom="meters">2800</amxm:tora><amxm:toda uom="meters">2900</amxm:toda><amxm:asda uom="meters">2800</amxm:asda><amxm:lda uom="meters">2800</amxm:lda><amxm:thrtype>1</amxm:thrtype><amxm:elev uom="meters">11.2</amxm:elev>
+			<amxm:feattype>3</amxm:feattype><amxm:idnumber>N6</amxm:idnumber><amxm:idarpt>EAXM</amxm:idarpt><amxm:source>Fictitious test data</amxm:source><amxm:revdate>2026-10-29T00:00:00.000Z</amxm:revdate><amxm:hacc uom="meters">0.5</amxm:hacc><amxm:hres uom="DecimalDegrees">0.0000001</amxm:hres><amxm:integr>0.00001</amxm:integr><amxm:vacc uom="meters">0.5</amxm:vacc><amxm:vres uom="meters">0.01</amxm:vres><amxm:idthr>09</amxm:idthr><amxm:brngtrue uom="degrees">90.0</amxm:brngtrue><amxm:brngmag uom="degrees">93</amxm:brngmag><amxm:tora uom="meters">2800</amxm:tora><amxm:toda uom="meters">2900</amxm:toda><amxm:asda uom="meters">2800</amxm:asda><amxm:lda uom="meters">2800</amxm:lda><amxm:thrtype>0</amxm:thrtype><amxm:elev uom="meters">11.2</amxm:elev>
 			<amxm:geopnt><gml:Point gml:id="ID_5" srsName="urn:ogc:def:crs:EPSG::4326"><gml:pos>52.30000000 -32.12056550</gml:pos></gml:Point></amxm:geopnt>
 		</amxm:RunwayThreshold>
 	</amxm:featureMember>
 	<amxm:featureMember>
 		<amxm:RunwayThreshold gml:id="ID_8">
-			<amxm:feattype>3</amxm:feattype><amxm:idnumber>N8</amxm:idnumber><amxm:idarpt>EAXM</amxm:idarpt><amxm:source>Fictitious test data</amxm:source><amxm:revdate>2026-10-29T00:00:00.000Z</amxm:revdate><amxm:hacc uom="meters">0.5</amxm:hacc><amxm:hres uom="DecimalDegrees">0.0000001</amxm:hres><amxm:integr>0.00001</amxm:integr><amxm:vacc uom="meters">0.5</amxm:vacc><amxm:vres uom="meters">0.01</amxm:vres><amxm:idthr>27</amxm:idthr><amxm:brngtrue uom="degrees">270.0</amxm:brngtrue><amxm:brngmag uom="degrees">273</amxm:brngmag><amxm:tora uom="meters">2800</amxm:tora><amxm:toda uom="meters">2800</amxm:toda><amxm:asda uom="meters">2800</amxm:asda><amxm:lda uom="meters">2800</amxm:lda><amxm:thrtype>1</amxm:thrtype><amxm:elev uom="meters">12.4</amxm:elev>
+			<amxm:feattype>3</amxm:feattype><amxm:idnumber>N8</amxm:idnumber><amxm:idarpt>EAXM</amxm:idarpt><amxm:source>Fictitious test data</amxm:source><amxm:revdate>2026-10-29T00:00:00.000Z</amxm:revdate><amxm:hacc uom="meters">0.5</amxm:hacc><amxm:hres uom="DecimalDegrees">0.0000001</amxm:hres><amxm:integr>0.00001</amxm:integr><amxm:vacc uom="meters">0.5</amxm:vacc><amxm:vres uom="meters">0.01</amxm:vres><amxm:idthr>27</amxm:idthr><amxm:brngtrue uom="degrees">270.0</amxm:brngtrue><amxm:brngmag uom="degrees">273</amxm:brngmag><amxm:tora uom="meters">2800</amxm:tora><amxm:toda uom="meters">2800</amxm:toda><amxm:asda uom="meters">2800</amxm:asda><amxm:lda uom="meters">2800</amxm:lda><amxm:thrtype>0</amxm:thrtype><amxm:elev uom="meters">12.4</amxm:elev>
 			<amxm:geopnt><gml:Point gml:id="ID_7" srsName="urn:ogc:def:crs:EPSG::4326"><gml:pos>52.30000000 -32.07943450</gml:pos></gml:Point></amxm:geopnt>
 		</amxm:RunwayThreshold>
 	</amxm:featureMember>
 	<amxm:featureMember>
 		<amxm:RunwayShoulder gml:id="ID_10">
-			<amxm:feattype>4</amxm:feattype><amxm:idnumber>N10</amxm:idnumber><amxm:idarpt>EAXM</amxm:idarpt><amxm:source>Fictitious test data</amxm:source><amxm:revdate>2026-10-29T00:00:00.000Z</amxm:revdate><amxm:hacc uom="meters">0.5</amxm:hacc><amxm:hres uom="DecimalDegrees">0.0000001</amxm:hres><amxm:integr>0.00001</amxm:integr><amxm:vacc uom="meters">0.5</amxm:vacc><amxm:vres uom="meters">0.01</amxm:vres><amxm:idrwy>09/27</amxm:idrwy>
+			<amxm:feattype>4</amxm:feattype><amxm:idnumber>N10</amxm:idnumber><amxm:idarpt>EAXM</amxm:idarpt><amxm:source>Fictitious test data</amxm:source><amxm:revdate>2026-10-29T00:00:00.000Z</amxm:revdate><amxm:hacc uom="meters">0.5</amxm:hacc><amxm:hres uom="DecimalDegrees">0.0000001</amxm:hres><amxm:integr>0.00001</amxm:integr><amxm:vacc uom="meters">0.5</amxm:vacc><amxm:vres uom="meters">0.01</amxm:vres><amxm:idrwy>09.27</amxm:idrwy>
 			<amxm:geopoly><gml:Polygon gml:id="ID_9" srsName="urn:ogc:def:crs:EPSG::4326"><gml:exterior><gml:LinearRing><gml:posList srsDimension="2">52.30020212 -32.12056550 52.30020212 -32.07943450 52.30026949 -32.07943450 52.30026949 -32.12056550 52.30020212 -32.12056550</gml:posList></gml:LinearRing></gml:exterior></gml:Polygon></amxm:geopoly>
 		</amxm:RunwayShoulder>
 	</amxm:featureMember>
@@ -51,7 +51,7 @@
 	</amxm:featureMember>
 	<amxm:featureMember>
 		<amxm:TaxiwayHoldingPosition gml:id="ID_18">
-			<amxm:feattype>13</amxm:feattype><amxm:idnumber>N18</amxm:idnumber><amxm:idarpt>EAXM</amxm:idarpt><amxm:source>Fictitious test data</amxm:source><amxm:revdate>2026-10-29T00:00:00.000Z</amxm:revdate><amxm:hacc uom="meters">0.5</amxm:hacc><amxm:hres uom="DecimalDegrees">0.0000001</amxm:hres><amxm:integr>0.00001</amxm:integr><amxm:vacc uom="meters">0.5</amxm:vacc><amxm:vres uom="meters">0.01</amxm:vres><amxm:idlin>B</amxm:idlin><amxm:catstop>CAT I</amxm:catstop>
+			<amxm:feattype>13</amxm:feattype><amxm:idnumber>N18</amxm:idnumber><amxm:idarpt>EAXM</amxm:idarpt><amxm:source>Fictitious test data</amxm:source><amxm:revdate>2026-10-29T00:00:00.000Z</amxm:revdate><amxm:hacc uom="meters">0.5</amxm:hacc><amxm:hres uom="DecimalDegrees">0.0000001</amxm:hres><amxm:integr>0.00001</amxm:integr><amxm:vacc uom="meters">0.5</amxm:vacc><amxm:vres uom="meters">0.01</amxm:vres><amxm:idlin>B</amxm:idlin><amxm:catstop>1</amxm:catstop>
 			<amxm:geoline><gml:LineString gml:id="ID_17" srsName="urn:ogc:def:crs:EPSG::4326"><gml:posList srsDimension="2">52.30080848 -32.11784791 52.30080848 -32.11740722</gml:posList></gml:LineString></amxm:geoline>
 		</amxm:TaxiwayHoldingPosition>
 	</amxm:featureMember>
@@ -63,7 +63,7 @@
 	</amxm:featureMember>
 	<amxm:featureMember>
 		<amxm:TaxiwayHoldingPosition gml:id="ID_22">
-			<amxm:feattype>13</amxm:feattype><amxm:idnumber>N22</amxm:idnumber><amxm:idarpt>EAXM</amxm:idarpt><amxm:source>Fictitious test data</amxm:source><amxm:revdate>2026-10-29T00:00:00.000Z</amxm:revdate><amxm:hacc uom="meters">0.5</amxm:hacc><amxm:hres uom="DecimalDegrees">0.0000001</amxm:hres><amxm:integr>0.00001</amxm:integr><amxm:vacc uom="meters">0.5</amxm:vacc><amxm:vres uom="meters">0.01</amxm:vres><amxm:idlin>C</amxm:idlin><amxm:catstop>CAT I</amxm:catstop>
+			<amxm:feattype>13</amxm:feattype><amxm:idnumber>N22</amxm:idnumber><amxm:idarpt>EAXM</amxm:idarpt><amxm:source>Fictitious test data</amxm:source><amxm:revdate>2026-10-29T00:00:00.000Z</amxm:revdate><amxm:hacc uom="meters">0.5</amxm:hacc><amxm:hres uom="DecimalDegrees">0.0000001</amxm:hres><amxm:integr>0.00001</amxm:integr><amxm:vacc uom="meters">0.5</amxm:vacc><amxm:vres uom="meters">0.01</amxm:vres><amxm:idlin>C</amxm:idlin><amxm:catstop>1</amxm:catstop>
 			<amxm:geoline><gml:LineString gml:id="ID_21" srsName="urn:ogc:def:crs:EPSG::4326"><gml:posList srsDimension="2">52.30080848 -32.08259278 52.30080848 -32.08215209</gml:posList></gml:LineString></amxm:geoline>
 		</amxm:TaxiwayHoldingPosition>
 	</amxm:featureMember>
