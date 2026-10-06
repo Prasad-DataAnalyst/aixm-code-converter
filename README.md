@@ -138,6 +138,8 @@ security problem privately.
 | AIXM 4.5 (`AIXM-Snapshot`, `AIXM-Update`) and OFMX | root element and `version` attribute | Header `origin/created/effective` used. All ~112 feature types are read; the main ones are mapped to the AIXM 5 model (Ahp → AirportHeliport, Rwy/Rdn/Rdd/Rcp/Rls, Vor/Dme/Ndb/Tcn/Mkr/Ils, Dpn, Ase + Abd borders with arcs and circles, Rte/Rsg, Obs, Uni/Ser/Fqy, Org, Twy, Apn, Tla/Fto, Sid/Sia/Iap, Gbr, addresses Aha/Oaa/Uas/Aga, usage Ahu, Ana/Aho/Rdo/Sah relations, Ful/Oil/Oxg/Ntg, Pfy, Rda/Fda, Swy/Rpa, Tly, Spd, Gsd, Ahc, navaid usage limitations …). |
 | AIXM 5.0 / 5.1 / 5.1.1 | `http://www.aixm.aero/schema/5.x` namespace, any prefix | Basic message, WFS / feature collections, Digital NOTAM `event:Event`. |
 | AIXM 5.2 (5.2.0, `wip`, RC) | namespace and `schemaLocation` | New 5.2 features (AirportSign, GBAS, Gangway, RVR equipment, SatelliteSystem…). |
+| **Aerodrome mapping: AMXM 2.0** (EUROCAE ED-99 / RTCA DO-272) | `http://www.amxm.aero/schema/2.x` namespace | All 45 AMXM feature types are read. Runway / taxiway / apron elements, thresholds, stands (area and location), guidance and exit lines, holding positions, hot spots, de-icing and construction areas, vertical structures become the matching AIXM aerodrome features, linked to their aerodrome by `idarpt`; runways, runway directions, taxiways and aprons named by `idrwy` / `idthr` / `idlin` / `idapron` are built from them. Map, airport chart, information card, obstacle surfaces and 3D use them like AIXM data; shoulders, stopways, blast pads, service roads and water are drawn too. AMXM attributes are kept as delivered. |
+| **Instrument flight procedure (IFP) data set** (AIXM 5.1 / 5.1.1) | as AIXM 5; a file named like the AIP data set of the same delivery (`…_IFP_DS_…` beside `…_AIP_DS_…`) is read with it as one data set | SIDs, STARs, approaches with their legs (ARINC 424), transitions, minima and approach profile; terminal holdings and minimum sector altitudes (AD 2.22 and the map: racetracks, MSA sectors with their altitudes); terminal arrival areas (AD 2.22). Procedures find the waypoints, navaids and runways of the AIP data set. |
 | Times | ISO 8601; times without a zone are UTC (as AIXM requires), whatever the laptop's time zone | |
 | GML | `EPSG:4326/4269` (lat/lon) and `CRS84` (lon/lat) axis order | Point, LineString, GeodesicString, Geodesic, ArcByCenterPoint, CircleByCenterPoint, Arc (3-point), Polygon, Surface/patches, Ring/curveMember, and `xlink` border-following to GeoBorder curves. |
 | One AIRAC cycle in several files | names that differ only by feature type and variant (`…_Runway_BASELINE_EFF…`, `…_VOR_DIFF_EFF…`), a checksum list delivered with them (file name + SHA-256), or **⧉ Combine** in Files | The files show as one item and are read as **one data set**: references between the files resolve, a time slice delivered twice (baseline and difference files) is kept once, the XML code view opens the file a feature came from, the checksums are verified, schema and code-list XML in a zip are left out, **Separate** reads them one by one. Version conversion gives one zip with every file converted. |
@@ -195,6 +197,7 @@ aixm-code-converter/
 ├── schemas/                    official AIXM XSDs (4.5, 5.1, 5.1.1, 5.2) and business rules (rules/) from aixm.aero
 ├── data/                       compiled dictionary and business rules, Natural Earth places, terrain model
 ├── testdata/                   public sample files (Donlon, Chicago O'Hare, AIXM 4.5, 5.2, temporality cases, Digital NOTAM)
+│                               and fictitious test files (AMXM aerodrome EAXM, IFP procedures for EADD)
 │                               and synthetic test files (Donlon_EADD_changes_AIRAC2611.xml, sample_aixm45_extra.xml)
 └── tools/                      build and test scripts
 ```
@@ -202,7 +205,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.16.0, set in `src/config.js`; version 2 will add digital charts).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.17.0, set in `src/config.js`; version 2 will add digital charts).
 
 ```bash
 cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core

@@ -23,6 +23,7 @@ var ABOUT = (function () {
   ];
   var FEATURES = [
     ['Reads every AIXM version', 'AIXM 4.5 (Snapshot / Update), 5.0, 5.1, 5.1.1 and 5.2, detected automatically. Multi-gigabyte files are streamed by parallel threads.'],
+    ['Digital data sets', 'AIP, obstacle, aerodrome mapping (AIXM or AMXM 2.0) and instrument flight procedure (IFP) data sets. An IFP data set is read with the AIP data set of its delivery, so its procedures find their waypoints, navaids and runways.'],
     ['One cycle in many files', 'States that deliver one AIRAC cycle as many files (one per feature type, baseline and difference files, a checksum list) — loose or in a .zip — get one data set: references between the files resolve, checksums are verified, schema files are left out. Combine or separate files by hand at any time.'],
     ['ICAO AIP layout', 'GEN, ENR 1–6 and AD 2 / AD 3 for every aerodrome and heliport, as in the ICAO specimen AIP; each value opens its AIXM code.'],
     ['Changes and AIRAC cycles', 'Changes inside a file, comparison of two files, values changed in the selected AIRAC cycle in red, AMDT report, side-by-side view, timeline and Digital NOTAM text. Withdrawn features are listed as withdrawn and no longer shown as current; re-issues with unchanged values are counted apart; cycles that start at local midnight (e.g. 16:00 UTC) get their published AIRAC date.'],
@@ -47,6 +48,7 @@ var ABOUT = (function () {
     ['Languages', 'English, العربية (right-to-left), Français and Español; light and dark themes.']
   ];
   var NEWS = [
+    ['1.17', 'Aerodrome mapping in AMXM 2.0 (ED-99 / DO-272) on the map and the airport chart; IFP data sets read with their AIP data set; terminal holdings and minimum sector altitudes in AD 2.22 and on the map.'],
     ['1.16', 'Airport view for every aerodrome with a position, also when the data has no runway coordinates (runways listed from the data, with a note of what the data set does not give); thresholds without coordinates flagged.'],
     ['1.15', 'Data issues shown where you read: the AIP marks the sections and values with an issue and explains each one (what was found, what is expected); new checks for 0°N 0°E positions, duplicates, implausible elevations, lengths and limits.'],
     ['1.14', 'Several data sets on one map: tick any mix of the States loaded (e.g. Qatar, Saudi Arabia, UAE and China), or show all of them.'],

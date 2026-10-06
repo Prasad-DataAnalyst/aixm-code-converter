@@ -869,9 +869,14 @@ var MAPVIEW = (function () {
     var SURF_STYLE = {
       Apron: ['#9aa4ae', '#c9cfd5', 0.9], ApronElement: ['#9aa4ae', '#c9cfd5', 0.9], Taxiway: ['#7f8891', '#a3abb3', 0.95], TaxiwayElement: ['#7f8891', '#a3abb3', 0.95],
       RunwayElement: ['#1f2328', ADCHART.COL.rwy, 0.95], TouchDownLiftOff: ['#1f2328', '#5b636b', 0.9], AircraftStand: ['#8a949e', '#d5dade', 0.9],
-      RunwayProtectArea: ['#2e7d32', '#a5d6a7', 0.12], DeicingArea: ['#1565c0', '#90caf9', 0.45], WorkArea: ['#e65100', '#ffcc80', 0.5], GuidanceLine: ['#e0b100']
+      RunwayProtectArea: ['#2e7d32', '#a5d6a7', 0.12], DeicingArea: ['#1565c0', '#90caf9', 0.45], WorkArea: ['#e65100', '#ffcc80', 0.5], GuidanceLine: ['#e0b100'],
+      // aerodrome mapping (AMXM) surfaces AIXM has no feature for
+      Water: ['#4a90c2', '#a9d0ee', 0.85], ServiceRoad: ['#a39478', '#e2d8c3', 0.85], RunwayShoulder: ['#8a949e', '#b8c0c7', 0.85], TaxiwayShoulder: ['#8a949e', '#c4cad0', 0.85],
+      Stopway: ['#1f2328', '#7b838b', 0.9], Blastpad: ['#1f2328', '#7b838b', 0.9], RunwayMarkingArea: ['#ffffff', '#ffffff', 0.95], FrequencyArea: ['#6a1b9a', '#ce93d8', 0.12],
+      ConstructionArea: ['#e65100', '#ffcc80', 0.5], ATCBlindSpot: ['#c62828', '#ef9a9a', 0.25], PaintedCenterline: ['#e0b100']
     };
-    ['RunwayProtectArea', 'Apron', 'ApronElement', 'AircraftStand', 'DeicingArea', 'Taxiway', 'TaxiwayElement', 'TouchDownLiftOff', 'RunwayElement', 'WorkArea', 'GuidanceLine'].forEach(function (k) {
+    ['Water', 'ServiceRoad', 'RunwayProtectArea', 'FrequencyArea', 'Apron', 'ApronElement', 'AircraftStand', 'DeicingArea', 'Taxiway', 'TaxiwayShoulder', 'TaxiwayElement', 'TouchDownLiftOff',
+      'RunwayShoulder', 'Stopway', 'Blastpad', 'RunwayElement', 'RunwayMarkingArea', 'WorkArea', 'ATCBlindSpot', 'GuidanceLine'].forEach(function (k) {
       var st = SURF_STYLE[k];
       each(k, function (r, ds) {
         var g = M.findGeo(r.cur.p, k === 'GuidanceLine' ? ['L'] : ['A'], 0);
@@ -1168,8 +1173,83 @@ var MAPVIEW = (function () {
         });
       }); });
     });
+    // terminal holdings (racetracks) and minimum sector altitudes of the aerodrome(s), with the procedures
+    list.forEach(function (ds) {
+      (ds.byType.HoldingPattern || []).forEach(function (h) {
+        var o = ds.owner.get(h);
+        if (s(h.cur.p.type) !== 'TER' || !o || (onlyAd && o !== onlyAd)) return;
+        var g = holdShape(ds, h, o);
+        if (!g) return;
+        var l = L.polyline(g.map(ll), { renderer: vec, color: '#00838f', weight: 2.2, opacity: 0.95 });
+        l.bindTooltip(esc(holdText(ds, h)), { sticky: true, opacity: 0.9 });
+        l.on('click', function (e) { openPopup(ds, h, e.latlng); });
+        grp.addLayer(l); n++;
+      });
+      (ds.byType.SafeAltitudeArea || []).forEach(function (a) {
+        var o = ds.owner.get(a);
+        if (!o || (onlyAd && o !== onlyAd)) return;
+        msaShapes(ds, a, o).forEach(function (sh) {
+          var l = L.polyline(sh.c.map(ll), { renderer: vec, color: '#6a1b9a', weight: 1.4, opacity: 0.85, dashArray: '6 4' });
+          l.bindTooltip(esc(sh.tip), { sticky: true, opacity: 0.9 });
+          l.on('click', function (e) { openPopup(ds, a, e.latlng); });
+          grp.addLayer(l);
+          if (sh.at) grp.addLayer(L.marker(ll(sh.at), { interactive: false, keyboard: false, icon: L.divIcon({ className: 'msa-alt', html: esc(sh.alt), iconSize: null }) }));
+        });
+        n++;
+      });
+    });
     grp.count = n;
     return grp;
+  }
+  // magnetic -> true (variation of the aerodrome; east positive)
+  function magToTrue(ad, deg) { var v = parseFloat(s(ad && ad.cur.p.magneticVariation)); return (deg + (isNaN(v) ? 0 : v) + 360) % 360; }
+  function holdText(ds, h) {
+    var p = h.cur.p, fix = M.segPointLabel(ds, arr(p.holdingPoint)[0]) || 'holding';
+    var span = p.outboundLegSpan_endTime ? M.fq(arr(p.outboundLegSpan_endTime)[0].duration) : p.outboundLegSpan_endDistance ? M.fq(arr(p.outboundLegSpan_endDistance)[0].length) : '';
+    return 'Holding ' + fix + ' · INBD ' + s(p.inboundCourse) + '° · ' + (s(p.turnDirection) || '').toLowerCase() + ' turns' + (span ? ' · ' + span : '') +
+      (M.fLimit(p.lowerLimit, p.lowerLimitReference) ? ' · ' + M.fLimit(p.lowerLimit, p.lowerLimitReference) + ' – ' + M.fLimit(p.upperLimit, p.upperLimitReference) : '') + (M.fq(p.speedLimit) ? ' · max ' + M.fq(p.speedLimit) : '');
+  }
+  // racetrack: inbound leg ending at the fix, rate-one turns (radius from the speed limit, 230 kt if none), outbound
+  // leg of the given time or distance on the turn side
+  function holdShape(ds, h, ad) {
+    var p = h.cur.p, fix = M.segPoint(ds, arr(p.holdingPoint)[0]), ib = parseFloat(s(arr(p.inboundCourse)[0] && arr(p.inboundCourse)[0].course !== undefined ? arr(p.inboundCourse)[0].course : p.inboundCourse));
+    if (!fix || isNaN(ib)) return null;
+    var th = /TRUE/.test(s(p.outboundCourseType)) ? ib : magToTrue(ad, ib), right = s(p.turnDirection) !== 'LEFT';
+    var kt = parseFloat(s(arr(p.speedLimit)[0] && arr(p.speedLimit)[0].v)) || 230, r = kt / 188.5;
+    var len = p.outboundLegSpan_endDistance ? AX.toNM(+s(arr(p.outboundLegSpan_endDistance)[0].length && arr(p.outboundLegSpan_endDistance)[0].length.v), s(arr(p.outboundLegSpan_endDistance)[0].length && arr(p.outboundLegSpan_endDistance)[0].length.u)) : 0;
+    if (!len) { var mins = parseFloat(s(p.outboundLegSpan_endTime && arr(p.outboundLegSpan_endTime)[0].duration && arr(p.outboundLegSpan_endTime)[0].duration.v)) || 1; len = kt * mins / 60; }
+    var side = right ? 90 : -90, dir = right ? 1 : -1;
+    var p1 = AX.dest(fix[0], fix[1], (th + 180) % 360, len), c1 = AX.dest(fix[0], fix[1], (th + side + 360) % 360, r), c2 = AX.dest(p1[0], p1[1], (th + side + 360) % 360, r);
+    var pts = [p1, fix];
+    for (var a = 0; a <= 180; a += 15) pts.push(AX.dest(c1[0], c1[1], (th - side + dir * a + 720) % 360, r));
+    for (var b = 0; b <= 180; b += 15) pts.push(AX.dest(c2[0], c2[1], (th + side + dir * b + 720) % 360, r));
+    pts.push(p1);
+    return pts;
+  }
+  // minimum sector altitude: outer arc and limiting radials of each sector, its altitude inside
+  function msaShapes(ds, a, ad) {
+    var p = a.cur.p, c = null;
+    for (var k in p) if (k.indexOf('centrePoint_') === 0) { var t = M.target(ds, arr(p[k])[0]); c = t ? M.pointOf(ds, t) : arr(p[k])[0] && arr(p[k])[0]._geo ? arr(p[k])[0]._geo.c : null; if (c) break; }
+    if (!c) return [];
+    var out = [];
+    arr(p.sector).forEach(function (sc) {
+      var cs = sc && arr(sc.sectorDefinition)[0];
+      if (!cs) return;
+      var R = M.fq(cs.outerDistance) ? AX.toNM(+s(arr(cs.outerDistance)[0].v), s(arr(cs.outerDistance)[0].u)) : 25;
+      var f = parseFloat(s(cs.fromAngle)), to = parseFloat(s(cs.toAngle)), full = isNaN(f) || isNaN(to) || f === to;
+      var rev = s(cs.angleDirectionReference) === 'TO' ? 180 : 0, mag = s(cs.angleType) !== 'TRUE';
+      var tf = full ? 0 : (mag ? magToTrue(ad, f) : f) + rev, tt = full ? 360 : (mag ? magToTrue(ad, to) : to) + rev;
+      var sweep = full ? 360 : ((tt - tf) % 360 + 360) % 360 || 360;
+      var ccw = s(cs.arcDirection) === 'CCA';
+      if (ccw && !full) { sweep = 360 - sweep; }
+      var pts = full ? [] : [c], step = sweep / Math.max(8, Math.round(sweep / 6));
+      for (var x = 0; x <= sweep + 1e-6; x += step) pts.push(AX.dest(c[0], c[1], (tf + (ccw ? -x : x) + 720) % 360, R));
+      if (!full) pts.push(c);
+      var alt = M.fLimit(cs.lowerLimit, cs.lowerLimitReference).replace(/ AMSL$/, '');
+      var mid = AX.dest(c[0], c[1], (tf + (ccw ? -1 : 1) * sweep / 2 + 720) % 360, R * 0.62);
+      out.push({ c: pts, alt: alt, at: alt ? mid : null, tip: (s(p.safeAreaType) || 'MSA') + ' ' + (full ? 'all sectors' : ('00' + Math.round(f)).slice(-3) + '°–' + ('00' + Math.round(to)).slice(-3) + '°' + (mag ? ' MAG' : '')) + ': ' + alt + ' within ' + R.toFixed(0) + ' NM' });
+    });
+    return out;
   }
   function showProcs(ds, ad, instant) {
     if (!map) return;
@@ -1182,7 +1262,7 @@ var MAPVIEW = (function () {
     var sel = document.getElementById('map-proc-ad'); if (sel) sel.value = ad ? recOpt(ds, ad) : '';
     applyLayers();
     var b = null;
-    over.procs.eachLayer(function (l) { var lb = l.getBounds(); b = b ? b.extend(lb) : L.latLngBounds(lb.getSouthWest(), lb.getNorthEast()); });
+    over.procs.eachLayer(function (l) { if (!l.getBounds) return; var lb = l.getBounds(); b = b ? b.extend(lb) : L.latLngBounds(lb.getSouthWest(), lb.getNorthEast()); });
     if (b && b.isValid()) map.fitBounds(b.pad(0.1), { maxZoom: 12, animate: !instant });
     else hooks.toast('No procedure legs with positions for this aerodrome.');
   }

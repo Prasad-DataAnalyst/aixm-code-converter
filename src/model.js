@@ -34,6 +34,8 @@ var MODEL = (function () {
     AircraftGroundService: ['radioCommunication'], FireFightingService: ['radioCommunication'], SearchRescueService: ['radioCommunication'],
     StandardInstrumentDeparture: ['flightTransition'], StandardInstrumentArrival: ['flightTransition'], InstrumentApproachProcedure: ['flightTransition'] };
   var EQUIPMENT = { VOR: 1, DME: 1, NDB: 1, TACAN: 1, MarkerBeacon: 1, Localizer: 1, Glidepath: 1, Azimuth: 1, Elevation: 1, SDF: 1, DirectionFinder: 1 };
+  var PROC_KIND = { StandardInstrumentDeparture: 1, StandardInstrumentArrival: 1, InstrumentApproachProcedure: 1 };
+  var LEG_KIND = ['DepartureLeg', 'ArrivalLeg', 'ArrivalFeederLeg', 'InitialLeg', 'IntermediateLeg', 'FinalLeg', 'MissedApproachLeg'];
   var SERVICE = { AirTrafficControlService: 1, InformationService: 1, GroundTrafficControlService: 1, SearchRescueService: 1, AirportSuppliesService: 1,
     AircraftGroundService: 1, PassengerService: 1, FireFightingService: 1, AirportClearanceService: 1, AirTrafficManagementService: 1, AirTrafficFlowManagementService: 1, Service: 1 };
 
@@ -82,8 +84,10 @@ var MODEL = (function () {
         ds.byId = byId;
         ds.gid = new Map();
         out.forEach(function (r) { if (r.gid) ds.gid.set(r.gid, r); });
-        // 3) AIXM 4.5 cross-feature links (airspace borders -> airspace, route segment points)
+        // 3) AIXM 4.5 cross-feature links (airspace borders -> airspace, route segment points); AMXM: the aerodromes,
+        // runways, runway directions, taxiways and aprons its features name
         if (ds.family === '45') link45(ds);
+        if (ds.family === 'amxm') linkAmxm(ds);
         // 4) curve index for xlink'ed curve members (border following)
         buildCurveIndex(ds);
       },
@@ -97,6 +101,68 @@ var MODEL = (function () {
         ds.tFinalize = Date.now() - t0;
       }
     ];
+  }
+  // AMXM (aerodrome mapping): features name their aerodrome (idarpt), runway (idrwy), threshold (idthr), taxiway
+  // (idlin) and apron (idapron) by code only. The AIXM features those codes stand for are added once (marked syn),
+  // each pointing at the first AMXM feature that names it, so that its AIXM code can be shown.
+  function linkAmxm(ds) {
+    var add = [], byId = ds.byId;
+    function sv(v) { v = Array.isArray(v) ? v[0] : v; return typeof v === 'string' ? v : v && v.v !== undefined ? String(v.v) : ''; }
+    function make(k, id, src, p) {
+      if (byId.has(id)) return byId.get(id);
+      var r = { k: k, id: id, syn: true, o: src.o, n: src.n, line: src.line, ts: [{ i: 'BASELINE', s: 1, c: 0, b: null, e: null, p: p, nth: 0, occ: 0 }] };
+      if (src.f) r.f = src.f;
+      byId.set(id, r); add.push(r);
+      return r;
+    }
+    var stands = new Map(), widths = new Map(), lengths = new Map();
+    ds.recs.forEach(function (r) {
+      var p = r.ts[0] && r.ts[0].p;
+      if (!p || !p._amxm) return;
+      var ad = sv(p.idarpt) || 'UNKNOWN', adId = AX.amxmId(ad, 'ad', '');
+      make('AirportHeliport', adId, r, { locationIndicatorICAO: ad, _amxm: 'aerodrome (named by idarpt)' });
+      if (p.associatedRunway) {
+        var rid = p.associatedRunway.ref, w = parseFloat(sv(p.width)), l = parseFloat(sv(p.length));
+        if (!isNaN(w)) widths.set(rid, Math.max(widths.get(rid) || 0, w));
+        if (!isNaN(l)) lengths.set(rid, Math.max(lengths.get(rid) || 0, l));
+        var rp = { designator: sv(p.idrwy), type: /FATO/.test(sv(p.type)) ? 'FATO' : 'RWY', _ad: { ref: adId }, _amxm: 'runway (named by idrwy)' };
+        make('Runway', rid, r, rp);
+      }
+      if (p.associatedTaxiway) make('Taxiway', p.associatedTaxiway.ref, r, { designator: sv(p.idlin), _ad: { ref: adId }, _amxm: 'taxiway (named by idlin)' });
+      if (p.connectedTaxiway) make('Taxiway', p.connectedTaxiway.ref, r, { designator: sv(p.idlin), _ad: { ref: adId }, _amxm: 'taxiway (named by idlin)' });
+      if (p.associatedApron) make('Apron', p.associatedApron.ref, r, { name: sv(p.idapron), designator: sv(p.idapron), _ad: { ref: adId }, _amxm: 'apron (named by idapron)' });
+      if (p._amxm === 'ParkingStandArea' || p._amxm === 'ParkingStandLocation') {
+        var sk = adId + '|' + sv(p.idstd), e = stands.get(sk) || {};
+        e[p._amxm === 'ParkingStandArea' ? 'area' : 'loc'] = r; stands.set(sk, e);
+      }
+    });
+    // runway directions: one per threshold, on the runway whose designator names it (e.g. 14L on "14L/32R")
+    ds.recs.forEach(function (r) {
+      var p = r.ts[0] && r.ts[0].p;
+      if (!p || p._amxm !== 'RunwayThreshold' || !p.onRunway) return;
+      var ad = sv(p.idarpt) || 'UNKNOWN', thr = sv(p.idthr), rwy = null;
+      byId.forEach(function (x) { if (!rwy && x.syn && x.k === 'Runway' && x.ts[0].p._ad.ref === AX.amxmId(ad, 'ad', '') && x.ts[0].p.designator.split(/[/-]/).map(function (d) { return d.trim(); }).indexOf(thr) >= 0) rwy = x; });
+      var dp = { designator: thr, _ad: { ref: AX.amxmId(ad, 'ad', '') }, _amxm: 'runway direction (named by idthr)' };
+      if (sv(p.brngtrue)) dp.trueBearing = sv(p.brngtrue);
+      if (sv(p.brngmag)) dp.magneticBearing = sv(p.brngmag);
+      if (rwy) dp.usedRunway = { ref: rwy.id };
+      make('RunwayDirection', p.onRunway.ref, r, dp);
+    });
+    widths.forEach(function (w, id) { var x = byId.get(id); if (x && x.syn) x.ts[0].p.nominalWidth = { v: String(w), u: 'M' }; });
+    lengths.forEach(function (l, id) { var x = byId.get(id); if (x && x.syn) x.ts[0].p.nominalLength = { v: String(l), u: 'M' }; });
+    // a stand given as an area and as a location: one stand, labelled at its location
+    var drop = new Set();
+    stands.forEach(function (e) {
+      if (!e.area || !e.loc) return;
+      var lp = e.loc.ts[0].p;
+      if (lp.location) e.area.ts[0].p.location = lp.location;
+      drop.add(e.loc);
+      byId.forEach(function (x, key) { if (x === e.loc) byId.delete(key); });
+    });
+    var list = ds.recs.filter(function (r) { return !drop.has(r); }).concat(add);
+    list.sort(function (a, b) { return (a.f || 0) - (b.f || 0) || a.o - b.o || (a.syn ? 1 : 0) - (b.syn ? 1 : 0); });
+    list.forEach(function (r, i) { r.i = i; });
+    ds.recs = list;
   }
   function occOf(r) { var o = { o: r.o, n: r.n, line: r.line }; if (r.f) o.f = r.f; return o; }
   function sameSlice(a, b) { return a.i === b.i && a.s === b.s && a.c === b.c && a.b === b.b && a.e === b.e; }
@@ -258,6 +324,37 @@ var MODEL = (function () {
       }
     });
     ds.owner = owner;
+    // instrument flight procedure data: minimum sector altitudes and terminal arrival areas belong to the aerodrome of
+    // the procedures that use them; a terminal holding to the aerodrome whose procedure legs use its fix, else (as an
+    // MSA) to the nearest aerodrome within 25 NM of it
+    var procOwner = function (x) { return (ds.rev.get(x) || []).map(function (u) { return owner.get(u[1]); }).filter(Boolean)[0] || null; };
+    var fixUse = new Map(); // fix -> aerodrome of a procedure leg using it
+    LEG_KIND.forEach(function (k) {
+      ds.recs.forEach(function (l) {
+        if (l.k !== k || l.cur.gone) return;
+        var o = owner.get(l);
+        if (o) l.refs.forEach(function (x) { if (/^(startPoint|endPoint)$/.test(x[0]) && !fixUse.has(x[1])) fixUse.set(x[1], o); });
+      });
+    });
+    var ads = ds.recs.filter(function (r) { return r.k === 'AirportHeliport' && !r.cur.gone; }).map(function (a) { return [a, pointOf(ds, a)]; }).filter(function (x) { return x[1]; });
+    function nearestAd(c) {
+      var best = null, bd = 25;
+      if (c) ads.forEach(function (x) { var d = AX.distNM(c, x[1]); if (d < bd) { bd = d; best = x[0]; } });
+      return best;
+    }
+    ds.recs.forEach(function (r) {
+      if (r.cur.gone || owner.has(r)) return;
+      var o = null;
+      if (r.k === 'SafeAltitudeArea' || r.k === 'TerminalArrivalArea') {
+        o = procOwner(r);
+        if (!o) for (var i = 0; !o && i < r.refs.length; i++) if (PROC_KIND[r.refs[i][1].k]) o = owner.get(r.refs[i][1]) || null; // TAA -> its approach
+        if (!o && r.k === 'SafeAltitudeArea') { var cp = r.refs.filter(function (x) { return /^centrePoint/.test(x[0]); })[0]; o = nearestAd(cp ? pointOf(ds, cp[1]) : null); }
+      } else if (r.k === 'HoldingPattern' && s(r.cur.p.type) === 'TER') {
+        var hp = r.refs.filter(function (x) { return x[0] === 'holdingPoint'; })[0];
+        o = (hp && fixUse.get(hp[1])) || procOwner(r) || nearestAd(hp ? pointOf(ds, hp[1]) : null);
+      }
+      if (o) owner.set(r, o);
+    });
     // withdrawn features are not listed with their aerodrome, but the change lists still name its AD section
     ds.goneOwner = new Map();
     ds.recs.forEach(function (r) {

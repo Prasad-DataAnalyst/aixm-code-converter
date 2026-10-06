@@ -308,6 +308,7 @@ pre.xml .ln.hl { background: var(--hl); }
 .traffic-frame { position: absolute; left: 0; top: 0; border: 0; background: transparent; transition: opacity .3s; }
 .map-traffic-note { position: absolute; right: 64px; bottom: 34px; z-index: 500; max-width: calc(100% - 24px); padding: 5px 10px; border-radius: 8px; background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 12px; }
 .map-traffic-note a { color: var(--brand); }
+.msa-alt { background: rgba(255,255,255,.88); color: #6a1b9a; border: 1px solid #6a1b9a; border-radius: 4px; padding: 0 4px; font: 700 11px/16px var(--font, sans-serif); white-space: nowrap; transform: translate(-50%, -50%); }
 .linkbtn { border: 0; background: none; padding: 0; font: inherit; color: var(--brand); text-decoration: underline; cursor: pointer; }
 /* a side panel: the aeronautical map stays in view on the left */
 .traffic-details { position: absolute; top: 12px; right: 12px; bottom: 12px; width: min(620px, calc(100% - 24px)); z-index: 1100; display: flex; flex-direction: column; overflow: hidden; padding: 0; box-shadow: 0 12px 40px rgba(0,0,0,.35); }

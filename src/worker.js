@@ -158,7 +158,7 @@
         var root = AX.parseXml(xml, nsHook);
         var node = root.c && root.c[0];
         if (node) {
-          rec = cfg.family === '45' ? AX.convFeature45(node, ctx, chg45) : AX.convFeature5(node, ctx);
+          rec = cfg.family === '45' ? AX.convFeature45(node, ctx, chg45) : cfg.family === 'amxm' ? AX.convFeatureAmxm(node, ctx) : AX.convFeature5(node, ctx);
         }
       } catch (err) {
         errors++;

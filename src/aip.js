@@ -687,8 +687,48 @@ var AIP = (function () {
     var hold = (ds.byType.HoldingPattern || []).filter(function (h) { return s(h.cur.p.type) === 'TER' && ds.owner.get(h) === ad; });
     if (procs.length) { blocks.push(procTable(ds, procs)); procs.slice().sort(byLabel(ds)).forEach(function (pr) { blocks = blocks.concat(procDetail(ds, pr)); }); }
     if (hold.length) blocks.push(holdTable(ds, hold));
+    var msa = owned(ds, ad, ['SafeAltitudeArea']), taa = owned(ds, ad, ['TerminalArrivalArea']);
+    if (msa.length) blocks.push(msaTable(ds, msa));
+    if (taa.length) blocks.push(taaTable(ds, taa));
     return blocks.length ? blocks : [note('NIL')];
   };
+  // minimum sector / emergency safe altitudes (SafeAltitudeArea) and terminal arrival areas: one row per sector
+  function centreOf(ds, p, pre) {
+    for (var k in p) if (k.indexOf(pre + '_') === 0) { var t = M.target(ds, arr(p[k])[0]); if (t) return M.label(ds, t); if (arr(p[k])[0] && arr(p[k])[0]._geo) return AX.fmtPos(arr(p[k])[0]._geo.c, 0); }
+    return '';
+  }
+  function sectorText(cs) {
+    if (!cs) return ['', '', ''];
+    var from = s(cs.fromAngle), to = s(cs.toAngle), at = s(cs.angleType), ad = s(cs.angleDirectionReference);
+    var pad = function (v) { return v === '' ? '' : ('00' + Math.round(+v) % 360).slice(-3); };
+    var sec = from !== '' && to !== '' && !(+from === +to) ? pad(from) + '° – ' + pad(to) + '°' + (at ? ' ' + at : '') + (ad ? ' (' + ad.toLowerCase() + ')' : '') : 'all directions';
+    var dist = join([M.fq(cs.innerDistance) && parseFloat(s(arr(cs.innerDistance)[0] && arr(cs.innerDistance)[0].v)) ? 'from ' + M.fq(cs.innerDistance) : '', M.fq(cs.outerDistance) ? 'to ' + M.fq(cs.outerDistance) : ''], ' ');
+    return [sec, dist, join([M.fLimit(cs.lowerLimit, cs.lowerLimitReference), M.fLimit(cs.upperLimit, cs.upperLimitReference) ? '(up to ' + M.fLimit(cs.upperLimit, cs.upperLimitReference) + ')' : ''], ' ')];
+  }
+  function msaTable(ds, list) {
+    var rows = [];
+    list.forEach(function (a) {
+      var p = a.cur.p, c = centreOf(ds, p, 'centrePoint'), secs = arr(p.sector).filter(function (x) { return x && x.nil === undefined; });
+      if (!secs.length) rows.push([C(s(p.safeAreaType) || 'MSA', a, 'safeAreaType'), C(c, a, 'centrePoint'), C(''), C(''), C('')]);
+      secs.forEach(function (sc, i) {
+        var t = sectorText(arr(sc.sectorDefinition)[0]);
+        rows.push([C(i ? '' : s(p.safeAreaType) || 'MSA', a, 'safeAreaType'), C(i ? '' : c, a, 'centrePoint'), C(t[0], a, 'sector'), C(t[1], a, 'sector'), C(t[2], a, 'sector')]);
+      });
+    });
+    return table('Minimum sector altitudes', ['Type', 'Centred on', 'Sector', 'Distance', 'Minimum altitude'], rows);
+  }
+  function taaTable(ds, list) {
+    var rows = [];
+    list.forEach(function (a) {
+      var p = a.cur.p, secs = arr(p.sector).filter(function (x) { return x && x.nil === undefined; }), head = [s(p.arrivalAreaType).replace(/_/g, ' '), join([centreOf(ds, p, 'IAF') ? 'IAF ' + centreOf(ds, p, 'IAF') : '', centreOf(ds, p, 'IF') ? 'IF ' + centreOf(ds, p, 'IF') : ''], ' · ')];
+      if (!secs.length) rows.push([C(head[0], a, 'arrivalAreaType'), C(head[1], a, 'IAF_fixDesignatedPoint'), C(''), C(''), C('')]);
+      secs.forEach(function (sc, i) {
+        var t = sectorText(arr(sc.sectorDefinition)[0]);
+        rows.push([C(i ? '' : head[0], a, 'arrivalAreaType'), C(i ? '' : head[1], a, 'IAF_fixDesignatedPoint'), C(t[0], a, 'sector'), C(t[1], a, 'sector'), C(join([t[2], s(sc.altitudeDescription)], ' '), a, 'sector')]);
+      });
+    });
+    return table('Terminal arrival areas (TAA)', ['Area', 'Fixes', 'Sector', 'Distance', 'Minimum altitude'], rows);
+  }
   AD2[23] = function (ds, ad) {
     var covered = new Set(rulesFor(ds, ad, /LOCAL|REGULATION|AERODROME|NOISE|FLIGHT_PROC|PROCEDURE|HOLDING|APPROACH|DEPARTURE/i));
     var rest = refsTo(ds, ad, ['RulesProcedures']).filter(function (r) { return !covered.has(r); });

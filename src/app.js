@@ -332,18 +332,25 @@
   }
   var VARIANT_WORD = /^(baseline|bl|diff|difference|differences|delta|deltas|permdelta|tempdelta|snapshot|supplementary|full|complete|changes?|updates?|incremental|inc)$/i;
   var DIFF_WORD = /^(diff|difference|differences|delta|deltas|permdelta|changes?|updates?|incremental|inc)$/i, featSets = {};
+  // digital data sets of one delivery (PANS-AIM): the AIP data set and the instrument flight procedure data set name
+  // each other's features (procedures -> waypoints, navaids, runways), so they are read as one data set
+  var KIND_WORD = /^(aip|ifp|ifpds|procedures?|proc|ds|dataset)$/i, SECOND_KIND = /^(ifp|ifpds|procedures?|proc)$/i;
   function nameParts(f) {
     var sn = f.sniff, v = sn.family + '|' + sn.version;
     var names = featSets[v] || (featSets[v] = new Set(featureNames(sn)));
-    var kept = [], typed = false, diff = false;
+    var kept = [], typed = false, diff = false, kind = '', second = false;
     f.name.replace(/\.(xml|aixm|gml)$/i, '').split(/[_\s.]+/).forEach(function (tk) {
       if (!tk) return;
       if (names.has(tk)) { typed = true; return; }
       var ws = tk.split('-');
-      if (ws.every(function (x) { return VARIANT_WORD.test(x); })) { if (ws.some(function (x) { return DIFF_WORD.test(x); })) diff = true; return; }
+      if (ws.every(function (x) { return VARIANT_WORD.test(x) || (sn.family === '5' && KIND_WORD.test(x)); })) {
+        if (ws.some(function (x) { return DIFF_WORD.test(x); })) diff = true;
+        ws.forEach(function (x) { if (sn.family === '5' && KIND_WORD.test(x) && !/^(ds|dataset)$/i.test(x)) { kind = kind || x.toLowerCase(); if (SECOND_KIND.test(x)) second = true; } });
+        return;
+      }
       kept.push(tk);
     });
-    return { typed: typed, kept: kept, diff: diff };
+    return { typed: typed, kept: kept, diff: diff, kind: kind, second: second };
   }
   // key of the delivery a file belongs to: listed in the same checksum list, or a name that differs from the others
   // only by feature type and variant (…_Runway_BASELINE_EFF… / …_VOR_DIFF_EFF…); "Combine" sets its own key
@@ -352,8 +359,17 @@
     if (f.manualSet) return f.manualSet;
     if (f.manifest) return 'm:' + f.manifest.uid;
     var p = nameParts(f);
-    if (!p.typed) return null;
-    return f.sniff.family + '|' + f.sniff.version + '|' + (p.kept.length ? p.kept.join('_').toLowerCase() : 'zip:' + (f.from || ''));
+    var key = f.sniff.family + '|' + f.sniff.version + '|' + (p.kept.length ? p.kept.join('_').toLowerCase() : 'zip:' + (f.from || ''));
+    if (p.typed) return key;
+    // an AIP data set file and the procedure (IFP) data set file of the same delivery (e.g. EA_AIP_DS_FULL_20261029 and
+    // EA_IFP_DS_FULL_20261029): one data set
+    if (!p.kind || !p.kept.length) return null;
+    var pair = S.files.some(function (x) {
+      if (x === f || !x.sniff || x.sniff.family !== f.sniff.family || x.manualSet || x.manifest) return false;
+      var q = nameParts(x);
+      return !q.typed && q.kind && (q.second || p.second) && q.second !== p.second && q.kept.join('_').toLowerCase() === p.kept.join('_').toLowerCase();
+    });
+    return pair ? key : null;
   }
   // the delivery (2 or more files) a file is read with, or null when it is read on its own
   function setOf(f) {
@@ -507,6 +523,7 @@
   var running = new Map(); // file id -> {workers, cancelled}
   function featureNames(sn) {
     if (sn.family === '45') return Object.keys(DICT.v45.features);
+    if (sn.family === 'amxm') return AX.AMXM_TYPES;
     var v = /^5\.2/.test(sn.version) ? '5.2' : sn.version === '5.1.1' ? '5.1.1' : '5.1';
     var fv = DICT.v5.featureVersions;
     return Object.keys(fv).filter(function (k) { return fv[k].indexOf(v) >= 0 || (v === '5.2' && fv[k].indexOf('5.1.1') >= 0 && !DICT.v5.objects[k]); });
@@ -2992,6 +3009,7 @@
       '<p><b>Effective dates.</b> The header shows the State, AIXM version, AIRAC cycle and effective date. Every row shows the effective date of its feature. Use <b>Latest data / Valid on date</b> (top bar) to see the data valid on any date (AIXM temporality: BASELINE, PERMDELTA, TEMPDELTA).</p>' +
       '<p><b>Changes.</b> <i>Changes</i> lists the time slices inside one file (what changes, where, when). <i>Compare</i> compares two files of the same State (e.g. two AIRAC cycles, any versions) and lists added / removed / modified data with old → new values; results can also be shown on the map.</p>' +
       '<p><b>AIRAC cycle changes.</b> Values that change in the selected AIRAC cycle are shown <span class="chg-badge">in red</span> on every AIP page; <b>List all changes</b> and <b>AMDT report</b> give the amendment (publication and effective dates, affected sections, insert/amend/delete). <b>⇆ Side by side</b> on any section shows before/after a cycle, or two files. <i>Timeline</i> shows the changes per AIRAC cycle and temporary changes; <i>NOTAM</i> shows Digital NOTAM events as ICAO NOTAM text.</p>' +
+      '<p><b>Digital data sets.</b> Besides the AIP data set the tool reads obstacle data sets, aerodrome mapping data sets (AIXM or AMXM 2.0, ED-99 / DO-272) and instrument flight procedure (IFP) data sets; an IFP file named like the AIP file of its delivery (…_IFP_DS_… beside …_AIP_DS_…) is read with it as one data set.</p>' +
       '<p><b>Map.</b> <b>Several data sets on one map</b>: with more than one loaded, tick those to show (e.g. Qatar, Saudi Arabia, UAE and China together), <i>only</i> for one, <i>Show all</i> for every one. <b>Search on the map</b> (box at the top left): airways, waypoints, navaids, aerodromes, runways, taxiways, aprons, stands, airspace, obstacles — also as you would say them, e.g. "twy C", "EADD stand 5", "airway UL123"; a pick zooms there and outlines it in magenta (Esc clears). A complete offline world map is built in. When the laptop is online you can switch to 14 free online maps that need no API key: street maps (Esri, OpenStreetMap), plain light/dark backgrounds, terrain and relief, ocean floor, satellite imagery (Esri, NASA) and the Earth at night. Instrument procedures can be drawn per aerodrome. <b>Airport view</b>: airport chart (runways to scale with markings, taxiway signs, stands, ILS) and an information card. <b>🗻 3D view</b>: terrain, airspace volumes, approach and departure crew views; <i>Grid MORA</i> and terrain elevation on the map. <b>⧉ New window</b> puts the map on a second screen. <b>Print map</b>: drag an area, choose A4/A3, legend, north arrow and grid.</p>' +
       '<p><b>Quality.</b> <b>Data issues are flagged in the AIP</b>: ⚠ counts on the sections, a box at the top of each section saying what is wrong, what was found and what is expected, and the values concerned underlined (the issue on hover). Basic checks, the official AIXM 5.1 business rules (SBVR) and their catalogue, the ICAO Annex 14 obstacle limitation surfaces (penetrations, also in 3D) and data integrity (PANS-AIM accuracy, CRC32Q fingerprints, verification against a saved CRC list). Instrument approaches in AD 2.22 show their vertical profile.</p>' +
       '<p><b>Library, links and languages.</b> Connect a folder with one sub-folder per State; extracted data is kept for instant reopening. ☆ saves views; the address (#…) of any view can be shared. The interface is available in English, العربية (right-to-left), Français and Español. Files over 1.5 GB use the Lite memory mode automatically.</p>' +

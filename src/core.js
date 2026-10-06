@@ -157,6 +157,17 @@ var AX = (function () {
       out.versionLabel = out.ofmx ? 'OFMX ' + (out.header.version || '') + ' (AIXM 4.5 based)' : 'AIXM ' + out.version;
       return out;
     }
+    // AMXM (aerodrome mapping, EUROCAE ED-99 / RTCA DO-272): its own namespace, features without time slices
+    var am5 = /xmlns(?::([\w.-]+))?\s*=\s*"https?:\/\/www\.amxm\.aero\/schema\/([\d.]+)\/?"/.exec(h);
+    if (am5) {
+      out.family = 'amxm';
+      out.aixmPrefixes = [am5[1] || ''];
+      out.version = am5[2];
+      out.versionLabel = 'AMXM ' + am5[2] + ' (aerodrome mapping)';
+      var gre = /xmlns(?::([\w.-]+))?\s*=\s*"([^"]+)"/g, gm;
+      while ((gm = gre.exec(h))) if (GML_NS_RE.test(gm[2]) && out.gmlPrefixes.indexOf(gm[1] || '') < 0) out.gmlPrefixes.push(gm[1] || '');
+      return out;
+    }
     // namespace declarations anywhere in the head (usually on the root)
     var nre = /xmlns(?::([\w.-]+))?\s*=\s*"([^"]+)"/g, nm, best = null;
     while ((nm = nre.exec(h))) {
@@ -558,6 +569,124 @@ var AX = (function () {
     }
     if (!rec.id) rec.id = gid ? '#' + gid : null;
     return rec;
+  }
+
+  /* ---------------------------------------------- AMXM (aerodrome mapping) */
+  // AMXM 2.0 features (EUROCAE ED-99 / RTCA DO-272 aerodrome mapping) become the AIXM 5.1 aerodrome features the
+  // tool draws (runway / taxiway / apron elements, stands, guidance lines, holding positions, hot spots, obstacles …),
+  // linked to their aerodrome by its ICAO code (idarpt). Their own AMXM attributes are kept as they are. Runways,
+  // runway directions, taxiways and aprons (named in AMXM only by idrwy / idthr / idlin / idapron) are added when the
+  // data set is built (MODEL). Types AIXM has no equivalent for keep their AMXM name.
+  var AMXM_TYPES = ['AerodromeReferencePoint', 'RunwayElement', 'RunwayIntersection', 'RunwayDisplacedArea', 'RunwayThreshold', 'RunwayMarking', 'RunwayShoulder',
+    'RunwayExitLine', 'RunwayCenterlinePoint', 'Stopway', 'Blastpad', 'FinalApproachAndTakeOffArea', 'TouchDownLiftOffArea', 'HelipadThreshold', 'TaxiwayElement',
+    'TaxiwayShoulder', 'TaxiwayGuidanceLine', 'TaxiwayHoldingPosition', 'TaxiwayIntersectionMarking', 'ApronElement', 'ParkingStandArea', 'ParkingStandLocation',
+    'StandGuidanceLine', 'PaintedCenterline', 'DeicingArea', 'DeicingGroup', 'Hotspot', 'ConstructionArea', 'ServiceRoad', 'Water', 'FrequencyArea', 'AerodromeSign',
+    'AerodromeSurfaceLighting', 'PositionMarking', 'VerticalPointStructure', 'VerticalLineStructure', 'VerticalPolygonalStructure', 'SurveyControlPoint',
+    'ArrestingGearLocation', 'ArrestingSystemLocation', 'LandAndHoldShortOperationLocation', 'ATCBlindSpot', 'BridgeSide', 'AsrnNode', 'AsrnEdge'];
+  var AM_UOM = { meters: 'M', metres: 'M', meter: 'M', feet: 'FT', foot: 'FT', degrees: 'DEG' };
+  function amTxt(v) { v = Array.isArray(v) ? v[0] : v; return typeof v === 'string' ? v.trim() : v && v.v !== undefined ? String(v.v).trim() : ''; }
+  function amId(ad, kind, key) { return ('amxm-' + kind + '-' + ad + '-' + key).toLowerCase().replace(/\s+/g, '_'); }
+  function amGeo(raw, t) { var g = raw.geopoly || raw.geoline || raw.geopnt; g = Array.isArray(g) ? g[0] : g; return g && g._geo ? { _t: t, _geo: g._geo } : undefined; }
+  function amUnits(o) {
+    for (var k in o) {
+      var v = o[k];
+      if (v && typeof v === 'object' && !Array.isArray(v) && v.v !== undefined && v.u) { var u = AM_UOM[String(v.u).toLowerCase()]; if (u) o[k] = { v: v.v, u: u }; }
+    }
+  }
+  var AM_KIND = { AerodromeReferencePoint: 'AirportHeliport', RunwayElement: 'RunwayElement', RunwayIntersection: 'RunwayElement', RunwayDisplacedArea: 'RunwayElement',
+    FinalApproachAndTakeOffArea: 'RunwayElement', RunwayThreshold: 'RunwayCentrelinePoint', TaxiwayElement: 'TaxiwayElement', ApronElement: 'ApronElement',
+    ParkingStandArea: 'AircraftStand', ParkingStandLocation: 'AircraftStand', TaxiwayGuidanceLine: 'GuidanceLine', StandGuidanceLine: 'GuidanceLine',
+    RunwayExitLine: 'GuidanceLine', PaintedCenterline: 'GuidanceLine', TaxiwayHoldingPosition: 'TaxiHoldingPosition', Hotspot: 'AirportHotSpot',
+    DeicingArea: 'DeicingArea', ConstructionArea: 'WorkArea', TouchDownLiftOffArea: 'TouchDownLiftOff', VerticalPointStructure: 'VerticalStructure',
+    VerticalLineStructure: 'VerticalStructure', VerticalPolygonalStructure: 'VerticalStructure', SurveyControlPoint: 'SurveyControlPoint', RunwayMarking: 'RunwayMarkingArea' };
+  function convFeatureAmxm(node, ctx) {
+    var T = node.n, raw = {}, gid = attr(node, 'id');
+    if (node.c) for (var i = 0; i < node.c.length; i++) {
+      var ch = node.c[i];
+      if (isGml(ch, ctx)) continue;
+      var v = convProp(ch, ctx, null);
+      if (v !== undefined) addProp(raw, ch.n, v);
+    }
+    amUnits(raw);
+    var ad = amTxt(raw.idarpt) || 'UNKNOWN', k = AM_KIND[T] || T, p = {}, key;
+    for (var a in raw) if (!/^geo(poly|line|pnt|und)$/.test(a)) p[a] = raw[a];
+    p._amxm = T;
+    p._ad = { ref: amId(ad, 'ad', '') };
+    var own = gid || amTxt(raw.idnumber), id = own ? 'amxm-' + T.toLowerCase() + '-' + own : null; // none: keyed by its place in the file
+    var area = amGeo(raw, 'ElevatedSurface'), line = amGeo(raw, 'ElevatedCurve'), pnt = amGeo(raw, 'ElevatedPoint');
+    switch (T) {
+      case 'AerodromeReferencePoint':
+        id = amId(ad, 'ad', ''); delete p._ad;
+        p.locationIndicatorICAO = ad; p.name = amTxt(raw.name) || undefined; p.designatorIATA = amTxt(raw.iata) || undefined;
+        if (pnt) { p.ARP = pnt; if (raw.elev && raw.elev.v !== undefined) p.ARP.elevation = raw.elev; }
+        if (raw.elev && raw.elev.v !== undefined) p.fieldElevation = raw.elev;
+        break;
+      case 'RunwayElement': case 'RunwayDisplacedArea': case 'FinalApproachAndTakeOffArea': case 'RunwayIntersection':
+        key = amTxt(raw.idrwy) || amTxt(raw.idthr);
+        p.extent = area;
+        p.type = T === 'RunwayIntersection' ? 'INTERSECTION' : T === 'FinalApproachAndTakeOffArea' ? 'OTHER:FATO' : T === 'RunwayDisplacedArea' ? 'OTHER:DISPLACED' : 'NORMAL';
+        if (amTxt(raw.idrwy) && T !== 'RunwayIntersection') p.associatedRunway = { ref: amId(ad, 'rwy', amTxt(raw.idrwy)) };
+        break;
+      case 'RunwayThreshold': case 'HelipadThreshold':
+        key = amTxt(raw.idthr);
+        if (T === 'RunwayThreshold') { id = amId(ad, 'thr', key); p.role = /disp/i.test(amTxt(raw.thrtype)) || amTxt(raw.thrtype) === '2' ? 'DISTHR' : 'THR'; p.onRunway = { ref: amId(ad, 'rdn', key) }; }
+        if (pnt) { p.location = pnt; if (raw.elev && raw.elev.v !== undefined) p.location.elevation = raw.elev; }
+        p.associatedDeclaredDistance = ['tora', 'toda', 'asda', 'lda'].filter(function (d) { return raw[d] && raw[d].v !== undefined; })
+          .map(function (d) { return { _t: 'RunwayDeclaredDistance', type: d.toUpperCase(), declaredValue: { _t: 'RunwayDeclaredDistanceValue', distance: raw[d] } }; });
+        if (!p.associatedDeclaredDistance.length) delete p.associatedDeclaredDistance;
+        break;
+      case 'TaxiwayElement':
+        p.extent = area;
+        if (amTxt(raw.idlin)) p.associatedTaxiway = { ref: amId(ad, 'twy', amTxt(raw.idlin)) };
+        break;
+      case 'ApronElement':
+        p.extent = area;
+        if (amTxt(raw.idapron)) p.associatedApron = { ref: amId(ad, 'apn', amTxt(raw.idapron)) };
+        break;
+      case 'ParkingStandArea': case 'ParkingStandLocation':
+        p.designator = amTxt(raw.idstd) || undefined;
+        if (area) p.extent = area;
+        if (pnt) p.location = pnt;
+        if (T === 'ParkingStandArea') id = amId(ad, 'std', amTxt(raw.idstd) || id);
+        break;
+      case 'TaxiwayGuidanceLine': case 'StandGuidanceLine': case 'RunwayExitLine': case 'PaintedCenterline':
+        p.designator = amTxt(raw.idlin) || amTxt(raw.idstd) || undefined;
+        p.type = { TaxiwayGuidanceLine: 'TWY', StandGuidanceLine: 'OTHER:STAND', RunwayExitLine: 'OTHER:RWY_EXIT', PaintedCenterline: 'OTHER:PAINTED' }[T];
+        p.extent = line;
+        if (T === 'TaxiwayGuidanceLine' && p.designator) p.connectedTaxiway = { ref: amId(ad, 'twy', p.designator) };
+        break;
+      case 'TaxiwayHoldingPosition': {
+        var lg = line && line._geo;
+        if (lg && lg.c && lg.c.length) {
+          var c0 = lg.c[0], c1 = lg.c[lg.c.length - 1];
+          p.location = { _t: 'ElevatedPoint', _geo: { t: 'P', c: [(c0[0] + c1[0]) / 2, (c0[1] + c1[1]) / 2] } };
+        }
+        p.extent = line;
+        p.landingCategory = amTxt(raw.catstop) ? 'OTHER:' + amTxt(raw.catstop) : undefined;
+        break;
+      }
+      case 'Hotspot':
+        p.designator = amTxt(raw.idhot) || undefined; p.area = area;
+        break;
+      case 'DeicingArea': case 'ConstructionArea': case 'TouchDownLiftOffArea':
+        p.extent = area; if (T === 'TouchDownLiftOffArea') p.designator = amTxt(raw.idrwy) || undefined;
+        break;
+      case 'VerticalPointStructure': case 'VerticalLineStructure': case 'VerticalPolygonalStructure': {
+        var g = pnt || line || area, h = raw.height;
+        if (g && raw.elev && raw.elev.v !== undefined) g.elevation = raw.elev;
+        p.name = amTxt(raw.ident) || undefined;
+        p.type = 'OTHER:' + (amTxt(raw.pntsttyp) || amTxt(raw.plysttyp) || amTxt(raw.lnsttyp) || 'STRUCTURE');
+        var part = { _t: 'VerticalStructurePart' };
+        if (pnt) part.horizontalProjection_location = g; else if (line) part.horizontalProjection_linearExtent = g; else if (area) part.horizontalProjection_surfaceExtent = g;
+        if (h && h.v !== undefined) part.verticalExtent = h;
+        p.part = part;
+        break;
+      }
+      default:
+        if (area) p.extent = area; else if (line) p.extent = line; else if (pnt) p.location = pnt;
+    }
+    for (var q in p) if (p[q] === undefined) delete p[q];
+    return { k: k, id: id, gid: gid || undefined, ts: [{ i: 'BASELINE', s: 1, c: 0, b: amTxt(raw.revdate) || null, e: null, p: p }] };
   }
 
   /* ------------------------------------------------------ AIXM 4.5 conversion */
@@ -1234,7 +1363,7 @@ var AX = (function () {
   return {
     arr: arr, first: first, hash: hash, decodeEnt: decodeEnt,
     parseXml: parseXml, textOf: textOf, attr: attr, child: child, desc: desc,
-    sniff: sniff, convFeature5: convFeature5, convFeature45: convFeature45, uidKey: uidKey,
+    sniff: sniff, convFeature5: convFeature5, convFeature45: convFeature45, convFeatureAmxm: convFeatureAmxm, AMXM_TYPES: AMXM_TYPES, amxmId: amId, uidKey: uidKey,
     parse45Coord: parse45Coord, dms: dms, fmtPos: fmtPos, toNM: toNM, dest: dest, distNM: distNM, bearing: bearing,
     arcPts: arcPts, circlePts: circlePts, resolve: resolve, mergeProps: mergeProps, tms: tms, flatten: flatten, fingerprint: fingerprint, diffFlat: diffFlat,
     valStr: valStr, geoSig: geoSig, airac: airac, stateFromICAO: stateFromICAO, icaoPrefixOf: icaoPrefixOf, normRef: normRef,
