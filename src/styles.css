@@ -456,6 +456,33 @@ pre.xml .ln.hl { background: var(--hl); }
 .src.chg-soft { box-shadow: inset 0 -2px 0 #c62828; }
 tr.chg-row > td:first-child { box-shadow: inset 4px 0 0 #c62828; }
 .tree .cbadge { background: #c62828; color: #fff; border-radius: 9px; font-size: 10.5px; font-weight: 700; padding: 0 6px; margin-left: 4px; flex: none; }
+.tree .qbadge { background: var(--warn-soft); color: var(--warn); border: 1px solid currentColor; border-radius: 9px; font-size: 10.5px; font-weight: 700; padding: 0 5px; margin-left: 4px; flex: none; }
+.tree .qbadge.q-err { background: var(--err-soft); color: var(--err); }
+/* data issues */
+.q-chip { display: inline-block; border-radius: 9px; padding: 0 7px; font-size: 11.5px; font-weight: 600; border: 1px solid currentColor; background: transparent; white-space: nowrap; }
+button.q-chip { cursor: pointer; font: inherit; font-size: 11.5px; font-weight: 600; line-height: 20px; }
+.q-chip.on { box-shadow: inset 0 0 0 2px currentColor; }
+.q-err { color: var(--err); background-color: var(--err-soft); }
+.q-warn { color: var(--warn); background-color: var(--warn-soft); }
+.q-info { color: var(--info); background-color: var(--info-soft); }
+.q-box { margin: 0 0 14px; border: 1px solid var(--border); border-left: 4px solid var(--warn); border-radius: 8px; background: var(--surface); padding: 8px 12px; }
+.q-box summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.q-box .q-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 6px 0; font-size: 12.5px; }
+.q-box .q-tools a { color: var(--brand); }
+.q-box.q-ok { border-left-color: var(--ok); color: var(--ok); }
+.q-box.q-ok a { color: var(--brand); }
+.q-box.q-wait { border-left-color: var(--border-strong); color: var(--muted); }
+.q-table td.q-det { font-size: 12px; color: var(--text); max-width: 460px; }
+.q-rules { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0; }
+.q-rules a { color: var(--brand); font-size: 12.5px; }
+.src.qflag { text-decoration: underline dotted; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.src.qflag.q-err { text-decoration-color: var(--err); background-color: transparent; }
+.src.qflag.q-warn { text-decoration-color: var(--warn); background-color: transparent; }
+.src.qflag .qmark { font-size: 11px; margin-right: 2px; }
+.src.qflag.q-err .qmark { color: var(--err); }
+.src.qflag.q-warn .qmark { color: var(--warn); }
+tr.q-row-err > td:last-child { box-shadow: inset -4px 0 0 var(--err); }
+tr.q-row-warn > td:last-child { box-shadow: inset -4px 0 0 var(--warn); }
 .cycle-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: #fdeaea; border: 1px solid #f3b8b8; color: #7a1010; margin-top: 8px; font-size: 13px; }
 :root[data-theme="dark"] .cycle-bar { background: #3a1616; border-color: #6b2626; color: #ffc9c9; }
 .cycle-bar select { height: 28px; border-radius: 7px; border: 1px solid #e4a3a3; background: #fff; color: #14202e; }

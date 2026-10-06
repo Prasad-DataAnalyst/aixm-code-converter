@@ -177,10 +177,25 @@ var ANALYSIS = (function () {
   /* ------------------------------------------------------------- quality */
   var FREQ_RANGES = { VOR: [108, 117.975, 'MHZ'], Localizer: [108.1, 111.975, 'MHZ'], Glidepath: [328.6, 335.4, 'MHZ'], NDB: [190, 1750, 'KHZ'] };
   function toMHz(q) { if (!q || q.v === undefined) return NaN; var v = parseFloat(q.v), u = String(q.u || '').toUpperCase(); return u === 'KHZ' ? v / 1000 : u === 'GHZ' ? v * 1000 : v; }
+  // plausible ranges (beyond them a value is almost certainly a coding error)
+  var ELEV_FT = [-1400, 15000], RWY_M = [50, 6000], NEAR_AD_NM = { RunwayDirection: 10, Runway: 10, RunwayCentrelinePoint: 10, TouchDownLiftOff: 10, Taxiway: 10, Apron: 10, AircraftStand: 10, Localizer: 15, Glidepath: 15, MarkerBeacon: 15 };
+  function num(q) { q = Array.isArray(q) ? q[0] : q; var v = q && typeof q === 'object' ? q.v : q; v = parseFloat(v); return isFinite(v) ? v : NaN; }
+  function unit(q) { q = Array.isArray(q) ? q[0] : q; return q && typeof q === 'object' ? String(q.u || '').toUpperCase() : ''; }
+  // a vertical limit in feet with what it is measured from (FL: standard pressure), or null (GND, UNL, …)
+  function limitFt(q, ref) {
+    var v = num(q), u = unit(q);
+    if (isNaN(v)) return null;
+    if (u === 'FL') return { ft: v * 100, ref: 'STD' };
+    return { ft: u === 'M' ? v / 0.3048 : v, ref: s(ref) || 'MSL' };
+  }
+  function pos(c) { return AX.fmtPos(c, 0); }
+  // Issues: {sev: error|warning|info, rule, msg, rec, p: property it is about (or none), detail: what was found and
+  // what is expected}. The AIP view marks the values and sections they concern.
   async function quality(ds, onProgress) {
     var issues = [];
-    function add(sev, rule, msg, r) { issues.push({ sev: sev, rule: rule, msg: msg, rec: r }); }
-    (ds.parseErrors || []).forEach(function (e) { add('error', 'Parsing', 'Could not parse the XML fragment at byte ' + e.o + ': ' + e.err, e); });
+    function add(sev, rule, msg, r, prop, detail) { issues.push({ sev: sev, rule: rule, msg: msg, rec: r, p: prop || null, detail: detail || '' }); }
+    var icao = new Map(), dpts = new Map();
+    (ds.parseErrors || []).forEach(function (e) { add('error', 'Parsing', 'Could not parse the XML fragment at byte ' + e.o + ': ' + e.err, e, null, 'The XML of this feature is not well-formed, so it is left out. Open the file at that byte to see the broken element.'); });
     var unresolved = new Map();
     var D = M.dict();
     for (var i = 0; i < ds.recs.length; i++) {
@@ -189,20 +204,34 @@ var ANALYSIS = (function () {
       M.eachRef(p, function (ref, prop) {
         if (!M.target(ds, ref)) { var k = r.k + '.' + prop; unresolved.set(k, (unresolved.get(k) || []).concat([r])); }
       }, '', 0);
-      // coordinates
-      (function walk(v, depth) {
+      // coordinates (top: the feature property they are in)
+      var zero = false;
+      (function walk(v, depth, top) {
         if (!v || typeof v !== 'object' || depth > 8) return;
-        if (Array.isArray(v)) { v.forEach(function (x) { walk(x, depth + 1); }); return; }
+        if (Array.isArray(v)) { v.forEach(function (x) { walk(x, depth + 1, top); }); return; }
         if (v._geo) {
           var g = v._geo, pts = g.t === 'P' ? [g.c] : g.t === 'L' ? g.c : g.c[0];
-          if (pts.some(function (c) { return typeof c[0] === 'number' && (Math.abs(c[1]) > 90 || Math.abs(c[0]) > 180 || isNaN(c[0]) || isNaN(c[1])); })) add('error', 'Coordinates', 'Coordinate outside the valid range', r);
+          var bad = pts.filter(function (c) { return typeof c[0] === 'number' && (Math.abs(c[1]) > 90 || Math.abs(c[0]) > 180 || isNaN(c[0]) || isNaN(c[1])); });
+          var nul = pts.filter(function (c) { return c[0] === 0 && c[1] === 0; });
+          if (bad.length) add('error', 'Coordinates', 'Coordinate outside the valid range', r, top, 'Found ' + bad[0][1] + ', ' + bad[0][0] + ' (latitude, longitude). Latitude must be within ±90°, longitude within ±180°.');
+          if (nul.length && !zero) { zero = true; add('error', 'Position', 'Position 0°N 0°E — a placeholder, not a real position', r, top, (g.t === 'P' ? 'The position is' : nul.length + ' of the ' + pts.length + ' points are') + ' exactly 0° latitude, 0° longitude (in the Gulf of Guinea). The real coordinates are missing in the data; the feature is drawn there on the map.'); }
           if (g.t === 'A' && g.c[0].length > 3) {
             var a = g.c[0][0], b = g.c[0][g.c[0].length - 1];
-            if (typeof a[0] === 'number' && typeof b[0] === 'number' && (Math.abs(a[0] - b[0]) > 1e-7 || Math.abs(a[1] - b[1]) > 1e-7)) add('info', 'Geometry', 'Polygon ring is not closed (first and last point differ)', r);
+            if (typeof a[0] === 'number' && typeof b[0] === 'number' && (Math.abs(a[0] - b[0]) > 1e-7 || Math.abs(a[1] - b[1]) > 1e-7)) add('info', 'Geometry', 'Polygon ring is not closed (first and last point differ)', r, top, 'First point ' + pos(a) + ', last point ' + pos(b) + '. A GML polygon ring ends on its first point.');
           }
         }
-        for (var k in v) if (k !== '_geo' && v[k] && typeof v[k] === 'object') walk(v[k], depth + 1);
-      })(p, 0);
+        for (var k in v) if (k !== '_geo' && v[k] && typeof v[k] === 'object') walk(v[k], depth + 1, depth ? top : k);
+      })(p, 0, null);
+      // aerodrome parts far from their aerodrome
+      var own = NEAR_AD_NM[r.k] && !zero ? ds.owner.get(r) : null;
+      if (own) {
+        var pt = M.pointOf(ds, r), arp = M.pointOf(ds, own);
+        if (pt && arp && !(arp[0] === 0 && arp[1] === 0) && !(pt[0] === 0 && pt[1] === 0)) { // 0°N 0°E: reported where it is coded
+          var dnm = AX.distNM(arp, pt);
+          if (dnm > NEAR_AD_NM[r.k]) add('warning', 'Position', M.typeName(r) + ' ' + Math.round(dnm).toLocaleString('en-US') + ' NM from its aerodrome ' + M.shortName(own), r, null,
+            'Position ' + pos(pt) + '; aerodrome reference point ' + pos(arp) + '. Parts of an aerodrome are expected within ' + NEAR_AD_NM[r.k] + ' NM of it: the position, or the aerodrome it belongs to, is probably wrong.');
+        }
+      }
       // code lists
       if (D && r.k.indexOf('45:') !== 0) {
         var fd = D.v5.features[r.k];
@@ -211,58 +240,94 @@ var ANALYSIS = (function () {
           if (!pd || typeof v !== 'string' || !D.v5.codes[pd.t]) continue;
           var cl = D.v5.codes[pd.t].v;
           if (!Object.keys(cl).length) continue; // pattern / numeric types (designators, RNP values) have no enumeration
-          if (!(v in cl) && v.indexOf('OTHER') !== 0) add('warning', 'Code list', 'Value "' + v + '" of ' + pk + ' is not in ' + pd.t, r);
+          if (!(v in cl) && v.indexOf('OTHER') !== 0) add('warning', 'Code list', 'Value "' + v + '" of ' + pk + ' is not in ' + pd.t, r, pk, 'Allowed: ' + Object.keys(cl).slice(0, 12).join(', ') + (Object.keys(cl).length > 12 ? ' … (' + Object.keys(cl).length + ' values)' : '') + ', or OTHER:… for a value not in the list.');
         }
       }
       // mandatory AIP information
       switch (r.k) {
-        case 'AirportHeliport':
-          if (!p.ARP) add('warning', 'AD 2.2', 'Aerodrome without ARP coordinates', r);
-          if (!s(p.locationIndicatorICAO) && !s(p.designator)) add('warning', 'AD 2.1', 'Aerodrome without location indicator', r);
-          if (!p.fieldElevation) add('warning', 'AD 2.2', 'Aerodrome without field elevation', r);
+        case 'AirportHeliport': {
+          if (!p.ARP) add('warning', 'AD 2.2', 'Aerodrome without ARP coordinates', r, 'ARP', 'AD 2.2 needs the aerodrome reference point (ARP).');
+          if (!s(p.locationIndicatorICAO) && !s(p.designator)) add('warning', 'AD 2.1', 'Aerodrome without location indicator', r, 'locationIndicatorICAO', 'Neither locationIndicatorICAO nor designator is given. AD 2.1 names the aerodrome by its ICAO location indicator.');
+          if (!s(p.name)) add('info', 'AD 2.1', 'Aerodrome without name', r, 'name', 'No name is given. AD 2.1 shows the location indicator and the name.');
+          if (!p.fieldElevation) add('warning', 'AD 2.2', 'Aerodrome without field elevation', r, 'fieldElevation', 'No fieldElevation is given. AD 2.2 item 3 needs the aerodrome elevation; NIL is printed instead.');
+          else {
+            var fe = num(p.fieldElevation), feFt = unit(p.fieldElevation) === 'M' ? fe / 0.3048 : fe;
+            if (!isNaN(feFt) && (feFt < ELEV_FT[0] || feFt > ELEV_FT[1])) add('warning', 'AD 2.2', 'Implausible field elevation ' + M.fq(p.fieldElevation), r, 'fieldElevation', 'Found ' + M.fq(p.fieldElevation) + ' (' + Math.round(feFt).toLocaleString('en-US') + ' ft). Aerodromes lie between ' + ELEV_FT[0].toLocaleString('en-US') + ' and ' + ELEV_FT[1].toLocaleString('en-US') + ' ft: probably a wrong unit or value.');
+          }
+          var code = s(p.locationIndicatorICAO);
+          if (code) icao.set(code, (icao.get(code) || []).concat([r]));
           break;
-        case 'Runway':
-          if (!p.nominalLength) add('warning', 'AD 2.12', 'Runway without length', r);
-          if (!ds.owner.get(r)) add('warning', 'AD 2.12', 'Runway not linked to an aerodrome', r);
+        }
+        case 'Runway': {
+          if (!p.nominalLength) add('warning', 'AD 2.12', 'Runway without length', r, 'nominalLength', 'No nominalLength is given. AD 2.12 lists the dimensions of every runway.');
+          else if (s(p.type) !== 'FATO') { // a helicopter FATO may be a few tens of metres
+            var ln = num(p.nominalLength), lu = unit(p.nominalLength), lm = lu === 'FT' ? ln * 0.3048 : lu === 'KM' ? ln * 1000 : ln;
+            if (!isNaN(lm) && (lm < RWY_M[0] || lm > RWY_M[1])) add('warning', 'AD 2.12', 'Implausible runway length ' + M.fq(p.nominalLength), r, 'nominalLength', 'Found ' + M.fq(p.nominalLength) + ' (' + Math.round(lm).toLocaleString('en-US') + ' m). Runways are ' + RWY_M[0] + ' to ' + RWY_M[1].toLocaleString('en-US') + ' m long: probably a wrong unit or value.');
+          }
+          if (!ds.owner.get(r)) add('warning', 'AD 2.12', 'Runway not linked to an aerodrome', r, 'associatedAirportHeliport', 'associatedAirportHeliport is missing or names an aerodrome that is not in the data, so the runway appears under no aerodrome.');
           break;
+        }
         case 'RunwayDirection':
-          if (!s(p.trueBearing)) add('info', 'AD 2.12', 'Runway direction without true bearing', r);
+          if (!s(p.trueBearing)) add('info', 'AD 2.12', 'Runway direction without true bearing', r, 'trueBearing', 'No trueBearing is given. AD 2.12 lists the true bearing of each runway direction.');
           break;
         case 'Airspace':
-          if (!M.geometry(ds, r) && !(arr(p.geometryComponent).some(function (g) { return g && g.theAirspaceVolume && g.theAirspaceVolume.contributorAirspace; }))) add('warning', 'ENR 2', 'Airspace without horizontal geometry', r);
-          if (!AIP.vertical(ds, r)) add('info', 'ENR 2', 'Airspace without vertical limits', r);
+          if (!M.geometry(ds, r) && !(arr(p.geometryComponent).some(function (g) { return g && g.theAirspaceVolume && g.theAirspaceVolume.contributorAirspace; }))) add('warning', 'ENR 2', 'Airspace without horizontal geometry', r, 'geometryComponent', 'No horizontalProjection (and no airspace it is built from). The airspace cannot be drawn or described laterally.');
+          if (!AIP.vertical(ds, r)) add('info', 'ENR 2', 'Airspace without vertical limits', r, 'geometryComponent', 'No upperLimit / lowerLimit in any airspace volume. ENR 2 gives the vertical limits of each airspace.');
+          arr(p.geometryComponent).forEach(function (gc) {
+            var vol = gc && gc.theAirspaceVolume;
+            if (!vol) return;
+            var up = limitFt(vol.upperLimit, vol.upperLimitReference), lo = limitFt(vol.lowerLimit, vol.lowerLimitReference);
+            if (up && lo && up.ref === lo.ref && lo.ft > up.ft) add('error', 'ENR 2', 'Lower limit above the upper limit', r, 'geometryComponent', 'Upper ' + M.fLimit(vol.upperLimit, vol.upperLimitReference) + ', lower ' + M.fLimit(vol.lowerLimit, vol.lowerLimitReference) + '. The lower limit must be below the upper limit: they are probably swapped.');
+          });
           break;
-        case 'RouteSegment':
-          if (!p.start || !p.end) add('error', 'ENR 3', 'Route segment without start or end point', r);
-          else if (!M.segPoint(ds, arr(p.start)[0]) || !M.segPoint(ds, arr(p.end)[0])) add('warning', 'ENR 3', 'Route segment point cannot be located', r);
+        case 'RouteSegment': {
+          var su = limitFt(p.upperLimit, p.upperLimitReference), sl = limitFt(p.lowerLimit, p.lowerLimitReference);
+          if (su && sl && su.ref === sl.ref && sl.ft > su.ft) add('error', 'ENR 3', 'Lower limit above the upper limit', r, 'lowerLimit', 'Upper ' + M.fLimit(p.upperLimit, p.upperLimitReference) + ', lower ' + M.fLimit(p.lowerLimit, p.lowerLimitReference) + '. The lower limit must be below the upper limit: they are probably swapped.');
+          if (!p.start || !p.end) add('error', 'ENR 3', 'Route segment without start or end point', r, p.start ? 'end' : 'start', 'A route segment runs from its start point to its end point; ' + (p.start ? 'end' : 'start') + ' is missing.');
+          else if (!M.segPoint(ds, arr(p.start)[0]) || !M.segPoint(ds, arr(p.end)[0])) add('warning', 'ENR 3', 'Route segment point cannot be located', r, M.segPoint(ds, arr(p.start)[0]) ? 'end' : 'start', 'The point it names is not in the data, or has no position.');
           break;
+        }
         case 'VOR': case 'Localizer': case 'Glidepath': case 'NDB': {
           var rg = FREQ_RANGES[r.k], f = toMHz(arr(p.frequency)[0]);
-          if (rg && !isNaN(f)) { var lo = rg[2] === 'KHZ' ? rg[0] / 1000 : rg[0], hi = rg[2] === 'KHZ' ? rg[1] / 1000 : rg[1]; if (f < lo - 1e-9 || f > hi + 1e-9) add('warning', 'Frequency', r.k + ' frequency ' + M.fq(arr(p.frequency)[0]) + ' outside ' + rg[0] + '–' + rg[1] + ' ' + rg[2], r); }
-          if (!p.location) add('warning', 'ENR 4.1', r.k + ' without position', r);
+          if (rg && !isNaN(f)) { var lo = rg[2] === 'KHZ' ? rg[0] / 1000 : rg[0], hi = rg[2] === 'KHZ' ? rg[1] / 1000 : rg[1]; if (f < lo - 1e-9 || f > hi + 1e-9) add('warning', 'Frequency', r.k + ' frequency ' + M.fq(arr(p.frequency)[0]) + ' outside ' + rg[0] + '–' + rg[1] + ' ' + rg[2], r, 'frequency', 'Found ' + M.fq(arr(p.frequency)[0]) + '. ICAO Annex 10 assigns ' + r.k + ' frequencies between ' + rg[0] + ' and ' + rg[1] + ' ' + rg[2] + ': probably a wrong value or unit.'); }
+          if (!p.location && !M.pointOf(ds, r)) add('warning', 'ENR 4.1', r.k + ' without position', r, 'location', 'No position of its own and none from a navaid it belongs to.');
           break;
         }
         case 'DesignatedPoint':
-          if (!p.location) add('warning', 'ENR 4.4', 'Designated point without coordinates', r);
-          if (s(p.type) === 'ICAO' && s(p.designator) && !/^[A-Z]{5}$/.test(s(p.designator))) add('info', 'ENR 4.4', 'ICAO name-code designator should be 5 letters: ' + s(p.designator), r);
+          if (!p.location) add('warning', 'ENR 4.4', 'Designated point without coordinates', r, 'location', 'No location is given. ENR 4.4 lists the coordinates of every significant point.');
+          if (s(p.designator) && !zero) dpts.set(s(p.designator), (dpts.get(s(p.designator)) || []).concat([r]));
+          if (s(p.type) === 'ICAO' && s(p.designator) && !/^[A-Z]{5}$/.test(s(p.designator))) add('info', 'ENR 4.4', 'ICAO name-code designator should be 5 letters: ' + s(p.designator), r, 'designator', 'Found "' + s(p.designator) + '". ICAO Annex 11 Appendix 2: a name-code designator has five letters.');
           break;
         case 'VerticalStructure':
-          if (!M.pointOf(ds, r)) add('warning', 'ENR 5.4', 'Obstacle without position', r);
+          if (!M.pointOf(ds, r)) add('warning', 'ENR 5.4', 'Obstacle without position', r, 'part', 'No part of the obstacle has a position. ENR 5.4 and AD 2.10 list the position of every obstacle.');
           break;
       }
-      ['trueBearing', 'magneticBearing'].forEach(function (b) { var bv = parseFloat(s(p[b])); if (s(p[b]) && (isNaN(bv) || bv < 0 || bv > 360)) add('error', 'Bearing', b + ' outside 0–360: ' + s(p[b]), r); });
+      ['trueBearing', 'magneticBearing'].forEach(function (b) { var bv = parseFloat(s(p[b])); if (s(p[b]) && (isNaN(bv) || bv < 0 || bv > 360)) add('error', 'Bearing', b + ' outside 0–360: ' + s(p[b]), r, b, 'Found ' + s(p[b]) + '. A bearing is between 0 and 360 degrees.'); });
       // temporality
       var bl = r.ts.filter(function (t) { return t.i === 'BASELINE'; });
       for (var a1 = 0; a1 < bl.length; a1++) for (var a2 = a1 + 1; a2 < bl.length; a2++) {
         var x = bl[a1], y = bl[a2];
-        if (x.s === y.s && x.c === y.c) add('error', 'Temporality', 'Two BASELINE time slices with the same sequence/correction number ' + x.s + '/' + x.c, r);
+        if (x.s === y.s && x.c === y.c) add('error', 'Temporality', 'Two BASELINE time slices with the same sequence/correction number ' + x.s + '/' + x.c, r, null, 'Each time slice has its own sequenceNumber (or a higher correctionNumber when corrected). Which one is valid cannot be decided.');
         var xb = AX.tms(x.b), xe = AX.tms(x.e), yb = AX.tms(y.b), ye = AX.tms(y.e);
-        if (x.s !== y.s && xb !== null && yb !== null && (xe === null || xe > yb) && (ye === null || ye > xb) && xb !== yb) add('warning', 'Temporality', 'Overlapping BASELINE validity periods (sequence ' + x.s + ' and ' + y.s + ')', r);
+        if (x.s !== y.s && xb !== null && yb !== null && (xe === null || xe > yb) && (ye === null || ye > xb) && xb !== yb) add('warning', 'Temporality', 'Overlapping BASELINE validity periods (sequence ' + x.s + ' and ' + y.s + ')', r, null, 'Sequence ' + x.s + ' valid ' + (x.b || '?') + ' – ' + (x.e || 'open') + '; sequence ' + y.s + ' valid ' + (y.b || '?') + ' – ' + (y.e || 'open') + '. Two baselines of a feature should not be valid at the same time (the earlier one ends when the next begins).');
       }
       if (i % 5000 === 0) { if (onProgress) onProgress(i / ds.recs.length); await yieldUI(); }
     }
+    // the same location indicator for two aerodromes; the same designator for points far apart
+    icao.forEach(function (list, code) {
+      if (list.length < 2) return;
+      list.forEach(function (r) { add('error', 'Duplicate', 'Location indicator ' + code + ' used by ' + list.length + ' aerodromes', r, 'locationIndicatorICAO', 'Also used by: ' + list.filter(function (x) { return x !== r; }).map(function (x) { return M.label(ds, x) + ' (line ' + x.line + ')'; }).join('; ') + '. A location indicator identifies one aerodrome.'); });
+    });
+    dpts.forEach(function (list, code) {
+      if (list.length < 2) return;
+      var pts = list.map(function (x) { return M.pointOf(ds, x); });
+      var far = 0;
+      for (var a1 = 0; a1 < pts.length; a1++) for (var a2 = a1 + 1; a2 < pts.length; a2++) if (pts[a1] && pts[a2]) far = Math.max(far, AX.distNM(pts[a1], pts[a2]));
+      if (far < 1) return; // the same point coded twice, at the same place: not misleading
+      list.forEach(function (r, i) { add('warning', 'Duplicate', 'Designator ' + code + ' used by ' + list.length + ' designated points up to ' + Math.round(far).toLocaleString('en-US') + ' NM apart', r, 'designator', 'This one at ' + (pts[i] ? pos(pts[i]) : 'no position') + '; others: ' + list.filter(function (x) { return x !== r; }).map(function (x) { var c = M.pointOf(ds, x); return (c ? pos(c) : 'no position') + ' (line ' + x.line + ')'; }).join('; ') + '. A route or procedure naming ' + code + ' is ambiguous.'); });
+    });
     unresolved.forEach(function (list, k) {
-      add('warning', 'References', list.length + ' reference(s) of ' + k + ' point to features that are not in this file', list[0]);
+      add('warning', 'References', list.length + ' reference(s) of ' + k + ' point to features that are not in this file', list[0], null, 'For example: ' + list.slice(0, 5).map(function (x) { return M.label(ds, x) + ' (line ' + x.line + ')'; }).join('; ') + (list.length > 5 ? ' … and ' + (list.length - 5) + ' more' : '') + '. The feature referred to is missing: load the file that contains it with this one, or the reference (xlink:href) is wrong.');
     });
     var rank = { error: 0, warning: 1, info: 2 };
     issues.sort(function (a, b) { return rank[a.sev] - rank[b.sev]; });

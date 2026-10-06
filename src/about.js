@@ -34,7 +34,7 @@ var ABOUT = (function () {
     ['3D view', 'Terrain with airspace volumes drawn between their lower and upper limits, runways, aerodromes, obstacles and procedures at their published altitudes. Point anywhere to see the airspace column above it.'],
     ['Approach and departure crew views', 'Fly down the glide path or along the climb-out of any runway and see what the crew sees, with altitude, height above the runway, terrain clearance and the airspace the aircraft is in.'],
     ['Map in a second window', '“⧉ New window” puts the map on another screen; “show on map” in the main window goes there.'],
-    ['Data quality', 'The official AIXM 5.1 business rules (SBVR) with their catalogue, and basic consistency checks.'],
+    ['Data quality', 'Data issues flagged in the AIP itself (⚠ on the sections, a box per section, marked values) and listed in the Quality tab with what was found and what is expected; the official AIXM 5.1 business rules (SBVR) with their catalogue.'],
     ['Obstacle limitation surfaces', 'The ICAO Annex 14 surfaces of every runway built from the data and every obstacle checked against them: penetrations listed with the surface and the height above it, and shown in 3D.'],
     ['Data integrity (CRC32Q)', 'Critical, essential and routine data classified as in PANS-AIM with the required and declared accuracy, a CRC32Q fingerprint for each item, and verification of a new delivery against a saved CRC list.'],
     ['Approach profile', 'The vertical profile of each instrument approach, as on an approach chart: fixes, distances, altitude constraints, glide path, minima, missed approach, rate-of-descent and timing table.'],
@@ -47,6 +47,7 @@ var ABOUT = (function () {
     ['Languages', 'English, العربية (right-to-left), Français and Español; light and dark themes.']
   ];
   var NEWS = [
+    ['1.15', 'Data issues shown where you read: the AIP marks the sections and values with an issue and explains each one (what was found, what is expected); new checks for 0°N 0°E positions, duplicates, implausible elevations, lengths and limits.'],
     ['1.14', 'Several data sets on one map: tick any mix of the States loaded (e.g. Qatar, Saudi Arabia, UAE and China), or show all of them.'],
     ['1.13', 'Faster map (dark and satellite maps over 10× smoother to drag); live aircraft drawn over the aeronautical data with your base map kept; aircraft details in a side panel; a blocked street map removed.'],
     ['1.12', 'One AIXM file for the cycle (Export); deliveries of many files in the State library; navaid equipment without coordinates shown at its navaid\'s position.'],

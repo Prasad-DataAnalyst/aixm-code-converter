@@ -7,6 +7,22 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.15.0 — 2026-10-06 — Data issues flagged in the AIP and the Quality tab
+
+- **Data issues where you read**: the data quality checks run by themselves when the AIP or the Quality tab is
+  opened. The AIP section list shows a ⚠ count on every section with issues (red when one is an error); each
+  section opens with a box of its issues — severity, what is wrong, the feature (click: its AIXM code at that
+  value) and **what was found / what is expected**; the values concerned are underlined (red or amber dots, ⚠) and
+  give the issue on hover. *Mark them in the tables* switches the marks off.
+- **Quality tab**: every issue now says what was found and what is expected; issues are grouped by kind (click a
+  kind to list only those); the feature column gives type, property and line; the AIP section opens that section.
+  The PDF / Excel / e-mail report includes the details.
+- **New checks**: positions at 0°N 0°E (placeholders for missing coordinates); runways, thresholds, ILS and other
+  aerodrome parts far from their aerodrome; one location indicator for two aerodromes; one designated point
+  designator for points far apart; implausible field elevations (below −1,400 ft or above 15,000 ft) and runway
+  lengths (below 50 m or above 6,000 m, helicopter FATOs excepted); lower limits above upper limits (airspace
+  volumes, route segments). Issues are checked again when the date the AIP shows changes.
+
 ## 1.14.0 — 2026-10-06 — Several data sets on one map
 
 - **Several data sets on one map**: with more than one data set loaded, the map panel lists them (*Data sets on the
