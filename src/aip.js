@@ -1181,7 +1181,7 @@ var AIP = (function () {
     return { no: 'Other', id: null };
   }
 
-  return { procLegs: procLegs, LEG_KINDS: LEG_KINDS, catalogue: catalogue, findSection: findSection, build: build, sectionOf: sectionOf, lateral: lateral, vertical: vertical, airspaceClass: airspaceClass,
+  return { procLegs: procLegs, procDetail: procDetail, procTable: procTable, LEG_KINDS: LEG_KINDS, catalogue: catalogue, findSection: findSection, build: build, sectionOf: sectionOf, lateral: lateral, vertical: vertical, airspaceClass: airspaceClass,
     AD2_TITLES: AD2_TITLES, isHeliport: isHeliport, pcn: pcn, surface: surface, C: C, directions: directions,
     // used by the airport chart (adchart.js): declared distances, magnetic variation text, AD 2.n blocks of one aerodrome
     declared: declared, magVar: magVar, adBlocks: function (ds, ad, n) { return AD2[n] ? AD2[n](ds, ad) : []; },

@@ -1,0 +1,506 @@
+/*!
+ * AIXM Code Converter
+ * Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com> - author of the AIXM Code Converter
+ * SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE; keep this notice in all copies)
+ * ==========================================================================
+ * AIXM Code Converter - obstacle workspace (OBSTVIEW)
+ * Obstacle data sets (eTOD: AIXM obstacle data sets, Excel / CSV obstacle tables, vertical structures of aerodrome
+ * mapping files) are used differently from the AIP data set: by obstacle, by area and by aerodrome. This workspace
+ * works on every obstacle of the data sets loaded:
+ *   overview     per aerodrome and eTOD area: count, lit / marked, tallest, highest, originator, validity
+ *   list         every obstacle with position, elevation, height, lighting, marking, accuracies, distance and
+ *                bearing from the aerodrome reference point, Annex 14 surface penetration; filter, sort, unit, DMS
+ *   compliance   PANS-AIM Appendix 1 (Table A1-6) numerical requirements of the area (accuracy), the attributes an
+ *                obstacle must give, duplicates, positions outside the obstacle area, implausible values
+ *   statistics   by type, by height class, by distance from the aerodrome, tallest obstacles
+ *   reports      obstacle list (ICAO ENR 5.4 / AD 2.10 columns), compliance report, statistics: PDF, print, Excel,
+ *                CSV, GeoJSON, KML; only the filtered obstacles if wished
+ * Nothing here changes the data or the AIXM views.
+ * ========================================================================== */
+/* global AX, MODEL, EXPORTS, CONVERT, OLS, DDMAP */
+var OBSTVIEW = (function () {
+  'use strict';
+  var M = MODEL, arr = AX.arr, s = M.s;
+  var UNIT = { M: 1, FT: 0.3048, KM: 1000, NM: 1852, MI: 1609.344, CM: 0.01 };
+  function toM(q) {
+    q = Array.isArray(q) ? q[0] : q;
+    if (!q || q.v === undefined || q.v === null || q.v === '') return null;
+    var v = parseFloat(q.v), f = UNIT[String(q.u || 'M').toUpperCase()];
+    return isNaN(v) ? null : v * (f || 1);
+  }
+  function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function num(n, d) { return n === null || n === undefined || isNaN(n) ? '' : Number(n).toLocaleString('en-US', { maximumFractionDigits: d === undefined ? 1 : d, minimumFractionDigits: 0 }); }
+
+  /* ------------------------------------------------------------ eTOD areas */
+  // PANS-AIM Appendix 1, Table A1-6 (obstacle data numerical requirements): accuracy in metres, integrity
+  var AREAS = {
+    '1': { name: 'Area 1', h: 50, v: 30, integ: 'routine', note: 'entire territory of the State' },
+    '2': { name: 'Area 2', h: 5, v: 3, integ: 'essential', note: 'terminal control area (2a runway strip, 2b approach / take-off, 2c within 10 km, 2d within the TMA or 45 km)' },
+    '3': { name: 'Area 3', h: 0.5, v: 0.5, integ: 'essential', note: 'aerodrome / heliport movement area' },
+    '4': { name: 'Area 4', h: 2.5, v: 1, integ: 'essential', note: 'precision approach CAT II / III radio altimeter area' }
+  };
+  // area code of a text: "AREA2D", "OTHER:AREA_2A", "eTOD area: 2b", "AERA1" (file names) -> {key: '2', sub: '2d'}
+  function areaOf(t) {
+    var m = /A(?:R|ER)E?A[\s_:-]*([1-4])\s*([A-D])?\b/i.exec(String(t || '').replace(/AERA/i, 'AREA')) || /\barea\s*:?\s*([1-4])\s*([a-d])?\b/i.exec(String(t || ''));
+    return m ? { key: m[1], sub: m[1] + (m[2] ? m[2].toLowerCase() : '') } : null;
+  }
+
+  /* ----------------------------------------------------------------- model */
+  function ADS(datasets) {
+    var out = [];
+    datasets.forEach(function (d) { (d.byType.AirportHeliport || []).forEach(function (a) { var c = M.pointOf(d, a); if (c) out.push({ ds: d, r: a, c: c, icao: s(a.cur.p.locationIndicatorICAO), name: s(a.cur.p.name) }); }); });
+    return out;
+  }
+  function byUuid(datasets, ref) {
+    var id = ref && (ref.ref || ref);
+    if (!id) return null;
+    for (var i = 0; i < datasets.length; i++) { var t = M.target(datasets[i], id); if (t) return { ds: datasets[i], r: t }; }
+    return null;
+  }
+  // the obstacles of one data set, as rows; aerodrome reference: obstacle area -> aerodrome, the feature's own
+  // aerodrome, an ICAO code in the file name or title, or the nearest aerodrome loaded (within 30 NM)
+  function build(ds, datasets, ads) {
+    var areas = (ds.byType.ObstacleArea || []).map(function (oa) {
+      var p = oa.cur.p, g = M.findGeo(p.surfaceExtent || p, ['A'], 0), own = byUuid(datasets, p.reference_ownerAirport);
+      return { r: oa, type: s(p.type), area: areaOf(s(p.type)), ring: g && g.c && g.c[0], own: own, ownRef: p.reference_ownerAirport && (p.reference_ownerAirport.ref || '') };
+    });
+    var title = (ds.sniff && ds.sniff.title) || '', fileArea = areaOf(ds.name) || areaOf(title), area = (areas.filter(function (a) { return a.area; })[0] || {}).area || fileArea;
+    var codeM = /(?:^|[_\s-])([A-Z]{4})(?=[_\s-])/.exec(ds.name.toUpperCase() + '_') || /\(([A-Z]{4})\)/.exec(title);
+    var ad = null, adWhy = '';
+    var own = areas.filter(function (a) { return a.own; })[0];
+    if (own) { ad = { ds: own.own.ds, r: own.own.r, c: M.pointOf(own.own.ds, own.own.r), icao: s(own.own.r.cur.p.locationIndicatorICAO), name: s(own.own.r.cur.p.name) }; adWhy = 'obstacle area of the aerodrome'; }
+    if (!ad && codeM) { ad = ads.filter(function (a) { return a.icao === codeM[1]; })[0] || null; if (ad) adWhy = 'location indicator ' + codeM[1] + ' in the ' + (/\(/.test(codeM[0]) ? 'title' : 'file name'); }
+    var rows = (ds.byType.VerticalStructure || []).map(function (r) { return row(ds, r, area); });
+    if (!ad) {
+      // own aerodrome of the features (AIP data set with its obstacles), else the nearest aerodrome loaded
+      var o = rows.map(function (x) { return ds.owner && ds.owner.get(x.r); }).filter(Boolean)[0];
+      if (o) { ad = { ds: ds, r: o, c: M.pointOf(ds, o), icao: s(o.cur.p.locationIndicatorICAO), name: s(o.cur.p.name) }; adWhy = 'aerodrome of the obstacles in the data set'; }
+    }
+    if (!ad && rows.length) {
+      var lat = 0, lon = 0, n = 0;
+      rows.forEach(function (x) { if (x.c) { lon += x.c[0]; lat += x.c[1]; n++; } });
+      if (n) {
+        var mid = [lon / n, lat / n], best = null, bd = 30;
+        ads.forEach(function (a) { var d = AX.distNM(mid, a.c); if (d < bd) { bd = d; best = a; } });
+        if (best) { ad = best; adWhy = 'nearest aerodrome loaded (' + num(bd) + ' NM)'; }
+      }
+    }
+    var adCode = ad ? ad.icao : codeM ? codeM[1] : '';
+    // the area of each obstacle: its own (table column), else the most demanding obstacle area polygon it is in
+    // (smallest required accuracy), else the area of the data set
+    // polygons: the obstacle areas of this data set and of the other data loaded (e.g. the AIP data set's areas)
+    // order: the obstacle's own area, a polygon of this data set, the area the data set declares, a polygon of the
+    // other data loaded
+    var ring3 = function (a) { return a.area && a.ring && a.ring.length > 2; };
+    var ownPolys = areas.filter(ring3), other = otherAreas(ds, datasets).filter(ring3);
+    function inPoly(list, c) {
+      var best = null;
+      list.forEach(function (a) { if (inRing(c, a.ring) && (!best || AREAS[a.area.key].h < AREAS[best.key].h)) best = a.area; });
+      return best;
+    }
+    rows.forEach(function (x) {
+      if (ad && ad.c && x.c) { x.dist = AX.distNM(ad.c, x.c); x.brg = AX.bearing(ad.c, x.c); }
+      if (x.area) return;
+      var a1 = x.c && ownPolys.length ? inPoly(ownPolys, x.c) : null;
+      if (a1) { x.area = a1.sub; return; }
+      if (area) { x.area = area.sub; return; }
+      var a2 = x.c && other.length ? inPoly(other, x.c) : null;
+      if (a2) x.area = a2.sub;
+    });
+    var subs = rows.map(function (x) { return x.area; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; }).sort();
+    if (subs.length > 1) area = { key: subs.map(function (v) { return v.charAt(0); }).sort(function (a, b) { return AREAS[a].h - AREAS[b].h; })[0], sub: subs.join(', '), several: subs };
+    var orgs = {};
+    (function walk(o, d) {
+      if (!o || typeof o !== 'object' || d > 9) return;
+      if (o.organisationName) { var n0 = s(o.organisationName); if (n0) orgs[n0] = 1; }
+      for (var k in o) if (k !== 'part' && o[k] && typeof o[k] === 'object') walk(o[k], d + 1);
+    })(((ds.byType.VerticalStructure || [])[0] || { cur: { p: {} } }).cur.p.timeSliceMetadata, 0);
+    return { ds: ds, rows: rows, areas: areas, area: area, ad: ad, adWhy: adWhy, adCode: adCode, originators: Object.keys(orgs), title: title };
+  }
+  function otherAreas(ds, datasets) {
+    var out = [];
+    datasets.forEach(function (d) {
+      if (d === ds) return;
+      (d.byType.ObstacleArea || []).forEach(function (oa) { var p = oa.cur.p, g = M.findGeo(p.surfaceExtent || p, ['A'], 0); out.push({ r: oa, type: s(p.type), area: areaOf(s(p.type)), ring: g && g.c && g.c[0], from: d }); });
+    });
+    return out;
+  }
+  function row(ds, r, area) {
+    var p = r.cur.p, parts = arr(p.part), part = parts[0] || {};
+    var hp = arr(part.horizontalProjection_location || part.horizontalProjection_surface || part.horizontalProjection_curve)[0] || {};
+    var notes = arr(p.annotation).map(function (a) { return s(a && a.translatedNote && a.translatedNote.note); }).filter(Boolean);
+    var ar = null;
+    notes.forEach(function (n) { if (!ar && /^eTOD area:/i.test(n)) { var a = areaOf('area ' + n.replace(/^eTOD area:\s*/i, '')); if (a) ar = a.sub; } });
+    var lightTxt = parts.map(function (q) { var l = arr(q.lighting)[0]; return l ? [s(l.colour), s(l.type), s(l.intensityLevel), l._descr || ''].filter(Boolean).join(' ') : ''; }).filter(Boolean).join('; ');
+    var markTxt = parts.map(function (q) { return [s(q.markingPattern), s(q.markingFirstColour), s(q.markingSecondColour)].filter(Boolean).join(' '); }).filter(Boolean).join('; ');
+    var c = M.pointOf(ds, r), g = M.geometry(ds, r);
+    var hgt = null;
+    parts.forEach(function (q) { var h = toM(q.verticalExtent); if (h !== null && (hgt === null || h > hgt)) hgt = h; });
+    var elev = null;
+    parts.forEach(function (q) { var l = arr(q.horizontalProjection_location || q.horizontalProjection_surface || q.horizontalProjection_curve)[0]; var e = l ? toM(l.elevation) : null; if (e !== null && (elev === null || e > elev)) elev = e; });
+    return {
+      ds: ds, r: r, c: c, geom: g ? g.t : '', id: s(part.designator) || s(p.designator) || '', name: s(p.name), type: s(p.type) || s(part.type),
+      elev: elev, hgt: hgt, eU: (hp.elevation && hp.elevation.u) || '', hU: (part.verticalExtent && part.verticalExtent.u) || '',
+      lighted: s(p.lighted), marked: s(p.markingICAOStandard), lightTxt: lightTxt, markTxt: markTxt, group: s(p.group),
+      hAcc: toM(hp.horizontalAccuracy), vAcc: toM(hp.verticalAccuracy) !== null ? toM(hp.verticalAccuracy) : toM(part.verticalExtentAccuracy), vDatum: s(hp.verticalDatum),
+      status: s(part.constructionStatus), frangible: s(part.frangible), mobile: s(part.mobile), material: s(part.visibleMaterial), parts: parts.length,
+      from: r.cur.b || '', to: r.cur.e || '', area: ar, notes: notes, dist: null, brg: null, pen: null
+    };
+  }
+  // all obstacle data sets of the loaded data (and the obstacles of AIP / aerodrome mapping data sets)
+  function model(datasets) {
+    var ads = ADS(datasets);
+    var sets = datasets.filter(function (d) { return (d.byType.VerticalStructure || []).length; }).map(function (d) { return build(d, datasets, ads); });
+    // Annex 14 surfaces: obstacles of every set against the surfaces of its aerodrome (when its runways are loaded)
+    sets.forEach(function (st) {
+      if (!st.ad || typeof OLS === 'undefined') return;
+      var res = null;
+      try { res = OLS.check(st.ad.ds, st.ad.r, [st.ds]); } catch (e) { res = null; }
+      st.ols = res;
+      if (!res) return;
+      var by = new Map();
+      res.list.forEach(function (x) { by.set(x.rec, x); });
+      st.rows.forEach(function (x) { var hit = by.get(x.r); x.pen = hit ? { m: hit.pen, surface: hit.surface } : null; });
+    });
+    return { sets: sets, ads: ads };
+  }
+
+  /* ------------------------------------------------------------ compliance */
+  // -> [{sev, check, msg, row}] for one set; required: the accuracy of its eTOD area
+  function compliance(st) {
+    var out = [], req = st.area ? AREAS[st.area.key] : null, seen = new Map();
+    function add(sev, check, msg, x) { out.push({ sev: sev, check: check, msg: msg, row: x }); }
+    st.rows.forEach(function (x) {
+      var rq = (x.area && AREAS[x.area.charAt(0)]) || req;
+      if (!x.c) add('error', 'Position', 'No position', x);
+      if (!x.id && !x.name) add('error', 'Identifier', 'No identifier or name', x);
+      if (!x.type || /^OTHER$/.test(x.type)) add('warning', 'Type', 'Type not given', x);
+      if (x.elev === null) add('error', 'Elevation', 'No elevation (top of the obstacle, AMSL)', x);
+      if (x.hgt === null) add('warning', 'Height', 'No height above ground', x);
+      if (!x.lighted) add('warning', 'Lighting', 'Lighting not stated (lighted YES / NO)', x);
+      if (!x.marked) add('info', 'Marking', 'Marking not stated', x);
+      if (!x.vDatum) add('info', 'Vertical datum', 'Vertical datum not given (EGM-96 expected)', x);
+      if (x.hAcc === null) add('warning', 'Horizontal accuracy', 'Horizontal accuracy not given', x);
+      else if (rq && x.hAcc > rq.h + 1e-6) add('error', 'Horizontal accuracy', 'Horizontal accuracy ' + num(x.hAcc, 2) + ' m — ' + rq.name + ' requires ' + rq.h + ' m', x);
+      if (x.vAcc === null) add('warning', 'Vertical accuracy', 'Vertical accuracy not given', x);
+      else if (rq && x.vAcc > rq.v + 1e-6) add('error', 'Vertical accuracy', 'Vertical accuracy ' + num(x.vAcc, 2) + ' m — ' + rq.name + ' requires ' + rq.v + ' m', x);
+      if (x.elev !== null && x.hgt !== null) {
+        var gnd = x.elev - x.hgt;
+        if (gnd < -60 || gnd > 6000) add('warning', 'Plausibility', 'Ground elevation (elevation − height) ' + num(gnd) + ' m is implausible: elevation and height may be swapped or in different units', x);
+      }
+      if (x.hgt !== null && x.hgt > 1000) add('warning', 'Plausibility', 'Height ' + num(x.hgt) + ' m is implausible', x);
+      if (x.c) {
+        var k = x.c[0].toFixed(5) + ',' + x.c[1].toFixed(5);
+        if (seen.has(k)) add('warning', 'Duplicate', 'Same position as ' + (seen.get(k).id || seen.get(k).name), x); else seen.set(k, x);
+      }
+      if (x.to && Date.parse(x.to) < Date.now()) add('info', 'Validity', 'Validity ended ' + x.to.slice(0, 10), x);
+    });
+    // outside the obstacle area that the data set covers
+    st.areas.forEach(function (a) {
+      if (!a.ring || a.ring.length < 3) return;
+      st.rows.forEach(function (x) { if (x.c && !inRing(x.c, a.ring)) add('warning', 'Coverage', 'Outside the obstacle area (' + a.type.replace(/^OTHER:/, '') + ')', x); });
+    });
+    st.rows.forEach(function (x) { if (x.pen) add('error', 'Annex 14 surfaces', 'Penetrates the ' + x.pen.surface + ' by ' + num(x.pen.m) + ' m', x); });
+    return out;
+  }
+  function inRing(pt, ring) {
+    var x = pt[0], y = pt[1], inside = false;
+    for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      var xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if (typeof xi !== 'number' || typeof xj !== 'number') continue;
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+
+  /* ------------------------------------------------------------- formatting */
+  function len(m, u, d) { if (m === null || m === undefined) return ''; return u === 'FT' ? num(m / 0.3048, d === undefined ? 0 : d) + ' ft' : num(m, d === undefined ? 1 : d) + ' m'; }
+  function pos(c, fmt) { if (!c) return ''; return fmt === 'dd' ? c[1].toFixed(6) + ', ' + c[0].toFixed(6) : AX.dms(c[1], false, 2) + ' ' + AX.dms(c[0], true, 2); }
+  function typeTxt(t) { return String(t || '').replace(/^OTHER:/, '').replace(/_/g, ' '); }
+  function yn(v) { return v === 'YES' ? 'Yes' : v === 'NO' ? 'No' : v ? v : '—'; }
+
+  /* ------------------------------------------------------------------ view */
+  var V = { layout: 'split', tab: 'list', unit: 'M', fmt: 'dms', q: '', type: '', lit: '', minH: '', only: '', sort: 'hgt', dir: -1, sel: null, shown: 300 };
+  function render(host, ctx) {
+    var mdl = model(ctx.datasets);
+    if (!mdl.sets.length) { host.innerHTML = '<h1 class="view-title">Obstacles</h1><div class="card card-pad muted">No obstacle data loaded. Add an AIXM obstacle data set, an eTOD obstacle table (Excel / CSV) or an aerodrome mapping file.</div>'; return; }
+    if (V.sel === null || !mdl.sets.some(function (x) { return x.ds === V.sel; })) V.sel = (mdl.sets.filter(function (x) { return x.ds === ctx.active; })[0] || mdl.sets[0]).ds;
+    var st = V.sel === 'all' ? null : mdl.sets.filter(function (x) { return x.ds === V.sel; })[0];
+    var sets = st ? [st] : mdl.sets;
+    var rows = [].concat.apply([], sets.map(function (x) { return x.rows; }));
+    var issues = [].concat.apply([], sets.map(compliance));
+    var h = '<h1 class="view-title">Obstacles <span class="muted" style="font-weight:400">— electronic obstacle data (eTOD)</span></h1>' +
+      '<p class="view-sub">Every obstacle of the data loaded: by aerodrome and eTOD area, with the PANS-AIM requirements of the area, the Annex 14 surfaces and reports. The AIXM views are not changed.</p>' +
+      '<div class="ov-sets" role="tablist">' + mdl.sets.map(function (x) {
+        return '<button class="ov-set' + (x === st ? ' on' : '') + '" data-ovset="' + ctx.datasets.indexOf(x.ds) + '"><b>' + esc(x.adCode || x.ds.state) + (x.area ? ' · ' + areaLabel(x.area) : '') + '</b><span>' + esc(x.ds.name) + ' · ' + num(x.rows.length, 0) + '</span></button>';
+      }).join('') + (mdl.sets.length > 1 ? '<button class="ov-set' + (!st ? ' on' : '') + '" data-ovset="all"><b>All</b><span>' + mdl.sets.length + ' data sets · ' + num(rows.length, 0) + '</span></button>' : '') + '</div>';
+    h += overviewHtml(sets, rows, issues);
+    var tabs = [['list', 'Obstacle list'], ['comp', 'eTOD compliance'], ['stats', 'Statistics'], ['report', 'Reports']];
+    h += '<div class="pill-tabs ov-tabs">' + tabs.map(function (t) { return '<button data-ovtab="' + t[0] + '" class="' + (V.tab === t[0] ? 'active' : '') + '">' + t[1] + (t[0] === 'comp' ? ' <span class="chip ' + (issues.some(function (i) { return i.sev === 'error'; }) ? 'err' : 'ok') + '">' + num(issues.filter(function (i) { return i.sev !== 'info'; }).length, 0) + '</span>' : '') + '</button>'; }).join('') + '</div>';
+    h += '<div class="ov-body">' + (V.tab === 'list' ? listHtml(rows, issues) : V.tab === 'comp' ? compHtml(sets, issues) : V.tab === 'stats' ? statsHtml(sets, rows) : reportHtml(sets, rows)) + '</div>';
+    host.innerHTML = h;
+    // the workspace map: the obstacles of the list (filter applied), linked both ways with the rows
+    var mapEl = host.querySelector('.ov-map'), mm = null;
+    if (mapEl && typeof DDMAP !== 'undefined') {
+      var shown = filtered(rows, issues), bad = new Set(issues.filter(function (i) { return i.sev === 'error' && i.check !== 'Annex 14 surfaces'; }).map(function (i) { return i.row; }));
+      var withAd = sets.filter(function (x) { return x.ad && x.ad.c; })[0];
+      mm = DDMAP.create(mapEl, 'obs:' + (st ? ctx.datasets.indexOf(st.ds) : 'all'));
+      DDMAP.obstacles(mm, shown, { bad: bad, unit: V.unit, areas: [].concat.apply([], sets.map(function (x) { return x.areas; })), arp: withAd ? withAd.ad.c : null, arpLabel: withAd ? 'ARP ' + withAd.ad.icao + ' · rings 2, 5, 10 NM' : '',
+        onPick: function (x) {
+          var tr = host.querySelector('tr[data-ovi="' + rows.indexOf(x) + '"]');
+          host.querySelectorAll('tr.ov-sel').forEach(function (n) { n.classList.remove('ov-sel'); });
+          if (tr) { tr.classList.add('ov-sel'); tr.scrollIntoView({ block: 'nearest' }); }
+        } });
+      setTimeout(function () { if (mm) mm.map.invalidateSize(); }, 60);
+    }
+    host.onclick = function (e) {
+      var lb = e.target.closest('[data-ovlayout],[data-ovmainmap]');
+      if (lb && lb.hasAttribute('data-ovlayout')) { V.layout = lb.getAttribute('data-ovlayout'); render(host, ctx); return; }
+      if (lb) { var f0 = filtered(rows, issues)[0]; if (f0) ctx.showOnMap(f0.ds, f0.r); return; }
+      var b = e.target.closest('[data-ovset],[data-ovtab],[data-ovsort],[data-ovrow],[data-ovmap],[data-ovxml],[data-ovmore],[data-ovrep],[data-ovcomp]');
+      if (!b) return;
+      if (b.hasAttribute('data-ovset')) { var v = b.getAttribute('data-ovset'); V.sel = v === 'all' ? 'all' : ctx.datasets[+v]; V.shown = 300; render(host, ctx); return; }
+      if (b.hasAttribute('data-ovtab')) { V.tab = b.getAttribute('data-ovtab'); render(host, ctx); return; }
+      if (b.hasAttribute('data-ovsort')) { var k = b.getAttribute('data-ovsort'); if (V.sort === k) V.dir = -V.dir; else { V.sort = k; V.dir = k === 'id' || k === 'name' || k === 'type' ? 1 : -1; } render(host, ctx); return; }
+      if (b.hasAttribute('data-ovmore')) { V.shown += 1000; render(host, ctx); return; }
+      if (b.hasAttribute('data-ovcomp')) { V.only = b.getAttribute('data-ovcomp'); V.tab = 'list'; render(host, ctx); return; }
+      var x = rowsAt(rows, b);
+      if (b.hasAttribute('data-ovmap') && x) {
+        if (mm) { DDMAP.select(mm, x); host.querySelectorAll('tr.ov-sel').forEach(function (n) { n.classList.remove('ov-sel'); }); b.closest('tr').classList.add('ov-sel'); mapEl.scrollIntoView({ block: 'nearest' }); } else ctx.showOnMap(x.ds, x.r);
+        return;
+      }
+      if (b.hasAttribute('data-ovxml') && x) { ctx.openXml(x.ds, x.r); return; }
+      if (b.hasAttribute('data-ovrow') && x) { ctx.openDetail(x.ds, x.r); return; }
+      if (b.hasAttribute('data-ovrep')) report(b.getAttribute('data-ovrep'), sets, ctx);
+    };
+    host.oninput = host.onchange = function (e) {
+      var t = e.target, k = t.getAttribute && t.getAttribute('data-ovf');
+      if (!k) return;
+      V[k] = t.value; V.shown = 300;
+      clearTimeout(host._t);
+      host._t = setTimeout(function () { var f = document.activeElement && document.activeElement.getAttribute('data-ovf'); render(host, ctx); if (f) { var n = host.querySelector('[data-ovf="' + f + '"]'); if (n) { n.focus(); if (n.setSelectionRange && n.value) n.setSelectionRange(n.value.length, n.value.length); } } }, e.type === 'input' && t.tagName === 'INPUT' ? 250 : 0);
+    };
+  }
+  function rowsAt(rows, b) { var i = b.closest('[data-ovi]'); return i ? rows[+i.getAttribute('data-ovi')] : null; }
+
+  function overviewHtml(sets, rows, issues) {
+    var lit = rows.filter(function (x) { return x.lighted === 'YES'; }).length, mk = rows.filter(function (x) { return x.marked === 'YES'; }).length;
+    var tall = rows.filter(function (x) { return x.hgt !== null; }).sort(function (a, b) { return b.hgt - a.hgt; })[0];
+    var high = rows.filter(function (x) { return x.elev !== null; }).sort(function (a, b) { return b.elev - a.elev; })[0];
+    var pen = rows.filter(function (x) { return x.pen; }).length, err = issues.filter(function (i) { return i.sev === 'error'; }), bad = new Set(err.map(function (i) { return i.row; }));
+    var h = '<div class="kpis ov-kpis">' +
+      kpi(num(rows.length, 0), 'obstacles') + kpi(num(lit, 0), 'lighted') + kpi(num(mk, 0), 'marked') +
+      kpi(tall ? len(tall.hgt, V.unit) : '—', 'tallest' + (tall ? ' · ' + esc(tall.id || tall.name) : '')) +
+      kpi(high ? len(high.elev, V.unit) : '—', 'highest top AMSL' + (high ? ' · ' + esc(high.id || high.name) : '')) +
+      kpi(rows.length ? Math.round(100 * (rows.length - bad.size) / rows.length) + ' %' : '—', 'without errors') +
+      (sets.some(function (st) { return st.ols; }) ? kpi(num(pen, 0), 'penetrate Annex 14 surfaces') : '') + '</div>';
+    h += '<div class="ov-meta">' + sets.map(function (st) {
+      var a = st.area ? AREAS[st.area.key] : null, dates = st.rows.map(function (x) { return x.from; }).filter(Boolean).sort();
+      return '<div class="card card-pad ov-card"><div class="ov-card-h"><b>' + esc(st.ad ? st.ad.icao + ' ' + st.ad.name : st.adCode || st.ds.state) + '</b>' + (a ? '<span class="chip brand">' + esc(areaLabel(st.area)) + '</span>' : '<span class="chip">area not stated</span>') + '</div>' +
+        '<table class="mini-table">' + [
+          ['Data set', st.ds.name + ' · ' + st.ds.state],
+          ['Aerodrome', st.ad ? st.ad.icao + ' — ' + st.ad.name + ' (' + st.adWhy + ')' : st.adCode ? st.adCode + ' (load the AIP data set for distances, bearings and the Annex 14 surfaces)' : 'not known — load the AIP data set'],
+          ['eTOD area', !a ? 'not stated in the data (obstacle area or file name)' : st.area.several ? areaLabel(st.area) + ' — each obstacle is checked against the area polygon it is in (the most demanding one)' : areaLabel(st.area) + ' — ' + a.note + '. Required accuracy: horizontal ' + a.h + ' m, vertical ' + a.v + ' m; integrity ' + a.integ],
+          ['Obstacle area', st.areas.length ? st.areas.map(function (x) { return typeTxt(x.type) + (x.ring ? ' (boundary ' + x.ring.length + ' points)' : ''); }).join('; ') : '—'],
+          ['Originator', st.originators.join(', ') || '—'],
+          ['Valid from', dates.length ? dates[0].slice(0, 10) + (dates[dates.length - 1] !== dates[0] ? ' … ' + dates[dates.length - 1].slice(0, 10) : '') : '—'],
+          ['Annex 14 surfaces', st.ols ? num(st.ols.checked, 0) + ' obstacles within 11 NM checked, ' + num(st.ols.list.length, 0) + ' penetrate' : st.ad ? 'runways of the aerodrome not in the data loaded' : '—']
+        ].map(function (r) { return '<tr><td class="muted">' + r[0] + '</td><td>' + esc(r[1]) + '</td></tr>'; }).join('') + '</table></div>';
+    }).join('') + '</div>';
+    return h;
+  }
+  function areaLabel(a) { return !a ? '' : a.several ? 'Areas ' + a.several.join(', ') : AREAS[a.key].name + (a.sub.length > 1 ? a.sub.slice(1) : ''); }
+  function kpi(v, l) { return '<div class="kpi-h"><b>' + v + '</b><span>' + l + '</span></div>'; }
+
+  function filtered(rows, issues) {
+    var q = V.q.trim().toLowerCase(), minH = parseFloat(V.minH), bad = null;
+    if (V.only) { bad = new Set(); issues.forEach(function (i) { if (V.only === 'issues' ? i.sev !== 'info' : i.check === V.only) bad.add(i.row); }); }
+    var out = rows.filter(function (x) {
+      if (q && (x.id + ' ' + x.name + ' ' + x.type + ' ' + x.notes.join(' ')).toLowerCase().indexOf(q) < 0) return false;
+      if (V.type && x.type !== V.type) return false;
+      if (V.lit && x.lighted !== V.lit) return false;
+      if (!isNaN(minH) && !(x.hgt !== null && x.hgt >= (V.unit === 'FT' ? minH * 0.3048 : minH))) return false;
+      if (V.only === 'pen' && !x.pen) return false;
+      if (bad && V.only !== 'pen' && !bad.has(x)) return false;
+      return true;
+    });
+    var k = V.sort, d = V.dir;
+    out.sort(function (a, b) {
+      var va = a[k], vb = b[k];
+      if (va === null || va === undefined || va === '') return 1;
+      if (vb === null || vb === undefined || vb === '') return -1;
+      if (k === 'pen') { va = va.m; vb = vb.m; }
+      return (typeof va === 'number' ? va - vb : String(va).localeCompare(String(vb), 'en', { numeric: true })) * d;
+    });
+    return out;
+  }
+  function listHtml(rows, issues) {
+    var types = {}; rows.forEach(function (x) { if (x.type) types[x.type] = (types[x.type] || 0) + 1; });
+    var list = filtered(rows, issues), iss = new Map();
+    issues.forEach(function (i) { if (i.sev === 'info') return; if (!iss.has(i.row)) iss.set(i.row, []); iss.get(i.row).push(i); });
+    var hasPen = rows.some(function (x) { return x.pen; }), hasDist = rows.some(function (x) { return x.dist !== null; });
+    var h = '<div class="toolbar ov-filter"><input class="inp" data-ovf="q" placeholder="Find identifier, name, type…" value="' + esc(V.q) + '">' +
+      '<select class="inp" data-ovf="type"><option value="">All types</option>' + Object.keys(types).sort().map(function (t) { return '<option value="' + esc(t) + '"' + (V.type === t ? ' selected' : '') + '>' + esc(typeTxt(t)) + ' (' + types[t] + ')</option>'; }).join('') + '</select>' +
+      '<select class="inp" data-ovf="lit"><option value="">Lighted or not</option><option value="YES"' + (V.lit === 'YES' ? ' selected' : '') + '>Lighted</option><option value="NO"' + (V.lit === 'NO' ? ' selected' : '') + '>Not lighted</option></select>' +
+      '<input class="inp" data-ovf="minH" style="width:120px" placeholder="height ≥ (' + V.unit.toLowerCase() + ')" value="' + esc(V.minH) + '">' +
+      '<select class="inp" data-ovf="only"><option value="">All obstacles</option><option value="issues"' + (V.only === 'issues' ? ' selected' : '') + '>With issues</option>' + (hasPen ? '<option value="pen"' + (V.only === 'pen' ? ' selected' : '') + '>Penetrating the surfaces</option>' : '') +
+      (V.only && V.only !== 'issues' && V.only !== 'pen' ? '<option value="' + esc(V.only) + '" selected>' + esc(V.only) + '</option>' : '') + '</select>' +
+      '<select class="inp" data-ovf="unit"><option value="M"' + (V.unit === 'M' ? ' selected' : '') + '>metres</option><option value="FT"' + (V.unit === 'FT' ? ' selected' : '') + '>feet</option></select>' +
+      '<select class="inp" data-ovf="fmt"><option value="dms"' + (V.fmt === 'dms' ? ' selected' : '') + '>DMS</option><option value="dd"' + (V.fmt === 'dd' ? ' selected' : '') + '>decimal °</option></select>' +
+      '<span class="muted">' + num(list.length, 0) + ' of ' + num(rows.length, 0) + '</span><span class="sp"></span>' +
+      '<span class="pill-tabs ov-lay">' + [['split', 'Map + list'], ['map', 'Map'], ['list', 'List']].map(function (l) { return '<button data-ovlayout="' + l[0] + '" class="' + (V.layout === l[0] ? 'active' : '') + '">' + l[1] + '</button>'; }).join('') + '</span>' +
+      '<button class="btn small ghost" data-ovmainmap title="Open the obstacles in the Map tab, with all the other aeronautical data">Map tab ↗</button></div>';
+    var cols = [['id', 'Identifier'], ['name', 'Name'], ['type', 'Type'], ['c', 'Position'], ['elev', 'Elevation'], ['hgt', 'Height'], ['lighted', 'Lighted'], ['marked', 'Marked'], ['hAcc', 'H acc'], ['vAcc', 'V acc']];
+    var multiArea = rows.some(function (x) { return x.area && x.area !== rows[0].area; });
+    if (multiArea) cols.push(['area', 'Area']);
+    if (hasDist) cols.push(['dist', 'From ARP']);
+    if (hasPen) cols.push(['pen', 'Annex 14']);
+    h += '<div class="ov-split ov-' + V.layout + '">' + (V.layout !== 'list' ? '<div class="ov-map" role="application" aria-label="Obstacle map"></div>' : '') + '<div class="ov-listcol"><div class="tbl-wrap ov-tbl"><table class="mini-table"><thead><tr>' + cols.map(function (c) { return '<th class="click" data-ovsort="' + c[0] + '">' + c[1] + (V.sort === c[0] ? (V.dir > 0 ? ' ▲' : ' ▼') : '') + '</th>'; }).join('') + '<th></th></tr></thead><tbody>' +
+      list.slice(0, V.shown).map(function (x) {
+        var i = rows.indexOf(x), is = iss.get(x);
+        return '<tr data-ovi="' + i + '"' + (is ? ' class="ov-bad" title="' + esc(is.map(function (y) { return y.msg; }).join('\n')) + '"' : '') + '><td class="mono click" data-ovrow><b>' + esc(x.id) + '</b></td><td>' + esc(x.name) + '</td><td>' + esc(typeTxt(x.type)) + '</td><td class="mono">' + esc(pos(x.c, V.fmt)) + (x.geom && x.geom !== 'P' ? ' <span class="chip">' + (x.geom === 'A' ? 'area' : 'line') + '</span>' : '') + '</td>' +
+          '<td class="num">' + len(x.elev, V.unit) + '</td><td class="num">' + len(x.hgt, V.unit) + '</td><td>' + esc(yn(x.lighted)) + (x.lightTxt ? ' <small class="muted">' + esc(x.lightTxt) + '</small>' : '') + '</td><td>' + esc(yn(x.marked)) + (x.markTxt ? ' <small class="muted">' + esc(x.markTxt) + '</small>' : '') + '</td>' +
+          '<td class="num">' + len(x.hAcc, 'M', 2) + '</td><td class="num">' + len(x.vAcc, 'M', 2) + '</td>' +
+          (multiArea ? '<td>' + esc(x.area || '') + '</td>' : '') + (hasDist ? '<td class="num">' + (x.dist !== null ? num(x.dist, 2) + ' NM ' + ('00' + Math.round(x.brg)).slice(-3) + '°' : '') + '</td>' : '') +
+          (hasPen ? '<td>' + (x.pen ? '<span class="q-err">+' + num(x.pen.m) + ' m ' + esc(x.pen.surface) + '</span>' : '') + '</td>' : '') +
+          '<td class="nowrap"><button class="btn small ghost" data-ovmap title="Show on the map">🗺</button><button class="btn small ghost" data-ovxml title="Source (AIXM code or table row)">&lt;/&gt;</button></td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      (list.length > V.shown ? '<button class="btn" data-ovmore>Show ' + num(Math.min(1000, list.length - V.shown), 0) + ' more</button>' : '') + '</div></div>';
+    return h;
+  }
+  function compHtml(sets, issues) {
+    var checks = {}, rows = [].concat.apply([], sets.map(function (x) { return x.rows; }));
+    issues.forEach(function (i) { var c = checks[i.check] || (checks[i.check] = { sev: i.sev, n: 0, rows: new Set() }); c.n++; c.rows.add(i.row); if (i.sev === 'error') c.sev = 'error'; });
+    var h = '<div class="card card-pad"><h3 style="margin-top:0">PANS-AIM requirements of the area</h3><table class="mini-table"><thead><tr><th>Area</th><th>Covers</th><th>Horizontal accuracy</th><th>Vertical accuracy</th><th>Integrity</th><th>In the data</th></tr></thead><tbody>' +
+      Object.keys(AREAS).map(function (k) { var a = AREAS[k], n = sets.filter(function (st) { return st.area && st.area.key === k; }).map(function (st) { return st.ds.name; }); return '<tr' + (n.length ? ' class="ov-hl"' : '') + '><td><b>' + a.name + '</b></td><td>' + esc(a.note) + '</td><td>' + a.h + ' m</td><td>' + a.v + ' m</td><td>' + a.integ + '</td><td>' + esc(n.join(', ')) + '</td></tr>'; }).join('') + '</tbody></table>' +
+      '<p class="muted" style="margin-bottom:0">ICAO PANS-AIM (Doc 10066) Appendix 1, Table A1-6. The area of a data set comes from its obstacle area (e.g. AREA2D), an "eTOD area" column of a table, or the file name.</p></div>';
+    var keys = Object.keys(checks).sort(function (a, b) { return (checks[a].sev === 'error' ? 0 : checks[a].sev === 'warning' ? 1 : 2) - (checks[b].sev === 'error' ? 0 : checks[b].sev === 'warning' ? 1 : 2) || checks[b].n - checks[a].n; });
+    h += '<div class="card card-pad"><h3 style="margin-top:0">Checks <span class="muted" style="font-weight:400">— ' + num(rows.length, 0) + ' obstacles</span></h3>' + (keys.length ? '<table class="mini-table"><thead><tr><th>Severity</th><th>Check</th><th>Obstacles</th><th>Share</th><th>Example</th><th></th></tr></thead><tbody>' +
+      keys.map(function (k) {
+        var c = checks[k], ex = issues.filter(function (i) { return i.check === k; })[0], pct = rows.length ? 100 * c.rows.size / rows.length : 0;
+        return '<tr><td><span class="sev ' + c.sev + '">' + c.sev + '</span></td><td><b>' + esc(k) + '</b></td><td class="num">' + num(c.rows.size, 0) + '</td><td><div class="ov-bar"><span style="width:' + pct.toFixed(1) + '%"></span></div> ' + num(pct, 1) + ' %</td><td>' + esc(ex.msg) + (ex.row ? ' — ' + esc(ex.row.id || ex.row.name) : '') + '</td><td><button class="btn small" data-ovcomp="' + esc(k) + '">List</button></td></tr>';
+      }).join('') + '</tbody></table>' : '<p>No issue found.</p>') + '</div>';
+    // completeness of the attributes an obstacle gives
+    var attrs = [['Identifier', function (x) { return x.id; }], ['Name', function (x) { return x.name; }], ['Type', function (x) { return x.type; }], ['Position', function (x) { return x.c; }], ['Elevation', function (x) { return x.elev !== null; }],
+      ['Height', function (x) { return x.hgt !== null; }], ['Lighting', function (x) { return x.lighted; }], ['Marking', function (x) { return x.marked; }], ['Horizontal accuracy', function (x) { return x.hAcc !== null; }],
+      ['Vertical accuracy', function (x) { return x.vAcc !== null; }], ['Vertical datum', function (x) { return x.vDatum; }], ['Construction status', function (x) { return x.status; }], ['Validity start', function (x) { return x.from; }]];
+    h += '<div class="card card-pad"><h3 style="margin-top:0">Attributes given</h3><table class="mini-table"><tbody>' + attrs.map(function (a) {
+      var n = rows.filter(function (x) { return a[1](x); }).length, pct = rows.length ? 100 * n / rows.length : 0;
+      return '<tr><td>' + a[0] + '</td><td style="width:50%"><div class="ov-bar' + (pct < 100 ? ' part' : '') + '"><span style="width:' + pct.toFixed(1) + '%"></span></div></td><td class="num">' + num(n, 0) + ' / ' + num(rows.length, 0) + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+    return h;
+  }
+  function classes(rows, f, edges, lab) {
+    var out = edges.map(function (e, i) { return { l: lab(e, edges[i + 1]), n: 0 }; });
+    rows.forEach(function (x) { var v = f(x); if (v === null || v === undefined) return; for (var i = edges.length - 1; i >= 0; i--) if (v >= edges[i]) { out[i].n++; break; } });
+    return out;
+  }
+  function barTable(title, list, total) {
+    var max = Math.max.apply(null, list.map(function (x) { return x.n; }).concat([1]));
+    return '<div class="card card-pad"><h3 style="margin-top:0">' + title + '</h3><table class="mini-table"><tbody>' + list.map(function (x) {
+      return '<tr><td>' + esc(x.l) + '</td><td style="width:55%"><div class="ov-bar"><span style="width:' + (100 * x.n / max).toFixed(1) + '%"></span></div></td><td class="num">' + num(x.n, 0) + '</td><td class="num muted">' + (total ? num(100 * x.n / total, 1) + ' %' : '') + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+  }
+  function statsData(rows) {
+    var types = {};
+    rows.forEach(function (x) { var t = typeTxt(x.type) || 'not given'; types[t] = (types[t] || 0) + 1; });
+    var ft = V.unit === 'FT', u = ft ? ' ft' : ' m', hEdges = ft ? [0, 50, 100, 150, 300, 500, 1000] : [0, 15, 30, 45, 100, 150, 300];
+    return {
+      types: Object.keys(types).map(function (k) { return { l: k, n: types[k] }; }).sort(function (a, b) { return b.n - a.n; }),
+      heights: classes(rows, function (x) { return x.hgt === null ? null : ft ? x.hgt / 0.3048 : x.hgt; }, hEdges, function (a, b) { return b === undefined ? '≥ ' + a + u : a + ' – ' + b + u; }),
+      dist: rows.some(function (x) { return x.dist !== null; }) ? classes(rows, function (x) { return x.dist; }, [0, 1, 2, 5, 10, 25], function (a, b) { return b === undefined ? '≥ ' + a + ' NM' : a + ' – ' + b + ' NM'; }) : null,
+      tall: rows.filter(function (x) { return x.hgt !== null; }).sort(function (a, b) { return b.hgt - a.hgt; }).slice(0, 15)
+    };
+  }
+  function statsHtml(sets, rows) {
+    var d = statsData(rows);
+    var h = '<div class="ov-grid">' + barTable('By type', d.types, rows.length) + barTable('By height above ground', d.heights, rows.length) + (d.dist ? barTable('By distance from the aerodrome reference point', d.dist, rows.length) : '') + '</div>';
+    h += '<div class="card card-pad"><h3 style="margin-top:0">Tallest obstacles</h3><table class="mini-table"><thead><tr><th>Identifier</th><th>Type</th><th>Height</th><th>Elevation</th><th>Lighted</th><th>Position</th></tr></thead><tbody>' +
+      d.tall.map(function (x) { return '<tr data-ovi="' + rows.indexOf(x) + '"><td class="mono click" data-ovrow><b>' + esc(x.id || x.name) + '</b></td><td>' + esc(typeTxt(x.type)) + '</td><td class="num">' + len(x.hgt, V.unit) + '</td><td class="num">' + len(x.elev, V.unit) + '</td><td>' + yn(x.lighted) + '</td><td class="mono">' + esc(pos(x.c, V.fmt)) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    return h;
+  }
+  function reportHtml(sets, rows) {
+    var fr = V.q || V.type || V.lit || V.minH || V.only;
+    function line(id, title, what) {
+      return '<div class="ov-rep"><div><b>' + title + '</b><div class="muted">' + what + '</div></div><div class="btn-group">' +
+        ['pdf:PDF', 'print:Print', 'xlsx:Excel', 'csv:CSV'].map(function (f) { var p = f.split(':'); return '<button class="btn small" data-ovrep="' + id + ':' + p[0] + '">' + p[1] + '</button>'; }).join('') + '</div></div>';
+    }
+    return '<div class="card card-pad">' +
+      '<p class="muted" style="margin-top:0">Units: <b>' + (V.unit === 'FT' ? 'feet' : 'metres') + '</b> · coordinates: <b>' + (V.fmt === 'dd' ? 'decimal degrees' : 'DMS') + '</b>' + (fr ? ' · only the <b>' + num(filtered(rows, [].concat.apply([], sets.map(compliance))).length, 0) + ' obstacles of the list filter</b>' : ' · all obstacles') + ' (change them in the Obstacle list).</p>' +
+      line('list', 'Obstacle list (ENR 5.4 / AD 2.10)', 'Identifier, type, position, elevation, height, lighting, marking, accuracies, distance and bearing from the ARP, Annex 14 penetration, remarks.') +
+      line('comp', 'eTOD compliance report', 'The PANS-AIM requirements of the area, every check with the obstacles concerned, the attributes given.') +
+      line('stats', 'Statistics', 'By type, by height and by distance; the tallest obstacles.') +
+      line('full', 'Complete obstacle report', 'Data set details, statistics, compliance and the obstacle list in one document.') +
+      '<div class="ov-rep"><div><b>Map data</b><div class="muted">The obstacles as GIS layers (with all their attributes).</div></div><div class="btn-group"><button class="btn small" data-ovrep="gis:geojson">GeoJSON</button><button class="btn small" data-ovrep="gis:kml">KML</button></div></div>' +
+      '</div>';
+  }
+
+  /* --------------------------------------------------------------- reports */
+  function C(t, r) { var o = { t: t === undefined || t === null ? '' : String(t) }; if (r) o.r = r; return o; }
+  function scopeOf(kind, sets, ctx) {
+    var all = [].concat.apply([], sets.map(function (x) { return x.rows; })), issues = [].concat.apply([], sets.map(compliance));
+    var rows = V.q || V.type || V.lit || V.minH || V.only ? filtered(all, issues) : all.slice().sort(function (a, b) { return String(a.id || a.name).localeCompare(String(b.id || b.name), 'en', { numeric: true }); });
+    var hasDist = rows.some(function (x) { return x.dist !== null; }), hasPen = rows.some(function (x) { return x.pen; });
+    var secs = [];
+    var head = sets.map(function (st) { return (st.ad ? st.ad.icao + ' ' + st.ad.name : st.adCode || st.ds.state) + (st.area ? ' — ' + areaLabel(st.area) : ''); }).join('; ');
+    if (kind === 'full' || kind === 'comp') {
+      secs.push({ title: 'Data sets', blocks: [{ kind: 'table', title: 'Obstacle data sets', cols: ['Data set', 'State', 'Aerodrome', 'eTOD area', 'Required accuracy (H / V)', 'Obstacles', 'Originator'],
+        rows: sets.map(function (st) { var a = st.area ? AREAS[st.area.key] : null; return [C(st.ds.name), C(st.ds.state), C(st.ad ? st.ad.icao + ' ' + st.ad.name : st.adCode), C(a ? areaLabel(st.area) : 'not stated'), C(a && !st.area.several ? a.h + ' m / ' + a.v + ' m' : a ? 'per obstacle area' : ''), C(st.rows.length), C(st.originators.join(', '))]; }) }] });
+    }
+    if (kind === 'full' || kind === 'stats') {
+      var d = statsData(rows), tb = function (title, list) { return { kind: 'table', title: title, cols: ['Class', 'Obstacles', 'Share'], rows: list.map(function (x) { return [C(x.l), C(x.n), C(rows.length ? num(100 * x.n / rows.length, 1) + ' %' : '')]; }) }; };
+      var b = [tb('By type', d.types), tb('By height above ground', d.heights)];
+      if (d.dist) b.push(tb('By distance from the ARP', d.dist));
+      b.push({ kind: 'table', title: 'Tallest obstacles', cols: ['Identifier', 'Type', 'Height', 'Elevation', 'Lighted', 'Position'], rows: d.tall.map(function (x) { return [C(x.id || x.name, x.r), C(typeTxt(x.type)), C(len(x.hgt, V.unit)), C(len(x.elev, V.unit)), C(yn(x.lighted)), C(pos(x.c, V.fmt))]; }) });
+      secs.push({ title: 'Statistics', blocks: b });
+    }
+    if (kind === 'full' || kind === 'comp') {
+      var keep = new Set(rows);
+      var iss = issues.filter(function (i) { return keep.has(i.row); });
+      secs.push({ title: 'eTOD compliance', blocks: [
+        { kind: 'table', title: 'PANS-AIM Appendix 1, Table A1-6', cols: ['Area', 'Covers', 'Horizontal accuracy', 'Vertical accuracy', 'Integrity'], rows: Object.keys(AREAS).map(function (k) { var a = AREAS[k]; return [C(a.name), C(a.note), C(a.h + ' m'), C(a.v + ' m'), C(a.integ)]; }) },
+        { kind: 'table', title: 'Issues (' + iss.length + ')', cols: ['Severity', 'Check', 'Obstacle', 'Issue'], rows: iss.map(function (i) { return [C(i.sev), C(i.check), C(i.row ? i.row.id || i.row.name : '', i.row && i.row.r), C(i.msg)]; }) }] });
+    }
+    if (kind === 'full' || kind === 'list') {
+      var cols = ['Identifier', 'Name', 'Type', 'Latitude', 'Longitude', 'Elevation (' + V.unit.toLowerCase() + ')', 'Height (' + V.unit.toLowerCase() + ')', 'Lighted', 'Marked', 'Horizontal accuracy (m)', 'Vertical accuracy (m)', 'Vertical datum'];
+      cols.push('eTOD area');
+      if (hasDist) cols.push('From ARP');
+      if (hasPen) cols.push('Annex 14 penetration');
+      cols.push('Remarks');
+      var f = V.unit === 'FT' ? 1 / 0.3048 : 1, n1 = function (v) { return v === null ? '' : (Math.round(v * f * 10) / 10).toString(); };
+      secs.push({ title: 'Obstacle list', blocks: [{ kind: 'table', title: 'Obstacles (' + rows.length + ')', cols: cols, rows: rows.map(function (x) {
+        var r = [C(x.id, x.r), C(x.name), C(typeTxt(x.type)), C(x.c ? (V.fmt === 'dd' ? x.c[1].toFixed(7) : AX.dms(x.c[1], false, 2)) : ''), C(x.c ? (V.fmt === 'dd' ? x.c[0].toFixed(7) : AX.dms(x.c[0], true, 2)) : ''),
+          C(n1(x.elev)), C(n1(x.hgt)), C(yn(x.lighted) + (x.lightTxt ? ' ' + x.lightTxt : '')), C(yn(x.marked) + (x.markTxt ? ' ' + x.markTxt : '')), C(x.hAcc === null ? '' : String(Math.round(x.hAcc * 100) / 100)), C(x.vAcc === null ? '' : String(Math.round(x.vAcc * 100) / 100)), C(x.vDatum)];
+        r.push(C(x.area || ''));
+        if (hasDist) r.push(C(x.dist !== null ? num(x.dist, 2) + ' NM ' + ('00' + Math.round(x.brg)).slice(-3) + '°T' : ''));
+        if (hasPen) r.push(C(x.pen ? '+' + num(x.pen.m) + ' m ' + x.pen.surface : ''));
+        r.push(C(x.notes.join('; ')));
+        return r;
+      }) }] });
+    }
+    var title = { list: 'Obstacle list', comp: 'eTOD compliance report', stats: 'Obstacle statistics', full: 'Obstacle report' }[kind];
+    return { title: title + ' — ' + head, sub: rows.length + ' obstacles', ds: sets.length === 1 ? sets[0].ds : null, sections: secs };
+  }
+  function report(spec, sets, ctx) {
+    var p = spec.split(':'), kind = p[0], fmt = p[1];
+    try {
+      if (kind === 'gis') {
+        var ds = sets[0].ds, keep = new Set([].concat.apply([], sets.map(function (x) { return x.rows.map(function (y) { return y.r; }); })));
+        sets.forEach(function (st) {
+          var f = function (r) { return r.k === 'VerticalStructure' && keep.has(r); };
+          var blob = fmt === 'kml' ? CONVERT.toKML(st.ds, f) : CONVERT.toGeoJSON(st.ds, f);
+          EXPORTS.download(EXPORTS.safeName('obstacles_' + (st.adCode || st.ds.state) + '_' + st.ds.name.replace(/\.[^.]+$/, '')) + (fmt === 'kml' ? '.kml' : '.geojson'), blob);
+        });
+        void ds;
+        return;
+      }
+      var sc = scopeOf(kind, sets, ctx);
+      if (fmt === 'pdf') EXPORTS.exportPDF(sc);
+      else if (fmt === 'print') EXPORTS.print(sc);
+      else if (fmt === 'xlsx') EXPORTS.exportExcel(sc);
+      else if (fmt === 'csv') EXPORTS.exportCSV(sc);
+    } catch (e) { ctx.toast('Report failed: ' + e.message, 6000); throw e; }
+  }
+
+  return { render: render, model: model, compliance: compliance, scopeOf: scopeOf, areaOf: areaOf, AREAS: AREAS, has: function (datasets) { return datasets.some(function (d) { return (d.byType.VerticalStructure || []).length; }); } };
+})();

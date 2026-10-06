@@ -7,6 +7,35 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.20.0 — 2026-10-06 — Digital data tab: obstacles, procedures, aerodrome mapping
+
+- **Digital data tab**: obstacle (eTOD), instrument flight procedure and aerodrome mapping data are used differently
+  from the AIP data set, so each now has its own workspace, on all the data loaded. The AIP views, the Map tab and
+  the Export page work as before; the Export page and the Dashboard point to the new tab.
+- **Obstacles (eTOD)**: overview per aerodrome and eTOD area (obstacles, lighted, marked, tallest, highest top,
+  share without errors, originator, validity, obstacle area); each obstacle's area from the obstacle area polygons
+  (the most demanding one it is in), the area the data set declares or the file name; the list with position
+  (DMS or decimal), elevation and height in metres or feet, lighting, marking, accuracies, distance and bearing from
+  the ARP and Annex 14 penetrations, with filters and sorting.
+- **eTOD compliance**: PANS-AIM Appendix 1 Table A1-6 accuracy of the area checked for every obstacle, mandatory
+  attributes, duplicates, obstacles outside the obstacle area, implausible elevation / height, ended validity; the
+  share of obstacles giving each attribute.
+- **Statistics** by type, height class and distance from the ARP; the tallest obstacles.
+- **Reports**: obstacle list (ENR 5.4 / AD 2.10 columns), compliance report, statistics or a complete obstacle report
+  in PDF, print, Excel or CSV (the whole data or the filtered list), and GeoJSON / KML.
+- **Procedures (IFP)**: every SID, STAR and approach by aerodrome with runway, approach type, PBN, design criteria,
+  coding standard, flight check, legs, minima and FAS data block; holdings, MSA and TAA counted; a report with the
+  list and every procedure's legs, minima and holdings.
+- **Aerodrome mapping (AMXM)**: features by aerodrome and AMXM type; each type with every attribute of the AMXM
+  2.0.2 schema (how many features give it) and the meaning of code values; a report with the inventory and every
+  type.
+- **A map for each workspace** beside its list: obstacles sized by height and coloured by what matters (penetrates
+  an Annex 14 surface, has an error, lighted), the obstacle area boundary, the ARP with 2 / 5 / 10 NM rings;
+  procedure paths by kind; aerodrome mapping geometry by type. The list filter applies; a click on the map selects
+  the row and a row selects its feature. Offline world map, or online streets / satellite imagery.
+- References in vendor extensions (e.g. the Digital NOTAM event that created a feature) are a note in Quality, no
+  longer a warning.
+
 ## 1.19.0 — 2026-10-06 — eTOD obstacles from Excel and CSV
 
 - **Obstacle data sets as tables**: electronic obstacle data sets (eTOD, PANS-AIM Table A1-6) delivered as Excel

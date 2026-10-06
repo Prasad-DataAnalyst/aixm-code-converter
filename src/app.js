@@ -20,7 +20,7 @@
  *   EXPORT, e-mail, search, help, start . exports/conversions, Outlook text, Ctrl+K search, startup
  * Every view is a function viewXxx(v, opts) registered in go(); add a view there and in VIEWS.
  * ========================================================================== */
-/* global APP_INFO, APP_SETTINGS, OBSTAB, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, ADCHART, OLS, INTEGRITY, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
+/* global APP_INFO, APP_SETTINGS, OBSTAB, DDVIEW, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, ADCHART, OLS, INTEGRITY, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
 (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -203,6 +203,7 @@
     plane: ic('<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>'),
     caret: ic('<path d="m9 18 6-6-6-6"/>', 'class="caret"'),
     info: ic('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
+    layers: ic('<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5" opacity=".55"/>'),
     charts: ic('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 17l3-5 3 3 2-4"/><path d="M8 7h8"/>'),
     trash: ic('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'),
     play: ic('<path d="M6 4l14 8-14 8z"/>'),
@@ -214,7 +215,7 @@
 
   /* --------------------------------------------------------------- nav */
   var VIEWS = [
-    ['library', 'Library', I.folder], ['files', 'Files', I.upload], ['dash', 'Dashboard', I.dash], ['aip', 'AIP', I.book], ['map', 'Map', I.map], null,
+    ['library', 'Library', I.folder], ['files', 'Files', I.upload], ['dash', 'Dashboard', I.dash], ['aip', 'AIP', I.book], ['map', 'Map', I.map], ['digital', 'Digital data', I.layers], null,
     ['changes', 'Changes', I.changes], ['timeline', 'Timeline', I.timeline], ['compare', 'Compare', I.compare], ['notam', 'NOTAM', I.notam], ['quality', 'Quality', I.check], ['explorer', 'Explorer', I.list], null,
     ['export', 'Export', I.export], ['charts', 'Digital charts', I.charts], ['about', 'About', I.info]
   ];
@@ -246,7 +247,7 @@
     var has = S.datasets.length > 0;
     $('#nav').innerHTML = VIEWS.map(function (v) {
       if (!v) return '<div class="nav-sep"></div>';
-      var dis = !has && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about' && v[0] !== 'charts';
+      var dis = (!has && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about' && v[0] !== 'charts') || (v[0] === 'digital' && has && !DDVIEW.has(S.datasets));
       return '<button data-view="' + v[0] + '" class="' + (S.view === v[0] ? 'active' : '') + '"' + (dis ? ' disabled' : '') + ' title="' + v[1] + '">' + v[2] + '<span>' + v[1] + '</span></button>';
     }).join('') + '<div class="nav-credit" data-about="1" title="' + AUTHOR_LINE + '">© 2026<br>Prasad Selvaraj</div>';
     if (DEVICE.isPhone()) { var act = $('#nav .active'); if (act && act.scrollIntoView) act.scrollIntoView({ inline: 'center', block: 'nearest' }); }
@@ -264,6 +265,8 @@
     '<a href="' + esc(APP_INFO.linkedin) + '" target="_blank" rel="noopener">LinkedIn: ' + esc(APP_INFO.linkedin.replace(/^https:\/\/(www\.)?/, '').replace(/\/$/, '')) + '</a>' +
     '<a href="#" data-feedback>✉ Send feedback</a>' +
     '<span>' + esc(APP_INFO.name) + ' v' + esc(APP_INFO.version) + ' · Apache License 2.0</span></div>';
+  // links to a section of the Digital data tab (e.g. from the Export page)
+  document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('[data-gosec]'); if (b) go('digital', { sec: b.getAttribute('data-gosec') }); });
   // feedback form (feedback.js): from the footer of every page and the About page
   document.addEventListener('click', function (e) {
     if (!e.target.closest || !e.target.closest('[data-feedback]')) return;
@@ -311,7 +314,7 @@
     v.className = 'view' + (view === 'aip' || view === 'map' || view === 'explorer' ? ' full' : '');
     main.appendChild(v);
     try {
-      ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, timeline: viewTimeline, notam: viewNotam, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport, about: viewAbout, charts: viewCharts })[view](v, opts || {});
+      ({ library: viewLibrary, files: viewFiles, dash: viewDash, aip: viewAip, map: viewMap, changes: viewChanges, timeline: viewTimeline, notam: viewNotam, compare: viewCompare, quality: viewQuality, explorer: viewExplorer, export: viewExport, about: viewAbout, charts: viewCharts, digital: viewDigital })[view](v, opts || {});
     } catch (err) {
       // a page that fails (e.g. on unexpected data) says so; the other pages and data sets keep working
       console.error(err);
@@ -409,6 +412,9 @@
       var head = await f.slice(0, Math.min(f.size, 262144)).text();
       item.sniff = AX.sniff(head, f.name);
       item.status = item.sniff.family ? 'ready' : 'invalid';
+      // the data set's title in its ISO 19115 metadata (e.g. "Obstacle Data (Area 2d) for HAMAD INTL (OTHH)")
+      var mt = item.sniff.family && /<(?:[\w-]+:)?title>\s*<(?:[\w-]+:)?CharacterString>([^<]{3,200})</.exec(head);
+      if (mt) item.sniff.title = mt[1].trim();
       if (!item.sniff.family) {
         // a delivery's checksum list (file names with SHA-256) checks and groups the files; it is not listed itself
         var man = f.size < 5242880 ? parseManifest(f.size > 262144 ? await f.text() : head) : null;
@@ -1451,7 +1457,7 @@
           ['Data valid from', ds.dataFrom !== null ? M.fmtDate(ds.dataFrom) : '—'], ['Latest time slice start', ds.dataLatest !== null ? M.fmtDate(ds.dataLatest, true) : '—'],
           ['ICAO prefixes', (ds.prefixes || []).join(', ')], ['Created', ds.created || '—'], ['Read time', (ds.tRead / 1000).toFixed(2) + ' s · ' + (ds.size / 1048576 / (ds.tRead / 1000)).toFixed(1) + ' MB/s'], ['Memory mode', ds.lite ? 'Lite — light and marking elements are counted, not kept (open the AIXM code to see them)' : 'Full detail'],
           ['Parse warnings', ds.parseErrors ? ds.parseErrors.length : 0]].concat(ds.files ? [['Read from', ds.files.length + ' files, as one data set' + (ds.delivery ? ' (delivery checksum list: ' + ds.delivery.listed + ' files)' : '')]] : []).map(function (r) { return '<tr><td class="muted">' + r[0] + '</td><td>' + esc(r[1]) + '</td></tr>'; }).join('') + '</table>' +
-        '<div class="btn-group" style="margin-top:12px"><button class="btn primary" data-act="aip">' + I.book + ' Open AIP</button><button class="btn" data-act="map">' + I.map + ' Map</button><button class="btn" data-act="export">' + I.export + ' Export</button><button class="btn" data-act="remove">' + I.trash + ' Remove</button></div></div></div>';
+        '<div class="btn-group" style="margin-top:12px"><button class="btn primary" data-act="aip">' + I.book + ' Open AIP</button><button class="btn" data-act="map">' + I.map + ' Map</button><button class="btn" data-act="export">' + I.export + ' Export</button>' + (function () { var dd = DDVIEW.sections([ds]).filter(function (x) { return x.n; }); return dd.length ? '<button class="btn" data-act="digital" data-sec="' + dd[0].id + '" title="' + esc(dd.map(function (x) { return num(x.n) + ' ' + x.what; }).join(', ')) + ': lists, checks and reports">' + I.layers + ' Digital data</button>' : ''; })() + '<button class="btn" data-act="remove">' + I.trash + ' Remove</button></div></div></div>';
       card.addEventListener('click', function (e) {
         S.active = idx; renderDsSelect();
         var t = e.target.closest('[data-type]'), a = e.target.closest('[data-ad]'), gg = e.target.closest('[data-go]'), act = e.target.closest('[data-act]');
@@ -1463,7 +1469,7 @@
         else if (e.target.closest('[data-hlaip]')) { S.hlOn = true; var first = getCyc(ds).list[0]; if (first) openAipFor(ds, first.rec); else go('aip'); }
         else if (act) {
           var k = act.getAttribute('data-act');
-          if (k === 'aip') go('aip'); else if (k === 'map') go('map'); else if (k === 'export') go('export');
+          if (k === 'aip') go('aip'); else if (k === 'map') go('map'); else if (k === 'export') go('export'); else if (k === 'digital') go('digital', { sec: act.getAttribute('data-sec') });
           else if (k === 'remove') { dropDataset(ds); go(S.datasets.length ? 'dash' : 'files'); }
         }
       });
@@ -2242,6 +2248,13 @@
     if (S.view === 'map') go(S.aipSel ? 'aip' : 'dash');
     toast('The map is open in its own window. "Show on map" now uses that window.', 5000);
   }
+  // Digital data tab (ddview.js): obstacles / eTOD, procedures (IFP), aerodrome mapping, terrain, each in its own way
+  function viewDigital(v, opts) {
+    if (!S.datasets.length) { v.innerHTML = emptyState('No data', 'Extract a file first.'); return; }
+    DDVIEW.render(v, { datasets: S.datasets, active: dsOf(), sec: opts.sec || null, toast: toast, openDetail: openDetail, openXml: openXml,
+      showOnMap: function (ds, r) { go('map', { ds: ds, focus: r }); }, openAip: function (ds, r) { openAipFor(ds, r); },
+      mapProcs: function (ds, ad) { go('map', { ds: ds, procs: ad }); } });
+  }
   function viewMap(v, opts) {
     if (!S.datasets.length) { v.innerHTML = emptyState('No data', 'Extract a file first.'); return; }
     MAPVIEW.mount(v, S.datasets, mapHooks(), { ds: opts.ds || dsOf(), cmp: S.cmp, procs: opts.procs });
@@ -2921,7 +2934,10 @@
     if (!ds) { v.innerHTML = emptyState('No data', ''); return; }
     var cat = ds.catalogue || (ds.catalogue = AIP.catalogue(ds));
     var ads = cat[2].children.filter(function (x) { return x.ad; });
+    // obstacle, procedure and aerodrome mapping data have their own reports in the Digital data tab
+    var dd = DDVIEW.sections([ds]).filter(function (x) { return x.n; });
     v.innerHTML = '<h1 class="view-title">Export</h1><p class="view-sub">' + esc(ds.state) + ' · ' + esc(ds.name) + (ds.airac ? ' · AIRAC ' + ds.airac.id : '') + '. Choose what to export, then the format. Every section page also has its own Print / PDF / Excel / JSON / E-mail buttons.</p>' +
+      (dd.length ? '<div class="card card-pad dd-hint"><b>' + (ads.length ? 'Also in this data set: ' : 'This is a digital data set: ') + dd.map(function (x) { return num(x.n) + ' ' + x.what; }).join(', ') + '.</b> Their reports — ' + dd.map(function (x) { return x.title; }).join(', ') + ': lists, checks, statistics in PDF, print, Excel, CSV, GeoJSON, KML — are in <button class="btn small primary" data-gosec="' + dd[0].id + '">' + I.layers + ' Digital data</button></div>' : '') +
       customExportHtml(ds) +
       '<h2 class="xp-h2">Complete AIP sections</h2>' +
       '<div class="card card-pad"><h3>1 · What</h3><div class="col">' +
@@ -3312,6 +3328,7 @@
       '<p><b>AIRAC cycle changes.</b> Values that change in the selected AIRAC cycle are shown <span class="chg-badge">in red</span> on every AIP page; <b>List all changes</b> and <b>AMDT report</b> give the amendment (publication and effective dates, affected sections, insert/amend/delete). <b>⇆ Side by side</b> on any section shows before/after a cycle, or two files. <i>Timeline</i> shows the changes per AIRAC cycle and temporary changes; <i>NOTAM</i> shows Digital NOTAM events as ICAO NOTAM text.</p>' +
       '<p><b>Digital data sets.</b> Besides the AIP data set the tool reads obstacle data sets, aerodrome mapping data sets (AIXM or AMXM 2.0, ED-99 / DO-272) and instrument flight procedure (IFP) data sets; electronic obstacle data sets (eTOD) also as Excel or CSV tables (headings recognised in any order; every other column kept as a remark); an IFP file named like the AIP file of its delivery (…_IFP_DS_… beside …_AIP_DS_…) is read with it as one data set.</p>' +
       '<p><b>Map.</b> <b>Several data sets on one map</b>: with more than one loaded, tick those to show (e.g. Qatar, Saudi Arabia, UAE and China together), <i>only</i> for one, <i>Show all</i> for every one. <b>Search on the map</b> (box at the top left): airways, waypoints, navaids, aerodromes, runways, taxiways, aprons, stands, airspace, obstacles — also as you would say them, e.g. "twy C", "EADD stand 5", "airway UL123"; a pick zooms there and outlines it in magenta (Esc clears). A complete offline world map is built in. When the laptop is online you can switch to 14 free online maps that need no API key: street maps (Esri, OpenStreetMap), plain light/dark backgrounds, terrain and relief, ocean floor, satellite imagery (Esri, NASA) and the Earth at night. Instrument procedures can be drawn per aerodrome. <b>Airport view</b>: airport chart (runways to scale with markings, taxiway signs, stands, ILS) and an information card. <b>🗻 3D view</b>: terrain, airspace volumes, approach and departure crew views; <i>Grid MORA</i> and terrain elevation on the map. <b>⧉ New window</b> puts the map on a second screen. <b>Print map</b>: drag an area, choose A4/A3, legend, north arrow and grid.</p>' +
+      '<p><b>Digital data.</b> Obstacles (eTOD), procedures (IFP) and aerodrome mapping each have a workspace in the <i>Digital data</i> tab: overview by aerodrome and area, list with filters, a map beside the list (the filter applies; a click on the map selects the row and a row its feature), checks and reports (PDF, print, Excel, CSV, GeoJSON, KML). For obstacles: the eTOD area of each obstacle, the PANS-AIM accuracy it requires, the coverage of the obstacle area, distance and bearing from the ARP and the Annex 14 surfaces.</p>' +
       '<p><b>Quality.</b> <b>Data issues are flagged in the AIP</b>: ⚠ counts on the sections, a box at the top of each section saying what is wrong, what was found and what is expected, and the values concerned underlined (the issue on hover). Basic checks, the official AIXM 5.1 business rules (SBVR) and their catalogue, the ICAO Annex 14 obstacle limitation surfaces (penetrations, also in 3D) and data integrity (PANS-AIM accuracy, CRC32Q fingerprints, verification against a saved CRC list). Instrument approaches in AD 2.22 show their vertical profile.</p>' +
       '<p><b>Library, links and languages.</b> Connect a folder with one sub-folder per State; extracted data is kept for instant reopening. ☆ saves views; the address (#…) of any view can be shared. The interface is available in English, العربية (right-to-left), Français and Español. Files over 1.5 GB use the Lite memory mode automatically.</p>' +
       '<p><b>Exports.</b> Any single section or the whole data set: JSON (with source references), Excel, printable PDF, print, or an e-mail to paste into Outlook (.eml opens as a draft).</p>' +

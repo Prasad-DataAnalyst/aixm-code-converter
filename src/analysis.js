@@ -373,6 +373,11 @@ var ANALYSIS = (function () {
       list.forEach(function (r, i) { add('warning', 'Duplicate', 'Designator ' + code + ' used by ' + list.length + ' designated points up to ' + Math.round(far).toLocaleString('en-US') + ' NM apart', r, 'designator', 'This one at ' + (pts[i] ? pos(pts[i]) : 'no position') + '; others: ' + list.filter(function (x) { return x !== r; }).map(function (x) { var c = M.pointOf(ds, x); return (c ? pos(c) : 'no position') + ' (line ' + x.line + ')'; }).join('; ') + '. A route or procedure naming ' + code + ' is ambiguous.'); });
     });
     unresolved.forEach(function (list, k) {
+      // references inside vendor extensions (e.g. Digital NOTAM events of an AIM system): a note, not a data error
+      if (/\.extension$/.test(k)) {
+        add('info', 'References', list.length + ' reference(s) in ' + k + ' (vendor extension) point to features that are not in this file', list[0], null, 'Extensions carry data of the producing system, for example the Digital NOTAM event that created the feature. They are not part of the AIXM data set, so a missing target is not an error.');
+        return;
+      }
       add('warning', 'References', list.length + ' reference(s) of ' + k + ' point to features that are not in this file', list[0], null, 'For example: ' + list.slice(0, 5).map(function (x) { return M.label(ds, x) + ' (line ' + x.line + ')'; }).join('; ') + (list.length > 5 ? ' … and ' + (list.length - 5) + ' more' : '') + '. The feature referred to is missing: load the file that contains it with this one, or the reference (xlink:href) is wrong.');
     });
     var rank = { error: 0, warning: 1, info: 2 };
