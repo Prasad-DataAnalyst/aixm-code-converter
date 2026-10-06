@@ -20,7 +20,7 @@
  *   EXPORT, e-mail, search, help, start . exports/conversions, Outlook text, Ctrl+K search, startup
  * Every view is a function viewXxx(v, opts) registered in go(); add a view there and in VIEWS.
  * ========================================================================== */
-/* global APP_INFO, APP_SETTINGS, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, ADCHART, OLS, INTEGRITY, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
+/* global APP_INFO, APP_SETTINGS, OBSTAB, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, ADCHART, OLS, INTEGRITY, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
 (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -80,7 +80,7 @@
       'View: ' + S.view + ' · reader threads: ' + threads() + (S.safeRead ? ' (safe mode)' : '') + ' · memory mode: ' + (S.memMode || 'auto') +
         (mi ? ' · memory used ' + fmtSize(mi.used) + ' of ' + fmtSize(mi.limit) : '') + (navigator.deviceMemory ? ' · device memory ' + navigator.deviceMemory + ' GB' : ''),
       'Data sets (' + S.datasets.length + '): ' + (S.datasets.map(function (d) {
-        return d.name + ' [' + (d.family === 'amxm' ? 'AMXM' : 'AIXM ' + (d.version || d.family)) + ', ' + fmtSize(d.size || 0) + ', ' + num(d.recs.length) + ' features' + (d.lite ? ', Lite' : '') + ']';
+        return d.name + ' [' + (d.family === 'amxm' ? 'AMXM' : d.family === 'tab' ? 'obstacle table ' + d.version : 'AIXM ' + (d.version || d.family)) + ', ' + fmtSize(d.size || 0) + ', ' + num(d.recs.length) + ' features' + (d.lite ? ', Lite' : '') + ']';
       }).join('; ') || 'none'),
       'Files (' + S.files.length + '): ' + (S.files.slice(0, 40).map(function (f) { return f.name + ' ' + fmtSize(f.size) + ' ' + f.status; }).join('; ') || 'none')].join('\n');
   }
@@ -347,8 +347,8 @@
     v.innerHTML =
       '<h1 class="view-title">Open AIXM files</h1><p class="view-sub">' + (tch ? 'Choose' : 'Drop') + ' one or more AIXM files (any version — 4.5, 5.1, 5.1.1 or 5.2, also inside .zip archives). The version is detected automatically. Nothing leaves this ' + (tch ? 'device' : 'computer') + '.</p>' +
       '<div class="hero"><div class="drop" id="drop"><div class="drop-icon">' + I.upload.replace('<svg', '<svg width="30" height="30"') + '</div>' +
-      (tch ? '<h2>Tap to choose AIXM files</h2><div class="muted">from Files, Downloads, iCloud Drive or Google Drive · .xml .aixm .gml .zip</div>'
-        : '<h2>Drop AIXM files here</h2><div class="muted">or click to browse · .xml .aixm .gml .zip · one file per State or many</div>') +
+      (tch ? '<h2>Tap to choose AIXM files</h2><div class="muted">from Files, Downloads, iCloud Drive or Google Drive · .xml .aixm .gml .zip · obstacle tables .xlsx .csv</div>'
+        : '<h2>Drop AIXM files here</h2><div class="muted">or click to browse · .xml .aixm .gml .zip · obstacle tables (eTOD) .xlsx .csv · one file per State or many</div>') +
       '<div class="row" style="margin-top:6px"><span class="chip brand">AIXM 4.5</span><span class="chip brand">5.1</span><span class="chip brand">5.1.1</span><span class="chip brand">5.2</span><span class="chip">' + (tch ? 'very large files: use a computer' : 'up to several GB') + '</span></div></div>' +
       '<div class="how card card-pad"><h3>How it works</h3>' +
       step(1, 'Add files', 'Drag & drop or browse. Each file is checked instantly: AIXM version, root element, size.') +
@@ -396,11 +396,16 @@
     renderFileList();
     verifyChecksums();
   }
+  var SHEET_EXT = /\.(xlsx|xlsm|xls|ods)$/i; // spreadsheets (binary): obstacle tables only
   async function addOne(f, from) {
     var item = { id: ++fileSeq, file: f, name: f.name, size: f.size, from: from || null, status: 'checking', progress: 0 };
     S.files.push(item);
     renderFileList();
     try {
+      // obstacle data sets in tables (eTOD obstacles as Excel or CSV)
+      var tab = OBSTAB.isTable(f.name) ? await OBSTAB.sniffFile(f) : null;
+      if (tab && tab.family) { item.sniff = tab; item.status = 'ready'; return item; }
+      if (tab && SHEET_EXT.test(f.name)) { item.sniff = { family: null, notes: tab.notes }; item.status = 'invalid'; item.error = tab.notes.join('; '); return item; }
       var head = await f.slice(0, Math.min(f.size, 262144)).text();
       item.sniff = AX.sniff(head, f.name);
       item.status = item.sniff.family ? 'ready' : 'invalid';
@@ -408,7 +413,7 @@
         // a delivery's checksum list (file names with SHA-256) checks and groups the files; it is not listed itself
         var man = f.size < 5242880 ? parseManifest(f.size > 262144 ? await f.text() : head) : null;
         if (man) { man.source = f.name; S.manifests.push(man); S.files = S.files.filter(function (x) { return x !== item; }); renderFileList(); return null; }
-        item.error = item.sniff.notes.join('; ') || 'Not an AIXM file';
+        item.error = (tab ? tab.notes : item.sniff.notes).join('; ') || 'Not an AIXM file';
       }
     } catch (e) { item.status = 'invalid'; item.error = String(e.message || e); }
     return item;
@@ -469,7 +474,7 @@
   // key of the delivery a file belongs to: listed in the same checksum list, or a name that differs from the others
   // only by feature type and variant (…_Runway_BASELINE_EFF… / …_VOR_DIFF_EFF…); "Combine" sets its own key
   function setKeyOf(f) {
-    if (!f.sniff || !f.sniff.family) return null;
+    if (!f.sniff || !f.sniff.family || f.sniff.family === 'tab') return null;
     if (f.manualSet) return f.manualSet;
     if (f.manifest) return 'm:' + f.manifest.uid;
     var p = nameParts(f);
@@ -511,7 +516,7 @@
       var uz = new fflate.Unzip();
       uz.register(fflate.UnzipInflate);
       uz.onfile = function (f) {
-        if (!/\.(xml|aixm|gml)$/i.test(f.name) || /__MACOSX/.test(f.name)) return;
+        if (!/\.(xml|aixm|gml)$/i.test(f.name) && !OBSTAB.isTable(f.name) || /__MACOSX/.test(f.name)) return;
         var chunks = [];
         pending++;
         f.ondata = function (err, dat, final) {
@@ -522,7 +527,7 @@
           if (total > cap) { chunks.length = 0; stop(new Error('its contents are larger than ' + fmtSize(cap) + ' — unpack it and open the XML files directly')); return; }
           chunks.push(dat);
           // the zip's date: the same zip opened again gives the same saved-copy key
-          if (final) { out.push(new File(chunks, f.name.split('/').pop(), { type: 'text/xml', lastModified: file.lastModified })); pending--; if (ended && !pending) resolve(out); }
+          if (final) { out.push(new File(chunks, f.name.split('/').pop(), { type: OBSTAB.isTable(f.name) ? '' : 'text/xml', lastModified: file.lastModified })); pending--; if (ended && !pending) resolve(out); }
         };
         f.start();
       };
@@ -597,7 +602,7 @@
     if (!S.files.length) { bar.classList.add('hidden'); return; }
     bar.classList.remove('hidden');
     // files read one by one that could be combined (same AIXM family): "Combine" makes them one data set
-    var loose = ready.filter(function (f) { return !setOf(f); }), canJoin = loose.length > 1 && loose.every(function (f) { return f.sniff.family === loose[0].sniff.family; });
+    var loose = ready.filter(function (f) { return !setOf(f); }), canJoin = loose.length > 1 && loose[0].sniff.family !== 'tab' && loose.every(function (f) { return f.sniff.family === loose[0].sniff.family; });
     var big = S.files.some(function (f) { return f.size > liteAuto(); }) || memPlan(ready).lite;
     bar.innerHTML = '<div class="grow"><b>' + S.files.length + ' file(s)</b> <span class="muted">· ' + ready.length + ' ready to extract · parallel threads: ' + threads() + '</span></div>' +
       (canJoin && !busy ? '<button class="btn" id="join-btn" title="Read the ' + loose.length + ' files as one data set, e.g. a State that delivers one AIRAC cycle in several files">⧉ Combine ' + loose.length + ' files into one data set</button>' : '') +
@@ -650,6 +655,7 @@
   function featureNames(sn) {
     if (sn.family === '45') return Object.keys(DICT.v45.features);
     if (sn.family === 'amxm') return AX.AMXM_TYPES;
+    if (sn.family === 'tab') return ['VerticalStructure'];
     var v = /^5\.2/.test(sn.version) ? '5.2' : sn.version === '5.1.1' ? '5.1.1' : '5.1';
     var fv = DICT.v5.featureVersions;
     return Object.keys(fv).filter(function (k) { return fv[k].indexOf(v) >= 0 || (v === '5.2' && fv[k].indexOf('5.1.1') >= 0 && !DICT.v5.objects[k]); });
@@ -756,7 +762,7 @@
           f.status = 'done'; if (multi) u.members.forEach(function (m) { m.status = 'done'; });
           f.detail = 'opened from saved data (instant) · ' + num(cached.recs.length) + ' features · ' + esc(cached.state); renderFileList(); continue;
         }
-        await extractSet(u.members, f, plan);
+        if (f.sniff && f.sniff.family === 'tab') await extractTab(f); else await extractSet(u.members, f, plan);
         // a moment between files: the browser frees the memory of the reader threads before the next file starts
         if (i < units.length - 1) await new Promise(function (r) { setTimeout(r, 120); });
       }
@@ -801,7 +807,33 @@
       }
     });
   }
-  function extractOne(f, plan) { return extractSet([f], f, plan); }
+  function extractOne(f, plan) { return f.sniff && f.sniff.family === 'tab' ? extractTab(f) : extractSet([f], f, plan); }
+  // an obstacle table (Excel / CSV): its rows become obstacles (OBSTAB); small enough to read here, not saved
+  async function extractTab(item) {
+    var t0 = performance.now();
+    item.status = 'parsing'; item.progress = 0; item.detail = 'reading the table…'; renderFileList();
+    try {
+      var res = await OBSTAB.read(item.file);
+      var ds = { id: item.id, name: item.name, file: item.file, size: item.size, sniff: item.sniff, family: 'tab', version: item.sniff.version, recs: res.recs, partLines: [res.lines], viewDate: S.asOf,
+        tab: { src: res.src, columns: res.columns, kept: res.ignored, problems: res.problems } };
+      item.status = 'indexing'; item.detail = 'building the obstacle data set…'; renderFileList();
+      await M.finalizeAsync(ds);
+      ds.tRead = ds.tTotal = performance.now() - t0; ds.errors = (ds.parseErrors || []).length;
+      applyLib(ds, item.lib);
+      ds.cacheKey = item.lib ? item.lib.key : dropKey(item.file);
+      S.datasets = S.datasets.filter(function (x) { return x.id !== ds.id; });
+      S.datasets.push(ds);
+      M.harmonizeStates(S.datasets);
+      item.status = 'done';
+      item.detail = num((ds.byType.VerticalStructure || []).length) + ' obstacles' + (ds.errors ? ' · ' + num(ds.errors) + ' row(s) without a position' : '') + ' · ' + esc(ds.state);
+      renderFileList(); renderNav();
+      return ds;
+    } catch (err) {
+      console.error(err);
+      item.status = 'error'; item.error = err.message; renderFileList(); toast('Error reading ' + item.name + ': ' + err.message, 8000);
+      return null;
+    }
+  }
   // one data set from one file, or from several files of one delivery (members) shown as one item in the file list
   function extractSet(members, item, plan) {
     return new Promise(function (resolve) {
@@ -1398,7 +1430,7 @@
       var card = document.createElement('div');
       card.className = 'card ds-card';
       card.innerHTML = '<div class="ds-head"><div><div class="state">' + esc(ds.state) + '</div><div class="meta">' + esc(ds.name) + ' · ' + fmtSize(ds.size) + ' · state from ' + esc(ds.stateSource) + '</div></div>' +
-        '<div class="kpis"><div class="kpi-h"><b>' + esc((ds.sniff.versionLabel || '').replace('AIXM ', '').replace(/ \(aerodrome mapping\)$/, '')) + '</b><span>' + (ds.family === 'amxm' ? 'Aerodrome mapping' : 'AIXM version') + '</span></div>' +
+        '<div class="kpis"><div class="kpi-h"><b>' + esc((ds.sniff.versionLabel || '').replace('AIXM ', '').replace(/ \(aerodrome mapping\)$/, '')) + '</b><span>' + (ds.family === 'amxm' ? 'Aerodrome mapping' : ds.family === 'tab' ? 'eTOD obstacle table' : 'AIXM version') + '</span></div>' +
         '<div class="kpi-h"><b>' + (ds.airac ? ds.airac.id : '—') + '</b><span>AIRAC cycle' + (ds.airac ? ' · ' + M.fmtDate(ds.airac.date) : '') + '</span></div>' +
         '<div class="kpi-h"><b>' + (ds.effective !== null ? M.fmtDate(localEff(ds) ? ds.airac.date : ds.effective) : '—') + '</b><span title="' + esc(ds.effectiveSource + (localEff(ds) ? ' · ' + localEff(ds) : '')) + '">Effective date</span></div>' +
         '<div class="kpi-h"><b>' + num(ds.recs.length) + '</b><span>AIXM features</span></div></div></div>' +
@@ -1406,7 +1438,7 @@
           return '<div class="tile" data-type="' + t[0] + '"><b>' + num(ds.byType[t[0]].length) + '</b><span>' + t[1] + '</span></div>';
         }).join('') + '<div class="tile" data-go="changes"><b>' + num(nTs) + '</b><span>features with changes / time slices</span></div>' +
         '<div class="tile" data-go="explorer"><b>' + Object.keys(ds.byType).length + '</b><span>feature types</span></div></div>' +
-        cycleCardHtml(ds) +
+        cycleCardHtml(ds) + tabCardHtml(ds) +
         '<div class="ds-body"><div><h2 class="h3" style="margin:4px 0 8px">Aerodromes and heliports <span class="muted" style="font-weight:400">(effective date of each AD)</span></h2>' +
         (ads.length ? '<div class="tbl-wrap" style="max-height:340px"><table class="mini-table"><thead><tr><th>ICAO</th><th>Name</th><th>Type</th><th>Effective</th><th>AIP</th></tr></thead><tbody>' + ads.map(function (a) {
           var eff = M.adEffective(ds, a);
@@ -1437,6 +1469,17 @@
       });
       g.appendChild(card);
     });
+  }
+  // obstacle table: which columns were read as what, which were kept as remarks, rows with problems
+  function tabCardHtml(ds) {
+    if (!ds.tab) return '';
+    var t = ds.tab, pr = t.problems;
+    return '<div class="card card-pad tab-card"><b>Obstacle table</b> · ' + num((ds.byType.VerticalStructure || []).length) + ' obstacles read as AIXM 5.1 vertical structures' +
+      (ds.parseErrors ? ' · <span class="q-err">' + num(ds.parseErrors.length) + ' row(s) without a position, not read</span>' : '') +
+      '<details><summary>Columns read (' + t.columns.length + ')' + (t.kept.length ? ' · kept as remarks (' + t.kept.length + ')' : '') + '</summary><div class="tab-cols">' +
+      t.columns.map(function (c) { return '<span class="chip">' + esc(c) + '</span>'; }).join('') + (t.kept.length ? '<div class="muted">Kept as remarks of each obstacle: ' + esc(t.kept.join(' · ')) + '</div>' : '') + '</div></details>' +
+      (pr.length ? '<details' + (pr.length < 6 ? ' open' : '') + '><summary>' + num(pr.length) + ' note(s) on the rows</summary><ul class="tab-probs">' + pr.slice(0, 200).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') +
+        (pr.length > 200 ? '<li class="muted">and ' + num(pr.length - 200) + ' more</li>' : '') + '</ul></details>' : '') + '</div>';
   }
   function cycleCardHtml(ds) {
     var cc = getCyc(ds);
@@ -1956,6 +1999,7 @@
   function srcFile(ds, fi) { return ds.files ? ds.files[fi || 0] : ds.file; }
   function srcName(ds, fi) { var f = srcFile(ds, fi); return ds.files && f ? f.name : ds.name; }
   async function readFragment(ds, occ) {
+    if (ds.tab) return ds.tab.src[occ.o] || ''; // a table row: its cells, one "column: value" per line
     var buf = await srcFile(ds, occ.f).slice(occ.o, occ.o + occ.n).arrayBuffer();
     return new TextDecoder('utf-8').decode(buf);
   }
@@ -3266,7 +3310,7 @@
       '<p><b>Effective dates.</b> The header shows the State, AIXM version, AIRAC cycle and effective date. Every row shows the effective date of its feature. Use <b>Latest data / Valid on date</b> (top bar) to see the data valid on any date (AIXM temporality: BASELINE, PERMDELTA, TEMPDELTA).</p>' +
       '<p><b>Changes.</b> <i>Changes</i> lists the time slices inside one file (what changes, where, when). <i>Compare</i> compares two files of the same State (e.g. two AIRAC cycles, any versions) and lists added / removed / modified data with old → new values; results can also be shown on the map.</p>' +
       '<p><b>AIRAC cycle changes.</b> Values that change in the selected AIRAC cycle are shown <span class="chg-badge">in red</span> on every AIP page; <b>List all changes</b> and <b>AMDT report</b> give the amendment (publication and effective dates, affected sections, insert/amend/delete). <b>⇆ Side by side</b> on any section shows before/after a cycle, or two files. <i>Timeline</i> shows the changes per AIRAC cycle and temporary changes; <i>NOTAM</i> shows Digital NOTAM events as ICAO NOTAM text.</p>' +
-      '<p><b>Digital data sets.</b> Besides the AIP data set the tool reads obstacle data sets, aerodrome mapping data sets (AIXM or AMXM 2.0, ED-99 / DO-272) and instrument flight procedure (IFP) data sets; an IFP file named like the AIP file of its delivery (…_IFP_DS_… beside …_AIP_DS_…) is read with it as one data set.</p>' +
+      '<p><b>Digital data sets.</b> Besides the AIP data set the tool reads obstacle data sets, aerodrome mapping data sets (AIXM or AMXM 2.0, ED-99 / DO-272) and instrument flight procedure (IFP) data sets; electronic obstacle data sets (eTOD) also as Excel or CSV tables (headings recognised in any order; every other column kept as a remark); an IFP file named like the AIP file of its delivery (…_IFP_DS_… beside …_AIP_DS_…) is read with it as one data set.</p>' +
       '<p><b>Map.</b> <b>Several data sets on one map</b>: with more than one loaded, tick those to show (e.g. Qatar, Saudi Arabia, UAE and China together), <i>only</i> for one, <i>Show all</i> for every one. <b>Search on the map</b> (box at the top left): airways, waypoints, navaids, aerodromes, runways, taxiways, aprons, stands, airspace, obstacles — also as you would say them, e.g. "twy C", "EADD stand 5", "airway UL123"; a pick zooms there and outlines it in magenta (Esc clears). A complete offline world map is built in. When the laptop is online you can switch to 14 free online maps that need no API key: street maps (Esri, OpenStreetMap), plain light/dark backgrounds, terrain and relief, ocean floor, satellite imagery (Esri, NASA) and the Earth at night. Instrument procedures can be drawn per aerodrome. <b>Airport view</b>: airport chart (runways to scale with markings, taxiway signs, stands, ILS) and an information card. <b>🗻 3D view</b>: terrain, airspace volumes, approach and departure crew views; <i>Grid MORA</i> and terrain elevation on the map. <b>⧉ New window</b> puts the map on a second screen. <b>Print map</b>: drag an area, choose A4/A3, legend, north arrow and grid.</p>' +
       '<p><b>Quality.</b> <b>Data issues are flagged in the AIP</b>: ⚠ counts on the sections, a box at the top of each section saying what is wrong, what was found and what is expected, and the values concerned underlined (the issue on hover). Basic checks, the official AIXM 5.1 business rules (SBVR) and their catalogue, the ICAO Annex 14 obstacle limitation surfaces (penetrations, also in 3D) and data integrity (PANS-AIM accuracy, CRC32Q fingerprints, verification against a saved CRC list). Instrument approaches in AD 2.22 show their vertical profile.</p>' +
       '<p><b>Library, links and languages.</b> Connect a folder with one sub-folder per State; extracted data is kept for instant reopening. ☆ saves views; the address (#…) of any view can be shared. The interface is available in English, العربية (right-to-left), Français and Español. Files over 1.5 GB use the Lite memory mode automatically.</p>' +

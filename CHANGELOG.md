@@ -7,6 +7,21 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.19.0 — 2026-10-06 — eTOD obstacles from Excel and CSV
+
+- **Obstacle data sets as tables**: electronic obstacle data sets (eTOD, PANS-AIM Table A1-6) delivered as Excel
+  (.xlsx, .xlsm, .xls, .ods) or CSV (.csv, .tsv, .txt) are read, also inside .zip files. The heading row is found on
+  any sheet (title rows above it allowed) and the columns are recognised by their headings in any order: identifier,
+  name, type, latitude / longitude (decimal degrees, DMS in any common writing, or degree / minute / second /
+  hemisphere columns), WKT geometry (point, line, polygon), elevation and height with their unit (unit column,
+  heading such as "Elevation (ft)", or the cell), lighting, marking, material, accuracies, datums, radius, length,
+  width and dates. Comma, semicolon, tab or bar separators and decimal commas are read.
+- Each row becomes an AIXM 5.1 obstacle, so ENR 5.4 / AD 2.10, the map, 3D, the obstacle limitation surfaces,
+  Quality and exports work as for AIXM obstacle data sets. eTOD area, aerodrome, owner and every other column are
+  kept as remarks of the obstacle (nothing delivered is lost); the obstacle's source row opens from the AIP.
+- The Dashboard lists the columns read and how, the columns kept as remarks, and the rows that could not be read
+  (no position, values not understood, unit not given).
+
 ## 1.18.1 — 2026-10-06 — Several files at once without the page closing
 
 - **Fewer reader threads where memory is short**: each parser thread needs about 150 MB while it reads, on top of the

@@ -48,6 +48,7 @@ var ABOUT = (function () {
     ['Languages', 'English, العربية (right-to-left), Français and Español; light and dark themes.']
   ];
   var NEWS = [
+    ['1.19', 'eTOD obstacle data sets as Excel or CSV tables: headings recognised in any order and language of writing (decimal or DMS coordinates, split degree columns, WKT, feet or metres), every other column kept, rows without a position listed; shown in ENR 5.4, on the map, in 3D and checked against the obstacle limitation surfaces.'],
     ['1.18.1', 'Several files at once without the page closing: fewer reader threads on phones, tablets and when memory is short; if the browser closes the page while reading, the next start explains it and reads the safe way; errors shown in a bar with details to send; saved aerodrome mapping copies fixed.'],
     ['1.18', 'Completeness view (what every feature type gives, marks unknown or leaves out); AMXM attributes with their meaning; PANS-OPS / TERPS procedure details (design criteria, PBN, FAS data block); IFP and AMXM checks; related data sets offered to be read together; large aerodrome mapping files 7× faster.'],
     ['1.17', 'Aerodrome mapping in AMXM 2.0 (ED-99 / DO-272) on the map and the airport chart; IFP data sets read with their AIP data set; terminal holdings and minimum sector altitudes in AD 2.22 and on the map.'],

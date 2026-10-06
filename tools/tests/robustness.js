@@ -146,7 +146,10 @@ const DONLON = ROOT + '/testdata/Donlon_ALL_Baseline_2025.xml', AMXM = ROOT + '/
   page = await open(ctx2);
   await add(page, [AMXM]); await extract(page);
   const first = await page.evaluate(() => window.__AIXM.S.datasets[0].recs.length);
-  await page.waitForFunction(async () => (await LIBRARY.cachedKeys()).size === 1, null, { timeout: 10000 }).catch(() => fails.push('not saved'));
+  // saved to browser storage (polled: an async condition would count as met at once)
+  let saved = false;
+  for (let i = 0; i < 100 && !saved; i++) { saved = await page.evaluate(async () => (await LIBRARY.cachedKeys()).size === 1); if (!saved) await page.waitForTimeout(100); }
+  if (!saved) fails.push('not saved');
   await page.close({ runBeforeUnload: false });
   page = await open(ctx2);
   await add(page, [AMXM]); await extract(page);

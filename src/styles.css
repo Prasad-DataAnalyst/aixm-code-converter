@@ -956,3 +956,9 @@ pre, .xml, .notam-text { text-align: left; }
 .crash-tips li { margin: 3px 0; }
 :root[data-device="phone"] .err-bar { bottom: 70px; flex-wrap: wrap; }
 :root[data-device="phone"] .err-bar .grow { flex-basis: calc(100% - 34px); }
+.tab-card { margin: 10px 0; font-size: 13px; }
+.tab-card details { margin-top: 6px; }
+.tab-card summary { cursor: pointer; color: var(--brand-2); }
+.tab-cols { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.tab-cols .muted { flex-basis: 100%; margin-top: 4px; overflow-wrap: anywhere; }
+.tab-probs { margin: 6px 0 0; padding-left: 20px; max-height: 200px; overflow: auto; }
