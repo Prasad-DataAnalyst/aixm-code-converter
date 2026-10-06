@@ -1128,9 +1128,10 @@ var MAPVIEW = (function () {
   // departure end of the runway used by a SID (threshold of the opposite direction)
   function sidStart(ds, proc) {
     var out = null;
-    arr(proc.cur.p.flightTransition).forEach(function (tr) {
-      arr(tr && tr.departureRunwayTransition).forEach(function (l) {
-        arr(l && l.runway).forEach(function (x) {
+    // AIXM 5.1 departureRunwayTransition, AIXM 5.2 runwayTransition, or the SID's own takeoff collection
+    arr(proc.cur.p.flightTransition).concat([{ departureRunwayTransition: proc.cur.p.takeoff }]).forEach(function (tr) {
+      arr(tr && tr.departureRunwayTransition).concat(arr(tr && tr.runwayTransition)).forEach(function (l) {
+        arr(l && l.runway).concat(arr(l && l.runwayDirection)).forEach(function (x) {
           var rd = M.target(ds, x), rds = ds;
           if (!rd && !out) { var o = M.peer(ds, x); if (o) { rd = o.r; rds = o.ds; } } // the runway in another data set
           if (out || !rd) return;
@@ -1140,6 +1141,16 @@ var MAPVIEW = (function () {
         });
       });
     });
+    return out;
+  }
+  // an RF / AF leg: the arc from a to b around centre c, turning LEFT (counter-clockwise) or RIGHT
+  function arcPts(a, b, c, dir) {
+    var k = Math.cos(c[1] * Math.PI / 180), ang = function (p) { return Math.atan2(p[1] - c[1], (p[0] - c[0]) * k); };
+    var r = (Math.hypot((a[0] - c[0]) * k, a[1] - c[1]) + Math.hypot((b[0] - c[0]) * k, b[1] - c[1])) / 2, t0 = ang(a), t1 = ang(b), d = t1 - t0;
+    if (dir === 'LEFT') { while (d <= 0) d += 2 * Math.PI; } else { while (d >= 0) d -= 2 * Math.PI; }
+    var n = Math.max(6, Math.ceil(Math.abs(d) / 0.08)), out = [a];
+    for (var i = 1; i < n; i++) { var t = t0 + d * i / n; out.push([c[0] + r * Math.cos(t) / k, c[1] + r * Math.sin(t)]); }
+    out.push(b);
     return out;
   }
   // -> [{leg, kind, coords:[[lon,lat],…], dashed, label}]
@@ -1152,9 +1163,11 @@ var MAPVIEW = (function () {
       var tg = M.findGeo(lp.trajectory, ['L'], 0), a = M.segPoint(ds, arr(lp.startPoint)[0]) || prev, b = M.segPoint(ds, arr(lp.endPoint)[0]);
       var coords = null, dashed = x.leg.k === 'MissedApproachLeg';
       if (tg && tg.c && tg.c.length > 1) coords = tg.c;
+      else if (a && b && /^(RF|AF)$/.test(s(lp.legTypeARINC)) && arr(lp.arcCentre)[0] && M.segPoint(ds, arr(lp.arcCentre)[0])) coords = arcPts(a, b, M.segPoint(ds, arr(lp.arcCentre)[0]), s(lp.turnDirection));
       else if (a && b) coords = [a, b];
       else if (a && s(lp.course)) { var ln = lp.length && lp.length.v ? AX.toNM(+lp.length.v, lp.length.u) : 3; coords = [a, project2(a, +s(lp.course), Math.min(ln || 3, 10))]; dashed = true; }
       if (coords) { out.push({ leg: x.leg, coords: coords, dashed: dashed, label: [s(lp.legTypeARINC), M.segPointLabel(ds, arr(lp.endPoint)[0])].filter(Boolean).join(' → ') }); prev = coords[coords.length - 1]; }
+      else if (b || (a && s(lp.legTypeARINC) === 'IF')) prev = b || a; // an initial fix (IF leg) or a leg reduced to its end point starts the next leg
     });
     return out;
   }

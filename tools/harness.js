@@ -10,7 +10,7 @@ const ctx = { console, setTimeout, TextDecoder, Uint8Array, Uint32Array, Int16Ar
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/config.js'), 'utf8') + '\n;this.APP_INFO=APP_INFO;this.APP_SETTINGS=APP_SETTINGS;', ctx, { filename: 'src/config.js' });
 // module file -> global it defines, in page order (see src/index.html)
-const GLOBALS = { 'src/core.js': 'AX', 'src/model.js': 'MODEL', 'src/aip.js': 'AIP', 'src/analysis.js': 'ANALYSIS', 'src/adchart.js': 'ADCHART', 'src/ols.js': 'OLS',
+const GLOBALS = { 'src/core.js': 'AX', 'src/model.js': 'MODEL', 'src/ifp.js': 'IFP', 'src/aip.js': 'AIP', 'src/analysis.js': 'ANALYSIS', 'src/adchart.js': 'ADCHART', 'src/ols.js': 'OLS',
   'src/profile.js': 'PROFILE', 'src/integrity.js': 'INTEGRITY', 'src/review.js': 'REVIEW', 'src/rules.js': 'RULES' };
 Object.keys(GLOBALS).forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8') + '\n;this.' + GLOBALS[f] + '=' + GLOBALS[f] + ';', ctx, { filename: f }));
 const dict = JSON.parse(fs.readFileSync(path.join(ROOT, 'data/aixm_dictionary.json'), 'utf8'));

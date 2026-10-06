@@ -18,7 +18,7 @@
  *   picture        a map picture for the report: terrain shading, runways, flight paths, obstacles, rings, scale
  * Indicative only: not a procedure design or aerodrome safeguarding assessment (see the disclaimer).
  * ========================================================================== */
-/* global AX, MODEL, MAPVIEW, OLS, DEM, TERRAIN, OBSTVIEW */
+/* global AX, MODEL, MAPVIEW, OLS, DEM, TERRAIN, OBSTVIEW, IFP */
 var STUDY = (function () {
   'use strict';
   var M = MODEL, s = M.s;
@@ -37,7 +37,7 @@ var STUDY = (function () {
   /* ---------------------------------------------------------- flight paths */
   var segCache = new WeakMap();
   // the aerodrome of a procedure held in another data set (an IFP data set without the aerodrome)
-  function adOf(ds, pr) { var ref = pr.cur.p.airportHeliport, o = ref && M.peer ? M.peer(ds, Array.isArray(ref) ? ref[0] : ref) : null; return o ? o.r : null; }
+  function adOf(ds, pr) { var o = IFP.aerodrome(ds, pr); return o ? o.r : null; }
   function segments(datasets) {
     var out = [], sig = datasets.map(function (d) { return d.id; }).join(','); // leg points may lie in another data set
     datasets.forEach(function (ds) {
@@ -50,9 +50,10 @@ var STUDY = (function () {
             try { paths = MAPVIEW.procPaths(ds, pr); } catch (e) { paths = []; }
             var ad = ds.owner.get(pr) || adOf(ds, pr), pname = PROC[k] + ' ' + (s(pr.cur.p.designator) || s(pr.cur.p.name));
             paths.forEach(function (p) {
-              var lp = p.leg.cur.p, lo = altM(lp.lowerLimitAltitude, lp.lowerLimitReference), up = altM(lp.upperLimitAltitude, lp.upperLimitReference);
+              var lp = p.leg.cur.p, al = IFP.alt(lp), lo = altM(lp.lowerLimit !== undefined ? lp.lowerLimit : lp.lowerLimitAltitude, lp.lowerLimitReference), up = altM(lp.upperLimit !== undefined ? lp.upperLimit : lp.upperLimitAltitude, lp.upperLimitReference);
+              if (lo === null && up === null && al.endM !== null) lo = al.endM; // AIXM 5.2 / DepartureLeg: crossing altitude at the end
               c.push({ ds: ds, pr: pr, leg: p.leg, kind: PROC[k], ad: ad, adCode: ad ? M.shortName(ad) : '', proc: pname, label: (ad ? M.shortName(ad) + ' ' : '') + pname + (p.label ? ' · ' + p.label : ''),
-                legKind: p.leg.k, phase: PHASE[p.leg.k] || '', coords: p.coords, alt: lo !== null ? lo : up, altTxt: M.fLimit(lp.lowerLimitAltitude, lp.lowerLimitReference) || M.fLimit(lp.upperLimitAltitude, lp.upperLimitReference) || '', moc: MOC[p.leg.k] || 150, dashed: p.dashed });
+                legKind: p.leg.k, phase: PHASE[p.leg.k] || '', coords: p.coords, alt: lo !== null ? lo : up, altTxt: al.txt, moc: MOC[p.leg.k] || 150, dashed: p.dashed });
             });
           });
         });

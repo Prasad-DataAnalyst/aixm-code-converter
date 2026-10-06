@@ -63,7 +63,7 @@ var OLS = (function () {
   function iapRunways(ds) {
     var set = new Set();
     (ds.byType.InstrumentApproachProcedure || []).forEach(function (pr) {
-      arr(pr.cur.p.landing).forEach(function (l) { arr(l && l.runway).forEach(function (x) { var t = M.target(ds, x); if (t) set.add(t); }); });
+      arr(pr.cur.p.landing).forEach(function (l) { arr(l && l.runway).concat(arr(l && l.runwayDirection)).forEach(function (x) { var t = M.target(ds, x); if (t) set.add(t); }); });
     });
     return set;
   }

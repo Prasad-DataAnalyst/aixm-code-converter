@@ -7,6 +7,41 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.22.0 — 2026-10-06 — IFP data set: AIXM 5.2 and coding checks
+
+- **AIXM 5.2 procedures read like 5.1**: AIXM 5.2 renamed many procedure properties, so its altitudes, minima and
+  PBN data used to show empty. They now read in AD 2.22 / 2.24, Digital data → Procedures, the approach profile,
+  the terrain and obstacle flight path studies, and Quality:
+  - leg altitudes (`lowerLimit`, `verticalLimitsInterpretation`), crossing altitudes at the end of the leg, MEA and
+    MOCA (`altitudeCondition`);
+  - true and magnetic courses (`segmentCourse`);
+  - PBN type, specification and accuracy (`aircraftCapability`);
+  - design standard and version (`DesignStandard`), magnetic variation of the design;
+  - minima (DA / DH, MDA / MDH, OCA / OCH);
+  - the full FAS data block: LTP / FTP, FPAP, TCH, glide path angle, orthometric heights, runway, CRC;
+  - runway directions served (`runwayDirection`, `takeoff`, `runwayTransition`).
+- **Legs table**: fix role, fly-by / fly-over and compulsory reporting; turn radius; speed limits with MAX / MIN /
+  AT; time; navigation accuracy; additional equipment. Climb gradient and Baro-VNAV temperatures with the minima.
+- **RF and AF legs** are drawn as arcs around their centre (map, Digital data maps, report pictures). An approach
+  path now starts at its initial fix.
+- **IFP coding checks** in Quality, in a new *Coding checks* panel of Digital data → Procedures (with a column per
+  procedure) and in the procedure report:
+  - ICAO Annex 11 coded designators and the ARINC 424 six-character limit;
+  - PANS-OPS path terminators for RNAV and RNP, first and last legs, and the data each path terminator needs
+    (end fix, arc centre, turn direction, radius, altitude, course, length or time);
+  - the EUROCONTROL coding guidelines for the ICAO IFP data set: aerodrome, one runway per approach, navigation
+    type and specification, magnetic variation, design standard, MSA / AMA / TAA, transitions, reporting,
+    fly-by / fly-over, descent angle sign, speed unit, FAS CRC;
+  - feature types that an IFP data set does not hold.
+- Procedures of an IFP data set find their aerodrome in the AIP data set loaded with it, and are no longer reported
+  as "not linked to an aerodrome".
+- `docs/IFP_DATA_SET.md` is a reference for the IFP data set: ICAO / EASA basis, feature allocation, the PANS-AIM
+  data catalogue subjects, AIXM 5.1 against 5.2, the rules checked, path terminators and fix roles. It also holds
+  the coding plan (FAS CRC, geometry and gradient checks, controlling obstacle, PinS) and the Annex 4 digital chart
+  plan.
+- Test data: `testdata/ifp52_test_EADD.xml`, an AIXM 5.2 IFP data set with an RF SID, an SBAS RNP approach and a
+  STAR with coding errors put in on purpose.
+
 ## 1.21.0 — 2026-10-06 — Terrain, flight paths and the obstacle analysis report
 
 - **Obstacle analysis report**: choose obstacles — tick them in the list (or the whole filtered list), Ctrl+click

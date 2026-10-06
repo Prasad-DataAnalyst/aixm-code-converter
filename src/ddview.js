@@ -13,14 +13,14 @@
  *   Terrain                terrain files, flight path and aerodrome terrain studies (terview.js)
  * The AIP, map and export views are not changed; this tab only reads the data.
  * ========================================================================== */
-/* global AX, MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW, TERVIEW, DEM */
+/* global MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW, TERVIEW, DEM, IFP */
 var DDVIEW = (function () {
   'use strict';
-  var M = MODEL, arr = AX.arr, s = M.s;
+  var M = MODEL, s = M.s;
   function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function num(n) { return Number(n || 0).toLocaleString('en-US'); }
   var PROC = { StandardInstrumentDeparture: 'SID', StandardInstrumentArrival: 'STAR', InstrumentApproachProcedure: 'IAP' };
-  var V = { sec: null, ifp: { ad: '', kind: '', q: '', layout: 'split' }, am: { ad: '', type: '', layout: 'split' } };
+  var V = { sec: null, ifp: { ad: '', kind: '', q: '', layout: 'split', checks: false }, am: { ad: '', type: '', layout: 'split' } };
   var KCOL = { SID: '#2e7d32', STAR: '#1565c0', IAP: '#b0186e' };
 
   /* --------------------------------------------------------- what is loaded */
@@ -63,23 +63,35 @@ var DDVIEW = (function () {
   /* ------------------------------------------------------- procedures (IFP) */
   function runwaysOf(ds, p) {
     var rw = [];
-    arr(p.flightTransition).forEach(function (tr) { if (tr && tr.departureRunwayTransition) arr(tr.departureRunwayTransition).forEach(function (l) { rw = rw.concat(arr(l && l.runway).map(function (x) { var t = M.target(ds, x); return t ? M.shortName(t) : ''; })); }); });
-    arr(p.landing).forEach(function (l) { rw = rw.concat(arr(l && l.runway).map(function (x) { var t = M.target(ds, x); return t ? M.shortName(t) : ''; })); });
+    rw = rw.concat(IFP.runways(ds, { cur: { p: p } }).map(function (o) { return M.shortName(o.r); }));
     return rw.filter(function (x, i, a) { return x && a.indexOf(x) === i; }).join(', ');
   }
-  function pbnOf(p) {
-    var out = [];
-    arr(p.aircraftCharacteristic).forEach(function (a) { if (!a) return; var nav = s(a.navigationSpecification); if (nav) out.push(nav.replace(/_/g, ' ')); });
-    return out.filter(function (x, i, a) { return a.indexOf(x) === i; }).join(', ');
-  }
+  function pbnOf(p) { return IFP.pbnText(p); } // AIXM 5.1 aircraftCharacteristic, 5.2 aircraftCapability
   function ifpRows(ctx) {
     return procsOf(ctx.datasets).map(function (x) {
-      var p = x.r.cur.p, ad = x.ds.owner.get(x.r), legs = AIP.procLegs(x.ds, x.r);
+      var p = x.r.cur.p, ado = IFP.aerodrome(x.ds, x.r), ad = ado ? ado.r : null, legs = AIP.procLegs(x.ds, x.r);
       var det = AIP.procDetail(x.ds, x.r), titles = det.map(function (b) { return b.title || ''; }).join('|');
-      return { ds: x.ds, r: x.r, kind: PROC[x.r.k], ad: ad, adCode: ad ? M.shortName(ad) : '', desig: s(p.designator), name: s(p.name), rwy: runwaysOf(x.ds, p), rnav: s(p.RNAV),
-        appr: [s(p.approachPrefix), s(p.approachType), s(p.multipleIdentification)].filter(Boolean).join(' '), design: s(p.designCriteria).replace(/_/g, '-'), coding: s(p.codingStandard).replace(/_/g, ' '),
-        checked: s(p.flightChecked), pbn: pbnOf(p), legs: legs.length, minima: /Minima/.test(titles), fas: /FAS/.test(titles), from: x.r.cur.b || '' };
+      return { ds: x.ds, r: x.r, kind: PROC[x.r.k], ad: ad, adDs: ado ? ado.ds : x.ds, adCode: ad ? M.shortName(ad) : '', desig: s(p.designator), name: s(p.name), rwy: runwaysOf(x.ds, p), rnav: s(p.RNAV),
+        appr: [s(p.approachPrefix), s(p.approachType), s(p.multipleIdentification)].filter(Boolean).join(' '), design: IFP.design(p).replace(/^PANS OPS/, 'PANS-OPS'), coding: s(p.codingStandard).replace(/_/g, ' '),
+        checked: s(p.flightChecked), pbn: pbnOf(p), mag: IFP.magVar(p), legs: legs.length, minima: /Minima/.test(titles), fas: /FAS/.test(titles), from: x.r.cur.b || '',
+        chk: IFP.checks(x.ds, x.r, legs) };
     });
+  }
+  function chkChip(list) {
+    var e = list.filter(function (c) { return c.sev === 'error'; }).length, w = list.filter(function (c) { return c.sev === 'warning'; }).length, i = list.length - e - w;
+    if (!list.length) return '<span class="chip ok" title="No coding finding">✓</span>';
+    return '<span class="chip ' + (e ? 'err' : w ? 'warn' : '') + '" title="' + esc(list.map(function (c) { return c.sev + ': ' + c.msg; }).join('\n')) + '">' + (e + w ? (e + w) + ' ⚠' : '') + (i ? ' ' + i + ' ℹ' : '') + '</span>';
+  }
+  // coding checks of the procedures listed, by rule
+  function checksHtml(rows) {
+    var all = []; rows.forEach(function (x) { x.chk.forEach(function (c, j) { all.push({ x: x, c: c, j: j }); }); });
+    var order = { error: 0, warning: 1, info: 2 };
+    all.sort(function (a, b) { return order[a.c.sev] - order[b.c.sev] || a.c.rule.localeCompare(b.c.rule); });
+    return '<div class="card card-pad dd-chk"><h3 style="margin-top:0">Coding checks <span class="muted" style="font-weight:400">— ICAO Annex 11 designators, PANS-OPS path terminators and leg data, EUROCONTROL guidelines for the ICAO IFP data set (AIXM 5.2)</span></h3>' +
+      (all.length ? '<div class="tbl-wrap"><table class="mini-table"><thead><tr><th>Severity</th><th>Topic</th><th>Finding</th><th>Why</th><th></th></tr></thead><tbody>' + all.slice(0, 2000).map(function (a) {
+        return '<tr><td><span class="sev ' + a.c.sev + '">' + a.c.sev + '</span></td><td>' + esc(a.c.rule) + '</td><td>' + esc(a.c.msg) + '</td><td class="muted">' + esc(a.c.why) + '</td><td><button class="btn small ghost" data-ddchkrec="' + a.x._i + ':' + a.j + '" title="Open the feature">↗</button></td></tr>';
+      }).join('') + '</tbody></table></div>' : '<p class="muted">No finding.</p>') +
+      '<p class="muted" style="margin-bottom:0">Path terminators for RNAV: IF, TF, CF, DF, RF, FA, FM, CA, VA, VI, VM, HM; for RNP: IF, TF, RF, HM. The EUROCONTROL guidelines are drafts "for review": their findings are notes, not errors.</p></div>';
   }
   function ifpExtras(ctx) {
     var hold = 0, msa = 0, taa = 0;
@@ -88,6 +100,7 @@ var DDVIEW = (function () {
   }
   function ifpRender(host, ctx) {
     var all = ifpRows(ctx), F = V.ifp, ex = ifpExtras(ctx);
+    all.forEach(function (x, i) { x._i = i; });
     var ads = {}; all.forEach(function (x) { var k = x.adCode || '(no aerodrome)'; ads[k] = (ads[k] || 0) + 1; });
     var q = F.q.trim().toLowerCase();
     var rows = all.filter(function (x) { return (!F.ad || (x.adCode || '(no aerodrome)') === F.ad) && (!F.kind || x.kind === F.kind) && (!q || (x.desig + ' ' + x.name + ' ' + x.rwy + ' ' + x.pbn).toLowerCase().indexOf(q) >= 0); });
@@ -99,15 +112,16 @@ var DDVIEW = (function () {
     if (noLegs || noAd) h += '<div class="note-box">' + (noLegs ? num(noLegs) + ' procedure(s) without legs. ' : '') + (noAd ? num(noAd) + ' procedure(s) not linked to an aerodrome — read the IFP data set with the AIP data set of its delivery.' : '') + ' See Quality for the IFP checks.</div>';
     h += '<div class="toolbar ov-filter"><select class="inp" data-ddf="ad"><option value="">All aerodromes</option>' + Object.keys(ads).sort().map(function (k) { return '<option' + (F.ad === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select>' +
       '<select class="inp" data-ddf="kind"><option value="">SID, STAR and approaches</option>' + ['SID', 'STAR', 'IAP'].map(function (k) { return '<option value="' + k + '"' + (F.kind === k ? ' selected' : '') + '>' + (k === 'IAP' ? 'Approaches' : k) + '</option>'; }).join('') + '</select>' +
-      '<input class="inp" data-ddf="q" placeholder="Find designator, runway, PBN…" value="' + esc(F.q) + '"><span class="muted">' + num(rows.length) + ' of ' + num(all.length) + '</span><span class="sp"></span>' + layoutHtml(F) +
+      '<input class="inp" data-ddf="q" placeholder="Find designator, runway, PBN…" value="' + esc(F.q) + '"><span class="muted">' + num(rows.length) + ' of ' + num(all.length) + '</span>' +
+      '<button class="btn small' + (F.checks ? ' primary' : '') + '" data-ddchk title="ICAO, PANS-OPS and EUROCONTROL IFP data set coding checks of the procedures listed">Coding checks (' + num(rows.reduce(function (n, x) { return n + x.chk.filter(function (c) { return c.sev !== 'info'; }).length; }, 0)) + ')</button><span class="sp"></span>' + layoutHtml(F) +
       '<span class="btn-group">' + ['pdf:PDF', 'print:Print', 'xlsx:Excel', 'csv:CSV'].map(function (f) { var p = f.split(':'); return '<button class="btn small" data-ddrep="' + p[0] + '" title="Procedure report: list, then every procedure with its legs, minima, holdings and MSA">' + p[1] + '</button>'; }).join('') + '</span></div>';
-    h += '<div class="ov-split ov-' + F.layout + '">' + (F.layout !== 'list' ? '<div class="ov-map" role="application" aria-label="Procedure map"></div>' : '') + '<div class="ov-listcol"><div class="tbl-wrap ov-tbl"><table class="mini-table"><thead><tr><th>Aerodrome</th><th>Type</th><th>Designator</th><th>Name</th><th>Runway</th><th>Approach</th><th>PBN / RNAV</th><th>Design · coding</th><th>Flight checked</th><th>Legs</th><th>Minima</th><th>FAS</th><th>Valid from</th><th></th></tr></thead><tbody>' +
+    h += '<div class="ov-split ov-' + F.layout + '">' + (F.layout !== 'list' ? '<div class="ov-map" role="application" aria-label="Procedure map"></div>' : '') + '<div class="ov-listcol"><div class="tbl-wrap ov-tbl"><table class="mini-table"><thead><tr><th>Aerodrome</th><th>Type</th><th>Designator</th><th>Name</th><th>Runway</th><th>Approach</th><th>PBN / RNAV</th><th>Design · coding</th><th>Mag. var.</th><th>Flight checked</th><th>Legs</th><th>Minima</th><th>FAS</th><th>Checks</th><th>Valid from</th><th></th></tr></thead><tbody>' +
       rows.map(function (x) {
         var i = all.indexOf(x);
         return '<tr data-ddi="' + i + '"' + (!x.legs || !x.ad ? ' class="ov-bad"' : '') + '><td class="mono"><b>' + esc(x.adCode || '—') + '</b></td><td>' + x.kind + '</td><td class="mono click" data-ddrow><b>' + esc(x.desig) + '</b></td><td>' + esc(x.name) + '</td><td>' + esc(x.rwy) + '</td><td>' + esc(x.appr) + '</td><td>' + esc(x.pbn || (x.rnav === 'YES' ? 'RNAV' : '')) + '</td>' +
-          '<td>' + esc([x.design, x.coding].filter(Boolean).join(' · ')) + '</td><td>' + (x.checked === 'YES' ? 'Yes' : x.checked === 'NO' ? 'No' : '') + '</td><td class="num">' + x.legs + '</td><td>' + (x.minima ? '✓' : '') + '</td><td>' + (x.fas ? '✓' : '') + '</td><td>' + esc(String(x.from).slice(0, 10)) + '</td>' +
+          '<td>' + esc([x.design, x.coding].filter(Boolean).join(' · ')) + '</td><td>' + esc(x.mag) + '</td><td>' + (x.checked === 'YES' ? 'Yes' : x.checked === 'NO' ? 'No' : '') + '</td><td class="num">' + x.legs + '</td><td>' + (x.minima ? '✓' : '') + '</td><td>' + (x.fas ? '✓' : '') + '</td><td>' + chkChip(x.chk) + '</td><td>' + esc(String(x.from).slice(0, 10)) + '</td>' +
           '<td class="nowrap"><button class="btn small ghost" data-ddaip title="AD 2.22 of the aerodrome">AIP</button><button class="btn small ghost" data-ddmap title="Show the procedure on the map">🗺</button><button class="btn small ghost" data-ddxml title="AIXM code">&lt;/&gt;</button></td></tr>';
-      }).join('') + '</tbody></table></div></div></div>';
+      }).join('') + '</tbody></table></div>' + (F.checks ? checksHtml(rows) : '') + '</div></div>';
     host.innerHTML = h;
     // the workspace map: the paths of the procedures listed, coloured by kind; a click selects the row
     var mm = null, mapEl = host.querySelector('.ov-map');
@@ -118,22 +132,24 @@ var DDVIEW = (function () {
         return { key: x, paths: paths, color: KCOL[x.kind], label: (x.adCode ? x.adCode + ' ' : '') + x.kind + ' ' + (x.desig || x.name) + (x.rwy ? ' · RWY ' + x.rwy : '') };
       });
       var adsShown = new Set();
-      rows.forEach(function (x) { if (x.ad && !adsShown.has(x.ad)) { adsShown.add(x.ad); var c = M.pointOf(x.ds, x.ad); if (c) items.push({ key: null, g: { t: 'P', c: c }, color: '#0b2a4a', label: M.shortName(x.ad) + ' ' + s(x.ad.cur.p.name) }); } });
+      rows.forEach(function (x) { if (x.ad && !adsShown.has(x.ad)) { adsShown.add(x.ad); var c = M.pointOf(x.adDs, x.ad); if (c) items.push({ key: null, g: { t: 'P', c: c }, color: '#0b2a4a', label: M.shortName(x.ad) + ' ' + s(x.ad.cur.p.name) }); } });
       DDMAP.shapes(mm, items, { legend: [[KCOL.SID, 'SID'], [KCOL.STAR, 'STAR'], [KCOL.IAP, 'approach'], ['#0b2a4a', 'aerodrome']], note: rows.length > 400 ? 'first 400 procedures drawn' : 'dashed: missed approach',
         onPick: function (x) { pickRow(host, all.indexOf(x)); } });
       setTimeout(function () { if (mm) mm.map.invalidateSize(); }, 60);
     }
     host.onclick = function (e) {
       if (layoutClick(e, F, function () { ifpRender(host, ctx); })) return;
-      var b = e.target.closest('[data-ddrow],[data-ddaip],[data-ddmap],[data-ddxml],[data-ddrep]');
+      var b = e.target.closest('[data-ddrow],[data-ddaip],[data-ddmap],[data-ddxml],[data-ddrep],[data-ddchk],[data-ddchkrec]');
       if (!b) return;
       if (b.hasAttribute('data-ddrep')) { ifpReport(b.getAttribute('data-ddrep'), rows, ctx); return; }
+      if (b.hasAttribute('data-ddchk')) { F.checks = !F.checks; ifpRender(host, ctx); return; }
+      if (b.hasAttribute('data-ddchkrec')) { var ck = b.getAttribute('data-ddchkrec').split(':'), cx = all[+ck[0]], cc = cx && cx.chk[+ck[1]]; if (cc) ctx.openDetail(cx.ds, cc.rec); return; }
       var t = b.closest('[data-ddi]'), x = t && all[+t.getAttribute('data-ddi')];
       if (!x) return;
       if (b.hasAttribute('data-ddrow')) ctx.openDetail(x.ds, x.r);
       else if (b.hasAttribute('data-ddxml')) ctx.openXml(x.ds, x.r);
       else if (b.hasAttribute('data-ddaip')) ctx.openAip(x.ds, x.r);
-      else if (b.hasAttribute('data-ddmap')) { if (mm) { DDMAP.selectShape(mm, x); pickRow(host, all.indexOf(x)); } else if (x.ad) ctx.mapProcs(x.ds, x.ad); else ctx.showOnMap(x.ds, x.r); }
+      else if (b.hasAttribute('data-ddmap')) { if (mm) { DDMAP.selectShape(mm, x); pickRow(host, all.indexOf(x)); } else if (x.ad) ctx.mapProcs(x.adDs, x.ad); else ctx.showOnMap(x.ds, x.r); }
     };
     filterHandler(host, F, function () { ifpRender(host, ctx); });
   }
@@ -157,9 +173,12 @@ var DDVIEW = (function () {
   }
   function C(t, r) { var o = { t: t === undefined || t === null ? '' : String(t) }; if (r) o.r = r; return o; }
   function ifpReport(fmt, rows, ctx) {
-    var list = { kind: 'table', title: 'Instrument flight procedures (' + rows.length + ')', cols: ['Aerodrome', 'Type', 'Designator', 'Name', 'Runway', 'Approach', 'PBN / RNAV', 'Design criteria', 'Coding standard', 'Flight checked', 'Legs', 'Minima', 'FAS data block', 'Valid from'],
-      rows: rows.map(function (x) { return [C(x.adCode), C(x.kind, x.r), C(x.desig, x.r), C(x.name), C(x.rwy), C(x.appr), C(x.pbn || (x.rnav === 'YES' ? 'RNAV' : '')), C(x.design), C(x.coding), C(x.checked), C(x.legs), C(x.minima ? 'yes' : ''), C(x.fas ? 'yes' : ''), C(String(x.from).slice(0, 10))]; }) };
+    var list = { kind: 'table', title: 'Instrument flight procedures (' + rows.length + ')', cols: ['Aerodrome', 'Type', 'Designator', 'Name', 'Runway', 'Approach', 'PBN / RNAV', 'Design criteria', 'Coding standard', 'Magnetic variation', 'Flight checked', 'Legs', 'Minima', 'FAS data block', 'Coding findings', 'Valid from'],
+      rows: rows.map(function (x) { return [C(x.adCode), C(x.kind, x.r), C(x.desig, x.r), C(x.name), C(x.rwy), C(x.appr), C(x.pbn || (x.rnav === 'YES' ? 'RNAV' : '')), C(x.design), C(x.coding), C(x.mag), C(x.checked), C(x.legs), C(x.minima ? 'yes' : ''), C(x.fas ? 'yes' : ''), C(x.chk.filter(function (c) { return c.sev !== 'info'; }).length + ' / ' + x.chk.length), C(String(x.from).slice(0, 10))]; }) };
     var secs = [{ title: 'Procedures', blocks: [list] }];
+    var fnd = []; rows.forEach(function (x) { x.chk.forEach(function (c) { fnd.push([C(c.sev), C(c.rule), C(c.msg, c.rec), C(c.why)]); }); });
+    secs.push({ title: 'Coding checks', blocks: [{ kind: 'note', text: 'ICAO Annex 11 Appendix 3 (designators), PANS-OPS Vol II Part III Section 2 Chapter 5 (path terminators, first and last legs, data per path terminator) and the EUROCONTROL coding guidelines for the ICAO IFP data set in AIXM 5.2 (drafts for review).' },
+      { kind: 'table', title: 'Findings (' + fnd.length + ')', cols: ['Severity', 'Topic', 'Finding', 'Why'], rows: fnd.length ? fnd : [[C('—'), C(''), C('No finding'), C('')]] }] });
     rows.forEach(function (x) { secs.push({ title: (x.adCode ? x.adCode + ' ' : '') + x.kind + ' ' + (x.desig || x.name), blocks: AIP.procDetail(x.ds, x.r) }); });
     // terminal holdings and minimum sector altitudes of the aerodromes in the report
     var adSet = new Set(rows.map(function (x) { return x.ad; }).filter(Boolean)), extra = [];

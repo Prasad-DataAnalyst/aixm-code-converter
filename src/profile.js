@@ -14,7 +14,7 @@
  * table of the profile for PDF / Excel / e-mail.
  * Indicative - drawn from the data, not a published chart.
  * ========================================================================== */
-/* global AX, MODEL, AIP, ADCHART, TERRAIN */
+/* global AX, MODEL, AIP, ADCHART, TERRAIN, IFP */
 var PROFILE = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr, FTNM = 6076.12;
@@ -29,11 +29,13 @@ var PROFILE = (function () {
     return u === 'FL' ? v * 100 : /FT/.test(u) ? v : u === 'M' ? v / 0.3048 : v;
   }
   function constraint(lp) {
-    var lo = ftOf(lp.lowerLimitAltitude), up = ftOf(lp.upperLimitAltitude), it = s(lp.altitudeInterpretation);
+    var lo = ftOf(lp.lowerLimit !== undefined ? lp.lowerLimit : lp.lowerLimitAltitude), up = ftOf(lp.upperLimit !== undefined ? lp.upperLimit : lp.upperLimitAltitude), it = s(lp.verticalLimitsInterpretation) || s(lp.altitudeInterpretation);
+    // AIXM 5.2: crossing altitudes at the end of the leg (altitudeCondition)
+    if (lo === null && up === null) { var c = arr(lp.altitudeCondition)[0]; if (c) { lo = ftOf(c.minimumCrossingAtEnd); up = ftOf(c.maximumCrossingAtEnd); it = lo !== null && up !== null ? (lo === up ? 'AT' : 'BETWEEN') : lo !== null ? 'AT_OR_ABOVE' : 'AT_OR_BELOW'; } }
     if (lo === null && up === null) return null;
     if (lo !== null && up !== null && lo !== up) return { kind: 'between', lo: lo, up: up, alt: lo };
     var a = lo !== null ? lo : up;
-    var kind = /ABOVE|AT_LOWER/.test(it) ? 'above' : /BELOW|AT_UPPER/.test(it) ? 'below' : /AT|EXACT/.test(it) ? 'at' : lo !== null ? 'above' : 'below';
+    var kind = /ABOVE/.test(it) ? 'above' : /BELOW|AT_UPPER/.test(it) ? 'below' : it === 'AT_LOWER' ? 'above' : /^AT$|EXACT/.test(it) ? 'at' : lo !== null ? 'above' : 'below';
     if (it === 'AT_LOWER' && up === null) kind = 'above';
     return { kind: kind, alt: a };
   }
@@ -47,10 +49,9 @@ var PROFILE = (function () {
     legs = legs.filter(function (x) { if (x.leg.k !== 'InitialLeg') return true; if (firstInit === null) firstInit = x.tr; return x.tr === firstInit; });
     legs = legs.map(function (x, i) { return { x: x, i: i }; }).sort(function (a, b) { return RANK[a.x.leg.k] - RANK[b.x.leg.k] || a.i - b.i; }).map(function (o) { return o.x; });
     // landing threshold
-    var rd = null;
-    arr(proc.cur.p.landing).forEach(function (l) { arr(l && l.runway).forEach(function (x) { var t = M.target(ds, x); if (t && !rd) rd = t; }); });
-    var ad = ds.owner.get(proc), thr = rd ? M.pointOf(ds, rd) : null, thrEl = null, desig = rd ? s(rd.cur.p.designator) : '', gpAng = null;
-    var m = ad ? ADCHART.of(ds, ad) : null;
+    var ro = IFP.runways(ds, proc, 'proc')[0], rd = ro ? ro.r : null, rds = ro ? ro.ds : ds; // the runway may be in the AIP data set
+    var ad = rds === ds ? ds.owner.get(proc) : rds.owner.get(rd) || ds.owner.get(proc), thr = rd ? M.pointOf(rds, rd) : null, thrEl = null, desig = rd ? s(rd.cur.p.designator) : '', gpAng = null;
+    var m = ad ? ADCHART.of(rds, ad) : null;
     if (m && rd) m.runways.forEach(function (rm) { rm.ends.forEach(function (e) { if (e.dir === rd) { thr = e.land; thrEl = e.elev; if (e.ils && parseFloat(e.ils.gp) > 1) gpAng = parseFloat(e.ils.gp); } }); });
     var thrFt = null;
     if (thrEl) { var mm = String(thrEl).match(/(-?[\d.]+)\s*(FT|M)?/i); if (mm) thrFt = parseFloat(mm[1]) / (/FT/i.test(mm[2] || '') ? 1 : 0.3048); }

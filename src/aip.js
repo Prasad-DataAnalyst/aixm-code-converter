@@ -11,7 +11,7 @@
  * and cell = {t: text, r: sourceRecord, p: propertyName, tip}.
  * The same structure feeds the screen, PDF, Excel, JSON and e-mail outputs.
  * ========================================================================== */
-/* global AX, MODEL, PROFILE */
+/* global AX, MODEL, PROFILE, IFP */
 var AIP = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -757,13 +757,6 @@ var AIP = (function () {
   /* ------------------------------------------------ procedure details (legs) */
   var IFP_OTHER = ['CirclingArea', 'ProcedureDME', 'NavigationArea', 'NavigationAreaRestriction', 'AltimeterSource', 'MinimumAltitudeArea', 'ObstacleAssessmentArea', 'FlightRestriction'];
   var LEG_KINDS = ['DepartureLeg', 'ArrivalLeg', 'ArrivalFeederLeg', 'InitialLeg', 'IntermediateLeg', 'FinalLeg', 'MissedApproachLeg'];
-  var ALT_I = { ABOVE_LOWER: 'at or above', BELOW_UPPER: 'at or below', AT_LOWER: 'at', AT: 'at', BETWEEN: 'between', RECOMMENDED: 'recommended', EXPECT_LOWER: 'expect', AS_ASSIGNED: 'as assigned' };
-  function legAlt(p) {
-    var lo = M.fLimit(p.lowerLimitAltitude, p.lowerLimitReference), up = M.fLimit(p.upperLimitAltitude, p.upperLimitReference), it = s(p.altitudeInterpretation);
-    if (!lo && !up) return '';
-    if (it === 'BETWEEN' || (lo && up)) return 'between ' + lo + ' and ' + up;
-    return (ALT_I[it] || it || '').trim() + ' ' + (lo || up);
-  }
   function procLegs(ds, proc) {
     var out = [], seen = new Set();
     arr(proc.cur.p.flightTransition).forEach(function (tr) {
@@ -778,30 +771,33 @@ var AIP = (function () {
   function procDetail(ds, proc) {
     var p = proc.cur.p, K = { StandardInstrumentDeparture: 'SID', StandardInstrumentArrival: 'STAR', InstrumentApproachProcedure: 'Instrument approach' }[proc.k];
     var rw = [];
-    arr(p.flightTransition).forEach(function (tr) { if (tr && tr.departureRunwayTransition) arr(tr.departureRunwayTransition).forEach(function (l) { rw = rw.concat(arr(l.runway).map(function (x) { var t = M.target(ds, x); return t ? M.shortName(t) : ''; })); }); });
-    arr(p.landing).forEach(function (l) { rw = rw.concat(arr(l && l.runway).map(function (x) { var t = M.target(ds, x); return t ? M.shortName(t) : ''; })); });
+    rw = IFP.runways(ds, proc).map(function (o) { return M.shortName(o.r); });
     var legs = procLegs(ds, proc), prevEnd = '';
     var blocks = [{ kind: 'kv', title: K + ' ' + (s(p.designator) || s(p.name)) + (s(p.name) && s(p.designator) ? ' — ' + s(p.name) : ''), rows: [
       row('', 'Type / RNAV', [C(join([K, s(p.approachPrefix), s(p.approachType), s(p.RNAV) === 'YES' ? 'RNAV' : ''], ' '), proc, 'RNAV')]),
       row('', 'Runway(s)', [C(uniq(rw).join(', '), proc, proc.k === 'InstrumentApproachProcedure' ? 'landing' : 'flightTransition')]),
-      row('', 'Design criteria / coding', [C(join([s(p.designCriteria).replace(/_/g, '-'), s(p.codingStandard).replace(/_/g, ' '), s(p.flightChecked) === 'YES' ? 'flight checked' : s(p.flightChecked) === 'NO' ? 'not flight checked' : ''], ' · '), proc, 'designCriteria')]),
-      row('', 'Aircraft / navigation (PBN)', [C(acftText(p), proc, 'aircraftCharacteristic')]),
+      row('', 'Design criteria / coding', [C(join([IFP.design(p).replace(/^PANS OPS/, 'PANS-OPS'), s(p.codingStandard).replace(/_/g, ' '), s(p.flightChecked) === 'YES' ? 'flight checked' : s(p.flightChecked) === 'NO' ? 'not flight checked' : ''], ' · '), proc, 'designCriteria')]),
+      row('', 'Aircraft / navigation (PBN)', [C(join([acftText(p), IFP.pbnText(p) && acftText(p).indexOf(IFP.pbnText(p).split(' ')[0]) < 0 ? IFP.pbnText(p) : ''], '; '), proc, p.aircraftCapability ? 'aircraftCapability' : 'aircraftCharacteristic')]),
+      row('', 'Magnetic variation (design)', [C(IFP.magVar(p), proc, 'magneticVariation')]),
+      row('', 'Additional equipment / authorisation', [C(join([s(p.additionalEquipment).replace(/_/g, ' '), s(p.specialAuthorisation).replace(/_/g, ' ')], ' · '), proc, 'additionalEquipment')]),
       row('', 'Guidance facility', [C(join(['guidanceFacility_navaid', 'guidanceFacility_specialNavigationSystem', 'guidanceFacility_radar', 'guidanceFacility_groundAugmentedGNSS', 'guidanceFacility_satelliteService'].map(function (k) { return arr(p[k]).map(function (x) { var t = M.target(ds, x); return t ? M.label(ds, t) : ''; }).join(', '); }), ', '), proc, 'guidanceFacility_navaid')]),
       row('', 'Minimum sector altitude', [C(arr(p.safeAltitude).map(function (x) { var t = M.target(ds, x); return t ? (s(t.cur.p.safeAreaType) || 'MSA') + ' ' + centreOf(ds, t.cur.p, 'centrePoint') : ''; }).join(', '), proc, 'safeAltitude')]),
       row('', 'Communication failure / instructions', [C(join([s(p.communicationFailureInstruction), s(p.instruction), s(p.courseReversalInstruction)], '\n'), proc, 'communicationFailureInstruction')]),
       row('', 'Remarks', [C(M.notesOf(p).join('\n'), proc, 'annotation')])
     ] }];
     var rows = legs.map(function (x) {
-      var lp = x.leg.cur.p, from = M.segPointLabel(ds, arr(lp.startPoint)[0]) || prevEnd, to = M.segPointLabel(ds, arr(lp.endPoint)[0]);
+      var lp = x.leg.cur.p, from = M.segPointLabel(ds, arr(lp.startPoint)[0]) || prevEnd, to = M.segPointLabel(ds, arr(lp.endPoint)[0]) || (s(lp.legTypeARINC) === 'IF' ? M.segPointLabel(ds, arr(lp.startPoint)[0]) : '');
       prevEnd = to || prevEnd;
-      var crs = s(lp.course) ? s(lp.course) + '°' + ({ TRUE_TRACK: 'T', TRUE_BRG: 'T' }[s(lp.courseType)] || '') : '';
-      return [C(x.seq, x.leg, 'legTypeARINC'), C(x.tr), C(join([s(lp.legTypeARINC), x.leg.k.replace('Leg', '')], ' · '), x.leg, 'legTypeARINC'), C(from, x.leg, 'startPoint'), C(to, x.leg, 'endPoint'),
-        C(join([crs, s(lp.turnDirection) ? 'turn ' + s(lp.turnDirection) : ''], ' '), x.leg, 'course'), C(legAlt(lp), x.leg, 'lowerLimitAltitude'),
-        C(M.fq(lp.speedLimit) ? 'max ' + M.fq(lp.speedLimit) + (s(lp.speedReference) ? ' ' + s(lp.speedReference) : '') : '', x.leg, 'speedLimit'),
-        C(join([M.fq(lp.length), s(lp.verticalAngle) ? 'VA ' + s(lp.verticalAngle) + '°' : '', s(lp.requiredNavigationPerformance) ? 'RNP ' + s(lp.requiredNavigationPerformance) : ''], ' '), x.leg, 'length'),
-        C(M.notesOf(lp).join(' '), x.leg, 'annotation')];
+      var crs = IFP.course(lp), al = IFP.alt(lp), ep = IFP.point(lp.endPoint) || (s(lp.legTypeARINC) === 'IF' ? IFP.point(lp.startPoint) : null);
+      var fix = ep ? join([ep.role ? (ep.role === 'OTHER' ? '' : ep.role) : '', ep.flyOver === 'YES' ? 'fly-over' : ep.flyOver === 'NO' && ep.waypoint !== 'NO' ? 'fly-by' : '', ep.reporting === 'COMPULSORY' ? 'compulsory' : ''], ' · ') : '';
+      var acc = IFP.pbn(lp).map(function (a) { return a.acc ? 'RNP ' + a.acc : a.spec.replace(/_/g, ' '); }).filter(Boolean).join(' ');
+      return [C(x.seq, x.leg, 'legTypeARINC'), C(x.tr), C(join([s(lp.legTypeARINC), x.leg.k.replace('Leg', '')], ' · '), x.leg, 'legTypeARINC'), C(from, x.leg, 'startPoint'), C(join([to, fix ? '(' + fix + ')' : '']), x.leg, 'endPoint'),
+        C(join([crs, s(lp.turnDirection) ? 'turn ' + s(lp.turnDirection) : '', q1(lp.radius) ? 'r ' + M.fq(lp.radius) : ''], ' '), x.leg, 'course'), C(al.txt, x.leg, al.src),
+        C(IFP.speed(lp), x.leg, 'speedLimit'),
+        C(join([M.fq(lp.length), M.fq(lp.duration), s(lp.verticalAngle) ? 'VA ' + s(lp.verticalAngle) + '°' : '', s(lp.requiredNavigationPerformance) ? 'RNP ' + s(lp.requiredNavigationPerformance) : acc], ' '), x.leg, 'length'),
+        C(join([s(lp.additionalEquipment) ? s(lp.additionalEquipment).replace(/_/g, ' ') : '', M.notesOf(lp).join(' ')], ' · '), x.leg, 'annotation')];
     });
-    blocks.push(table('Legs', ['Seq', 'Transition', 'Leg (ARINC 424)', 'From', 'To', 'Course / turn', 'Altitude', 'Speed', 'Distance / VA / RNP', 'Remarks'], rows, legs.length ? '' : 'No legs for this procedure in the data set.'));
+    blocks.push(table('Legs', ['Seq', 'Transition', 'Leg (ARINC 424)', 'From', 'To (role · fly-by / over)', 'Course / turn', 'Altitude', 'Speed', 'Distance / time / VA / nav. accuracy', 'Remarks'], rows, legs.length ? '' : 'No legs for this procedure in the data set.'));
     var mins = [];
     legs.forEach(function (x) {
       arr(x.leg.cur.p.condition).forEach(function (c) {
@@ -809,24 +805,33 @@ var AIP = (function () {
         var cats = arr(c.aircraftCategory).map(function (a) { return a && s(a.aircraftLandingCategory); }).filter(Boolean).join(', ');
         arr(c.minimumSet).forEach(function (m) {
           if (!m || m.nil !== undefined) return;
-          mins.push([C(cats || 'all', x.leg, 'condition'), C(s(c.finalApproachPath), x.leg, 'condition'), C(join([s(m.altitudeCode), M.fq(m.altitude)], ' '), x.leg, 'condition'),
-            C(join([s(m.heightCode), M.fq(m.height), s(m.heightReference) ? '(' + s(m.heightReference) + ')' : ''], ' '), x.leg, 'condition'), C(join([M.fq(m.visibility), M.fq(m.runwayVisualRange) ? 'RVR ' + M.fq(m.runwayVisualRange) : ''], ' '), x.leg, 'condition')]);
+          var mc = arr(m.aircraftCategory).map(function (a) { return a && s(a.aircraftLandingCategory).replace(/^OTHER:/, '').replace(/_/g, ' '); }).filter(Boolean).join(', '), mn = IFP.minima(m);
+          mins.push([C(mc || cats || 'all', x.leg, 'condition'), C(join([s(c.finalApproachPath).replace(/_/g, ' '), s(c.landingPrecisionCategory), s(c.satelliteApproachType)], ' · '), x.leg, 'condition'), C(mn.alt, x.leg, 'condition'),
+            C(mn.hgt, x.leg, 'condition'), C(mn.vis, x.leg, 'condition')]);
         });
+        var cg = M.fq(c.climbGradient), tmp = join([M.fq(c.minBaroVNAVTemperature), M.fq(c.maxBaroVNAVTemperature)], ' … ');
+        if (cg || tmp) mins.push([C('', x.leg, 'condition'), C(join([cg ? 'climb gradient ' + cg : '', tmp ? 'Baro-VNAV temperature ' + tmp : ''], ' · '), x.leg, 'condition'), C(''), C(''), C('')]);
       });
     });
     if (mins.length) blocks.push(table('Minima', ['Aircraft category', 'Final approach', 'OCA / DA / MDA', 'OCH / DH / MDH', 'Visibility / RVR'], mins));
     // final approach segment data block (SBAS / GBAS approaches)
     legs.forEach(function (x) {
-      arr(x.leg.cur.p.FASData).forEach(function (f) {
-        if (!f || f.nil !== undefined) return;
-        blocks.push({ kind: 'kv', title: 'Final approach segment (FAS) data block', rows: [
-          row('', 'Operation / service provider', [C(join([s(f.operationType), s(f.serviceProviderSBAS)], ' · '), x.leg, 'FASData')]),
-          row('', 'Approach performance / route', [C(join([s(f.approachPerformanceDesignator), s(f.routeIndicator), s(f.referencePathDataSelector) ? 'RPDS ' + s(f.referencePathDataSelector) : '', s(f.referencePathIdentifier)], ' · '), x.leg, 'FASData')]),
-          row('', 'Course width / length offset', [C(join([M.fq(f.thresholdCourseWidth), M.fq(f.lengthOffset)], ' · '), x.leg, 'FASData')]),
-          row('', 'Alarm limits (HAL / VAL)', [C(join([M.fq(f.horizontalAlarmLimit), M.fq(f.verticalAlarmLimit)], ' / '), x.leg, 'FASData')]),
-          row('', 'CRC remainder', [C(s(f.CRCRemainder), x.leg, 'FASData')])
-        ] });
-      });
+      var f = x.leg.k === 'FinalLeg' || arr(x.leg.cur.p.FASData).length ? IFP.fas(x.leg) : null;
+      if (!f) return;
+      var fr = function (label, t) { return row('', label, [C(t, x.leg, 'FASData')]); };
+      blocks.push({ kind: 'kv', title: 'Final approach segment (FAS) data block', rows: [
+        fr('Operation type / SBAS provider', join([f.operationType ? f.operationType + (f.operationType === '0' ? ' (straight-in)' : '') : '', f.sbas ? 'SBAS provider ' + f.sbas : ''], ' · ')),
+        fr('Approach performance designator', f.apd ? f.apd + ({ '0': ' (LPV / APV)', '1': ' (Category I)', '2': ' (Category II)', '3': ' (Category III)' }[f.apd] || '') : ''),
+        fr('Aerodrome / runway / route', join([f.airport, f.runway ? 'RWY ' + f.runway : '', f.routeIndicator ? 'route ' + f.routeIndicator : ''], ' · ')),
+        fr('Reference path (RPDS / RPI)', join([f.rpds ? 'RPDS ' + f.rpds : '', f.rpi], ' · ')),
+        fr('LTP / FTP', join([f.ltp ? f.ltp.join(', ') : '', f.ltpHeight ? 'ellipsoid height ' + f.ltpHeight : '', f.ltpOrtho ? 'orthometric ' + f.ltpOrtho : ''], ' · ')),
+        fr('FPAP', join([f.fpap ? f.fpap.join(', ') : '', f.fpapDelta ? 'Δ ' + f.fpapDelta.join(', ') : '', f.fpapOrtho ? 'orthometric ' + f.fpapOrtho : ''], ' · ')),
+        fr('TCH / glide path angle', join([f.tch ? 'TCH ' + f.tch : '', f.gpa ? 'GPA ' + f.gpa + '°' : ''], ' · ')),
+        fr('Course width / length offset', join([f.courseWidth, f.lengthOffset], ' · ')),
+        fr('Alarm limits (HAL / VAL)', join([f.hal, f.val], ' / ')),
+        fr('CRC remainder', f.crc),
+        fr('FAS data block', f.block)
+      ].filter(function (r) { return r.cells[0] && r.cells[0].t; }) });
     });
     // vertical profile of an approach (profile.js, loaded after this module)
     if (proc.k === 'InstrumentApproachProcedure' && typeof PROFILE !== 'undefined') blocks = blocks.concat(PROFILE.blocks(ds, proc));
@@ -834,11 +839,12 @@ var AIP = (function () {
   }
 
   // aircraft categories and the PBN navigation specification of a procedure
+  function q1(v) { v = arr(v)[0]; return v && typeof v === 'object' && v.nil === undefined && v.v !== undefined; }
   function acftText(p) {
     var out = [];
-    arr(p.aircraftCharacteristic).forEach(function (a) {
+    arr(p.aircraftCharacteristic).concat(arr(p.aircraftCapability)).forEach(function (a) {
       if (!a || a.nil !== undefined) return;
-      out.push(join([s(a.aircraftLandingCategory) ? 'CAT ' + s(a.aircraftLandingCategory) : '', s(a.navigationSpecification).replace(/_/g, ' '), s(a.navigationType), s(a.typeAircraftICAO), s(a.type)], ' '));
+      out.push(join([s(a.aircraftLandingCategory) ? 'CAT ' + s(a.aircraftLandingCategory) : '', s(a.navigationSpecification).replace(/_/g, ' '), s(a.navigationAccuracy) ? '(' + s(a.navigationAccuracy) + ' NM)' : '', s(a.navigationType), s(a.typeAircraftICAO), s(a.type)], ' '));
     });
     return out.filter(Boolean).join('; ');
   }

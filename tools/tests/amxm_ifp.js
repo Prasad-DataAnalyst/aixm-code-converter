@@ -87,9 +87,9 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   // PANS-OPS detail: design criteria, PBN, FAS data block
   const det = await page.evaluate(() => { const ds = window.__AIXM.S.datasets[0], ad = ds.byType.AirportHeliport.find((a) => a.cur.p.locationIndicatorICAO === 'EADD'); return AIP.adBlocks(ds, ad, 22).map((b) => (b.title || '') + ' ' + (b.rows || []).map((r) => (r.cells || r).map((c) => (c && c.t) || '').join(' ')).join(' ')).join(' | '); });
   for (const want of ['PANS-OPS', 'ARINC 424 18', 'flight checked', 'CAT C RNP APCH', 'Final approach segment (FAS) data block', 'EGNOS', 'LPV', 'A1B2C3D4']) if (det.indexOf(want) < 0) fails.push('procedure detail misses ' + want);
-  // IFP checks: the STAR has no design criteria; all legs are located
-  const q = await page.evaluate(async () => (await ANALYSIS.quality(window.__AIXM.S.datasets[0])).filter((i) => i.rule === 'IFP').map((i) => i.msg));
-  if (q.join('|') !== 'STAR without design criteria') fails.push('IFP checks: ' + q.join(' | '));
+  // IFP checks: all legs are located and linked; the STAR has no design standard (IFP coding checks, ifp.js)
+  const q = await page.evaluate(async () => (await ANALYSIS.quality(window.__AIXM.S.datasets[0])).filter((i) => /^IFP/.test(i.rule)).map((i) => i.rule + ': ' + i.msg));
+  if (q.some((x) => /^IFP:/.test(x)) || !q.some((x) => /IFP coding: STAR KOD1A: design standard not coded/.test(x))) fails.push('IFP checks: ' + q.join(' | '));
 
   // two data sets that name each other's features, read apart (names that do not pair): offered to read together
   await load([ROOT + '/testdata/Donlon_ALL_Baseline_2025.xml', ROOT + '/testdata/ifp_test_EADD.xml']);

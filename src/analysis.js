@@ -6,7 +6,7 @@
  * AIXM Code Converter - analysis: in-file changes (temporality), comparison of
  * two data sets (same State, any versions) and data quality checks.
  * ========================================================================== */
-/* global AX, MODEL, AIP */
+/* global AX, MODEL, AIP, IFP */
 var ANALYSIS = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -312,13 +312,14 @@ var ANALYSIS = (function () {
         case 'StandardInstrumentDeparture': case 'StandardInstrumentArrival': case 'InstrumentApproachProcedure': {
           var legs = AIP.procLegs(ds, r), nm = r.k === 'InstrumentApproachProcedure' ? 'Approach' : r.k === 'StandardInstrumentDeparture' ? 'SID' : 'STAR';
           if (!legs.length) add('warning', 'IFP', nm + ' without legs', r, 'flightTransition', 'No segment leg belongs to the procedure (flightTransition / transitionLeg, or legs naming it). Its path cannot be drawn or checked.');
-          if (!ds.owner.get(r)) add('warning', 'IFP', nm + ' not linked to an aerodrome', r, 'airportHeliport', 'airportHeliport is missing or names an aerodrome that is not in the data. Read the procedure (IFP) data set with the AIP data set of its delivery.');
+          if (!IFP.aerodrome(ds, r)) add('warning', 'IFP', nm + ' not linked to an aerodrome', r, 'airportHeliport', 'airportHeliport is missing or names an aerodrome that is not in the data. Read the procedure (IFP) data set with the AIP data set of its delivery.');
           if (r.k === 'InstrumentApproachProcedure') {
             if (!arr(p.landing).length) add('info', 'IFP', 'Approach without landing runway', r, 'landing', 'landing (LandingTakeoffAreaCollection) names the runway direction(s) served.');
             var hasMin = legs.some(function (x) { return arr(x.leg.cur.p.condition).some(function (c) { return c && arr(c.minimumSet).length; }); });
             if (legs.length && !hasMin) add('warning', 'IFP', 'Approach without minima', r, null, 'No leg gives an ApproachCondition with a minimumSet (OCA/H, DA/H or MDA/H, visibility). PANS-OPS and TERPS approaches publish minima.');
           }
-          if (!s(p.designCriteria)) add('info', 'IFP', nm + ' without design criteria', r, 'designCriteria', 'designCriteria says which design standard the procedure follows (e.g. PANS_OPS, TERPS).');
+          // coding of the procedure and its legs (ICAO, PANS-OPS, EUROCONTROL IFP data set guidelines: ifp.js)
+          IFP.checks(ds, r, legs).forEach(function (c) { add(c.sev, 'IFP coding', c.msg, c.rec, c.prop, c.rule + (c.why ? ' — ' + c.why : '')); });
           break;
         }
         case 'DepartureLeg': case 'ArrivalLeg': case 'ArrivalFeederLeg': case 'InitialLeg': case 'IntermediateLeg': case 'FinalLeg': case 'MissedApproachLeg': {
@@ -326,7 +327,6 @@ var ANALYSIS = (function () {
             var pt = arr(p[k])[0];
             if (pt && pt.nil === undefined && !M.segPoint(ds, pt)) add('warning', 'IFP', 'Leg ' + (k === 'endPoint' ? 'end' : 'start') + ' point cannot be located', r, k, 'The fix, navaid or runway point it names is not in the data (read the IFP data set with its AIP data set) or has no position.');
           });
-          if (!s(p.legTypeARINC) && !s(p.legPath)) add('info', 'IFP', 'Leg without path terminator', r, 'legTypeARINC', 'legTypeARINC (ARINC 424 path terminator: IF, TF, CF, DF, RF …) defines how the leg is flown.');
           break;
         }
         case 'HoldingPattern': {
@@ -382,6 +382,11 @@ var ANALYSIS = (function () {
     });
     var rank = { error: 0, warning: 1, info: 2 };
     issues.sort(function (a, b) { return rank[a.sev] - rank[b.sev]; });
+    // an instrument flight procedure data set holds the procedure features and what they reference (ICAO data set
+    // allocation, EUROCONTROL): other feature types belong to the AIP, obstacle or aerodrome mapping data sets
+    if (IFP.isIfpSet(ds) && !(ds.byType.RouteSegment || []).length && !(ds.byType.Route || []).length) {
+      IFP.allocation(ds).forEach(function (a) { add('info', 'IFP data set', a.n + ' ' + a.k + ' in an IFP data set', (ds.byType[a.k] || [])[0], null, 'Not part of the ICAO IFP data set (EUROCONTROL feature allocation): it belongs to another data set (AIP, obstacle, aerodrome mapping) or a custom data set.'); });
+    }
     return issues;
   }
 
