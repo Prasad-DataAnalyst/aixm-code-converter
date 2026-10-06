@@ -63,7 +63,7 @@ var MAPWIN = (function () {
     // signature: author of the AIXM Code Converter (Apache-2.0 NOTICE)
     d.documentElement.setAttribute('data-generator', APP_INFO.credit);
   }
-  // Opens (or brings to the front) the map window. opts as for the map view: {ds, cmp, procs, focus, airport}
+  // Opens (or brings to the front) the map window. opts as for the map view: {ds, cmp, procs, focus, airport, shown}
   function open(datasets, h, opts) {
     hooks = h;
     if (isOpen()) { win.focus(); apply(datasets, opts); return true; }
@@ -79,7 +79,7 @@ var MAPWIN = (function () {
   function mount(datasets, opts) {
     var ds = opts.ds || datasets[0];
     win.document.title = 'Map — ' + (ds ? ds.state + ' · ' : '') + APP_INFO.name;
-    win.MAPVIEW.mount(win.document.getElementById('map-root'), datasets, bridge(hooks, win), { ds: ds, cmp: opts.cmp, procs: opts.procs });
+    win.MAPVIEW.mount(win.document.getElementById('map-root'), datasets, bridge(hooks, win), { ds: ds, cmp: opts.cmp, procs: opts.procs, shown: opts.shown });
     sent.list = datasets; sent.n = datasets.length; sent.view = datasets.map(function (x) { return x.viewDate; }).join('|'); sent.cmp = opts.cmp || null;
     if (opts.focus) setTimeout(function () { win.MAPVIEW.focus(ds, opts.focus); }, 250);
   }

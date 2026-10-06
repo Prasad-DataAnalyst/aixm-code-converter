@@ -26,7 +26,7 @@ var ABOUT = (function () {
     ['One cycle in many files', 'States that deliver one AIRAC cycle as many files (one per feature type, baseline and difference files, a checksum list) — loose or in a .zip — get one data set: references between the files resolve, checksums are verified, schema files are left out. Combine or separate files by hand at any time.'],
     ['ICAO AIP layout', 'GEN, ENR 1–6 and AD 2 / AD 3 for every aerodrome and heliport, as in the ICAO specimen AIP; each value opens its AIXM code.'],
     ['Changes and AIRAC cycles', 'Changes inside a file, comparison of two files, values changed in the selected AIRAC cycle in red, AMDT report, side-by-side view, timeline and Digital NOTAM text. Withdrawn features are listed as withdrawn and no longer shown as current; re-issues with unchanged values are counted apart; cycles that start at local midnight (e.g. 16:00 UTC) get their published AIRAC date.'],
-    ['Aeronautical map', 'Built-in offline world map (light and dark) or 14 free online maps — street, plain, terrain and satellite, none needs a key. Airspace with class and limits, routes, navaids with frequencies, points, obstacles, procedures, measuring, print to A4 / A3.'],
+    ['Aeronautical map', 'Any mix of the data sets loaded on one map (several States together, or all). Built-in offline world map (light and dark) or 14 free online maps — street, plain, terrain and satellite, none needs a key. Airspace with class and limits, routes, navaids with frequencies, points, obstacles, procedures, measuring, print to A4 / A3.'],
     ['Search on the map', 'Type an airway, waypoint, navaid, aerodrome, runway, taxiway, stand, airspace or obstacle: the map zooms to it, outlines it and opens its information. Understands “twy C”, “rwy 09L”, “EADD stand 5”.'],
     ['Live air traffic', '✈ Live traffic shows live aircraft on the map, over the aeronautical data and the base map you chose, at the same place and zoom (free community data, adsb.lol); the map still answers the mouse as before. Aircraft details open in a side panel inside the tool: click an aircraft there, or find a flight by callsign, registration or ICAO address for a card with airline, route, aircraft and photo, while the live map follows it.'],
     ['Airport chart', 'Runways to scale with markings, designators, bearings and threshold elevations, ILS feathers, taxiway signs, aprons, stands, holding positions and an airport information card.'],
@@ -47,6 +47,7 @@ var ABOUT = (function () {
     ['Languages', 'English, العربية (right-to-left), Français and Español; light and dark themes.']
   ];
   var NEWS = [
+    ['1.14', 'Several data sets on one map: tick any mix of the States loaded (e.g. Qatar, Saudi Arabia, UAE and China), or show all of them.'],
     ['1.13', 'Faster map (dark and satellite maps over 10× smoother to drag); live aircraft drawn over the aeronautical data with your base map kept; aircraft details in a side panel; a blocked street map removed.'],
     ['1.12', 'One AIXM file for the cycle (Export); deliveries of many files in the State library; navaid equipment without coordinates shown at its navaid\'s position.'],
     ['1.11', 'Find an aircraft by callsign, registration or ICAO address: a details card in this tool\'s style, and the live map follows the aircraft.'],

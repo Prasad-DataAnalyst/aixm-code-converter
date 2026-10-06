@@ -828,15 +828,16 @@ var MAPVIEW = (function () {
     });
   }
 
-  function buildOverlays(ds) {
+  // the layers of every data set shown (one, several or all loaded): each feature keeps its own data set
+  function buildOverlays(list) {
+    function each(k, fn) { list.forEach(function (ds) { (ds.byType[k] || []).forEach(function (r) { fn(r, ds); }); }); }
     Object.keys(over).forEach(function (k) { if (map.hasLayer(over[k])) map.removeLayer(over[k]); });
     over = {};
     vec = vec || L.canvas({ padding: 0.4, tolerance: 4 });
-    var T = ds.byType;
     // airspace by category
     var asSets = {};
     AS_CATS.forEach(function (c) { asSets[c[0]] = new ShapeSet(); });
-    (T.Airspace || []).forEach(function (a) {
+    each('Airspace', function (a, ds) {
       var t = s(a.cur.p.type), cat = asCat(t), col = COLORS[cat], tip = M.label(ds, a);
       shapesOf(M.geometry(ds, a), function (g) {
         if (g.t === 'A') asSets[cat].add(g, { color: col, weight: cat === 'fir' ? 2.2 : 1.5, fillOpacity: cat === 'fir' ? 0.02 : 0.08, dash: cat === 'prd' || cat === 'mil' ? '6 4' : null }, a, ds, tip);
@@ -846,7 +847,7 @@ var MAPVIEW = (function () {
     AS_CATS.forEach(function (c) { over['as_' + c[0]] = shapeLayer(asSets[c[0]], { prio: 1, pane: 'asPane' }); });
     // routes
     var rtSet = new ShapeSet();
-    (T.RouteSegment || []).forEach(function (sg) {
+    each('RouteSegment', function (sg, ds) {
       var g = M.geometry(ds, sg);
       if (!g || g.t !== 'L') return;
       var rnav = /RNAV|RNP/.test(s(sg.cur.p.navigationType)), rt = M.target(ds, sg.cur.p.routeFormed);
@@ -857,8 +858,8 @@ var MAPVIEW = (function () {
     // guidance lines yellow); runways that the airport chart can draw get an invisible line for clicks only
     var adSet = new ShapeSet();
     var charted = new Set();
-    ADCHART.all(ds).forEach(function (m) { m.runways.forEach(function (rm) { charted.add(rm.rw); }); });
-    (T.Runway || []).forEach(function (rw) {
+    list.forEach(function (ds) { ADCHART.all(ds).forEach(function (m) { m.runways.forEach(function (rm) { charted.add(rm.rw); }); }); });
+    each('Runway', function (rw, ds) {
       shapesOf(M.geometry(ds, rw), function (g) {
         var hidden = charted.has(rw) && g.t === 'L';
         if (g.t === 'L') adSet.add(g, { color: COLORS.rwy, weight: hidden ? 10 : 5, opacity: hidden ? 0 : 0.85, cap: 'butt' }, rw, ds, null);
@@ -872,7 +873,7 @@ var MAPVIEW = (function () {
     };
     ['RunwayProtectArea', 'Apron', 'ApronElement', 'AircraftStand', 'DeicingArea', 'Taxiway', 'TaxiwayElement', 'TouchDownLiftOff', 'RunwayElement', 'WorkArea', 'GuidanceLine'].forEach(function (k) {
       var st = SURF_STYLE[k];
-      (T[k] || []).forEach(function (r) {
+      each(k, function (r, ds) {
         var g = M.findGeo(r.cur.p, k === 'GuidanceLine' ? ['L'] : ['A'], 0);
         if (!g) return;
         if (g.t === 'A') adSet.add(g, { color: st[0], weight: k === 'RunwayProtectArea' ? 1 : 0.6, fill: st[1], fillOpacity: st[2], dash: k === 'RunwayProtectArea' || k === 'WorkArea' ? '5 4' : null }, r, ds, M.label(ds, r));
@@ -887,8 +888,10 @@ var MAPVIEW = (function () {
       adHits = [];
       var z = m.getZoom(), c = m.getCenter(), mpp = 40075016.686 * Math.cos(c.lat * Math.PI / 180) / Math.pow(2, z + 8);
       var bb = m.getBounds().pad(0.15), W = bb.getWest(), S = bb.getSouth(), E = bb.getEast(), N = bb.getNorth();
-      ADCHART.draw(ctx, ds, { P: function (q) { var pt = project(m, q[0], q[1]); return [pt.x, pt.y]; }, mpp: mpp, k: 1, occ: occ, hits: adHits,
-        vis: function (b) { return b[2] >= W && b[0] <= E && b[3] >= S && b[1] <= N; } });
+      list.forEach(function (ds) {
+        ADCHART.draw(ctx, ds, { P: function (q) { var pt = project(m, q[0], q[1]); return [pt.x, pt.y]; }, mpp: mpp, k: 1, occ: occ, hits: adHits,
+          vis: function (b) { return b[2] >= W && b[0] <= E && b[3] >= S && b[1] <= N; } });
+      });
     }, { pane: 'adPane', prio: 5 });
     over.adChart.hit = function (cp) {
       var best = null, bd = Infinity;
@@ -896,28 +899,28 @@ var MAPVIEW = (function () {
       return best ? { p: { ds: best.ds, r: best.r, lat: best.lat, lon: best.lon } } : null;
     };
     over.aerodrome.addLayer(over.adChart);
-    over.aerodrome.count = (T.Runway || []).length + ['Apron', 'ApronElement', 'Taxiway', 'TaxiwayElement', 'AircraftStand', 'GuidanceLine', 'RunwayElement'].reduce(function (n, k) { return n + (T[k] || []).length; }, 0);
+    over.aerodrome.count = list.reduce(function (n0, ds) { var T = ds.byType; return n0 + (T.Runway || []).length + ['Apron', 'ApronElement', 'Taxiway', 'TaxiwayElement', 'AircraftStand', 'GuidanceLine', 'RunwayElement'].reduce(function (n, k) { return n + (T[k] || []).length; }, 0); }, 0);
     // obstacle lines/areas
     var obSet = new ShapeSet();
     // point sets
     var ads = new PointSet('ad'), navs = new PointSet('nav'), dps = new PointSet('dp'), obs = new PointSet('obs'), lgt = new PointSet('lgt');
-    (T.AirportHeliport || []).forEach(function (a) {
+    each('AirportHeliport', function (a, ds) {
       var c = M.pointOf(ds, a), p = a.cur.p;
       if (c) ads.add(c[0], c[1], s(p.type) === 'HP' ? 'HP' : 'AD', COLORS.ad, M.shortName(a), a, ds, [s(p.name), M.fq(p.fieldElevation) ? 'ELEV ' + ADCHART.tidy(M.fq(p.fieldElevation)) : '']);
     });
     var usedEq = new Set();
-    (T.Navaid || []).forEach(function (n) {
+    each('Navaid', function (n, ds) {
       var comps = arr(n.cur.p.navaidEquipment).map(function (c) { return c && c.theNavaidEquipment ? M.target(ds, c.theNavaidEquipment) : null; }).filter(Boolean);
       comps.forEach(function (t) { usedEq.add(t); });
       var c = M.pointOf(ds, n); if (c) navs.add(c[0], c[1], navSym(n), COLORS.nav, s(n.cur.p.designator), n, ds, navInfo(n, comps));
     });
     ['VOR', 'DME', 'NDB', 'TACAN', 'MarkerBeacon', 'Localizer', 'Glidepath'].forEach(function (k) {
-      (T[k] || []).forEach(function (e) { if (usedEq.has(e)) return; var c = M.pointOf(ds, e); if (c) navs.add(c[0], c[1], navSym(e), COLORS.nav, s(e.cur.p.designator), e, ds, navInfo(e, [e])); });
+      each(k, function (e, ds) { if (usedEq.has(e)) return; var c = M.pointOf(ds, e); if (c) navs.add(c[0], c[1], navSym(e), COLORS.nav, s(e.cur.p.designator), e, ds, navInfo(e, [e])); });
     });
-    (T.DesignatedPoint || []).forEach(function (d) { var c = M.pointOf(ds, d); if (c) dps.add(c[0], c[1], s(d.cur.p.type) === 'ICAO' ? 'DPC' : 'DP', COLORS.dp, s(d.cur.p.designator) || s(d.cur.p.name), d, ds); });
+    each('DesignatedPoint', function (d, ds) { var c = M.pointOf(ds, d); if (c) dps.add(c[0], c[1], s(d.cur.p.type) === 'ICAO' ? 'DPC' : 'DP', COLORS.dp, s(d.cur.p.designator) || s(d.cur.p.name), d, ds); });
     // obstacles are labelled like a chart: top elevation, height in brackets (the name is in the pop-up);
     // buildings drawn grey, other obstacle areas and lines red
-    (T.VerticalStructure || []).forEach(function (o) {
+    each('VerticalStructure', function (o, ds) {
       var g = M.geometry(ds, o), lbl = obstLabel(o), bld = /BUILDING|TOWER|STADIUM|HANGAR|TERMINAL/.test(s(o.cur.p.type));
       shapesOf(g, function (x) {
         if (x.t === 'P') obs.add(x.c[0], x.c[1], 'OBS', COLORS.obst, lbl, o, ds);
@@ -928,21 +931,21 @@ var MAPVIEW = (function () {
         }
       });
     });
-    (T.AeronauticalGroundLight || []).forEach(function (r) { var c = M.pointOf(ds, r); if (c) lgt.add(c[0], c[1], 'LGT', '#e65100', s(r.cur.p.name), r, ds); });
+    each('AeronauticalGroundLight', function (r, ds) { var c = M.pointOf(ds, r); if (c) lgt.add(c[0], c[1], 'LGT', '#e65100', s(r.cur.p.name), r, ds); });
     // the aerodrome symbol gives way to the airport chart (ARP symbol, runways) once that is drawn in detail
-    var adSkip = function (p, z) { return z >= 13 && !!ADCHART.of(ds, p.r); };
+    var adSkip = function (p, z) { return z >= 13 && !!ADCHART.of(p.ds, p.r); };
     over.pAd = pointLayer(ads, { size: 6, labelZoom: 5, detailZoom: 8, maxDetail: 120, skip: adSkip, prio: 10 });
     over.pNav = pointLayer(navs, { size: 6, labelZoom: 6, detailZoom: 8, maxDetail: 200, box: true, prio: 20 });
     over.pDp = pointLayer(dps, { size: 5, labelZoom: 7, color: COLORS.dp, prio: 30 });
     over.pObs = pointLayer(obs, { size: 5, labelZoom: 12, maxLabels: 200, color: COLORS.obst, cluster: 3000, minZoom: 8, maxBelow: 400, prio: 40 });
     over.pLgt = pointLayer(lgt, { size: 6, labelZoom: 8, prio: 35 });
-    over.annot = annotLayer(ds);
+    over.annot = annotLayer(list);
     over.mora = moraLayer();
     over.hill = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}', { opacity: 0.38, maxZoom: 16, attribution: 'Hillshade © Esri', crossOrigin: true });
     over.hill.count = 0;
     over.obstLines = shapeLayer(obSet, { prio: 4 });
     over.obstacles = L.layerGroup([over.obstLines, over.pObs]);
-    over.procs = buildProcs(ds, state.procAd && ds.recs.indexOf(state.procAd) >= 0 ? state.procAd : null);
+    over.procs = buildProcs(list, state.procAd && list.some(function (ds) { return ds.recs.indexOf(state.procAd) >= 0; }) ? state.procAd : null);
     return over;
   }
   // navaid information box lines (shown from zoom 8): frequencies / DME channel, then type and name
@@ -969,28 +972,30 @@ var MAPVIEW = (function () {
   /* ---------------------------------------------- airspace and route labels */
   // Airspace: name, class and vertical limits (upper over lower) inside large enough areas;
   // routes: designator boxes at segment mid-points. Drawn last, so point labels win collisions.
-  function annotLayer(ds) {
+  function annotLayer(list) {
     var areas = [], segs = [];
-    (ds.byType.Airspace || []).forEach(function (a) {
-      var cat = asCat(s(a.cur.p.type)), vert = ADCHART.tidy(AIP.vertical(ds, a).split('\n')[0] || ''), cls = AIP.airspaceClass(a).split('\n').map(function (x) { return x.charAt(0); }).filter(Boolean);
-      var lim = vert.split(' / ');
-      shapesOf(M.geometry(ds, a), function (g) {
-        if (g.t !== 'A') return;
-        var ring = g.c[0].filter(function (p) { return typeof p[0] === 'number'; });
-        if (ring.length < 3) return;
-        var bb = [180, 90, -180, -90];
-        ring.forEach(function (p) { bb[0] = Math.min(bb[0], p[0]); bb[1] = Math.min(bb[1], p[1]); bb[2] = Math.max(bb[2], p[0]); bb[3] = Math.max(bb[3], p[1]); });
-        var c = [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2];
-        if (!inRingLL(c, ring)) c = ring.reduce(function (acc, p) { return [acc[0] + p[0] / ring.length, acc[1] + p[1] / ring.length]; }, [0, 0]);
-        if (!inRingLL(c, ring)) return;
-        areas.push({ cat: cat, bb: bb, c: c, name: M.label(ds, a).split(' ').filter(function (w, i, l) { return w !== l[i - 1]; }).join(' '), cls: cls.filter(function (x, i, l) { return l.indexOf(x) === i; }).join('/'), up: lim[0] || '', lo: lim[1] || '' });
+    list.forEach(function (ds) {
+      (ds.byType.Airspace || []).forEach(function (a) {
+        var cat = asCat(s(a.cur.p.type)), vert = ADCHART.tidy(AIP.vertical(ds, a).split('\n')[0] || ''), cls = AIP.airspaceClass(a).split('\n').map(function (x) { return x.charAt(0); }).filter(Boolean);
+        var lim = vert.split(' / ');
+        shapesOf(M.geometry(ds, a), function (g) {
+          if (g.t !== 'A') return;
+          var ring = g.c[0].filter(function (p) { return typeof p[0] === 'number'; });
+          if (ring.length < 3) return;
+          var bb = [180, 90, -180, -90];
+          ring.forEach(function (p) { bb[0] = Math.min(bb[0], p[0]); bb[1] = Math.min(bb[1], p[1]); bb[2] = Math.max(bb[2], p[0]); bb[3] = Math.max(bb[3], p[1]); });
+          var c = [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2];
+          if (!inRingLL(c, ring)) c = ring.reduce(function (acc, p) { return [acc[0] + p[0] / ring.length, acc[1] + p[1] / ring.length]; }, [0, 0]);
+          if (!inRingLL(c, ring)) return;
+          areas.push({ cat: cat, bb: bb, c: c, name: M.label(ds, a).split(' ').filter(function (w, i, l) { return w !== l[i - 1]; }).join(' '), cls: cls.filter(function (x, i, l) { return l.indexOf(x) === i; }).join('/'), up: lim[0] || '', lo: lim[1] || '' });
+        });
       });
-    });
-    (ds.byType.RouteSegment || []).forEach(function (sg) {
-      var g = M.geometry(ds, sg), rt = M.target(ds, sg.cur.p.routeFormed);
-      if (!g || g.t !== 'L' || !rt || g.c.length < 2) return;
-      var a = g.c[0], b = g.c[g.c.length - 1];
-      segs.push({ a: a, b: b, t: M.routeDesignator(rt.cur.p), rnav: /RNAV|RNP/.test(s(sg.cur.p.navigationType)) });
+      (ds.byType.RouteSegment || []).forEach(function (sg) {
+        var g = M.geometry(ds, sg), rt = M.target(ds, sg.cur.p.routeFormed);
+        if (!g || g.t !== 'L' || !rt || g.c.length < 2) return;
+        var a = g.c[0], b = g.c[g.c.length - 1];
+        segs.push({ a: a, b: b, t: M.routeDesignator(rt.cur.p), rnav: /RNAV|RNP/.test(s(sg.cur.p.navigationType)) });
+      });
     });
     var layer = new CanvasLayer(function (ctx, m) {
       if (!state.labels) return;
@@ -1140,10 +1145,11 @@ var MAPVIEW = (function () {
     });
     return out;
   }
-  function buildProcs(ds, onlyAd) {
+  function buildProcs(list, onlyAd) {
+    list = Array.isArray(list) ? list : [list];
     var grp = L.layerGroup(), n = 0;
     ['StandardInstrumentDeparture', 'StandardInstrumentArrival', 'InstrumentApproachProcedure'].forEach(function (k) {
-      (ds.byType[k] || []).forEach(function (pr) {
+      list.forEach(function (ds) { (ds.byType[k] || []).forEach(function (pr) {
         if (onlyAd && ds.owner.get(pr) !== onlyAd) return;
         if (state.procKinds && state.procKinds[PROC_K[k]] === false) return;
         var name = PROC_K[k] + ' ' + (s(pr.cur.p.designator) || s(pr.cur.p.name));
@@ -1160,19 +1166,20 @@ var MAPVIEW = (function () {
           }
           n++;
         });
-      });
+      }); });
     });
     grp.count = n;
     return grp;
   }
   function showProcs(ds, ad, instant) {
     if (!map) return;
+    showAlso(ds);
     state.procAd = ad || null;
     if (over.procs && map.hasLayer(over.procs)) map.removeLayer(over.procs);
-    over.procs = buildProcs(ds, state.procAd);
+    over.procs = buildProcs(shownList(), state.procAd);
     state.filters.procs = true;
     var cb = document.querySelector('[data-layer="procs"]'); if (cb) cb.checked = true;
-    var sel = document.getElementById('map-proc-ad'); if (sel) sel.value = ad ? String(ds.recs.indexOf(ad)) : '';
+    var sel = document.getElementById('map-proc-ad'); if (sel) sel.value = ad ? recOpt(ds, ad) : '';
     applyLayers();
     var b = null;
     over.procs.eachLayer(function (l) { var lb = l.getBounds(); b = b ? b.extend(lb) : L.latLngBounds(lb.getSouthWest(), lb.getNorthEast()); });
@@ -1234,7 +1241,14 @@ var MAPVIEW = (function () {
   function panelHtml(datasets) {
     var h = '<div class="card map-panel" id="map-panel">';
     h += '<div class="row"><b>Map</b><span class="sp"></span><span class="chip" id="map-online">offline map</span></div>';
-    if (datasets.length > 1) h += '<h4>Data set</h4><select class="inp" id="map-ds" aria-label="Data set" style="width:100%">' + datasets.map(function (d, i) { return '<option value="' + i + '">' + esc(d.state + ' – ' + d.name) + '</option>'; }).join('') + '</select>';
+    if (datasets.length > 1) {
+      h += '<h4>Data sets on the map <span class="muted" id="map-dsl-n"></span></h4><div class="map-dsl" id="map-dsl" role="group" aria-label="Data sets on the map">' +
+        datasets.map(function (d, i) {
+          var nm = d.state + ' – ' + d.name;
+          return '<div class="map-dsl-row"><label class="chk" title="' + esc(nm) + '"><input type="checkbox" data-ds="' + i + '"> <span>' + esc(nm) + '</span></label>' +
+            '<button type="button" class="linkbtn" data-dso="' + i + '" title="Show only this data set" aria-label="Show only ' + esc(nm) + '">only</button></div>';
+        }).join('') + '<button type="button" class="btn small" data-dsa="all">Show all ' + datasets.length + '</button></div>';
+    }
     h += '<h4>Base map</h4><select class="inp" id="map-base" aria-label="Base map" style="width:100%"><option value="offline">Offline world map (built in)</option>';
     var grp = '';
     Object.keys(ONLINE).forEach(function (k) {
@@ -1271,7 +1285,7 @@ var MAPVIEW = (function () {
     if (devKind() === 'phone' || (devKind() === 'tablet' && window.innerHeight > window.innerWidth)) container.querySelector('#map-panel').classList.add('hidden'); // phones, upright tablets: map first, Layers opens the panel
     VIEW3D.close();
     if (map) { map.remove(); map = null; base = { offline: null, current: 'offline', online: {} }; over = {}; vec = null; }
-    live = []; traffic = null; state.adView = null; state.all = datasets; tipLayer = null;
+    live = []; traffic = null; state.adView = null; state.all = datasets; state.shown = null; tipLayer = null;
     map = L.map(mdiv, { zoomControl: false, worldCopyJump: true, preferCanvas: true, minZoom: 2, maxZoom: 20 }).setView([30, 10], 3);
     map.createPane('asPane').style.zIndex = 380;    // airspace: below routes, aerodrome surfaces and obstacles
     map.createPane('adPane').style.zIndex = 420;    // airport chart: above airspace / taxiway vectors
@@ -1317,21 +1331,38 @@ var MAPVIEW = (function () {
       cb.addEventListener('change', function () { state.filters[cb.getAttribute('data-layer')] = cb.checked; applyLayers(); });
     });
     q('#map-labels').addEventListener('change', function (e) { state.labels = e.target.checked; scheduleDraw(); });
-    q('#map-adview').addEventListener('change', function (e) { var i = e.target.value; if (i === '') closeAdCard(); else airportView(state.ds, state.ds.recs[+i]); });
+    q('#map-adview').addEventListener('change', function (e) { var x = optRec(e.target.value); if (!x) closeAdCard(); else airportView(x.ds, x.r); });
     q('#map-fit').addEventListener('click', function () { fit(); });
     q('#map-measure').addEventListener('click', function (e) { toggleMeasure(e.currentTarget); });
-    q('#map-png').addEventListener('click', function () { hooks.savePng(renderImage(state.ds, map.getBounds(), 1600, 1000, { title: state.ds ? state.ds.state : '', layers: currentLayers() })); });
+    q('#map-png').addEventListener('click', function () { hooks.savePng(renderImage(shownList(), map.getBounds(), 1600, 1000, { title: shownTitle(), layers: currentLayers() })); });
     q('#map-print').addEventListener('click', function () { printDialog(null); });
     q('#map-3d').addEventListener('click', function () { open3d('area', state.adView && state.adView.ds === state.ds ? state.adView.ad : null); });
     q('#map-traffic').addEventListener('click', function () { if (traffic) trafficOff(); else trafficOn(); });
     q('#map-traffic-info').addEventListener('click', function () { trafficDetails(); });
     q('#map-panel-toggle').addEventListener('click', function () { q('#map-panel').classList.toggle('hidden'); });
     bindSearch(container);
-    if (q('#map-popout')) q('#map-popout').addEventListener('click', function () { hooks.popout(state.ds, state.adView ? state.adView.ad : null); });
+    if (q('#map-popout')) q('#map-popout').addEventListener('click', function () { hooks.popout(state.ds, state.adView ? state.adView.ad : null, shownList()); });
     if (q('#map-dock')) q('#map-dock').addEventListener('click', function () { hooks.dock(); });
-    var dsSel = q('#map-ds');
-    if (dsSel) dsSel.addEventListener('change', function () { if (state.all) { show(state.all[+dsSel.value]); fit(); } });
-    q('#map-proc-ad').addEventListener('change', function (e) { var i = e.target.value; showProcs(state.ds, i === '' ? null : state.ds.recs[+i]); });
+    // data sets on the map: tick any mix; "only" shows one; "all" every one loaded
+    var dsl = q('#map-dsl');
+    if (dsl) dsl.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-dso],[data-dsa]');
+      if (!b || !state.all) return;
+      e.preventDefault();
+      if (b.hasAttribute('data-dsa')) setShown(state.all.slice(), state.ds);
+      else { var one = state.all[+b.getAttribute('data-dso')]; setShown([one], one); }
+      fit();
+    });
+    if (dsl) dsl.addEventListener('change', function (e) {
+      var cb = e.target.closest('[data-ds]');
+      if (!cb || !state.all) return;
+      var d = state.all[+cb.getAttribute('data-ds')], list = shownList().filter(function (x) { return x !== d; });
+      if (cb.checked) list.push(d);
+      if (!list.length) { cb.checked = true; hooks.toast('At least one data set stays on the map. Use "only" next to another one to switch.'); return; }
+      setShown(list, cb.checked ? d : state.ds);
+      fit();
+    });
+    q('#map-proc-ad').addEventListener('change', function (e) { var x = optRec(e.target.value); showProcs(x ? x.ds : state.ds, x ? x.r : null); });
     container.querySelectorAll('[data-pk]').forEach(function (cb) {
       cb.addEventListener('change', function () { state.procKinds = state.procKinds || {}; state.procKinds[cb.getAttribute('data-pk')] = cb.checked; showProcs(state.ds, state.procAd); });
     });
@@ -1346,42 +1377,77 @@ var MAPVIEW = (function () {
       });
     } else showOnline(null);
     var ds = opts.ds || datasets[0];
-    if (dsSel && ds) dsSel.value = String(datasets.indexOf(ds));
+    // the data sets shown last time (or those the map window was opened with), if this one is among them
+    var keep = (opts.shown || keepShown || []).filter(function (d) { return datasets.indexOf(d) >= 0; });
     datasets = null; // the handlers above use state.all, which Remove can clear (release)
-    if (ds) { show(ds); if (opts.procs) showProcs(ds, opts.procs, true); else fit(true); }
+    if (ds) { setShown(keep.indexOf(ds) >= 0 ? keep : [ds], ds); if (opts.procs) showProcs(ds, opts.procs, true); else fit(true); }
     if (opts.cmp) setCompare(opts.cmp);
     setTimeout(function () { map.invalidateSize(); }, 50);
   }
-  function fillProcAd(ds) {
+  function fillProcAd(list) {
     var sel = document.getElementById('map-proc-ad');
     if (!sel) return;
-    var ads = new Map();
-    ['StandardInstrumentDeparture', 'StandardInstrumentArrival', 'InstrumentApproachProcedure'].forEach(function (k) { (ds.byType[k] || []).forEach(function (pr) { var a = ds.owner.get(pr); if (a) ads.set(a, (ads.get(a) || 0) + 1); }); });
+    var ads = new Map(); // aerodrome -> [data set, number of procedures]
+    list.forEach(function (ds) {
+      ['StandardInstrumentDeparture', 'StandardInstrumentArrival', 'InstrumentApproachProcedure'].forEach(function (k) { (ds.byType[k] || []).forEach(function (pr) { var a = ds.owner.get(pr); if (a) ads.set(a, [ds, (ads.has(a) ? ads.get(a)[1] : 0) + 1]); }); });
+    });
     sel.innerHTML = '<option value="">All aerodromes</option>' + Array.from(ads.keys()).sort(function (a, b) { return M.shortName(a).localeCompare(M.shortName(b)); })
-      .map(function (a) { return '<option value="' + ds.recs.indexOf(a) + '">' + esc(M.shortName(a) + ' — ' + (s(a.cur.p.name) || '')) + ' (' + ads.get(a) + ')</option>'; }).join('');
-    sel.value = state.procAd && ads.has(state.procAd) ? String(ds.recs.indexOf(state.procAd)) : '';
+      .map(function (a) { return '<option value="' + recOpt(ads.get(a)[0], a) + '">' + esc(M.shortName(a) + ' — ' + (s(a.cur.p.name) || '')) + ' (' + ads.get(a)[1] + ')</option>'; }).join('');
+    sel.value = state.procAd && ads.has(state.procAd) ? recOpt(ads.get(state.procAd)[0], state.procAd) : '';
   }
   // forget a removed data set: the map (its layers, and the panel's handlers holding the list of data sets it was
   // opened with) would otherwise keep all its features alive; the map is built again when next opened
   function release(ds) {
+    if (keepShown) keepShown = keepShown.filter(function (d) { return d !== ds; });
     var used = state.ds === ds || (state.all && state.all.indexOf(ds) >= 0) || (state.cmp && (state.cmp.a === ds || state.cmp.b === ds));
     if (!used) return;
     VIEW3D.close();
     if (map) { map.remove(); map = null; }
     over = {}; live = []; traffic = null; vec = null; tipLayer = null; el = {};
-    state.ds = null; state.all = null; state.cmp = null; state.adView = null; state.procAd = null;
+    state.ds = null; state.all = null; state.shown = null; state.cmp = null; state.adView = null; state.procAd = null;
     base = { offline: null, current: 'offline', online: {} };
   }
-  function show(ds) {
-    if (state.ds !== ds) state.procAd = null;
-    state.ds = ds;
-    buildOverlays(ds);
+  // Data sets on the map: one, several or all of those loaded (e.g. Qatar, Saudi Arabia and the UAE together), drawn
+  // as one map — labels never overlap across them, search, airport view, procedures, print and 3D use them all.
+  // state.ds is the main one (titles; the one show() last asked for). The choice is kept when the map is built
+  // again (another view and back).
+  var keepShown = null;
+  function shownList() { return state.shown && state.shown.length ? state.shown : state.ds ? [state.ds] : []; }
+  function setShown(list, primary) {
+    var all = state.all || list;
+    list = all.filter(function (d) { return list.indexOf(d) >= 0; }); // in the order they were loaded
+    if (!list.length && primary) list = [primary];
+    if (!list.length || !map) return;
+    if (!primary || list.indexOf(primary) < 0) primary = list[0];
+    state.ds = primary; state.shown = list; keepShown = list;
+    if (state.procAd && !list.some(function (d) { return d.recs.indexOf(state.procAd) >= 0; })) state.procAd = null;
+    buildOverlays(list);
     applyLayers();
-    fillProcAd(ds);
-    fillAdView(ds);
-    if (state.adView && state.adView.ds !== ds) closeAdCard();
+    fillProcAd(list);
+    fillAdView(list);
+    if (state.adView && list.indexOf(state.adView.ds) < 0) closeAdCard();
     document.querySelectorAll('[data-count]').forEach(function (n) { var c = countOf(n.getAttribute('data-count')); n.textContent = c ? '(' + c + ')' : '(0)'; });
+    dsUi();
   }
+  // show this data set: added to the main one if it is already on the map, otherwise on its own
+  function show(ds) { setShown(state.shown && state.shown.indexOf(ds) >= 0 ? state.shown : [ds], ds); }
+  // a feature of this data set was asked for (search, Show on map, airport view): add it to those on the map
+  function showAlso(ds) {
+    if (!ds) return;
+    if (shownList().indexOf(ds) >= 0) { state.ds = ds; return; }
+    setShown(shownList().concat([ds]), ds);
+  }
+  function dsUi() {
+    document.querySelectorAll('#map-dsl [data-ds]').forEach(function (cb) { cb.checked = shownList().indexOf(state.all[+cb.getAttribute('data-ds')]) >= 0; });
+    var n = document.getElementById('map-dsl-n'); if (n) n.textContent = shownList().length + ' of ' + (state.all ? state.all.length : 0);
+  }
+  // option values of the aerodrome lists: "<data set on the map>:<record>"
+  function recOpt(ds, r) { return shownList().indexOf(ds) + ':' + ds.recs.indexOf(r); }
+  function optRec(v) {
+    var m = /^(\d+):(\d+)$/.exec(v || ''), ds = m && shownList()[+m[1]];
+    return ds && ds.recs[+m[2]] ? { ds: ds, r: ds.recs[+m[2]] } : null;
+  }
+  function shownTitle() { var st = []; shownList().forEach(function (d) { if (st.indexOf(d.state) < 0) st.push(d.state); }); return st.join(' · '); }
   /* -------------------------------------------------------- search on the map */
   // A search box on the map itself: aerodromes, runways, taxiways, aprons, stands, navaids, waypoints, airways,
   // airspace, obstacles, lights … of the loaded data. A pick zooms there, outlines the feature in magenta and opens
@@ -1452,7 +1518,7 @@ var MAPVIEW = (function () {
   }
   function goToResult(x) {
     var ds = x.ds, r = x.r;
-    if (state.ds !== ds) { show(ds); var sel = document.getElementById('map-ds'); if (sel && state.all) sel.value = String(state.all.indexOf(ds)); }
+    showAlso(ds);
     highlight(x.shapes);
     if (r.k === 'AirportHeliport' && ADCHART.of(ds, r)) { airportView(ds, r); return; } // aerodromes open the airport view
     var b = null;
@@ -1512,14 +1578,17 @@ var MAPVIEW = (function () {
     }
   }
   /* --------------------------------------------------------- airport view */
-  function fillAdView(ds) {
+  function fillAdView(dsl) {
     var sel = document.getElementById('map-adview');
     if (!sel) return;
-    var list = ADCHART.all(ds).slice().sort(function (a, b) { return M.shortName(a.ad).localeCompare(M.shortName(b.ad)); });
-    sel.innerHTML = '<option value="">Choose an aerodrome… (' + list.length + ')</option>' + list.map(function (m) {
-      return '<option value="' + ds.recs.indexOf(m.ad) + '">' + esc(M.shortName(m.ad) + ' — ' + (s(m.ad.cur.p.name) || '')) + (m.runways.length ? ' · ' + m.runways.length + ' RWY' : '') + '</option>';
+    var list = [];
+    dsl.forEach(function (ds) { ADCHART.all(ds).forEach(function (m) { list.push({ ds: ds, m: m }); }); });
+    list.sort(function (a, b) { return M.shortName(a.m.ad).localeCompare(M.shortName(b.m.ad)); });
+    sel.innerHTML = '<option value="">Choose an aerodrome… (' + list.length + ')</option>' + list.map(function (x) {
+      var m = x.m;
+      return '<option value="' + recOpt(x.ds, m.ad) + '">' + esc(M.shortName(m.ad) + ' — ' + (s(m.ad.cur.p.name) || '')) + (m.runways.length ? ' · ' + m.runways.length + ' RWY' : '') + '</option>';
     }).join('');
-    sel.value = state.adView && state.adView.ds === ds ? String(ds.recs.indexOf(state.adView.ad)) : '';
+    sel.value = state.adView && dsl.indexOf(state.adView.ds) >= 0 ? recOpt(state.adView.ds, state.adView.ad) : '';
   }
   function adLatLngBounds(ds, ad) {
     var b = ADCHART.bounds(ds, ad);
@@ -1533,7 +1602,7 @@ var MAPVIEW = (function () {
   // Airport view: zooms to the aerodrome diagram and opens the airport information card.
   function airportView(ds, ad) {
     if (!map || !ds || !ad) return;
-    if (state.ds !== ds) show(ds);
+    showAlso(ds);
     map.closePopup();
     state.filters.aerodrome = true; applyLayers();
     var cb = document.querySelector('[data-layer="aerodrome"]'); if (cb) cb.checked = true;
@@ -1557,12 +1626,16 @@ var MAPVIEW = (function () {
       };
     }
     fitAirport(ds, ad, false);
-    var sel = document.getElementById('map-adview'); if (sel) sel.value = String(ds.recs.indexOf(ad));
+    var sel = document.getElementById('map-adview'); if (sel) sel.value = recOpt(ds, ad);
   }
   // 3D view over the map (view3d.js): 'area' for the current view, 'approach' / 'departure' for an aerodrome
   // extra: {ols: true} shows the Annex 14 surfaces of the aerodrome around it
   function open3d(mode, ad, extra) {
     if (!state.ds) return;
+    // several data sets on the map: the 3D view shows the one with this aerodrome, or the one under the map centre
+    var ctr = map.getCenter(), own = ad && shownList().filter(function (d) { return d.recs.indexOf(ad) >= 0; })[0];
+    if (own) state.ds = own;
+    else if (!ad) { var under = shownList().filter(function (d) { var x = dsBounds(d); return x && x.contains(ctr); }); if (under.length && under.indexOf(state.ds) < 0) state.ds = under[0]; }
     var b = map.getBounds(), bb = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
     if (extra && extra.ols && ad) { var c = M.pointOf(state.ds, ad); if (c) bb = [c[0] - 0.22 / Math.cos(c[1] * Math.PI / 180), c[1] - 0.17, c[0] + 0.22 / Math.cos(c[1] * Math.PI / 180), c[1] + 0.17]; }
     VIEW3D.open(map.getContainer().parentNode, state.ds, hooks, { mode: mode, ad: ad || null, bbox: bb, ols: !!(extra && extra.ols),
@@ -1583,7 +1656,15 @@ var MAPVIEW = (function () {
     if (cb) { cb.disabled = !res; cb.checked = !!res; }
     if (map) buildCompare(res);
   }
+  var boundsCache = new WeakMap(); // data set -> [view date, bounds]
   function dsBounds(ds) {
+    var c = boundsCache.get(ds);
+    if (c && c[0] === ds.viewDate) return c[1];
+    var b = dsBounds0(ds);
+    boundsCache.set(ds, [ds.viewDate, b]);
+    return b;
+  }
+  function dsBounds0(ds) {
     var b = null;
     function ext(c) { if (!c || typeof c[0] !== 'number') return; if (!b) b = L.latLngBounds([c[1], c[0]], [c[1], c[0]]); else b.extend([c[1], c[0]]); }
     (ds.byType.AirportHeliport || []).forEach(function (a) { ext(M.pointOf(ds, a)); });
@@ -1593,17 +1674,14 @@ var MAPVIEW = (function () {
   }
   function fit(instant) {
     if (!state.ds || !map) return;
-    var b = dsBounds(state.ds);
+    var b = null;
+    shownList().forEach(function (d) { var x = dsBounds(d); if (x && x.isValid()) b = b ? b.extend(x) : L.latLngBounds(x.getSouthWest(), x.getNorthEast()); });
     if (b && b.isValid()) map.fitBounds(b.pad(0.05), { maxZoom: 11, animate: !instant });
   }
   function focus(ds, r) {
     if (!map) return;
     if (r && r.k === 'AirportHeliport' && ADCHART.of(ds, r)) { airportView(ds, r); return; } // aerodromes open the airport view
-    if (state.ds !== ds) {
-      var sel = document.getElementById('map-ds');
-      show(ds);
-      if (sel) { for (var i = 0; i < sel.options.length; i++) if (sel.options[i].textContent.indexOf(ds.name) >= 0) sel.value = sel.options[i].value; }
-    }
+    showAlso(ds);
     var g = M.geometry(ds, r), b = null;
     shapesOf(g, function (x) {
       var pts = x.t === 'P' ? [x.c] : x.t === 'L' ? x.c : x.c[0];
@@ -1637,10 +1715,11 @@ var MAPVIEW = (function () {
   function refreshTheme() { if (map) darkOutline(); if (base.offline && base.offline.restyle) base.offline.restyle(); if (base.offline && base.offline.grat) base.offline.grat.redraw(); }
 
   /* ------------------------------------------------ static map renderer */
-  // Renders the offline base map + aeronautical features of `ds` inside `bounds` to a PNG data URL.
+  // Renders the offline base map + aeronautical features of `ds` (one data set or a list) inside `bounds` to a PNG data URL.
   // opt: {title, sub, procAd, layers:{key:bool}, legend, north, grid, scale, footer}
   function renderImage(ds, bounds, w, h, opt) {
     opt = opt || {};
+    var dsl = Array.isArray(ds) ? ds.filter(Boolean) : ds ? [ds] : [];
     var k = Math.max(1, w / 1600), lay = opt.layers || null;
     function on(key, def) { return !lay ? def !== false : lay[key] !== undefined ? lay[key] : def !== false; }
     var c = document.createElement('canvas');
@@ -1679,7 +1758,8 @@ var MAPVIEW = (function () {
     function inView(pt) { return pt[0] >= vw - 2 && pt[0] <= ve + 2 && pt[1] >= vs - 2 && pt[1] <= vn + 2; }
     function path(cs) { ctx.beginPath(); cs.forEach(function (pt, i) { var q = P(pt[0], pt[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); }); }
     var used = {};
-    if (ds) {
+    var rocc = new ADCHART.Occ(); // labels of all data sets share one collision registry
+    dsl.forEach(function (ds) {
       (ds.byType.Airspace || []).forEach(function (a) {
         var cat = asCat(s(a.cur.p.type)), col = COLORS[cat];
         if (!on('as_' + cat)) return;
@@ -1698,7 +1778,6 @@ var MAPVIEW = (function () {
         var rnav = /RNAV|RNP/.test(s(sg.cur.p.navigationType));
         path(g.c); ctx.strokeStyle = rnav ? COLORS.rnav : COLORS.route; ctx.lineWidth = 1.5 * k; ctx.stroke(); used[rnav ? 'rnav' : 'route'] = 1;
       });
-      var rocc = new ADCHART.Occ();
       if (on('aerodrome')) {
         // AMDB surfaces (taxiways, aprons, runway elements) then the airport chart, as on screen
         var mppR = 6371008.8 * Math.cos((vs + vn) / 2 * Math.PI / 180) / sc; // metres per pixel
@@ -1746,7 +1825,7 @@ var MAPVIEW = (function () {
           ctx.lineWidth = 3 * k; ctx.lineJoin = 'round'; ctx.strokeStyle = '#fff'; ctx.strokeText(x[3], q[0] + 10 * k, q[1] - 2 * k); ctx.fillStyle = x[2]; ctx.fillText(x[3], q[0] + 10 * k, q[1] - 2 * k);
         }
       });
-    }
+    });
     // frame and title
     ctx.strokeStyle = '#0b2a4a'; ctx.lineWidth = 4 * k; ctx.strokeRect(2 * k, 2 * k, w - 4 * k, h - 4 * k);
     if (opt.title) {
@@ -1763,7 +1842,7 @@ var MAPVIEW = (function () {
       ctx.fillStyle = '#222'; ctx.font = '700 ' + Math.round(11 * k) + 'px Arial'; ctx.fillText('N', nx - 4 * k, ny - r - 9 * k);
     }
     // legend
-    if (opt.legend !== false && ds) {
+    if (opt.legend !== false && dsl.length) {
       var items = [];
       AS_CATS.forEach(function (cc) { if (used['as_' + cc[0]]) items.push(['area', COLORS[cc[0]], cc[1], cc[0] === 'prd' || cc[0] === 'mil']); });
       if (used.route) items.push(['line', COLORS.route, 'ATS route']);
@@ -1813,12 +1892,12 @@ var MAPVIEW = (function () {
   function printDialog(bounds, po) {
     po = po || {};
     var old = document.getElementById('map-print-dlg'); if (old) old.remove();
-    var ds = state.ds, b = bounds || map.getBounds();
+    var ds = state.ds, dsl = shownList(), b = bounds || map.getBounds();
     var d = document.createElement('div');
     d.className = 'modal-back'; d.id = 'map-print-dlg';
     d.innerHTML = '<div class="modal" style="width:min(560px,100%)"><div class="modal-head"><h3>Print map</h3><span class="sp"></span><button class="btn small ghost" data-p="close">✕</button></div><div class="modal-body">' +
       '<div class="muted" style="margin-bottom:8px">Area: ' + (bounds ? 'the rectangle you selected' : 'the current map view') + ' — ' + AX.fmtPos([b.getWest(), b.getNorth()], 0) + ' to ' + AX.fmtPos([b.getEast(), b.getSouth()], 0) + '. <a href="#" data-p="area">Select another area on the map</a></div>' +
-      '<label>Title<br><input class="inp" id="mp-title" style="width:100%" value="' + esc(po.title || (ds ? ds.state + (ds.airac ? ' — AIRAC ' + ds.airac.id : '') : 'Map')) + '"></label>' +
+      '<label>Title<br><input class="inp" id="mp-title" style="width:100%" value="' + esc(po.title || (dsl.length > 1 ? shownTitle() : ds ? ds.state + (ds.airac ? ' — AIRAC ' + ds.airac.id : '') : 'Map')) + '"></label>' +
       '<div class="row wrap" style="gap:14px;margin-top:10px"><label>Paper<br><select class="inp" id="mp-paper"><option value="A4L">A4 landscape</option><option value="A4P">A4 portrait</option><option value="A3L">A3 landscape</option><option value="A3P">A3 portrait</option></select></label>' +
       '<div><br>' + [['legend', 'Legend'], ['north', 'North arrow'], ['grid', 'Coordinate grid'], ['scale', 'Scale bar']].map(function (x) { return '<label class="chk" style="display:inline-flex;margin-right:10px"><input type="checkbox" data-o="' + x[0] + '" checked> ' + x[1] + '</label>'; }).join('') + '</div></div>' +
       '<div class="muted" style="font-size:12px;margin-top:8px">The layers switched on in the map panel are printed. Procedures are included when the procedure layer is on.</div>' +
@@ -1839,7 +1918,7 @@ var MAPVIEW = (function () {
       var title = d.querySelector('#mp-title').value;
       hooks.toast('Rendering the map…');
       setTimeout(function () {
-        var url = renderImage(ds, b, W, H, { title: title, sub: ds ? ds.name : '', layers: layers, legend: o.legend, north: o.north, grid: o.grid, scale: o.scale, footer: 'Printed ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z' });
+        var url = renderImage(dsl, b, W, H, { title: title, sub: dsl.length > 1 ? dsl.length + ' data sets' : ds ? ds.name : '', layers: layers, legend: o.legend, north: o.north, grid: o.grid, scale: o.scale, footer: 'Printed ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z' });
         if (k === 'png') hooks.savePng(url);
         else if (k === 'pdf') {
           var land = paper[0] > paper[1], doc = new window.jspdf.jsPDF({ orientation: land ? 'landscape' : 'portrait', unit: 'mm', format: paper[0] === 420 || paper[1] === 420 ? 'a3' : 'a4' });

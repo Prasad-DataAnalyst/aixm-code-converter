@@ -7,6 +7,16 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.14.0 — 2026-10-06 — Several data sets on one map
+
+- **Several data sets on one map**: with more than one data set loaded, the map panel lists them (*Data sets on the
+  map*) with a tick box each. Any mix of them — or *Show all* — is drawn as one map, e.g. Qatar, Saudi Arabia, the
+  UAE and China together; *only* shows one again. Labels never overlap across data sets; layer counts, the airport
+  view list and the procedure list cover all those shown; a map search, *Show on map* or an airport view of a data
+  set not shown adds it to the map; Save PNG and Print draw all of them; the 3D view uses the data set with the
+  aerodrome, or the one under the map centre. The choice is kept when leaving the map and coming back, and the
+  map window (⧉ New window) opens with the same data sets.
+
 ## 1.13.0 — 2026-10-06 — Faster map; live traffic over the aeronautical data
 
 - **Faster map**: on dark and satellite base maps the white outline around the aeronautical data was a CSS filter

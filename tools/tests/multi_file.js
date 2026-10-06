@@ -155,7 +155,7 @@ fs.writeFileSync(ZIP, fflate.zipSync(Object.fromEntries(Object.entries(zipFiles)
     await page.waitForFunction(() => window.__AIXM.S.view === 'dash', null, { timeout: 60000 });
   }
   await page.evaluate(() => window.__AIXM.go('map')); await page.waitForTimeout(1200);
-  const two = await page.evaluate(() => ({ n: window.__AIXM.S.datasets.length, files: window.__AIXM.S.datasets[0].files && window.__AIXM.S.datasets[0].files.length, mapList: !!document.querySelector('#map-ds') }));
+  const two = await page.evaluate(() => ({ n: window.__AIXM.S.datasets.length, files: window.__AIXM.S.datasets[0].files && window.__AIXM.S.datasets[0].files.length, mapList: !!document.querySelector('#map-dsl') }));
   if (two.n !== 1 || two.files !== loose.length || two.mapList) fails.push('files added in two goes should give one data set and one map entry: ' + JSON.stringify(two));
 
   // one AIXM file for the cycle: written from the delivery, read again: the same current features and references

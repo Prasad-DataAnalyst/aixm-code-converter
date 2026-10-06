@@ -296,6 +296,12 @@ pre.xml .ln.hl { background: var(--hl); }
 .map-panel { position: absolute; top: 12px; left: 12px; z-index: 500; width: 290px; max-height: calc(100% - 24px); overflow: auto; padding: 12px 14px; }
 .map-panel h4 { margin: 10px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
 .map-panel label.chk { font-size: 13px; padding: 2px 0; display: flex; }
+.map-dsl { max-height: 190px; overflow: auto; }
+.map-dsl-row { display: flex; align-items: center; gap: 8px; }
+.map-dsl-row label.chk { flex: 1; min-width: 0; }
+.map-dsl-row label.chk span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-dsl-row .linkbtn { font-size: 12px; flex: none; }
+.map-dsl .btn { margin-top: 6px; }
 .map-panel .sw { width: 14px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 2px; border: 1px solid rgba(0, 0, 0, .2); }
 .map-tools { position: absolute; top: 12px; right: 12px; z-index: 500; display: flex; flex-direction: column; gap: 6px; }
 .map-tools .btn { box-shadow: var(--shadow); }
