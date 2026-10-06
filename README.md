@@ -1,6 +1,6 @@
 # AIXM Code Converter: downloads and traffic
 
-Updated 2026-10-05 (daily). GitHub does not report the location of visitors.
+Updated 2026-10-06 (daily). GitHub does not report the location of visitors.
 
 > Page views, visitors and referring sites are not recorded yet: add the `TRAFFIC_TOKEN` secret (see `tools/stats.js`).
 
@@ -8,10 +8,10 @@ Updated 2026-10-05 (daily). GitHub does not report the location of visitors.
 
 | | |
 |---|---|
-| Release downloads (all files, all versions) | **49** |
+| Release downloads (all files, all versions) | **88** |
 | Stars · forks · watchers | 0 · 0 · 0 |
 
-## Downloads per file (2026-10-05)
+## Downloads per file (2026-10-06)
 
 | Release | File | Downloads |
 |---|---|---|
@@ -19,6 +19,33 @@ Updated 2026-10-05 (daily). GitHub does not report the location of visitors.
 | v1.0.0 | AIXM-Code-Converter.zip | 0 |
 | v1.1.0 | AIXM-Code-Converter.html | 2 |
 | v1.1.0 | AIXM-Code-Converter.zip | 0 |
+| v1.10.0 | AIXM-Code-Converter.html | 1 |
+| v1.10.0 | AIXM-Code-Converter.zip | 1 |
+| v1.10.0 | SHA256SUMS.txt | 1 |
+| v1.11.0 | AIXM-Code-Converter.html | 1 |
+| v1.11.0 | AIXM-Code-Converter.zip | 1 |
+| v1.11.0 | SHA256SUMS.txt | 1 |
+| v1.12.0 | AIXM-Code-Converter.html | 1 |
+| v1.12.0 | AIXM-Code-Converter.zip | 1 |
+| v1.12.0 | SHA256SUMS.txt | 1 |
+| v1.12.1 | AIXM-Code-Converter.html | 1 |
+| v1.12.1 | AIXM-Code-Converter.zip | 1 |
+| v1.12.1 | SHA256SUMS.txt | 1 |
+| v1.13.0 | AIXM-Code-Converter.html | 2 |
+| v1.13.0 | AIXM-Code-Converter.zip | 2 |
+| v1.13.0 | SHA256SUMS.txt | 2 |
+| v1.14.0 | AIXM-Code-Converter.html | 1 |
+| v1.14.0 | AIXM-Code-Converter.zip | 0 |
+| v1.14.0 | SHA256SUMS.txt | 1 |
+| v1.16.0 | AIXM-Code-Converter.html | 1 |
+| v1.16.0 | AIXM-Code-Converter.zip | 1 |
+| v1.16.0 | SHA256SUMS.txt | 1 |
+| v1.18.0 | AIXM-Code-Converter.html | 1 |
+| v1.18.0 | AIXM-Code-Converter.zip | 1 |
+| v1.18.0 | SHA256SUMS.txt | 1 |
+| v1.18.1 | AIXM-Code-Converter.html | 0 |
+| v1.18.1 | AIXM-Code-Converter.zip | 0 |
+| v1.18.1 | SHA256SUMS.txt | 0 |
 | v1.2.0 | AIXM-Code-Converter.html | 26 |
 | v1.2.0 | AIXM-Code-Converter.zip | 0 |
 | v1.2.1 | AIXM-Code-Converter.html | 2 |
@@ -41,8 +68,20 @@ Updated 2026-10-05 (daily). GitHub does not report the location of visitors.
 | v1.6.0 | AIXM-Code-Converter.html | 1 |
 | v1.6.0 | AIXM-Code-Converter.zip | 1 |
 | v1.6.0 | SHA256SUMS.txt | 1 |
-| v1.7.0 | AIXM-Code-Converter.html | 10 |
+| v1.7.0 | AIXM-Code-Converter.html | 11 |
 | v1.7.0 | AIXM-Code-Converter.zip | 1 |
 | v1.7.0 | SHA256SUMS.txt | 1 |
+| v1.7.1 | AIXM-Code-Converter.html | 1 |
+| v1.7.1 | AIXM-Code-Converter.zip | 1 |
+| v1.7.1 | SHA256SUMS.txt | 1 |
+| v1.8.0 | AIXM-Code-Converter.html | 1 |
+| v1.8.0 | AIXM-Code-Converter.zip | 1 |
+| v1.8.0 | SHA256SUMS.txt | 1 |
+| v1.9.0 | AIXM-Code-Converter.html | 1 |
+| v1.9.0 | AIXM-Code-Converter.zip | 1 |
+| v1.9.0 | SHA256SUMS.txt | 1 |
+| v1.9.1 | AIXM-Code-Converter.html | 1 |
+| v1.9.1 | AIXM-Code-Converter.zip | 1 |
+| v1.9.1 | SHA256SUMS.txt | 1 |
 
 Full history: the CSV files in this branch (open them in Excel).
