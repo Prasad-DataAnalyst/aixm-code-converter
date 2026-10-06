@@ -7,6 +7,23 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.13.0 — 2026-10-06 — Faster map; live traffic over the aeronautical data
+
+- **Faster map**: on dark and satellite base maps the white outline around the aeronautical data was a CSS filter
+  that the browser re-applied on every frame (about 0.5 s per frame while dragging). The outline is now drawn into
+  the picture once per redraw: dragging is as smooth as on the light maps (about 30× faster per frame). Layers with
+  nothing in view are no longer composed, and the built-in terrain grid is unpacked while the browser is idle
+  instead of on the first mouse move over the map.
+- **Live traffic over the aeronautical data**: the aircraft are drawn above airspace, routes and navaids, and the
+  chosen base map stays (it was hidden before). The adsb.lol map is painted plain white (black on night maps) and
+  blended in, so only its aircraft show; hovering and clicking the AIXM data, panning and zooming work as before.
+  The base map can be changed while live traffic is on.
+- **Aircraft details in a side panel**: the AIXM map stays in view on the left.
+- **Base maps**: the standard OpenStreetMap server now answers a page opened from a file with an "Access blocked"
+  picture, so it is no longer offered (a saved choice opens OpenStreetMap German style); 14 free maps remain.
+  National Geographic style stops at the last zoom its server has pictures for, instead of "Map data not yet
+  available" tiles.
+
 ## 1.12.1 — 2026-10-05 — About page brought up to date
 
 - **About this tool**: new *What's new* section (1.2 – 1.12); feature cards for deliveries of many files, search on the

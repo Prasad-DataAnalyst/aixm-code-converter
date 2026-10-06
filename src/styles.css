@@ -303,13 +303,14 @@ pre.xml .ln.hl { background: var(--hl); }
 .map-traffic-note { position: absolute; right: 64px; bottom: 34px; z-index: 500; max-width: calc(100% - 24px); padding: 5px 10px; border-radius: 8px; background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 12px; }
 .map-traffic-note a { color: var(--brand); }
 .linkbtn { border: 0; background: none; padding: 0; font: inherit; color: var(--brand); text-decoration: underline; cursor: pointer; }
-.traffic-details { position: absolute; inset: 12px; z-index: 1100; display: flex; flex-direction: column; overflow: hidden; padding: 0; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
-.traffic-details .td-head { display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--border); background: var(--surface); }
+/* a side panel: the aeronautical map stays in view on the left */
+.traffic-details { position: absolute; top: 12px; right: 12px; bottom: 12px; width: min(620px, calc(100% - 24px)); z-index: 1100; display: flex; flex-direction: column; overflow: hidden; padding: 0; box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+.traffic-details .td-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .traffic-details .td-title { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.traffic-details .td-find { display: flex; gap: 6px; align-items: center; }
-.traffic-details .td-find .inp { width: 260px; height: 32px; }
-.traffic-details .td-main { flex: 1; display: flex; min-height: 0; }
-.ac-card { position: relative; width: 340px; flex: none; overflow: auto; padding: 14px 16px; border-right: 1px solid var(--border); background: var(--surface); border-top: 3px solid var(--brand-3); }
+.traffic-details .td-find { order: 3; width: 100%; display: flex; gap: 6px; align-items: center; }
+.traffic-details .td-find .inp { flex: 1; height: 32px; }
+.traffic-details .td-main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.ac-card { position: relative; flex: none; max-height: 48%; overflow: auto; padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--surface); border-top: 3px solid var(--brand-3); }
 .ac-card .ac-close { position: absolute; top: 8px; right: 8px; }
 .ac-card .ac-photo { position: relative; margin: -14px -16px 12px; background: var(--surface-3); }
 .ac-card .ac-photo img { display: block; width: 100%; max-height: 190px; object-fit: cover; }
@@ -333,13 +334,9 @@ pre.xml .ln.hl { background: var(--hl); }
 .traffic-details .td-body { position: relative; flex: 1; background: var(--surface-2); }
 .traffic-details iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 .traffic-details .td-wait { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
-:root[data-device="phone"] .traffic-details { inset: 0; border-radius: 0; }
+:root[data-device="phone"] .traffic-details { inset: 0; width: auto; border-radius: 0; }
 :root[data-device="phone"] .traffic-details .td-credit { display: none; }
-:root[data-device="phone"] .traffic-details .td-head { flex-wrap: wrap; }
-:root[data-device="phone"] .traffic-details .td-find { order: 3; width: 100%; }
-:root[data-device="phone"] .traffic-details .td-find .inp { flex: 1; width: auto; }
-:root[data-device="phone"] .traffic-details .td-main { flex-direction: column; }
-:root[data-device="phone"] .ac-card { width: auto; max-height: 42%; border-right: 0; border-bottom: 1px solid var(--border); }
+:root[data-device="phone"] .ac-card { max-height: 42%; }
 :root[data-device="phone"] .ac-card .ac-photo img { max-height: 110px; }
 :root[data-device="phone"] .map-traffic-note { left: 12px; right: 64px; bottom: 84px; font-size: 11px; }
 .map-status { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 500; padding: 5px 12px; font: 12px var(--mono); }
@@ -876,7 +873,6 @@ pre, .xml, .notam-text { text-align: left; }
   :root:not([data-theme="light"]) .adc-ils { color: #d48be4; }
 }
 /* map: on dark and satellite base maps the aeronautical data (canvas layers) gets a thin white outline */
-.leaflet-container.dark-base .aixm-canvas { filter: drop-shadow(0 0 1px rgba(255, 255, 255, .9)); }
 
 /* ------------------------------------------------------------ search on the map */
 .map-search { position: absolute; top: 12px; left: 12px; z-index: 520; width: 290px; }

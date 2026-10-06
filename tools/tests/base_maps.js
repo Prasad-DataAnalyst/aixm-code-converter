@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 // Online base maps: every map offered is free and needs no API key (only servers known to serve a downloaded,
 // local file without a key), the list is grouped in the map panel, and a choice saved by an older version for a map
-// that now needs a key (CARTO) opens its free replacement; dark maps outline the aeronautical data in white. In dark
+// that now needs a key (CARTO) or refuses a local file (standard OpenStreetMap) opens its free replacement; dark maps
+// outline the aeronautical data in white, drawn into the picture (no CSS filter: it slowed every frame). In dark
 // mode (chosen in the tool or set in the system) the offline map is navy sea and slate land, never near-black or
 // half light, without the costly outline. No internet needed: tools/check_maps.js loads the tiles.
 const env = require('./_env');
 const { PNG } = require(require('path').join(env.ROOT, 'tools', 'node_modules', 'pngjs'));
 const ROOT = env.ROOT;
-const FREE = /^https:\/\/(server\.arcgisonline\.com|tile\.openstreetmap\.(org|de)|tile-\{s\}\.openstreetmap\.fr|\{s\}\.tile\.opentopomap\.org|gibs\.earthdata\.nasa\.gov)\//;
+const FREE = /^https:\/\/(server\.arcgisonline\.com|tile\.openstreetmap\.de|tile-\{s\}\.openstreetmap\.fr|\{s\}\.tile\.opentopomap\.org|gibs\.earthdata\.nasa\.gov)\//;
 const KEYED = /cartocdn|carto\.com|thunderforest|stadiamaps|mapbox|maptiler|tomtom|here\.com|googleapis|apikey|api_key|access_token/i;
 
 (async () => {
@@ -29,7 +30,7 @@ const KEYED = /cartocdn|carto\.com|thunderforest|stadiamaps|mapbox|maptiler|tomt
   }
   if (bm.list.length < 12) fails.push('expected at least 12 free maps, got ' + bm.list.length);
   if (!bm.list.some((m) => m.key === bm.def)) fails.push('default map missing');
-  for (const old of ['voyager', 'cartoLight', 'cartoDark']) if (!bm.list.some((m) => m.key === bm.renamed[old])) fails.push('no replacement for ' + old);
+  for (const old of ['voyager', 'cartoLight', 'cartoDark', 'osm']) if (!bm.list.some((m) => m.key === bm.renamed[old])) fails.push('no replacement for ' + old);
   // a choice saved by 1.4 or older (CARTO Voyager) opens the free replacement
   await page.evaluate(() => localStorage.setItem('aixm-map-base', 'voyager'));
   if (await page.evaluate(() => MAPVIEW.savedBase()) !== bm.renamed.voyager) fails.push('saved CARTO choice not replaced');
@@ -44,11 +45,27 @@ const KEYED = /cartocdn|carto\.com|thunderforest|stadiamaps|mapbox|maptiler|tomt
   console.log('map panel groups:', sel.groups.join(' | '));
   if (sel.first !== 'offline' || sel.n !== bm.list.length || sel.groups.length < 4) fails.push('map panel list: ' + JSON.stringify(sel));
   // dark and satellite maps outline the aeronautical data in white; light maps and the offline map do not
+  const whites = {};
   for (const [k, want] of [['esriDark', true], ['esriHybrid', true], ['nasaNight', true], ['esriGray', false], ['esriStreet', false], ['offline', false]]) {
     await page.selectOption('#map-base', k);
+    await page.waitForTimeout(150);
     const has = await page.evaluate(() => document.querySelector('.leaflet-container').classList.contains('dark-base'));
     if (has !== want) fails.push(k + ': white outline should be ' + (want ? 'on' : 'off'));
+    // the outline is in the picture: white pixels next to the drawn data; never a CSS filter
+    const px = await page.evaluate(() => {
+      let white = 0, filt = '';
+      document.querySelectorAll('.aixm-canvas').forEach((c) => {
+        const f = getComputedStyle(c).filter; if (f && f !== 'none') filt = f;
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 150 && d[i] > 240 && d[i + 1] > 240 && d[i + 2] > 240) white++;
+      });
+      return { white, filt };
+    });
+    if (px.filt) fails.push(k + ': CSS filter on the data layer (slow): ' + px.filt);
+    whites[k] = px.white;
   }
+  // the same data, same view: the outline adds white around everything drawn
+  if (!(whites.esriDark > whites.esriStreet * 1.3)) fails.push('no white outline drawn on dark maps: ' + JSON.stringify(whites));
   await page.evaluate(() => localStorage.removeItem('aixm-map-base'));
   // offline map in dark mode, set in the system (no choice in the tool) and chosen in the tool
   const lum = (c) => { const m = /(\d+), (\d+), (\d+)/.exec(c); return m ? (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) : -1; };

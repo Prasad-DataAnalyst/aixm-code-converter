@@ -447,5 +447,5 @@ Online services the tool can link to or load on request (not contained in the fi
 ==============================================================================
 
 Online base maps: each map shows its own attribution on the map (Esri, OpenStreetMap contributors (ODbL),
-OpenTopoMap (CC-BY-SA), NASA GIBS). Live traffic: adsb.lol (data under the Open Database Licence), opened
-in a separate browser tab.
+OpenTopoMap (CC-BY-SA), NASA GIBS). Live traffic: adsb.lol (data under the Open Database Licence), its live
+map shown inside the map on request. Flight and aircraft details: adsbdb.com.

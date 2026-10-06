@@ -80,15 +80,41 @@ var MAPVIEW = (function () {
       c.width = size.x * dpr; c.height = size.y * dpr;
       c.style.width = size.x + 'px'; c.style.height = size.y + 'px';
       L.DomUtil.setPosition(c, this._map.containerPointToLayerPoint([0, 0]));
-      var ctx = c.getContext('2d');
+      var ctx = inked(c.getContext('2d'));
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, size.x, size.y);
       c.style.opacity = 1;
+      ctx.ink = false;
       this._drawFn(ctx, this._map, size);
+      // nothing drawn here (layer empty in this view): no full-screen picture for the browser to keep and compose
+      c.style.display = ctx.ink ? '' : 'none';
+      if (ctx.ink && halo) addHalo(c, dpr);
     },
     redraw: function () { scheduleDraw(); }
   });
 
+  // dark and satellite maps: a thin white outline around everything drawn, so the ICAO colours stay readable. It is
+  // added to the picture once per redraw; a CSS drop-shadow did the same but cost ~0.5 s for every frame of a drag.
+  var halo = false, haloTmp = null;
+  function addHalo(c, dpr) {
+    var t = haloTmp || (haloTmp = document.createElement('canvas'));
+    if (t.width !== c.width || t.height !== c.height) { t.width = c.width; t.height = c.height; }
+    var x = t.getContext('2d');
+    x.globalCompositeOperation = 'copy'; x.drawImage(c, 0, 0);
+    x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgba(255,255,255,.9)'; x.fillRect(0, 0, t.width, t.height);
+    var ctx = c.getContext('2d'), d = Math.max(1, Math.round(dpr));
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'destination-over'; ctx.globalAlpha = 1;
+    [[d, 0], [-d, 0], [0, d], [0, -d]].forEach(function (o) { ctx.drawImage(t, o[0], o[1]); });
+    ctx.restore();
+  }
+  // notes on a drawing context whether anything was drawn on it
+  var INK = ['fill', 'stroke', 'fillText', 'strokeText', 'fillRect', 'strokeRect', 'drawImage', 'putImageData'];
+  function inked(ctx) {
+    if (ctx.ink !== undefined) return ctx;
+    INK.forEach(function (m) { var f = ctx[m]; ctx[m] = function () { ctx.ink = true; return f.apply(ctx, arguments); }; });
+    ctx.ink = false;
+    return ctx;
+  }
   function project(m, lon, lat) { return m.latLngToContainerPoint([lat, lon]); }
 
   /* ------------------------------------------------------------- symbols */
@@ -430,7 +456,10 @@ var MAPVIEW = (function () {
   }
   function darkOutline() {
     var k = base.current;
-    map.getContainer().classList.toggle('dark-base', !!(ONLINE[k] && ONLINE[k].dark)); // a CSS outline: costly, so not on the offline map
+    var on = !!(ONLINE[k] && ONLINE[k].dark); // not on the offline map: its dark colours keep the data readable
+    map.getContainer().classList.toggle('dark-base', on);
+    if (on !== halo) { halo = on; scheduleDraw(); }
+    trafficBlend();
   }
   function landStyle() {
     var dark = isDark();
@@ -506,27 +535,28 @@ var MAPVIEW = (function () {
     return grp;
   }
   // Online base maps: all free and without an API key, and all load from a downloaded (local) file. CARTO and
-  // Thunderforest now answer such pages with an "API key required" picture, so they are not offered.
+  // Thunderforest now answer such pages with an "API key required" picture, and the standard OpenStreetMap server
+  // with an "Access blocked" picture (it asks for a web-site address, which a local file has not), so they are not
+  // offered. maxZoom: the last zoom the server has pictures for (closer in, those are enlarged).
   var ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/', OSMA = '© OpenStreetMap contributors';
   var ONLINE = {
     esriStreet: { group: 'Street maps', name: 'World street map (Esri) — recommended', url: ESRI + 'World_Street_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, USGS, NGA, OpenStreetMap contributors', maxZoom: 19 },
-    osm: { group: 'Street maps', name: 'OpenStreetMap (standard)', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', attr: OSMA, maxZoom: 19 },
     osmhot: { group: 'Street maps', name: 'OpenStreetMap (humanitarian style)', url: 'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png', attr: OSMA + ', tiles by HOT / OSM France', maxZoom: 19 },
     osmde: { group: 'Street maps', name: 'OpenStreetMap (German style)', url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png', attr: OSMA, maxZoom: 18 },
     esriGray: { group: 'Plain backgrounds (best under aeronautical data)', name: 'Light grey with place names (Esri)', url: ESRI + 'Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap contributors', maxZoom: 16 },
-    esriDark: { dark: true, group: 'Plain backgrounds (best under aeronautical data)', name: 'Dark grey with place names (Esri)', url: ESRI + 'Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap contributors', maxZoom: 16 },
+    esriDark: { dark: true, night: true, group: 'Plain backgrounds (best under aeronautical data)', name: 'Dark grey with place names (Esri)', url: ESRI + 'Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap contributors', maxZoom: 16 },
     esriTopo: { group: 'Terrain', name: 'World topographic map (Esri)', url: ESRI + 'World_Topo_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, USGS, NGA, OpenStreetMap contributors', maxZoom: 19 },
     topo: { group: 'Terrain', name: 'OpenTopoMap (contours, relief)', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', attr: OSMA + ', SRTM | © OpenTopoMap (CC-BY-SA)', maxZoom: 17, sub: 'abc' },
     esriRelief: { group: 'Terrain', name: 'Shaded relief with place names (Esri)', url: ESRI + 'World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, USGS', maxZoom: 13 },
-    esriNatGeo: { group: 'Terrain', name: 'National Geographic style (Esri)', url: ESRI + 'NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — National Geographic, Esri, Garmin, HERE, UNEP-WCMC, USGS, NASA', maxZoom: 16 },
+    esriNatGeo: { group: 'Terrain', name: 'National Geographic style (Esri)', url: ESRI + 'NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — National Geographic, Esri, Garmin, HERE, UNEP-WCMC, USGS, NASA', maxZoom: 12 },
     esriOcean: { group: 'Terrain', name: 'Ocean and sea floor (Esri)', url: ESRI + 'Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — GEBCO, NOAA, National Geographic, Garmin, HERE', maxZoom: 13 },
     esri: { dark: true, group: 'Satellite', name: 'Satellite imagery (Esri)', url: ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, Maxar, Earthstar Geographics', maxZoom: 19 },
     esriHybrid: { dark: true, group: 'Satellite', name: 'Satellite with place names (Esri)', url: ESRI + 'World_Imagery/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, Maxar, Earthstar Geographics', maxZoom: 19 },
-    nasa: { dark: true, group: 'Satellite', name: 'Blue Marble — whole Earth (NASA)', url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg', attr: 'Imagery © NASA EOSDIS GIBS', maxZoom: 8 },
-    nasaNight: { dark: true, group: 'Satellite', name: 'Earth at night (NASA)', url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png', attr: 'Imagery © NASA EOSDIS GIBS', maxZoom: 8 }
+    nasa: { dark: true, night: true, group: 'Satellite', name: 'Blue Marble — whole Earth (NASA)', url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg', attr: 'Imagery © NASA EOSDIS GIBS', maxZoom: 8 },
+    nasaNight: { dark: true, night: true, group: 'Satellite', name: 'Earth at night (NASA)', url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png', attr: 'Imagery © NASA EOSDIS GIBS', maxZoom: 8 }
   };
   var BASE_DEFAULT = 'esriStreet';
-  var RENAMED = { voyager: 'esriStreet', cartoLight: 'esriGray', cartoDark: 'esriDark' }; // older choices that need a key now
+  var RENAMED = { voyager: 'esriStreet', cartoLight: 'esriGray', cartoDark: 'esriDark', osm: 'osmde' }; // older choices that a local file cannot use now
   // place names drawn over a base map stay under the aeronautical data
   function labelPane() {
     if (!map.getPane('baseLabels')) { var p = map.createPane('baseLabels'); p.style.zIndex = 250; p.style.pointerEvents = 'none'; }
@@ -567,27 +597,33 @@ var MAPVIEW = (function () {
   function savedBase() { try { var b = localStorage.getItem('aixm-map-base') || ''; return RENAMED[b] || b; } catch (e) { return ''; } }
   /* ------------------------------------------------------------ live air traffic */
   // The free adsb.lol live map (community ADS-B data, Open Database Licence, no account), switched on and off with
-  // ✈ Live traffic and shown inside this map, under the aeronautical data, at the same place and zoom. A page opened
+  // ✈ Live traffic and shown inside this map, over the aeronautical data, at the same place and zoom. A page opened
   // from a file may not read the adsb.lol data (the service does not allow it), so its own map page is embedded,
-  // sandboxed (it cannot open windows or change this page). It is twice the size of the view, so panning needs no
+  // sandboxed (it cannot open windows or change this page). Its own map is painted plain white (or black) and blended
+  // into this one (multiply, or screen on night maps): only the aircraft show, over the base map and the data, and
+  // the mouse still reaches this map (hover, click, pan, zoom). It is twice the size of the view, so panning needs no
   // reload; a zoom, or a pan past its edge, loads it again (the old view stays until the new one has its aircraft).
   var traffic = null;
   var TRAFFIC_ATTR = 'Traffic <a href="https://adsb.lol/" target="_blank" rel="noopener noreferrer">adsb.lol</a> (ODbL) · © OpenStreetMap';
   function trafficUrl(embed) {
     var c = map.getCenter(), z = Math.round(map.getZoom());
-    return 'https://adsb.lol/?lat=' + c.lat.toFixed(5) + '&lon=' + L.Util.wrapNum(c.lng, [-180, 180], true).toFixed(5) + '&zoom=' + z + (embed ? '&hideSidebar&hideButtons' : '');
+    // overlay: its map plain white or black (mapDim beyond ±1 stays full even when a visitor of adsb.lol turned
+    // dimming down there), no altitude legend
+    var over = embed === 'over' ? '&altitudeChart=0&mapDim=' + (traffic && traffic.night ? 4 : -4) : '';
+    return 'https://adsb.lol/?lat=' + c.lat.toFixed(5) + '&lon=' + L.Util.wrapNum(c.lng, [-180, 180], true).toFixed(5) + '&zoom=' + z + (embed ? '&hideSidebar&hideButtons' + over : '');
   }
-  function hideBase() {
-    if (base.offline) map.removeLayer(base.offline);
-    if (base.online[base.current]) map.removeLayer(base.online[base.current]);
-    map.getContainer().classList.remove('dark-base');
+  // night maps (dark grey, NASA, the offline map in the dark theme): screen over black; all others: multiply over white
+  function nightBase() { var k = base.current; return k === 'offline' ? isDark() : !!(ONLINE[k] && ONLINE[k].night); }
+  function trafficBlend() {
+    if (!traffic) return;
+    var night = nightBase();
+    map.getPane('trafficPane').style.mixBlendMode = night ? 'screen' : 'multiply';
+    if (night !== traffic.night) { traffic.night = night; if (traffic.frame) trafficLoad(); }
   }
-  function showBase() { var k = base.current; base.current = ''; setBase(k); }
   function trafficUi() {
-    var on = !!traffic, b = document.getElementById('map-traffic'), n = document.getElementById('map-traffic-note'), s = document.getElementById('map-base');
+    var on = !!traffic, b = document.getElementById('map-traffic'), n = document.getElementById('map-traffic-note');
     if (b) { b.classList.toggle('primary', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); }
     if (n) n.classList.toggle('hidden', !on);
-    if (s) { s.disabled = on; s.title = on ? 'Switch live traffic off to change the base map' : ''; }
   }
   function trafficStatus(loading) { var n = document.getElementById('map-traffic-state'); if (n) n.textContent = loading ? 'loading…' : 'live'; }
   function trafficLoad() {
@@ -612,7 +648,7 @@ var MAPVIEW = (function () {
         trafficStatus(false);
       }, 1200);
     });
-    f.src = trafficUrl(true);
+    f.src = trafficUrl('over');
   }
   function trafficZoomStart() { if (traffic) Array.prototype.forEach.call(map.getPane('trafficPane').children, function (o) { o.style.opacity = '0'; }); }
   function trafficMoved() {
@@ -623,18 +659,19 @@ var MAPVIEW = (function () {
   function trafficOn() {
     if (traffic || !map) return;
     if (navigator.onLine === false) { if (hooks) hooks.toast('Live traffic needs internet.'); return; }
-    if (!map.getPane('trafficPane')) { var p = map.createPane('trafficPane'); p.style.zIndex = 150; p.style.pointerEvents = 'none'; }
-    traffic = { frame: null, zoom: null, box: null };
-    hideBase();
+    // over the data and labels (overlay 400, shadow 500, marker 600), under tooltips and pop-ups (650, 700)
+    if (!map.getPane('trafficPane')) { var p = map.createPane('trafficPane'); p.style.zIndex = 640; p.style.pointerEvents = 'none'; }
+    traffic = { frame: null, zoom: null, box: null, night: nightBase() };
+    trafficBlend();
     map.attributionControl.addAttribution(TRAFFIC_ATTR);
     map.on('zoomstart', trafficZoomStart); map.on('moveend', trafficMoved); map.on('resize', trafficLoad);
     trafficUi();
     trafficLoad();
   }
-  // aircraft details: the live map in a window over this map, where any aircraft can be clicked (its live details
-  // open there), and a search by callsign, registration or ICAO address that shows the flight and the aircraft in a
-  // card of this tool (free adsbdb.com data: airline, route, aircraft, photo) while the live map follows it.
-  // This map stays as it was.
+  // aircraft details: the live map in a side panel (the aeronautical map stays in view), where any aircraft can be
+  // clicked (its live details open there), and a search by callsign, registration or ICAO address that shows the
+  // flight and the aircraft in a card of this tool (free adsbdb.com data: airline, route, aircraft, photo) while the
+  // live map follows it. This map stays as it was.
   var ADSBDB = 'https://api.adsbdb.com/v0/';
   function acKind(q) {
     if (/^[0-9A-F]{6}$/.test(q)) return 'icao';
@@ -733,7 +770,6 @@ var MAPVIEW = (function () {
       map.off('zoomstart', trafficZoomStart); map.off('moveend', trafficMoved); map.off('resize', trafficLoad);
       map.getPane('trafficPane').innerHTML = '';
       map.attributionControl.removeAttribution(TRAFFIC_ATTR);
-      showBase();
     }
     trafficUi();
   }
@@ -1242,6 +1278,9 @@ var MAPVIEW = (function () {
     map.createPane('annotPane').style.zIndex = 590; // airspace and route labels: below point symbols
     map.on('moveend zoomend resize viewreset', scheduleDraw);
     map.on('zoomstart', hideAll);
+    // the built-in terrain grid (position readout, Grid MORA) is unpacked while the browser is idle, not on the
+    // first mouse move over the map
+    (window.requestIdleCallback || function (f) { return setTimeout(f, 1500); })(function () { TERRAIN.load(); }, { timeout: 4000 });
     base.offline = buildOffline();
     map.addLayer(base.offline); darkOutline();
     L.control.zoom({ position: 'bottomright' }).addTo(map);

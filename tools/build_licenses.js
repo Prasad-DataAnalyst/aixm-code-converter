@@ -56,7 +56,7 @@ parts.push(LINE, 'Terrain Tiles — built-in terrain grid (data/terrain.json) an
   'is listed at https://github.com/tilezen/joerd/blob/master/docs/attribution.md', '');
 parts.push(LINE, 'Online services the tool can link to or load on request (not contained in the file)', LINE, '',
   'Online base maps: each map shows its own attribution on the map (Esri, OpenStreetMap contributors (ODbL),',
-  'OpenTopoMap (CC-BY-SA), NASA GIBS). Live traffic: adsb.lol (data under the Open Database Licence), opened',
-  'in a separate browser tab.', '');
+  'OpenTopoMap (CC-BY-SA), NASA GIBS). Live traffic: adsb.lol (data under the Open Database Licence), its live',
+  'map shown inside the map on request. Flight and aircraft details: adsbdb.com.', '');
 fs.writeFileSync(path.join(ROOT, 'THIRD-PARTY-LICENSES.txt'), parts.join('\n'));
 console.log('THIRD-PARTY-LICENSES.txt written (' + PACKAGES.length + ' libraries + data)');
