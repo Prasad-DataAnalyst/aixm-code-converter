@@ -32,6 +32,7 @@ var DDMAP = (function () {
     var map = L.map(el, { zoomControl: true, attributionControl: true, preferCanvas: true, worldCopyJump: true, zoomSnap: 0.5 });
     var rend = L.canvas({ padding: 0.3 });
     var mm = { map: map, rend: rend, key: key, layers: L.layerGroup().addTo(map), sel: L.layerGroup().addTo(map), base: null, world: null, onPick: null, items: [] };
+    el._ddmap = mm; // for the tests
     setBase(mm, baseChoice);
     // base map choice, inside the map
     var ctl = L.control({ position: 'topright' });
@@ -70,10 +71,16 @@ var DDMAP = (function () {
 
   /* -------------------------------------------------------------- obstacles */
   var OCOL = { pen: '#c62828', err: '#ef6c00', lit: '#e0a800', other: '#1d4e89' };
-  // rows: obstacle rows (obstview.js); opt: {bad: Set of rows with errors, areas: [rings], arp: [lon, lat], unit, onPick(row)}
+  // rows: obstacle rows (obstview.js); opt: {bad: Set of rows with errors, areas: [rings], arp: [lon, lat], unit, onPick(row),
+  //   picked: Set of records chosen for a report, onToggle(row) (Ctrl / Shift + click, or always when pickMode() is true),
+  //   paths: [{coords, color, dashed, label}] flight paths}
   function obstacles(mm, rows, opt) {
     mm.layers.clearLayers(); mm.items = [];
     var b = L.latLngBounds([]);
+    (opt.paths || []).forEach(function (p) {
+      var c = p.coords.filter(function (q) { return typeof q[0] === 'number'; });
+      if (c.length > 1) L.polyline(c.map(ll), { renderer: mm.rend, color: p.color, weight: 2, opacity: 0.75, dashArray: p.dashed ? '7 5' : null }).bindTooltip(esc(p.label || ''), { sticky: true }).addTo(mm.layers);
+    });
     (opt.areas || []).forEach(function (a) {
       if (!a.ring || a.ring.length < 3) return;
       var pg = L.polygon(a.ring.filter(function (p) { return typeof p[0] === 'number'; }).map(ll), { renderer: mm.rend, color: '#6a1b9a', weight: 1.6, dashArray: '6 5', fill: true, fillOpacity: 0.04, interactive: false });
@@ -92,12 +99,30 @@ var DDMAP = (function () {
       var hTxt = x.hgt === null ? '' : opt.unit === 'FT' ? Math.round(x.hgt / 0.3048) + ' ft' : (Math.round(x.hgt * 10) / 10) + ' m';
       var eTxt = x.elev === null ? '' : opt.unit === 'FT' ? Math.round(x.elev / 0.3048) + ' ft' : (Math.round(x.elev * 10) / 10) + ' m';
       m.bindTooltip('<b>' + esc(x.id || x.name) + '</b> ' + esc(String(x.type || '').replace(/^OTHER:/, '')) + '<br>height ' + esc(hTxt) + ' · top ' + esc(eTxt) + ' AMSL' + (x.pen ? '<br><b style="color:#c62828">penetrates ' + esc(x.pen.surface) + ' by ' + (Math.round(x.pen.m * 10) / 10) + ' m</b>' : ''), { sticky: true, opacity: 0.95 });
-      m.on('click', function () { select(mm, x); if (opt.onPick) opt.onPick(x); });
+      m.on('click', function (e) {
+        var oe = e.originalEvent || {};
+        if (opt.onToggle && (oe.ctrlKey || oe.metaKey || oe.shiftKey || (opt.pickMode && opt.pickMode()))) { opt.onToggle(x); picks(mm, opt.picked); return; }
+        select(mm, x); if (opt.onPick) opt.onPick(x);
+      });
       m.addTo(mm.layers); m._row = x; mm.items.push(m);
       b.extend(ll(x.c));
     });
-    legend(mm, [['pen', 'penetrates Annex 14 surface'], ['err', 'has an error'], ['lit', 'lighted'], ['other', 'other']].filter(function (k) { return k[0] !== 'pen' || rows.some(function (x) { return x.pen; }); }).map(function (k) { return [OCOL[k[0]], k[1]]; }), 'size: height');
+    var lg = [['pen', 'penetrates Annex 14 surface'], ['err', 'has an error'], ['lit', 'lighted'], ['other', 'other']].filter(function (k) { return k[0] !== 'pen' || rows.some(function (x) { return x.pen; }); }).map(function (k) { return [OCOL[k[0]], k[1]]; });
+    if (opt.onToggle) lg.push([PICK, 'chosen for the analysis report']);
+    legend(mm, lg, 'size: height' + (opt.onToggle ? ' · Ctrl+click: choose' : ''));
+    picks(mm, opt.picked);
     fit(mm, b);
+  }
+  var PICK = '#00897b';
+  // rings around the obstacles chosen for a report
+  function picks(mm, picked) {
+    if (!mm.pk) mm.pk = L.layerGroup().addTo(mm.map);
+    mm.pk.clearLayers();
+    if (!picked || !picked.size) return;
+    mm.items.forEach(function (m) {
+      if (!m._row || !picked.has(m._row.r)) return;
+      L.circleMarker(m.getLatLng(), { renderer: mm.rend, radius: (m.options.radius || 6) + 4, color: PICK, weight: 3, fill: false, interactive: false }).addTo(mm.pk);
+    });
   }
   function select(mm, row) {
     mm.sel.clearLayers();
@@ -153,5 +178,5 @@ var DDMAP = (function () {
   }
   function forget(key) { delete views[key]; }
 
-  return { create: create, obstacles: obstacles, select: select, shapes: shapes, selectShape: selectShape, forget: forget, OCOL: OCOL, geometryOf: function (ds, r) { return M.geometry(ds, r); } };
+  return { create: create, obstacles: obstacles, select: select, shapes: shapes, selectShape: selectShape, forget: forget, legendOf: legend, picks: picks, OCOL: OCOL, geometryOf: function (ds, r) { return M.geometry(ds, r); } };
 })();

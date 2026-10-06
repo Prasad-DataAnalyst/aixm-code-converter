@@ -20,7 +20,7 @@
  *   EXPORT, e-mail, search, help, start . exports/conversions, Outlook text, Ctrl+K search, startup
  * Every view is a function viewXxx(v, opts) registered in go(); add a view there and in VIEWS.
  * ========================================================================== */
-/* global APP_INFO, APP_SETTINGS, OBSTAB, DDVIEW, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, ADCHART, OLS, INTEGRITY, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
+/* global APP_INFO, APP_SETTINGS, OBSTAB, DDVIEW, DEMF, DEM, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, ADCHART, OLS, INTEGRITY, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
 (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -44,8 +44,10 @@
     explorerSel: null,
     theme: null,
     asOf: null,
-    hlOn: true
+    hlOn: true,
+    prjs: {}              // .prj files dropped with ESRI ASCII grids: base name -> WKT
   };
+  M.setPeers(function () { return S.datasets; }); // procedure leg points held in another data set
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
   function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -244,10 +246,10 @@
     }, true);
   }
   function renderNav() {
-    var has = S.datasets.length > 0;
+    var has = S.datasets.length > 0 || DEM.items().length > 0;
     $('#nav').innerHTML = VIEWS.map(function (v) {
       if (!v) return '<div class="nav-sep"></div>';
-      var dis = (!has && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about' && v[0] !== 'charts') || (v[0] === 'digital' && has && !DDVIEW.has(S.datasets));
+      var dis = (!has && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about' && v[0] !== 'charts') || (v[0] === 'digital' && has && !DDVIEW.has(S.datasets)) || (!S.datasets.length && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about' && v[0] !== 'charts' && v[0] !== 'digital');
       return '<button data-view="' + v[0] + '" class="' + (S.view === v[0] ? 'active' : '') + '"' + (dis ? ' disabled' : '') + ' title="' + v[1] + '">' + v[2] + '<span>' + v[1] + '</span></button>';
     }).join('') + '<div class="nav-credit" data-about="1" title="' + AUTHOR_LINE + '">© 2026<br>Prasad Selvaraj</div>';
     if (DEVICE.isPhone()) { var act = $('#nav .active'); if (act && act.scrollIntoView) act.scrollIntoView({ inline: 'center', block: 'nearest' }); }
@@ -350,8 +352,8 @@
     v.innerHTML =
       '<h1 class="view-title">Open AIXM files</h1><p class="view-sub">' + (tch ? 'Choose' : 'Drop') + ' one or more AIXM files (any version — 4.5, 5.1, 5.1.1 or 5.2, also inside .zip archives). The version is detected automatically. Nothing leaves this ' + (tch ? 'device' : 'computer') + '.</p>' +
       '<div class="hero"><div class="drop" id="drop"><div class="drop-icon">' + I.upload.replace('<svg', '<svg width="30" height="30"') + '</div>' +
-      (tch ? '<h2>Tap to choose AIXM files</h2><div class="muted">from Files, Downloads, iCloud Drive or Google Drive · .xml .aixm .gml .zip · obstacle tables .xlsx .csv</div>'
-        : '<h2>Drop AIXM files here</h2><div class="muted">or click to browse · .xml .aixm .gml .zip · obstacle tables (eTOD) .xlsx .csv · one file per State or many</div>') +
+      (tch ? '<h2>Tap to choose AIXM files</h2><div class="muted">from Files, Downloads, iCloud Drive or Google Drive · .xml .aixm .gml .zip · obstacle tables .xlsx .csv · terrain .tif .dt1 .hgt .asc</div>'
+        : '<h2>Drop AIXM files here</h2><div class="muted">or click to browse · .xml .aixm .gml .zip · obstacle tables (eTOD) .xlsx .csv · terrain .tif .dt1 .hgt .asc · one file per State or many</div>') +
       '<div class="row" style="margin-top:6px"><span class="chip brand">AIXM 4.5</span><span class="chip brand">5.1</span><span class="chip brand">5.1.1</span><span class="chip brand">5.2</span><span class="chip">' + (tch ? 'very large files: use a computer' : 'up to several GB') + '</span></div></div>' +
       '<div class="how card card-pad"><h3>How it works</h3>' +
       step(1, 'Add files', 'Drag & drop or browse. Each file is checked instantly: AIXM version, root element, size.') +
@@ -405,6 +407,11 @@
     S.files.push(item);
     renderFileList();
     try {
+      // terrain data sets (GeoTIFF / BigTIFF, DTED, SRTM .hgt, ESRI ASCII grid): only the header is checked; the
+      // file stays on the disk and is read block by block when used (dem.js)
+      if (/\.prj$/i.test(f.name)) { S.prjs[f.name.replace(/\.prj$/i, '').toLowerCase()] = await f.text(); S.files = S.files.filter(function (x) { return x !== item; }); renderFileList(); return null; }
+      var tk = DEMF.sniff(f.name, new Uint8Array(await f.slice(0, Math.min(f.size, 65536)).arrayBuffer()), f.size);
+      if (tk) { item.sniff = { family: 'dem', kind: tk, version: 'DEM', versionLabel: 'Terrain (' + { tiff: 'GeoTIFF', dted: 'DTED', hgt: 'SRTM .hgt', asc: 'ESRI ASCII grid' }[tk] + ')' }; item.status = 'ready'; return item; }
       // obstacle data sets in tables (eTOD obstacles as Excel or CSV)
       var tab = OBSTAB.isTable(f.name) ? await OBSTAB.sniffFile(f) : null;
       if (tab && tab.family) { item.sniff = tab; item.status = 'ready'; return item; }
@@ -480,7 +487,7 @@
   // key of the delivery a file belongs to: listed in the same checksum list, or a name that differs from the others
   // only by feature type and variant (…_Runway_BASELINE_EFF… / …_VOR_DIFF_EFF…); "Combine" sets its own key
   function setKeyOf(f) {
-    if (!f.sniff || !f.sniff.family || f.sniff.family === 'tab') return null;
+    if (!f.sniff || !f.sniff.family || f.sniff.family === 'tab' || f.sniff.family === 'dem') return null;
     if (f.manualSet) return f.manualSet;
     if (f.manifest) return 'm:' + f.manifest.uid;
     var p = nameParts(f);
@@ -522,7 +529,7 @@
       var uz = new fflate.Unzip();
       uz.register(fflate.UnzipInflate);
       uz.onfile = function (f) {
-        if (!/\.(xml|aixm|gml)$/i.test(f.name) && !OBSTAB.isTable(f.name) || /__MACOSX/.test(f.name)) return;
+        if (!/\.(xml|aixm|gml|tif|tiff|dt0|dt1|dt2|hgt|asc|prj)$/i.test(f.name) && !OBSTAB.isTable(f.name) || /__MACOSX/.test(f.name)) return;
         var chunks = [];
         pending++;
         f.ondata = function (err, dat, final) {
@@ -598,7 +605,7 @@
       html.push(setItemHtml(g));
     });
     host.innerHTML = html.join('');
-    $$('[data-remove]', host).forEach(function (b) { b.onclick = function () { var id = +b.getAttribute('data-remove'); S.files = S.files.filter(function (f) { return f.id !== id; }); renderFileList(); }; });
+    $$('[data-remove]', host).forEach(function (b) { b.onclick = function () { var id = +b.getAttribute('data-remove'); S.files.forEach(function (f) { if (f.id === id && f.dem) DEM.remove(f.dem); }); S.files = S.files.filter(function (f) { return f.id !== id; }); renderFileList(); renderNav(); }; });
     $$('[data-remove-set]', host).forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-remove-set'); S.files = S.files.filter(function (f) { return setKeyOf(f) !== k; }); delete S.sets[k]; renderFileList(); }; });
     $$('[data-split]', host).forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-split'); S.sets[k].join = false; S.files.forEach(function (f) { if (f.manualSet === k) delete f.manualSet; }); renderFileList(); }; });
     $$('[data-cancel]', host).forEach(function (b) { b.onclick = function () { cancelExtraction(+b.getAttribute('data-cancel')); }; });
@@ -608,7 +615,7 @@
     if (!S.files.length) { bar.classList.add('hidden'); return; }
     bar.classList.remove('hidden');
     // files read one by one that could be combined (same AIXM family): "Combine" makes them one data set
-    var loose = ready.filter(function (f) { return !setOf(f); }), canJoin = loose.length > 1 && loose[0].sniff.family !== 'tab' && loose.every(function (f) { return f.sniff.family === loose[0].sniff.family; });
+    var loose = ready.filter(function (f) { return !setOf(f); }), canJoin = loose.length > 1 && loose[0].sniff.family !== 'tab' && loose[0].sniff.family !== 'dem' && loose.every(function (f) { return f.sniff.family === loose[0].sniff.family; });
     var big = S.files.some(function (f) { return f.size > liteAuto(); }) || memPlan(ready).lite;
     bar.innerHTML = '<div class="grow"><b>' + S.files.length + ' file(s)</b> <span class="muted">· ' + ready.length + ' ready to extract · parallel threads: ' + threads() + '</span></div>' +
       (canJoin && !busy ? '<button class="btn" id="join-btn" title="Read the ' + loose.length + ' files as one data set, e.g. a State that delivers one AIRAC cycle in several files">⧉ Combine ' + loose.length + ' files into one data set</button>' : '') +
@@ -662,6 +669,7 @@
     if (sn.family === '45') return Object.keys(DICT.v45.features);
     if (sn.family === 'amxm') return AX.AMXM_TYPES;
     if (sn.family === 'tab') return ['VerticalStructure'];
+    if (sn.family === 'dem') return [];
     var v = /^5\.2/.test(sn.version) ? '5.2' : sn.version === '5.1.1' ? '5.1.1' : '5.1';
     var fv = DICT.v5.featureVersions;
     return Object.keys(fv).filter(function (k) { return fv[k].indexOf(v) >= 0 || (v === '5.2' && fv[k].indexOf('5.1.1') >= 0 && !DICT.v5.objects[k]); });
@@ -768,13 +776,14 @@
           f.status = 'done'; if (multi) u.members.forEach(function (m) { m.status = 'done'; });
           f.detail = 'opened from saved data (instant) · ' + num(cached.recs.length) + ' features · ' + esc(cached.state); renderFileList(); continue;
         }
-        if (f.sniff && f.sniff.family === 'tab') await extractTab(f); else await extractSet(u.members, f, plan);
+        if (f.sniff && f.sniff.family === 'tab') await extractTab(f); else if (f.sniff && f.sniff.family === 'dem') await extractDem(f); else await extractSet(u.members, f, plan);
         // a moment between files: the browser frees the memory of the reader threads before the next file starts
         if (i < units.length - 1) await new Promise(function (r) { setTimeout(r, 120); });
       }
     } finally { busyEnd(); }
     renderFileList();
     if (S.datasets.length) { initSearch(); renderDsSelect(); memGauge(); if (!checkPending()) go('dash'); }
+    else if (DEM.items().length) { renderNav(); go('digital', { sec: 'ter' }); }
   }
   function cancelExtraction(id) {
     var r = running.get(id);
@@ -814,6 +823,24 @@
     });
   }
   function extractOne(f, plan) { return f.sniff && f.sniff.family === 'tab' ? extractTab(f) : extractSet([f], f, plan); }
+  // a terrain file: header now, statistics (min / max / voids / highest point) block by block in the background
+  async function extractDem(item) {
+    item.status = 'parsing'; item.progress = 0; item.detail = 'reading the header…'; renderFileList();
+    var base = item.name.replace(/\.[^.]+$/, '').toLowerCase();
+    var it = await DEM.add(item.file, item.sniff.kind, { prj: S.prjs[base] });
+    item.dem = it;
+    if (it.status !== 'ready') { item.status = 'error'; item.error = it.err; renderFileList(); toast('Cannot read ' + item.name + ': ' + it.err, 8000); return null; }
+    var r = it.r, sp = r.spacingArcsec ? (Math.round(Math.max(r.spacingArcsec[0], r.spacingArcsec[1]) * 100) / 100) + '″' : '';
+    item.status = 'done';
+    item.detail = esc(r.format) + ' · ' + num(r.width) + ' × ' + num(r.height) + ' posts' + (sp ? ' · ' + sp : '') + (r.area ? ' · meets PANS-AIM Area ' + r.area + ' spacing' : '') + ' · ' + esc(r.crs.label) + ' · statistics…';
+    renderFileList(); renderNav();
+    DEM.scan(it, function (q) { item.detail = item.detail.replace(/ · statistics.*$/, '') + ' · statistics ' + Math.round(q * 100) + ' %'; updateFileItem(item); }).then(function (st) {
+      item.detail = item.detail.replace(/ · statistics.*$/, '') + (st ? ' · ' + Math.round(st.min) + ' … ' + Math.round(st.max) + ' m' + (st.voids ? ' · ' + (Math.round(1000 * st.voids / st.posts) / 10) + ' % voids' : '') : '');
+      updateFileItem(item);
+      if (S.view === 'digital') go('digital', { sec: 'ter' });
+    }).catch(function (e) { console.warn('terrain statistics', e); });
+    return it;
+  }
   // an obstacle table (Excel / CSV): its rows become obstacles (OBSTAB); small enough to read here, not saved
   async function extractTab(item) {
     var t0 = performance.now();
@@ -2250,7 +2277,7 @@
   }
   // Digital data tab (ddview.js): obstacles / eTOD, procedures (IFP), aerodrome mapping, terrain, each in its own way
   function viewDigital(v, opts) {
-    if (!S.datasets.length) { v.innerHTML = emptyState('No data', 'Extract a file first.'); return; }
+    if (!S.datasets.length && !DEM.items().length) { v.innerHTML = emptyState('No data', 'Extract a file first.'); return; }
     DDVIEW.render(v, { datasets: S.datasets, active: dsOf(), sec: opts.sec || null, toast: toast, openDetail: openDetail, openXml: openXml,
       showOnMap: function (ds, r) { go('map', { ds: ds, focus: r }); }, openAip: function (ds, r) { openAipFor(ds, r); },
       mapProcs: function (ds, ad) { go('map', { ds: ds, procs: ad }); } });

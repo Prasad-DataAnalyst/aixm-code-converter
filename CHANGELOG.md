@@ -7,6 +7,36 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.21.0 — 2026-10-06 — Terrain, flight paths and the obstacle analysis report
+
+- **Obstacle analysis report**: choose obstacles — tick them in the list (or the whole filtered list), Ctrl+click
+  them on the map (or switch on "a click on the map chooses"), or take those affecting flight paths — and get a PDF,
+  print or Excel report studying each one: terrain under it and the highest terrain within 1 and 2 NM (possible
+  shielding), its declared base (elevation − height) against the terrain, the Annex 14 surface above it and the
+  margin or penetration, its position from the runway centreline, every flight path within 3 NM with the clearance
+  of the leg altitude over its top against an indicative MOC, marking and lighting (Annex 14 chapter 6), the eTOD
+  accuracy of its area; a summary table, an overview picture and a map picture of each obstacle.
+- **Obstacles affecting flight paths**: every obstacle within 1 NM of a procedure leg whose altitude clears its top
+  by less than 1.5 × the indicative MOC is flagged — a column and a filter in the list, a check in eTOD
+  compliance. The obstacle map also shows the flight paths.
+- **Terrain section** of the Digital data tab:
+  - terrain files — GeoTIFF / BigTIFF (tiled or striped, LZW, Deflate, PackBits, predictors, overviews, geographic,
+    UTM and Mercator), DTED, SRTM .hgt, ESRI ASCII grid (with its .prj) — are read part by part from the disk, never
+    whole; format, post spacing and the PANS-AIM area it meets, reference systems, vertical datum, voids,
+    statistics and the highest point, with checks;
+  - shaded relief on the map, the elevation at a click;
+  - flight paths: for every leg the highest terrain within ±0.5 NM and the highest obstacle, against the lowest
+    published altitude of the leg and an indicative MOC of its phase — caution, warning, below;
+  - aerodromes: the highest terrain within 5, 10 and 25 NM, terrain above the Annex 14 surfaces;
+  - cross-check: elevations of aerodromes, runway points, navaids and obstacle bases against the terrain files,
+    with a tolerance;
+  - a terrain report with map pictures (PDF, print, Excel, CSV).
+  Without a terrain file the studies use online terrain tiles or the built-in model, and say so.
+- Procedures of an IFP data set now find the fixes, navaids and runways held in the AIP data set loaded with it, so
+  all their legs are drawn and studied.
+- PDF reports can hold map pictures; a picture is made a little smaller rather than left alone on a page.
+- Obstacles: "All" data sets stayed on one data set — fixed.
+
 ## 1.20.0 — 2026-10-06 — Digital data tab: obstacles, procedures, aerodrome mapping
 
 - **Digital data tab**: obstacle (eTOD), instrument flight procedure and aerodrome mapping data are used differently

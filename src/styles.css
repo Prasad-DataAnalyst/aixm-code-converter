@@ -1016,3 +1016,6 @@ pre, .xml, .notam-text { text-align: left; }
 .kpis.ov-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 8px; }
 .kpis.ov-kpis .kpi-h { padding: 8px 12px; border-radius: 10px; }
 .kpis.ov-kpis .kpi-h b { font-size: 20px; }
+.ov-pickbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 10px; margin: -4px 0 10px; border: 1px dashed var(--border); border-radius: 8px; background: var(--panel, transparent); }
+.ov-pickbar label { display: inline-flex; gap: 6px; align-items: center; }
+.ov-tbl input[type="checkbox"] { margin: 0; vertical-align: middle; }

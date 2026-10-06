@@ -1131,9 +1131,10 @@ var MAPVIEW = (function () {
     arr(proc.cur.p.flightTransition).forEach(function (tr) {
       arr(tr && tr.departureRunwayTransition).forEach(function (l) {
         arr(l && l.runway).forEach(function (x) {
-          var rd = M.target(ds, x);
+          var rd = M.target(ds, x), rds = ds;
+          if (!rd && !out) { var o = M.peer(ds, x); if (o) { rd = o.r; rds = o.ds; } } // the runway in another data set
           if (out || !rd) return;
-          var thr = M.pointOf(ds, rd), rw = M.target(ds, rd.cur.p.usedRunway), g = rw ? M.geometry(ds, rw) : null;
+          var thr = M.pointOf(rds, rd), rw = M.target(rds, rd.cur.p.usedRunway), g = rw ? M.geometry(rds, rw) : null;
           if (g && g.t === 'L' && thr) out = AX.distNM(g.c[0], thr) > AX.distNM(g.c[1], thr) ? g.c[0] : g.c[1];
           else out = thr;
         });

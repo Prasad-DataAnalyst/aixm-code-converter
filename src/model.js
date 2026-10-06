@@ -565,6 +565,17 @@ var MODEL = (function () {
     r.geo = g;
     return g;
   }
+  // a point of a procedure leg held in another data set loaded (an IFP data set referring to the AIP data set's
+  // fixes, navaids and runway points); used only for the leg end points
+  var peersOf = null;
+  function setPeers(fn) { peersOf = fn; }
+  function peer(ds, ref) {
+    var id = ref && ref.ref;
+    if (!peersOf || !id || id.charAt(0) === '#') return null;
+    var list = peersOf() || [];
+    for (var i = 0; i < list.length; i++) { if (list[i] === ds || !list[i].byId) continue; var r = list[i].byId.get(id); if (r) return { ds: list[i], r: r }; }
+    return null;
+  }
   function segPoint(ds, sp) {
     if (!sp) return null;
     if (sp._loc && sp._loc._geo) return sp._loc._geo.c;
@@ -572,7 +583,7 @@ var MODEL = (function () {
     for (var i = 0; i < keys.length; i++) {
       var v = sp[keys[i]];
       if (!v) continue;
-      if (v.ref) { var t = target(ds, v); if (t) return pointOf(ds, t); }
+      if (v.ref) { var t = target(ds, v); if (t) return pointOf(ds, t); var o = peer(ds, v); if (o) return pointOf(o.ds, o.r); }
       if (v._geo) return v._geo.c;
     }
     return null;
@@ -583,7 +594,7 @@ var MODEL = (function () {
     var keys = ['pointChoice_fixDesignatedPoint', 'pointChoice_navaidSystem', 'pointChoice_aimingPoint', 'pointChoice_runwayPoint', 'pointChoice_airportReferencePoint'];
     for (var i = 0; i < keys.length; i++) {
       var v = sp[keys[i]];
-      if (v && v.ref) { var t = target(ds, v); if (t) return shortName(t); return v.title || v.ref; }
+      if (v && v.ref) { var t = target(ds, v); if (t) return shortName(t); var o = peer(ds, v); if (o) return shortName(o.r); return v.title || v.ref; }
     }
     if (sp.pointChoice_position && sp.pointChoice_position._geo) return AX.fmtPos(sp.pointChoice_position._geo.c, 0);
     return '';
@@ -1006,6 +1017,7 @@ var MODEL = (function () {
   function fmtTs(str) { if (typeof str === 'number') return fmtDate(str, true); var t = AX.tms(str); return t === null ? (str || '') : fmtDate(t, true); }
 
   return {
+    setPeers: setPeers, peer: peer,
     setDict: setDict, dict: dict, amxmDict: amxmDict, amxmMeaning: amxmMeaning, finalize: finalize, finalizeAsync: finalizeAsync, setViewDate: setViewDate, harmonizeStates: harmonizeStates, setLocator: setLocator, target: target, eachRef: eachRef,
     geometry: geometry, pointOf: pointOf, posFromNavaid: posFromNavaid, navaidOf: navaidOf, findGeo: findGeo, segPoint: segPoint, segPointLabel: segPointLabel, segPointRec: segPointRec,
     label: label, shortName: shortName, typeName: typeName, routeDesignator: routeDesignator, s: s, searchText: searchText, searchMatch: searchMatch, searchCore: searchCore,

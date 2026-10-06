@@ -10,10 +10,10 @@
  *   Procedures (IFP)       SID, STAR and approaches by aerodrome: design, PBN, legs, holdings, MSA / TAA, checks,
  *                          reports with every leg and minimum
  *   Aerodrome mapping      AMXM 2.0 data by aerodrome and feature type, every AMXM attribute, checks, reports
- *   Terrain                (terrain data sets: next version)
+ *   Terrain                terrain files, flight path and aerodrome terrain studies (terview.js)
  * The AIP, map and export views are not changed; this tab only reads the data.
  * ========================================================================== */
-/* global AX, MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW */
+/* global AX, MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW, TERVIEW, DEM */
 var DDVIEW = (function () {
   'use strict';
   var M = MODEL, arr = AX.arr, s = M.s;
@@ -38,9 +38,10 @@ var DDVIEW = (function () {
       { id: 'obs', title: 'Obstacles (eTOD)', n: nObs, what: 'obstacles', icon: '⛫' },
       { id: 'ifp', title: 'Procedures (IFP)', n: nProc, what: 'procedures', icon: '✈' },
       { id: 'amxm', title: 'Aerodrome mapping', n: nAm, what: 'AMXM features', icon: '▦' },
-      { id: 'ter', title: 'Terrain', n: 0, what: 'next version', icon: '⛰' }
+      { id: 'ter', title: 'Terrain', n: typeof DEM !== 'undefined' ? DEM.items().length : 0, what: 'terrain file(s)', icon: '⛰' }
     ];
   }
+  // the Terrain section also studies flight paths and aerodromes with online / built-in terrain, without a file
   function has(datasets) { return sections(datasets).some(function (x) { return x.n > 0; }); }
 
   function render(host, ctx) {
@@ -49,14 +50,14 @@ var DDVIEW = (function () {
     ctx.sec = null;
     host.innerHTML = '<div class="dd-head"><h1 class="view-title">Digital data</h1><p class="view-sub">The digital data sets besides the AIP data set — obstacles (eTOD), instrument flight procedures, aerodrome mapping and terrain — each with its own overview, lists, checks and reports, on all the data loaded.</p>' +
       '<div class="dd-secs" role="tablist">' + secs.map(function (x) {
-        return '<button role="tab" class="dd-sec' + (V.sec === x.id ? ' on' : '') + '" data-ddsec="' + x.id + '"' + (!x.n && x.id !== 'ter' ? ' disabled' : '') + '><span class="dd-ic" aria-hidden="true">' + x.icon + '</span><b>' + x.title + '</b><span>' + (x.id === 'ter' ? 'coming in the next version' : x.n ? num(x.n) + ' ' + x.what : 'none loaded') + '</span></button>';
+        return '<button role="tab" class="dd-sec' + (V.sec === x.id ? ' on' : '') + '" data-ddsec="' + x.id + '"' + (!x.n && x.id !== 'ter' ? ' disabled' : '') + '><span class="dd-ic" aria-hidden="true">' + x.icon + '</span><b>' + x.title + '</b><span>' + (x.id === 'ter' && !x.n ? 'flight paths, aerodromes, files' : x.n ? num(x.n) + ' ' + x.what : 'none loaded') + '</span></button>';
       }).join('') + '</div></div><div class="dd-body"></div>';
     var body = host.querySelector('.dd-body');
     host.querySelector('.dd-secs').onclick = function (e) { var b = e.target.closest('[data-ddsec]'); if (b && !b.disabled) { V.sec = b.getAttribute('data-ddsec'); render(host, ctx); } };
     if (V.sec === 'obs') { OBSTVIEW.render(body, ctx); var t = body.querySelector('.view-title'); if (t) t.outerHTML = ''; var sub = body.querySelector('.view-sub'); if (sub) sub.outerHTML = ''; }
     else if (V.sec === 'ifp') ifpRender(body, ctx);
     else if (V.sec === 'amxm') amRender(body, ctx);
-    else body.innerHTML = '<div class="card card-pad"><h3 style="margin-top:0">⛰ Terrain data sets</h3><p>Terrain data sets (GeoTIFF / BigTIFF, DTED, SRTM .hgt, ESRI ASCII grid) are prepared for the next version: read part by part from the file (never whole), shown on the map and in 3D, with the PANS-AIM area each file meets, voids, datum and checks against the aerodrome, runway and obstacle elevations.</p><p class="muted" style="margin-bottom:0">Today the map and 3D use the built-in global terrain model and online terrain tiles.</p></div>';
+    else TERVIEW.render(body, ctx);
   }
 
   /* ------------------------------------------------------- procedures (IFP) */

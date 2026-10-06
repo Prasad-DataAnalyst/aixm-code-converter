@@ -51,6 +51,7 @@ var EXPORTS = (function () {
   }
   function effOf(r) { return r && r.cur && r.cur.b ? M.fmtTs(r.cur.b) : ''; }
   function blockRows(b) { // uniform text rows for a block (+ effective date of the source feature)
+    if (b.kind === 'image') return { cols: ['Picture'], rows: [[b.caption || 'map picture (in the PDF and the print)']], recs: [null] };
     if (b.kind === 'kv') {
       var kr = b.rows.map(function (r) { var c = r.cells.filter(function (x) { return x.r; })[0]; return c ? c.r : null; });
       return { cols: ['No', 'Item', 'Value', 'Effective from'], rows: b.rows.map(function (r, i) { return [r.no || '', r.label, r.cells.map(function (c) { return c.t; }).filter(Boolean).join('\n'), effOf(kr[i])]; }), recs: kr };
@@ -94,7 +95,7 @@ var EXPORTS = (function () {
     var files = [], used = {};
     flatSections(scope.sections).forEach(function (sec) {
       (sec.blocks || []).forEach(function (b, bi) {
-        if (b.kind === 'note') return;
+        if (b.kind === 'note' || b.kind === 'image') return;
         var br = blockRows(b), lines = [br.cols.concat(['AIXM line']).map(csvCell).join(',')];
         br.rows.forEach(function (r, i) { lines.push(r.concat([br.recs[i] ? br.recs[i].line : '']).map(csvCell).join(',')); });
         var name = safeName([sec.no, sec.code, sec.title, b.title || (sec.blocks.length > 1 ? String(bi + 1) : '')].filter(Boolean).join(' ')).slice(0, 90), n = name, k = 2;
@@ -152,6 +153,7 @@ var EXPORTS = (function () {
       var aoa = [];
       var single = blocks.length === 1 && blocks[0].kind === 'table';
       blocks.forEach(function (b, bi) {
+        if (b.kind === 'image') return; // pictures: PDF and print only
         var br = blockRows(b);
         if (b.title) aoa.push([b.title]);
         aoa.push(br.cols.concat(['AIXM line']));
@@ -204,7 +206,7 @@ var EXPORTS = (function () {
   /* ------------------------------------------------------------------- PDF */
   var WIN = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
   function pdfText(t) {
-    return String(t === undefined || t === null ? '' : t).replace(/→/g, '->').replace(/[▲►]/g, '>').replace(/⏎/g, ' ').replace(/[‑‒]/g, '-').replace(/ | /g, ' ')
+    return String(t === undefined || t === null ? '' : t).replace(/→/g, '->').replace(/[▲►]/g, '>').replace(/−/g, '-').replace(/≥/g, '>=').replace(/≤/g, '<=').replace(/″/g, '"').replace(/′/g, "'").replace(/⏎/g, ' ').replace(/[‑‒]/g, '-').replace(/ | /g, ' ')
       .replace(/[^\x00-\xff]/g, function (ch) { return WIN.indexOf(ch) >= 0 ? ch : '?'; });
   }
   function exportPDF(scope, opt) {
@@ -250,13 +252,23 @@ var EXPORTS = (function () {
     }
     var MAXROWS = opt.maxRows || APP_SETTINGS.pdfMaxRows;
     secs.forEach(function (s, si) {
-      if (y > H - 30) { doc.addPage(); y = 16; }
+      if (y > H - ((s.blocks || [])[0] && s.blocks[0].kind === 'image' ? 125 : 30)) { doc.addPage(); y = 16; } // keep a title with its picture
       doc.setTextColor(BR[0], BR[1], BR[2]); doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
       doc.text(pdfText(secTitle(s)), 10, y + 4, { maxWidth: W - 20 });
       y += 8;
       (s.blocks || []).forEach(function (b) {
         if (y > H - 24) { doc.addPage(); y = 16; }
         if (b.title) { doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(122, 16, 67); doc.text(pdfText(b.title), 10, y + 3); y += 5; }
+        if (b.kind === 'image') { // a picture (map), full width, on a new page when it does not fit
+          var pw = W - 20, ph = pw * (b.h || 0.62), room = H - 24 - y;
+          if (ph > H - 40) { ph = H - 40; pw = ph / (b.h || 0.62); }
+          if (ph > room && room >= 95) { ph = room; pw = ph / (b.h || 0.62); } // a little smaller rather than alone on a page
+          else if (ph > room) { doc.addPage(); y = 16; }
+          try { doc.addImage(b.src, /^data:image\/jpe?g/.test(b.src) ? 'JPEG' : 'PNG', 10 + (W - 20 - pw) / 2, y, pw, ph); } catch (e) { /* not an image */ }
+          y += ph + 2;
+          if (b.caption) { doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(90, 80, 85); var cl = doc.splitTextToSize(pdfText(b.caption), W - 20); doc.text(cl, 10, y + 2); y += cl.length * 3.6 + 3; }
+          return;
+        }
         if (b.kind === 'note') {
           doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(60, 60, 60);
           var lines = doc.splitTextToSize(pdfText(b.text), W - 20); doc.text(lines, 10, y + 3); y += lines.length * 4 + 3; return;
@@ -305,6 +317,7 @@ var EXPORTS = (function () {
         if (b.title) h += '<h3 ' + st.h3 + '>' + esc(b.title) + '</h3>';
         if (b.kind === 'note') { h += '<p ' + st.note + '>' + esc(b.text) + '</p>'; return; }
         if (b.kind === 'chart') { h += b.svg; return; }
+        if (b.kind === 'image') { h += '<figure style="margin:6px 0 12px;break-inside:avoid"><img src="' + b.src + '" style="width:100%;max-height:150mm;object-fit:contain;border:1px solid #c3ccd8">' + (b.caption ? '<figcaption ' + st.note + '>' + esc(b.caption) + '</figcaption>' : '') + '</figure>'; return; }
         var br = blockRows(b), rows = br.rows, trunc = maxRows && rows.length > maxRows;
         if (trunc) rows = rows.slice(0, maxRows);
         h += '<table ' + st.table + '>';
