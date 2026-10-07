@@ -1019,3 +1019,6 @@ pre, .xml, .notam-text { text-align: left; }
 .ov-pickbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 10px; margin: -4px 0 10px; border: 1px dashed var(--border); border-radius: 8px; background: var(--panel, transparent); }
 .ov-pickbar label { display: inline-flex; gap: 6px; align-items: center; }
 .ov-tbl input[type="checkbox"] { margin: 0; vertical-align: middle; }
+.xp-aixm { display: inline-flex; gap: 6px; align-items: center; }
+.xp-aixm select { width: auto; }
+.xp-aixm-note { margin: 6px 0 0; font-size: 12.5px; }

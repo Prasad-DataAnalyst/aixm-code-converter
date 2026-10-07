@@ -7,6 +7,24 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.23.0 — 2026-10-07 — Custom data export in AIXM
+
+- **AIXM in step 4 of the custom data export**: only the data chosen (e.g. the runways of three aerodromes, or the
+  danger areas), written as an AIXM file that stands alone:
+  - **What goes in**: the selected features, plus every feature they reference, followed reference by reference.
+    For example an aerodrome item brings its aerodrome; a runway direction its runway and centreline points; an
+    airspace its borders and points; a procedure its fixes, navaids and runways. These supporting features are also
+    taken from another data set loaded, such as the AIP data set of an IFP data set. Every reference in the file
+    resolves, so it opens on its own in this tool or any AIXM software.
+  - **How it is written**: features keep their original XML, with the time slices valid at the moment shown. A
+    comment before each feature says whether it is *selected* or *supporting*, and which feature references it. The
+    file header counts both kinds by feature type.
+  - **Version**: as delivered (AIXM 4.5, 5.1, 5.1.1 or 5.2), or converted to AIXM 5.1, 5.1.1 or 5.2. AIXM 4.5 data
+    goes through the 4.5 → 5.1.1 writer.
+  - **Report**: after each export, a report gives the counts, the conversion done and the features that do not
+    exist in the target version (e.g. AltimeterSource in 5.2).
+  - With several data sets selected, one file is written per data set.
+
 ## 1.22.0 — 2026-10-06 — IFP data set: AIXM 5.2 and coding checks
 
 - **AIXM 5.2 procedures read like 5.1**: AIXM 5.2 renamed many procedure properties, so its altitudes, minima and

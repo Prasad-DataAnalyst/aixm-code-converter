@@ -3064,10 +3064,10 @@
     if (XSEL) return XSEL;
     var o = {};
     try { o = JSON.parse(localStorage.getItem('aixm-xsel') || '{}'); } catch (e) { o = {}; }
-    XSEL = { keys: new Set(o.keys || []), adCodes: new Set(o.adCodes || []), layout: o.layout || 'table', raw: !!o.raw, dss: null };
+    XSEL = { keys: new Set(o.keys || []), adCodes: new Set(o.adCodes || []), layout: o.layout || 'table', raw: !!o.raw, aixmv: o.aixmv || 'orig', dss: null };
     return XSEL;
   }
-  function xselSave() { try { localStorage.setItem('aixm-xsel', JSON.stringify({ keys: Array.from(XSEL.keys), adCodes: Array.from(XSEL.adCodes), layout: XSEL.layout, raw: XSEL.raw })); } catch (e) { /* storage unavailable */ } }
+  function xselSave() { try { localStorage.setItem('aixm-xsel', JSON.stringify({ keys: Array.from(XSEL.keys), adCodes: Array.from(XSEL.adCodes), layout: XSEL.layout, raw: XSEL.raw, aixmv: XSEL.aixmv })); } catch (e) { /* storage unavailable */ } }
   function xpDatasets(ds) {
     var X = xsel();
     var list = S.datasets.filter(function (d) { return X.dss ? X.dss.has(d.id) : d === ds; });
@@ -3099,8 +3099,19 @@
     h += '<div class="row wrap xp-foot"><span id="xp-sum" class="xp-sum"></span><span class="sp"></span><button class="btn small" id="xp-clear">Clear</button><button class="btn small" id="xp-preview">' + I.list + ' Preview</button></div>';
     h += '<div class="row wrap xp-fmt"><b>4 · Format</b>' +
       [['xlsx', I.xls, 'Excel'], ['csv', I.xls, 'CSV'], ['json', I.json, 'JSON'], ['pdf', I.pdf, 'PDF'], ['print', I.print, 'Print'], ['mail', I.mail, 'E-mail']].map(function (f) { return '<button class="btn primary" data-xf="' + f[0] + '">' + f[1] + ' ' + f[2] + '</button>'; }).join('') +
-      '<span class="xp-sep"></span>' + [['geojson', 'GeoJSON'], ['kml', 'KML'], ['shp', 'Shapefile']].map(function (f) { return '<button class="btn" data-xf="' + f[0] + '">' + I.map + ' ' + f[1] + '</button>'; }).join('') + '</div></div>';
+      '<span class="xp-sep"></span>' + [['geojson', 'GeoJSON'], ['kml', 'KML'], ['shp', 'Shapefile']].map(function (f) { return '<button class="btn" data-xf="' + f[0] + '">' + I.map + ' ' + f[1] + '</button>'; }).join('') +
+      '<span class="xp-sep"></span><span class="xp-aixm"><select class="inp" id="xp-aixmv" aria-label="AIXM version of the file" title="AIXM version of the file">' + aixmTargets(list).map(function (o) { return '<option value="' + o[0] + '"' + (X.aixmv === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>' +
+      '<button class="btn" data-xf="aixm" title="The selected features in AIXM, with every feature they reference (aerodrome, runways, points, navaids, borders …) so the file stands alone">' + I.code + ' AIXM</button></span></div>' +
+      '<p class="muted xp-aixm-note">AIXM: the selected features with their original XML, plus every feature they reference (aerodrome, runway, points, navaids, airspace borders, procedure fixes …), so that every reference in the file resolves and it opens on its own in this tool or any AIXM software. As delivered, or converted to another AIXM version.</p></div>';
     return h;
+  }
+  // AIXM versions a selection can be written in: as delivered, or converted (AIXM 4.5 -> 5.x by the 4.5 writer)
+  function aixmTargets(list) {
+    var fam = list[0] ? list[0].family : '5', lab = list[0] ? list[0].sniff.versionLabel : 'AIXM';
+    var out = [['orig', 'As delivered (' + (list.length > 1 && list.some(function (d) { return d.sniff.versionLabel !== lab; }) ? 'each in its version' : lab) + ')']];
+    if (fam !== '5' && fam !== '45') return out;
+    ['5.1', '5.1.1', '5.2'].forEach(function (v) { out.push([v, 'AIXM ' + v + (fam === '45' ? ' (converted from 4.5)' : '')]); });
+    return out;
   }
   function bindCustomExport(v, ds) {
     var X = xsel(), host = $('#xp', v);
@@ -3144,6 +3155,7 @@
         go('export');
       } else if (t.name === 'xp-layout') { X.layout = t.value; xselSave(); }
       else if (t.id === 'xp-raw') { X.raw = t.checked; xselSave(); }
+      else if (t.id === 'xp-aixmv') { X.aixmv = t.value; xselSave(); }
     });
     host.addEventListener('click', function (e) {
       var b = e.target.closest('button');
@@ -3185,6 +3197,7 @@
           if (!n) toast('Nothing with a position in the selection.');
           return;
         }
+        if (f === 'aixm') { exportAixmSelection(scope, $('#xp-aixmv', host).value); return; }
         if (scope.features && (f === 'pdf' || f === 'print' || f === 'mail')) scope.features = null;
         runExport(f, scope);
       }
@@ -3201,6 +3214,27 @@
       return scope;
     }
     refresh();
+  }
+  // AIXM file(s) of the selection: one per data set, the chosen features and all they reference
+  async function exportAixmSelection(scope, target) {
+    var list = xpDatasets(dsOf()), n = 0, reps = [];
+    for (var i = 0; i < list.length; i++) {
+      var d = list[i], flt = scope.gisFilter(d);
+      if (!flt) continue;
+      var seeds = d.recs.filter(function (r) { return r.k !== '#error' && !(r.cur && r.cur.gone) && flt(r); }).map(function (r) { return { ds: d, r: r }; });
+      if (!seeds.length) continue;
+      try {
+        toast('Writing the AIXM file of ' + d.name + '…');
+        var res = await CONVERT.selection(d, seeds, S.datasets, target || 'orig', scope.sub);
+        var tag = target && target !== 'orig' ? '_AIXM-' + target : '';
+        EXPORTS.download(EXPORTS.safeName(d.state + '_' + d.name.replace(/\.[^.]+$/, '') + '_selection') + tag + '.xml', res.blob);
+        res.report.notes.unshift(d.name + ':');
+        reps.push(res.report); n++;
+      } catch (e) { toast('AIXM export failed: ' + e.message, 6000); reportError(e.message, e.stack); return; }
+    }
+    if (!n) { toast('The selection has no AIXM features in this data set.'); return; }
+    var r0 = reps[0];
+    showReport({ title: r0.title, from: r0.from, to: r0.to, notes: [].concat.apply([], reps.map(function (r) { return r.notes; })), renamed: reps.reduce(function (a, r) { return a + (r.renamed || 0); }, 0) });
   }
   // a quick look at the first rows of every table of a scope
   function previewScope(scope) {
