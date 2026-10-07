@@ -20,7 +20,7 @@
  *   EXPORT, e-mail, search, help, start . exports/conversions, Outlook text, Ctrl+K search, startup
  * Every view is a function viewXxx(v, opts) registered in go(); add a view there and in VIEWS.
  * ========================================================================== */
-/* global APP_INFO, APP_SETTINGS, OBSTAB, DDVIEW, DEMF, DEM, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, ADCHART, OLS, INTEGRITY, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
+/* global AMDBUI, AMDB, AMDBPKG, LAZY, APP_INFO, APP_SETTINGS, OBSTAB, DDVIEW, DEMF, DEM, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, ADCHART, OLS, INTEGRITY, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
 (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -385,6 +385,9 @@
       if (/\.zip$/i.test(f.name)) {
         toast('Unpacking ' + f.name + ' …');
         try {
+          // an aerodrome mapping package (made in Digital data -> Aerodrome mapping): its checksums are verified and
+          // its AMXM file is opened (the AIXM and GIS files of the package carry the same features)
+          if (f.size < 300 * 1048576 && await openPackage(f)) continue;
           var inner = await unzip(f), skipped = 0;
           if (!inner.length) toast('No XML files found in ' + f.name);
           for (var j = 0; j < inner.length; j++) {
@@ -394,12 +397,44 @@
           }
           if (skipped) toast(skipped + ' other XML file(s) in ' + f.name + ' (schemas, code lists, metadata) are not AIXM data and were left out.', 6000);
         } catch (err) { toast('Could not unzip ' + f.name + ': ' + err.message, 6000); }
+      } else if (/\.gpkg$/i.test(f.name)) {
+        // a GeoPackage of aerodrome mapping layers (one table per AMXM feature type, e.g. made by Build package):
+        // read with SQLite (loaded only now) and opened as AMXM
+        try {
+          await LAZY.run('src-amdb'); await LAZY.run('src-amdbpkg');
+          var gx = await AMDBPKG.gpkgToAmxm(new Uint8Array(await f.arrayBuffer()), f.name);
+          if (!gx.features) toast(f.name + ': no aerodrome mapping layers (tables named after AMXM feature types)', 7000);
+          else { await addOne(new File([gx.xml], f.name.replace(/\.gpkg$/i, '') + '_from_GeoPackage_AMXM.xml', { type: 'text/xml', lastModified: f.lastModified }), f.name); toast(f.name + ': ' + gx.features + ' features in ' + gx.tables + ' table(s) read as AMXM' + (gx.skipped ? ' (' + gx.skipped + ' other table(s) left out)' : ''), 6000); }
+        } catch (err) { toast('Could not read ' + f.name + ': ' + err.message, 7000); }
       } else await addOne(f);
     }
     S.adding--;
     applyManifests();
     renderFileList();
     verifyChecksums();
+  }
+  async function openPackage(f) {
+    var bytes = new Uint8Array(await f.arrayBuffer());
+    var probe = fflate.unzipSync(bytes, { filter: function (x) { return /(^|\/)PACKAGE\.json$/.test(x.name); } });
+    if (!Object.keys(probe).length) return false;
+    var entries = fflate.unzipSync(bytes);
+    await LAZY.run('src-amdbpkg');
+    var res = AMDBPKG.verify(entries);
+    if (!res) return false;
+    S.packages = (S.packages || []).filter(function (p) { return p.name !== f.name; }).concat([{ name: f.name, res: res }]);
+    var data = Object.keys(entries).filter(function (k) { return /\/data\/[^/]*_AMXM-2\.0\.xml$/.test(k); });
+    if (!data.length) data = Object.keys(entries).filter(function (k) { return /\/data\/[^/]*\.xml$/.test(k); }).slice(0, 1);
+    for (var i = 0; i < data.length; i++) await addOne(new File([entries[data[i]]], data[i].split('/').pop(), { type: 'text/xml', lastModified: f.lastModified }), f.name);
+    toast(f.name + ': aerodrome mapping package — ' + (res.ok ? '✓ all ' + res.files + ' files match their checksums' : '✗ ' + (res.bad.length + res.missing.length) + ' file(s) changed or missing'), 7000);
+    return true;
+  }
+  function packagesHtml() {
+    return (S.packages || []).map(function (p) {
+      var r = p.res, m = r.manifest || {};
+      return '<div class="card card-pad pkg-card"><b>' + (r.ok ? '✓' : '✗') + ' Aerodrome mapping package ' + esc(p.name) + '</b> — ' + (r.ok ? 'all ' + r.files + ' files match their SHA-256 checksums' : esc((r.error || '') + (r.bad.length ? ' changed: ' + r.bad.join(', ') : '') + (r.missing.length ? ' missing: ' + r.missing.join(', ') : ''))) +
+        '<div class="muted">' + esc([(m.aerodromes || []).join(', '), (m.features || 0) + ' features', m.created ? 'made ' + String(m.created).slice(0, 10) : '', m.branding || '', m.producer ? 'by ' + m.producer.tool + ' (' + m.producer.author + ')' : '', m.notice || ''].filter(Boolean).join(' · ')) + '</div>' +
+        '<div class="muted">Sources: ' + esc((m.sources || []).map(function (s) { return s.dataset + ' (' + (s.originator || 'originator not stated') + ', ' + (s.quality || 'quality unknown') + ')'; }).join('; ')) + '</div></div>';
+    }).join('');
   }
   var SHEET_EXT = /\.(xlsx|xlsm|xls|ods)$/i; // spreadsheets (binary): obstacle tables only
   async function addOne(f, from) {
@@ -604,7 +639,7 @@
       shown[g.key] = true;
       html.push(setItemHtml(g));
     });
-    host.innerHTML = html.join('');
+    host.innerHTML = packagesHtml() + html.join('');
     $$('[data-remove]', host).forEach(function (b) { b.onclick = function () { var id = +b.getAttribute('data-remove'); S.files.forEach(function (f) { if (f.id === id && f.dem) DEM.remove(f.dem); }); S.files = S.files.filter(function (f) { return f.id !== id; }); renderFileList(); renderNav(); }; });
     $$('[data-remove-set]', host).forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-remove-set'); S.files = S.files.filter(function (f) { return setKeyOf(f) !== k; }); delete S.sets[k]; renderFileList(); }; });
     $$('[data-split]', host).forEach(function (b) { b.onclick = function () { var k = b.getAttribute('data-split'); S.sets[k].join = false; S.files.forEach(function (f) { if (f.manualSet === k) delete f.manualSet; }); renderFileList(); }; });
@@ -2703,8 +2738,26 @@
   }
 
 
+  // Quality -> Aerodrome mapping (AMDB): the latest result of the AMDB checks (run in Digital data, loaded only there)
+  function viewAmdbQuality(v) {
+    var res = typeof AMDBUI !== 'undefined' ? AMDBUI.latest(S.datasets) : null, can = S.datasets.some(function (d) { return d.family === 'amxm' || ['RunwayElement', 'TaxiwayElement', 'ApronElement', 'GuidanceLine', 'TaxiHoldingPosition'].some(function (k) { return (d.byType[k] || []).length; }); });
+    var h = '<h1 class="view-title">Aerodrome mapping (AMDB)</h1><p class="view-sub">The aerodrome mapping features of the data loaded (AMXM 2.0, or the AIXM runway, taxiway and apron elements, thresholds, stands, guidance lines and holding positions) checked against ' +
+      'the rules of the AMXM schema, ICAO PANS-AIM and the EUROCONTROL supporting material: attributes, code lists, accuracy and integrity, geometry, connections and completeness. NOT FOR NAVIGATION — study and analysis only.</p>' + qTabs('amdb');
+    if (!can) h += '<div class="card card-pad muted">The data loaded has no aerodrome mapping features.</div>';
+    else if (!res) h += '<div class="card card-pad">The AMDB checks run in <b>Digital data → Aerodrome mapping (AMDB) → AMDB checks</b>, in the background. <button class="btn primary" id="q-amdb-go">Open the AMDB checks</button></div>';
+    else {
+      var by = {}; res.findings.forEach(function (x) { by[x.r] = (by[x.r] || 0) + 1; });
+      h += '<div class="kpis">' + [['errors', res.bySev.error], ['warnings', res.bySev.warning], ['notes', res.bySev.info], ['features', res.features]].map(function (k) { return '<div class="kpi-h"><b>' + num(k[1]) + '</b><span>' + k[0] + '</span></div>'; }).join('') + '</div>' +
+        '<p class="muted">Checked ' + esc(res.at.slice(0, 16).replace('T', ' ')) + 'Z · ' + esc(res.scope) + '</p><div class="card card-pad"><table class="mini-table"><thead><tr><th>Rule</th><th>Check</th><th class="num">Findings</th></tr></thead><tbody>' +
+        Object.keys(by).sort().map(function (k) { return '<tr><td class="mono">' + esc(k) + '</td><td>' + esc(AMDB.RULE[k].title) + '</td><td class="num">' + num(by[k]) + '</td></tr>'; }).join('') + '</tbody></table>' +
+        '<p><button class="btn primary" id="q-amdb-go">Open the findings</button></p></div>';
+    }
+    v.innerHTML = h;
+    var b = $('#q-amdb-go');
+    if (b) b.onclick = function () { DDVIEW.open('amxm', 'checks'); go('digital'); };
+  }
   function qTabs(active) {
-    return '<div class="pill-tabs q-tabs">' + [['basic', 'Basic checks'], ['rules', 'AIXM business rules (SBVR)'], ['cat', 'Rule catalogue'], ['complete', 'Completeness'], ['ols', 'Obstacle surfaces (Annex 14)'], ['integrity', 'Data integrity (CRC32Q)']].map(function (x) { return '<button class="' + (active === x[0] ? 'active' : '') + '" data-qtab="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
+    return '<div class="pill-tabs q-tabs">' + [['basic', 'Basic checks'], ['rules', 'AIXM business rules (SBVR)'], ['cat', 'Rule catalogue'], ['complete', 'Completeness'], ['ols', 'Obstacle surfaces (Annex 14)'], ['integrity', 'Data integrity (CRC32Q)'], ['amdb', 'Aerodrome mapping (AMDB)']].map(function (x) { return '<button class="' + (active === x[0] ? 'active' : '') + '" data-qtab="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
   }
   function viewQuality(v) {
     var ds = dsOf();
@@ -2715,6 +2768,7 @@
     if (S.qTab === 'ols') { viewOls(v, ds); return; }
     if (S.qTab === 'integrity') { viewIntegrity(v, ds); return; }
     if (S.qTab === 'complete') { viewCompleteness(v, ds); return; }
+    if (S.qTab === 'amdb') { viewAmdbQuality(v); return; }
     var iss = S.quality.get(ds), ruleF = '';
     v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Checks based on the AIXM schema code lists, AIXM temporality rules and the minimum ICAO AIP data: coordinates (incl. 0°N 0°E placeholders), positions far from their aerodrome, references, duplicates, frequencies, bearings, implausible elevations, lengths and vertical limits, missing mandatory AIP items. Each issue says what was found and what is expected; the AIP marks the sections and values concerned. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('basic') +
       '<div class="toolbar"><button class="btn primary" id="q-run">' + I.check + (iss ? ' Run again' : ' Run checks') + '</button><select class="inp" id="q-sev" aria-label="Severity"><option value="">All severities</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Info</option></select><input class="inp" id="q-q" aria-label="Filter issues" placeholder="Filter…"><span class="sp"></span>' +
@@ -3402,7 +3456,7 @@
       '<p><b>Changes.</b> <i>Changes</i> lists the time slices inside one file (what changes, where, when). <i>Compare</i> compares two files of the same State (e.g. two AIRAC cycles, any versions) and lists added / removed / modified data with old → new values; results can also be shown on the map.</p>' +
       '<p><b>AIRAC cycle changes.</b> Values that change in the selected AIRAC cycle are shown <span class="chg-badge">in red</span> on every AIP page; <b>List all changes</b> and <b>AMDT report</b> give the amendment (publication and effective dates, affected sections, insert/amend/delete). <b>⇆ Side by side</b> on any section shows before/after a cycle, or two files. <i>Timeline</i> shows the changes per AIRAC cycle and temporary changes; <i>NOTAM</i> shows Digital NOTAM events as ICAO NOTAM text.</p>' +
       '<p><b>Digital data sets.</b> Besides the AIP data set the tool reads obstacle data sets, aerodrome mapping data sets (AIXM or AMXM 2.0, ED-99 / DO-272) and instrument flight procedure (IFP) data sets; electronic obstacle data sets (eTOD) also as Excel or CSV tables (headings recognised in any order; every other column kept as a remark); an IFP file named like the AIP file of its delivery (…_IFP_DS_… beside …_AIP_DS_…) is read with it as one data set.</p>' +
-      '<p><b>Map.</b> <b>Several data sets on one map</b>: with more than one loaded, tick those to show (e.g. Qatar, Saudi Arabia, UAE and China together), <i>only</i> for one, <i>Show all</i> for every one. <b>Search on the map</b> (box at the top left): airways, waypoints, navaids, aerodromes, runways, taxiways, aprons, stands, airspace, obstacles — also as you would say them, e.g. "twy C", "EADD stand 5", "airway UL123"; a pick zooms there and outlines it in magenta (Esc clears). A complete offline world map is built in. When the laptop is online you can switch to 14 free online maps that need no API key: street maps (Esri, OpenStreetMap), plain light/dark backgrounds, terrain and relief, ocean floor, satellite imagery (Esri, NASA) and the Earth at night. Instrument procedures can be drawn per aerodrome. <b>Airport view</b>: airport chart (runways to scale with markings, taxiway signs, stands, ILS) and an information card. <b>🗻 3D view</b>: terrain, airspace volumes, approach and departure crew views; <i>Grid MORA</i> and terrain elevation on the map. <b>⧉ New window</b> puts the map on a second screen. <b>Print map</b>: drag an area, choose A4/A3, legend, north arrow and grid.</p>' +
+      '<p><b>Map.</b> <b>Several data sets on one map</b>: with more than one loaded, tick those to show (e.g. several States or several AIRAC cycles together), <i>only</i> for one, <i>Show all</i> for every one. <b>Search on the map</b> (box at the top left): airways, waypoints, navaids, aerodromes, runways, taxiways, aprons, stands, airspace, obstacles — also as you would say them, e.g. "twy C", "EADD stand 5", "airway UL123"; a pick zooms there and outlines it in magenta (Esc clears). A complete offline world map is built in. When the laptop is online you can switch to 14 free online maps that need no API key: street maps (Esri, OpenStreetMap), plain light/dark backgrounds, terrain and relief, ocean floor, satellite imagery (Esri, NASA) and the Earth at night. Instrument procedures can be drawn per aerodrome. <b>Airport view</b>: airport chart (runways to scale with markings, taxiway signs, stands, ILS) and an information card. <b>🗻 3D view</b>: terrain, airspace volumes, approach and departure crew views; <i>Grid MORA</i> and terrain elevation on the map. <b>⧉ New window</b> puts the map on a second screen. <b>Print map</b>: drag an area, choose A4/A3, legend, north arrow and grid.</p>' +
       '<p><b>Digital data.</b> Obstacles (eTOD), procedures (IFP) and aerodrome mapping each have a workspace in the <i>Digital data</i> tab: overview by aerodrome and area, list with filters, a map beside the list (the filter applies; a click on the map selects the row and a row its feature), checks and reports (PDF, print, Excel, CSV, GeoJSON, KML). For obstacles: the eTOD area of each obstacle, the PANS-AIM accuracy it requires, the coverage of the obstacle area, distance and bearing from the ARP and the Annex 14 surfaces.</p>' +
       '<p><b>Quality.</b> <b>Data issues are flagged in the AIP</b>: ⚠ counts on the sections, a box at the top of each section saying what is wrong, what was found and what is expected, and the values concerned underlined (the issue on hover). Basic checks, the official AIXM 5.1 business rules (SBVR) and their catalogue, the ICAO Annex 14 obstacle limitation surfaces (penetrations, also in 3D) and data integrity (PANS-AIM accuracy, CRC32Q fingerprints, verification against a saved CRC list). Instrument approaches in AD 2.22 show their vertical profile.</p>' +
       '<p><b>Library, links and languages.</b> Connect a folder with one sub-folder per State; extracted data is kept for instant reopening. ☆ saves views; the address (#…) of any view can be shared. The interface is available in English, العربية (right-to-left), Français and Español. Files over 1.5 GB use the Lite memory mode automatically.</p>' +

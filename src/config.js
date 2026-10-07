@@ -9,7 +9,7 @@
  * ========================================================================== */
 var APP_INFO = Object.freeze({
   name: 'AIXM Code Converter',
-  version: '1.25.0',
+  version: '1.26.0',
   year: '2026',
   author: 'Prasad Selvaraj',
   email: 'prasad2t@gmail.com',
@@ -21,7 +21,7 @@ var APP_INFO = Object.freeze({
     'It must not be used for flight planning, navigation, flight operations, aerodrome or instrument procedure design decisions, ' +
     'obstacle assessment or any other operational or safety-related purpose. Always use the official AIP, AIP amendments and ' +
     'supplements, NOTAM and the approved aeronautical charts published by the State. Everything this tool shows or produces ' +
-    '(AIP pages, maps, airport charts, 3D views, terrain, grid MORA, approach profiles, obstacle limitation surfaces, data ' +
+    '(AIP pages, maps, airport charts, 3D views, terrain, grid MORA, approach profiles, obstacle limitation surfaces, aerodrome mapping checks and packages, data ' +
     'integrity results, conversions and exports) is derived automatically from the input data, may be incomplete or ' +
     'inaccurate, and is provided "as is" without warranty of any kind (Apache License 2.0, sections 7 and 8).'
 });

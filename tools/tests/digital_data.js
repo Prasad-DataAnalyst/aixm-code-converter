@@ -33,8 +33,11 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   }
 
   // no digital data: the tab is not offered
-  await load([T + 'chicago_runways_51.xml']);
+  await load([T + 'chicago_airspace_crs84_51.xml']);
   if (!(await page.$eval('#nav [data-view="digital"]', (b) => b.disabled))) fails.push('tab offered without digital data');
+  // AIXM runway elements (aerodrome mapping features): the tab is offered for the aerodrome mapping (AMDB) tools
+  await load([T + 'chicago_runways_51.xml']);
+  if (await page.$eval('#nav [data-view="digital"]', (b) => b.disabled)) fails.push('tab not offered for AIXM aerodrome mapping features');
 
   await load([T + 'Donlon_ALL_Baseline_2025.xml', T + 'EA_EADD_OBS_DS_AREA_2_3_4_FULL_20191205.xml', T + 'ifp_test_EADD.xml', T + 'amxm_test_EAXM.xml']);
   if (await page.$eval('#nav [data-view="digital"]', (b) => b.disabled)) fails.push('tab not offered');

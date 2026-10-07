@@ -594,5 +594,5 @@ var CONVERT = (function () {
     return { blob: new Blob([out], { type: 'text/xml' }), report: report, selected: nSel, supporting: nSup, missing: cl.missing.size };
   }
 
-  return { convertVersion: convertVersion, consolidate: consolidate, selection: selection, closure: closure, related: related, writer45: writer45, toGeoJSON: toGeoJSON, toKML: toKML, toShapefile: toShapefile, uuidFor: uuidFor, gisFeatures: gisFeatures };
+  return { convertVersion: convertVersion, consolidate: consolidate, selection: selection, closure: closure, related: related, writer45: writer45, toGeoJSON: toGeoJSON, toKML: toKML, toShapefile: toShapefile, uuidFor: uuidFor, gisFeatures: gisFeatures, shpWrite: shp };
 })();

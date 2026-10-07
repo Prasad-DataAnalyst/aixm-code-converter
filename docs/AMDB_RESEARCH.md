@@ -1,6 +1,8 @@
 # Aerodrome Mapping Databases (AMDB / AMXM) — research and creation plan
 
-Prepared by **Prasad Selvaraj** for the AIXM Code Converter. Research and discussion only: nothing in this document is built yet.
+Prepared by **Prasad Selvaraj** for the AIXM Code Converter.
+
+**Status (1.26.0):** stages 0, 1 and 2 are built — see section 10. Everything else in this document is research and plan.
 
 This document collects what governs an aerodrome mapping database (regulation, standards, coding, exchange formats, quality, metadata, industry practice and research). It then sets out how the converter could create an AMDB package from what a user already has, and which claims such a package can and cannot honestly make.
 
@@ -129,7 +131,7 @@ Common AMXM attributes**:
 - `integr`;
 - `source`, `revdate`.
 
-Code lists include `featbase` (surveyed, digitized, generated, …), `feattype`, `surftype`, `color` and `style`. This repository already carries the AMXM 2.0.2 dictionary (`data-amxm`), so every attribute and code value is known.
+Code lists include `feattype` (the feature class), `featbase` (the surface a feature lies on: apron, taxiway, runway element …), `surftype`, `color` and `style`. *Correction (1.26): an earlier draft read `featbase` as "surveyed / digitized / generated"; it is not. How a feature was made is recorded in its `source` attribute and in the ISO 19115 lineage.* This repository already carries the AMXM 2.0.2 dictionary (`data-amxm`), so every attribute and code value is known.
 
 ### 3.2 Constraints (ED-99) — what an auditor checks
 
@@ -222,7 +224,7 @@ ACGAMD FAQ, ADTKIT and the vendor material agree on the following.
 | A | AIXM 5.1.1 / 5.2 AMD (aerodrome elements) | Map to AMXM with the ACGAMD mapping, keep UUIDs, run the ED-99 constraints and fix the coding (ring order, splitting, densification) | Same as the source, as declared in its metadata |
 | B | AMXM from elsewhere | Validate against ED-99 and ED-119 and report, upgrade the version, fill the metadata, build the ASRN | Same as the source |
 | C | Survey points, CAD (DXF), or GIS (GeoJSON / Shapefile) with a known CRS | Transform to WGS-84 / EGM, classify into ED-99 features, then build polygons and lines | Same as the survey or drawing |
-| D | Only the AIP / AIXM aerodrome data (runways, thresholds, stands, taxiway names) | Generate the geometry: runway elements from thresholds, width and length; shoulders; stopways and clearways; stand points; taxiway centrelines only where AIXM provides them | **Coarse / indicative only**, `featbase = generated` |
+| D | Only the AIP / AIXM aerodrome data (runways, thresholds, stands, taxiway names) | Generate the geometry: runway elements from thresholds, width and length; shoulders; stopways and clearways; stand points; taxiway centrelines only where AIXM provides them | **Coarse / indicative only**, recorded in `source` and the lineage |
 | E | Nothing | An orthophoto the user supplies, digitised in the tool with snapping and the ED-99 capture rules; machine detection may propose shapes | Up to medium with good georeferenced imagery and control; never fine without survey |
 
 Obstacles and terrain come from what the converter already reads: eTOD obstacles (AIXM / Excel / CSV) and GeoTIFF / DTED terrain. They supply the vertical structures and the Area 3 terrain packaged with the AMDB.
@@ -261,7 +263,7 @@ The **data originator** stays whoever surveyed or supplied the data (the aerodro
 
 ## 6. What a tool cannot do on its own
 
-- **Fine quality cannot be fabricated.** Without survey or controlled photogrammetry, geometry is at best medium, and generated geometry is coarse. The package must say so in `featbase`, `hacc` and `vacc`, and in the quality classification.
+- **Fine quality cannot be fabricated.** Without survey or controlled photogrammetry, geometry is at best medium, and generated geometry is coarse. The package must say so in `source`, `hacc` and `vacc`, in the lineage and in the quality classification.
 - **Passing an audit is about the process, not just the file.** ED-76A / DO-200B, the EU 2017/373 Part-DAT certificate, formal arrangements (LoAs) with originators, and a quality management system are organisational obligations of the provider.
   - The tool can make the file **audit-ready**: correct coding, metadata, lineage, validation evidence and integrity.
   - It can also support **tool qualification**: deterministic output and a test suite with reference data.
@@ -326,7 +328,7 @@ This section records what was checked. It is not legal advice; a short review by
 
 ### 8.3 Quality labels follow the source, not ambition
 
-| Source used | `featbase` | Quality classification |
+| Source used | Recorded as (`source`, lineage) | Quality classification |
 |---|---|---|
 | The user's survey, or their certified AIXM / AMXM data | as supplied | as declared by the originator |
 | Open orthophoto, 0.1 – 1 m, digitised in the tool | digitized | medium at best, stated as "not verified by survey" |
@@ -348,7 +350,7 @@ This section records what was checked. It is not legal advice; a short review by
    - `useLimitation` = NOT FOR NAVIGATION;
    - `otherConstraints` = the licence of each source.
 3. **Inside every XML file** (AMXM / AIXM), a header comment and the metadata carry the notice.
-4. **Inside every feature**, `featbase` and `source` show how that feature was made.
+4. **Inside every feature**, `source` (and the quality attributes `hacc`, `vacc`, `integr`) show where it came from; the lineage says how it was made.
 
 ### 8.5 Notice text (draft)
 
@@ -510,7 +512,24 @@ A white-label export removes only our branding.
 
 ---
 
-## 10. Sources
+## 10. Implementation status (1.26.0)
+
+| Stage | Built | Where |
+|---|---|---|
+| 0 — groundwork | Research, permissions and risks (this document); Esri maps marked non-commercial; NOTICE wording; engines stored unopened and started only when used (`src/lazy.js`); performance measured against 1.25.0 | `src/lazy.js`, `tools/build.js` (`INLINE_LAZY`), NOTICE |
+| 1 — AMDB checks | 36 rules with their sources (generic, quality, geometry, functional, completeness), AIXM features as their AMXM counterparts, background worker with JSTS, findings by rule / on a map / with the feature, audit report, Quality summary | `src/amdb.js`, `src/amdbui.js`, Digital data → Aerodrome mapping (AMDB) → AMDB checks |
+| 2 — aerodrome mapping package | Sources & quality; custom / full export; AMXM 2.0 (schema-valid), AIXM 5.1.1, GeoPackage, GeoJSON, KML, Shapefile, CSV, Excel, DXF; ISO 19115, DPS, report, guides, checksums; standard / for further processing with handover record; package verification and GeoPackage reading on Files | `src/amdbpkg.js`, Build package, Sources & quality, Files |
+
+Verified by the tests:
+- every rule finds its defect on `testdata/amdb_test_EAXB.xml` (made by `tools/make_amdb_testdata.js`);
+- the AMXM written validates against the AMXM 2.0.2 XML schema with GML 3.2.1 and ISO 19139 (libxml2, offline, `tools/tests/_xsd.js`), also from source data with invalid values;
+- checksums, reopening, tamper detection, GeoPackage round trip, white-label cleanliness (`tools/tests/amdb_package.js`).
+
+Not built (planned): generation from AIP data alone (Tier D), survey / CAD / GIS import (Tier C), imagery digitising (Tier E), package comparison, 4D, ARINC 816 encoding.
+
+---
+
+## 11. Sources
 
 **EUROCONTROL**
 - (ICAO) Aerodrome Mapping Data Sets — supporting material: https://ext.eurocontrol.int/aixm_confluence/x/7gJ9Aw. It covers the standards landscape, general requirements, creation of AMD, information exchange models, metadata, implementation, applications and FAQ.

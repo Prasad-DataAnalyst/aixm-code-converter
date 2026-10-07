@@ -23,7 +23,7 @@ async function parse(fp) {
   const file = new File([buf], path.basename(fp));
   const sn = ctx.AX.sniff(buf.subarray(0, 65536).toString('utf8'), path.basename(fp));
   const v = /^5\.2/.test(sn.version) ? '5.2' : sn.version === '5.1.1' ? '5.1.1' : '5.1';
-  const names = sn.family === '45' ? Object.keys(dict.v45.features) : Object.keys(dict.v5.featureVersions).filter((k) => dict.v5.featureVersions[k].includes(v));
+  const names = sn.family === 'amxm' ? ctx.AX.AMXM_TYPES : sn.family === '45' ? Object.keys(dict.v45.features) : Object.keys(dict.v5.featureVersions).filter((k) => dict.v5.featureVersions[k].includes(v));
   const recs = [];
   let lines = 0;
   await new Promise((resolve) => {

@@ -16,10 +16,15 @@ const PACKAGES = [
   ['jspdf-autotable', 'jsPDF-AutoTable — PDF tables', 'MIT'],
   ['fflate', 'fflate — zip files', 'MIT'],
   ['topojson-client', 'TopoJSON client — offline world map', 'ISC'],
-  ['world-atlas', 'world-atlas — offline world map (from Natural Earth)', 'ISC']
+  ['world-atlas', 'world-atlas — offline world map (from Natural Earth)', 'ISC'],
+  ['jsts', 'JSTS — geometry engine of the aerodrome mapping checks (stored unopened, loaded when used)', 'EDL-1.0 (or EPL-1.0)'],
+  ['sql.js', 'sql.js — SQLite for GeoPackage files (stored unopened, loaded when used)', 'MIT']
 ];
 
 function licenceText(dir) {
+  // a package without a licence file: its licence text is kept in tools/licenses/<package>.txt
+  const own = path.join(__dirname, 'licenses', path.basename(dir) + '.txt');
+  if (fs.existsSync(own)) return fs.readFileSync(own, 'utf8').replace(/\r\n/g, '\n').trim();
   const f = fs.readdirSync(dir).find((n) => /^licen[cs]e(\.(txt|md))?$/i.test(n));
   if (!f) throw new Error('no licence file in ' + dir);
   return fs.readFileSync(path.join(dir, f), 'utf8').replace(/\r\n/g, '\n').trim();

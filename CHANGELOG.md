@@ -7,6 +7,56 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.26.0 — 2026-10-07 — Aerodrome mapping (AMDB): checks and packages
+
+NOT FOR NAVIGATION — the aerodrome mapping tools are for study and analysis only.
+
+- **Stage 0 — groundwork**:
+  - research, permissions and risks: docs/AMDB_RESEARCH.md;
+  - Esri online maps marked as free for non-commercial use only;
+  - NOTICE: exported data belong to the user; not affiliated with the organisations named in the tool;
+  - the AMDB tools and their engines (JSTS 2.12.1 for geometry, sql.js 1.14.2 for GeoPackage) are stored in the
+    page unopened (src/lazy.js) and start only when used. Measured: opening the page and reading AIXM, obstacle,
+    AMXM and terrain files take the same time and memory as in 1.25.0 (300 MB AIXM file, alternating runs).
+- **Stage 1 — AMDB checks** (Digital data → Aerodrome mapping (AMDB) → AMDB checks):
+  - 36 rules, each citing its source, in five groups:
+    - generic: AMXM 2.0.2 schema — required attributes, code lists, value ranges and lengths, feattype,
+      identifiers, ICAO location indicators, runway designators (order, reciprocal), dates;
+    - quality: declared accuracy and integrity against PANS-AIM Appendix 1, resolution;
+    - geometry: positions, closed and simple rings, ring direction, repeated positions and spikes, slivers,
+      overlaps and gaps of the pavement (JSTS);
+    - functional: thresholds on runways, threshold designators, runway ends without threshold, stands on aprons,
+      guidance lines on the pavement and joined, holding positions across guidance lines, exit lines, routing
+      network, features far from their aerodrome, vertical structures outside the mapping area, aerodromes
+      without a reference point;
+    - completeness: core feature types of an aerodrome;
+  - AIXM aerodrome features (runway, taxiway and apron elements, thresholds, stands, guidance lines, holding
+    positions …) are checked as their AMXM counterparts; the Aerodrome mapping section is offered for them too;
+  - run in a background worker; results by rule, findings with their feature (AIXM code) and on a map; audit
+    report in PDF, print, Excel, CSV and JSON; a summary in Quality → Aerodrome mapping (AMDB).
+- **Stage 2 — aerodrome mapping package** (Build package, Sources & quality):
+  - custom (aerodromes, feature types, formats) or full export;
+  - AMXM 2.0 valid against the AMXM 2.0.2 schema (with GML 3.2.1 and ISO 19139), ISO 19115 metadata inside;
+    AIXM 5.1.1 and an identifier map; GeoPackage 1.3 with the metadata extension; GeoJSON; KML; Shapefile; CSV;
+    Excel; DXF (WGS 84 / UTM metres);
+  - ISO 19115 / 19139 metadata, data product specification (ISO 19131 outline), package report (what is inside,
+    how it was made, sources, checks, limits; PDF and HTML), check results, guides (QGIS, ArcGIS Aviation, CAD,
+    AIXM systems, ARINC 816 tools) with the feature catalogue mapping, PACKAGE.json, SHA256SUMS.txt;
+  - writing fixes only what is unambiguous and says so: rings closed and turned, repeated positions removed;
+    attributes the sources do not give, or give in a form the schema rejects, written as unknown; required dates
+    the schema does not allow to be empty written as listed placeholders;
+  - standard packages credit the tool (created by Prasad Selvaraj) and carry the notice; packages "for further
+    processing" leave the tool's name, credit and notice out of the data and come with a handover record;
+  - the acknowledgement "NOT FOR NAVIGATION, and I may use the data" is asked before every build;
+  - Files: a package zip is verified file by file (SHA-256) and its AMXM file opened; a GeoPackage of AMXM layers
+    opens as AMXM;
+  - the Aerodrome mapping map can colour the features by source.
+- AMXM reader: attributes given as nil are kept (for the required-attribute check); `geound` is kept; rings left
+  open in the data are marked. AMXM dictionary: required attributes, units, value limits, nilReason values.
+- Tests: tools/tests/amdb_checks.js, tools/tests/amdb_package.js (schema validation offline with the XSDs in
+  tools/tests/xsd), tools/tests/unit/amdb.test.js; test aerodromes with a defect for every rule
+  (testdata/amdb_test_EAXB.xml, tools/make_amdb_testdata.js).
+
 ## 1.25.0 — 2026-10-07 — Digital data exports: AIXM with related data, terrain of an area
 
 - **Obstacles in AIXM** (Digital data → Obstacles → Reports):

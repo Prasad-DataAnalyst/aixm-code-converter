@@ -19,8 +19,8 @@ var DDMAP = (function () {
   function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   var BASES = {
     offline: { label: 'Offline world map' },
-    streets: { label: 'Streets (online)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', att: 'Tiles © Esri' },
-    imagery: { label: 'Satellite (online)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', att: 'Imagery © Esri' }
+    streets: { label: 'Streets (online, Esri, non-commercial use)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', att: 'Tiles © Esri' },
+    imagery: { label: 'Satellite (online, Esri, non-commercial use)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', att: 'Imagery © Esri' }
   };
   var baseChoice = 'offline';
   try { baseChoice = localStorage.getItem('aixm-ddmap-base') || 'offline'; } catch (e) { /* storage unavailable */ }

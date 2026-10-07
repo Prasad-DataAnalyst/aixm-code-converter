@@ -6,9 +6,23 @@ This product was created by Prasad Selvaraj (prasad2t@gmail.com).
 Under section 4(d) of the Apache License 2.0, any redistribution of this
 work or of a derivative work must include a readable copy of the
 attribution notices in this NOTICE file. Please keep the author's name and
-e-mail address in the application (About, side menu, Files view), in the
-exported files (PDF, Excel, JSON, e-mail, map images, converted AIXM,
-GeoJSON, KML, Shapefile) and in the source file headers.
+e-mail address in the application (About, side menu, Files view) and in the
+source file headers.
+
+Exported data belong to the user. The tool writes a credit to the AIXM Code
+Converter into its exports (PDF, Excel, JSON, map images, converted AIXM,
+AMXM, GeoJSON, KML, Shapefile and the other formats); keeping it is
+appreciated but not required for data you produced. The "for further
+processing" (white-label) export of aerodrome mapping packages leaves the
+credit out on purpose. It never leaves out the attributions that the
+licences of the source data require, nor the "not for navigation" quality
+labels of each feature.
+
+Not affiliated with, endorsed by or certified by EUROCONTROL, the FAA, ICAO,
+EASA, RTCA, EUROCAE, SAE / ARINC or any other organisation named in the
+application. Names of standards and organisations are used to describe the
+data only. NOT FOR NAVIGATION: everything the application shows or exports is
+for study and analysis only.
 
 ----------------------------------------------------------------------------
 Third-party components included in AIXM-Code-Converter.html
@@ -21,6 +35,8 @@ jsPDF-AutoTable              MIT             (c) Simon Bengtsson
 fflate                       MIT             (c) Arjun Barrett
 TopoJSON client              ISC             (c) Michael Bostock
 world-atlas                  ISC             (c) Michael Bostock; data from Natural Earth (public domain)
+JSTS (geometry engine)       EDL-1.0         (c) Björn Harrtell and contributors; port of JTS (LocationTech)
+sql.js (SQLite)              MIT             (c) sql.js contributors; SQLite is public domain
 
 Terrain data (data/terrain.json and online terrain): Terrain Tiles, Mapzen / AWS
 Open Data Registry, derived from SRTM, GMTED2010, ETOPO1, NED, ArcticDEM and other
@@ -31,3 +47,11 @@ AIXM XML Schemas (4.5, 5.1, 5.1.1, 5.2), AIXM code-list definitions, the
 AIXM 5.1 business rules (SBVR) and the Donlon / Digital NOTAM sample data
 are published by EUROCONTROL and the US FAA at https://aixm.aero and remain
 subject to their own copyright and terms.
+The AMXM 2.0.2 XML schema (aerodrome mapping exchange model, code lists and
+definitions) is Copyright RTCA and EUROCAE and is used under its BSD-style
+licence; RTCA and EUROCAE do not endorse this product.
+
+Online base maps are optional and are loaded from their providers only when
+chosen: Esri maps are free for non-commercial use under the Esri terms of use
+(commercial use needs an ArcGIS subscription); OpenStreetMap-based maps
+(c) OpenStreetMap contributors (ODbL); NASA GIBS imagery is public domain.

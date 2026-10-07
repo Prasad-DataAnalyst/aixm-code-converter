@@ -22,6 +22,11 @@ let html = read('src/index.html');
 html = html.replace(/\/\*@@INLINE_CSS:([^@]+)@@\*\//g, (m, p) => read(p));
 html = html.replace(/\/\*@@INLINE_JSON:([^@]+)@@\*\//g, (m, p) => safeJson(read(p)));
 html = html.replace(/\/\*@@INLINE_JS:([^@]+)@@\*\//g, (m, p) => safeJs(read(p)));
+// engines used only by some tools (geometry, GeoPackage): stored compressed (raw deflate, base64) in a
+// <script type="text/plain">, never run when the page opens; LAZY (src/lazy.js) unpacks one when a tool needs it.
+// fflate from the locked package keeps the output byte-identical between builds.
+const fflate = require(path.join(__dirname, 'node_modules/fflate'));
+html = html.replace(/\/\*@@INLINE_LAZY:([^@]+)@@\*\//g, (m, p) => Buffer.from(fflate.deflateSync(fs.readFileSync(path.join(ROOT, p)), { level: 9, mem: 8 })).toString('base64'));
 // the version (not the date) keeps the build reproducible, so CI can compare it with the committed file
 const version = /version:\s*'([^']+)'/.exec(read('src/config.js'))[1];
 html = html.replace('<title>AIXM Code Converter</title>', '<title>AIXM Code Converter</title>\n<meta name="generator" content="AIXM Code Converter ' + version + '">');

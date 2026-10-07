@@ -400,7 +400,7 @@ var AX = (function () {
   function closeRing(r) {
     if (r.length > 2) {
       var a = r[0], b = r[r.length - 1];
-      if (typeof a[0] === 'number' && (Math.abs(a[0] - b[0]) > 1e-9 || Math.abs(a[1] - b[1]) > 1e-9)) r.push([a[0], a[1]]);
+      if (typeof a[0] === 'number' && (Math.abs(a[0] - b[0]) > 1e-9 || Math.abs(a[1] - b[1]) > 1e-9)) { r.push([a[0], a[1]]); r.opened = 1; } // closed here: the data left it open (aerodrome mapping checks)
     }
     return r;
   }
@@ -603,17 +603,19 @@ var AX = (function () {
     DeicingArea: 'DeicingArea', ConstructionArea: 'WorkArea', TouchDownLiftOffArea: 'TouchDownLiftOff', VerticalPointStructure: 'VerticalStructure',
     VerticalLineStructure: 'VerticalStructure', VerticalPolygonalStructure: 'VerticalStructure', SurveyControlPoint: 'SurveyControlPoint', RunwayMarking: 'RunwayMarkingArea' };
   function convFeatureAmxm(node, ctx) {
-    var T = node.n, raw = {}, gid = attr(node, 'id');
+    var T = node.n, raw = {}, gid = attr(node, 'id'), nils = null;
     if (node.c) for (var i = 0; i < node.c.length; i++) {
       var ch = node.c[i];
       if (isGml(ch, ctx)) continue;
       var v = convProp(ch, ctx, null);
       if (v !== undefined) addProp(raw, ch.n, v);
+      else if (attr(ch, 'nil') === 'true') (nils || (nils = [])).push(ch.n); // given as nil without a reason kept: the attribute is there
     }
     amUnits(raw);
     var ad = amTxt(raw.idarpt) || 'UNKNOWN', k = AM_KIND[T] || T, p = {}, key;
-    for (var a in raw) if (!/^geo(poly|line|pnt|und)$/.test(a)) p[a] = raw[a];
+    for (var a in raw) if (!/^geo(poly|line|pnt)$/.test(a)) p[a] = raw[a];
     p._amxm = T;
+    if (nils) p._nil = nils;
     p._ad = { ref: amId(ad, 'ad', '') };
     var own = gid || amTxt(raw.idnumber), id = own ? 'amxm-' + T.toLowerCase() + '-' + own : null; // none: keyed by its place in the file
     var area = amGeo(raw, 'ElevatedSurface'), line = amGeo(raw, 'ElevatedCurve'), pnt = amGeo(raw, 'ElevatedPoint');

@@ -38,6 +38,8 @@ function elev(lon, lat) { return Math.round(40 + 300 * Math.exp(-((lon + 32.0) *
     await page.waitForFunction((n) => !window.__AIXM.S.adding && window.__AIXM.S.files.length >= n && window.__AIXM.S.files.every((f) => f.status !== 'checking'), files.length, { timeout: 30000 });
     await page.evaluate(() => document.querySelector('#extract-btn').click());
     await page.waitForFunction(() => window.__AIXM.S.files.every((f) => f.status !== 'parsing' && f.status !== 'indexing' && f.status !== 'checking') && !window.__AIXM.S.adding, null, { timeout: 90000 });
+    // terrain files: their background statistics re-open the Terrain section when they finish; wait for them
+    await page.waitForFunction(() => window.__AIXM.S.files.filter((f) => f.dem).every((f) => !/statistics/.test(f.detail || '') || / m($| · )/.test(f.detail || '')), null, { timeout: 90000 });
     await page.waitForTimeout(1500);
   }
   async function dl(click, n) {

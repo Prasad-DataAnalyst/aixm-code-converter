@@ -214,12 +214,13 @@ var EXPORTS = (function () {
     var secs = flatSections(scope.sections);
     var wide = secs.some(function (s) { return (s.blocks || []).some(function (b) { return b.kind === 'table' && b.cols.length > 6; }); });
     var doc = new jspdf.jsPDF({ orientation: wide ? 'landscape' : 'portrait', unit: 'mm', format: 'a4', compress: true });
-    doc.setProperties({ title: pdfText(scope.title || APP), subject: pdfText(scope.sub || ''), author: AUTHOR + ' <' + AUTHOR_EMAIL + '>', creator: CREDIT, keywords: 'AIXM, AIP, ' + APP });
+    // opt.plain: no credit to the tool (the "for further processing" aerodrome mapping package)
+    doc.setProperties(opt.plain ? { title: pdfText(scope.title || ''), subject: pdfText(scope.sub || '') } : { title: pdfText(scope.title || APP), subject: pdfText(scope.sub || ''), author: AUTHOR + ' <' + AUTHOR_EMAIL + '>', creator: CREDIT, keywords: 'AIXM, AIP, ' + APP });
     var W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
     var ds = scope.ds;
-    var head = pdfText([ds ? ds.state + ' AIP DATA' : APP, ds && ds.airac ? 'AIRAC ' + ds.airac.id : ''].filter(Boolean).join('  •  '));
+    var head = pdfText(opt.head || [ds ? ds.state + ' AIP DATA' : APP, ds && ds.airac ? 'AIRAC ' + ds.airac.id : ''].filter(Boolean).join('  •  '));
     var foot = pdfText((ds ? ds.name : 'AIXM data') + ' - ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z');
-    var credit = pdfText(APP + ' (c) 2026 ' + AUTHOR + ' - ' + AUTHOR_EMAIL);
+    var credit = opt.plain ? '' : pdfText(APP + ' (c) 2026 ' + AUTHOR + ' - ' + AUTHOR_EMAIL);
     var BR = [11, 42, 74];
     function decorate() {
       var n = doc.internal.getNumberOfPages();
@@ -296,6 +297,7 @@ var EXPORTS = (function () {
       else y += 3;
     });
     decorate();
+    if (opt.blob) return doc.output('blob'); // for a package (aerodrome mapping): the PDF as data
     doc.save(safeName(scope.title) + '.pdf');
   }
 
@@ -409,5 +411,5 @@ var EXPORTS = (function () {
   }
 
   return { CREDIT: CREDIT, AUTHOR: AUTHOR, AUTHOR_EMAIL: AUTHOR_EMAIL, exportJSON: exportJSON, exportCSV: exportCSV, exportExcel: exportExcel, exportPDF: exportPDF, print: print, emailContent: emailContent, emlBlob: emlBlob, copyRich: copyRich, copyText: copyText,
-    download: download, safeName: safeName, csvCell: csvCell, flatSections: flatSections, fmtSize: fmtSize, toJSON: toJSON, blockRows: blockRows, secTitle: secTitle };
+    download: download, safeName: safeName, csvCell: csvCell, flatSections: flatSections, fmtSize: fmtSize, toJSON: toJSON, blockRows: blockRows, secTitle: secTitle, sectionsHtml: sectionsHtml };
 })();

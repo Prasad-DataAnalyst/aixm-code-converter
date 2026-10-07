@@ -19,20 +19,48 @@ let m;
 while ((m = reType.exec(xsd))) {
   const body = m[2], base = /<extension base="amxm:([A-Za-z0-9_]+)"/.exec(body);
   const elements = [];
-  const reEl = /<element name="([a-z][A-Za-z0-9_]*)" type="(?:amxm|gml):([A-Za-z0-9_]+)"[^>]*?(?:\/>|>([\s\S]*?)<\/element>)/g;
+  const reEl = /<element name="([a-z][A-Za-z0-9_]*)" type="(?:amxm|gml):([A-Za-z0-9_]+)"([^>]*?)(?:\/>|>([\s\S]*?)<\/element>)/g;
   let e;
-  while ((e = reEl.exec(body))) elements.push({ name: e[1], type: e[2], doc: short(doc(e[3])) });
-  types[m[1]] = { base: base ? base[1] : null, elements };
+  while ((e = reEl.exec(body))) elements.push({ name: e[1], type: e[2], doc: short(doc(e[4])), req: !/minOccurs="0"/.test(e[3]) });
+  // allowed units of measure (attribute uom), e.g. meters, feet, DecimalDegrees
+  const uom = /<attribute name="uom">([\s\S]*?)<\/attribute>/.exec(body), uoms = [];
+  if (uom) { const reU = /<enumeration value="([^"]+)"/g; let u; while ((u = reU.exec(uom[1]))) uoms.push(u[1]); }
+  // the nilReason values an element allows (unknown, not applicable …)
+  const nil = /<attribute name="nilReason">([\s\S]*?)<\/attribute>/.exec(body), nils = [];
+  if (nil) { const reN = /<enumeration value="([^"]+)"/g; let u; while ((u = reN.exec(nil[1]))) nils.push(u[1]); }
+  types[m[1]] = { base: base ? base[1] : null, elements, uoms, nils };
 }
 // code lists: simple types with documented enumeration values
-const codes = {};
+const codes = {}, codesAll = {};
 const reSimple = /<simpleType name="([A-Za-z0-9_]+)"[^>]*>([\s\S]*?)<\/simpleType>/g;
 while ((m = reSimple.exec(xsd))) {
   const vals = {};
   const reEnum = /<enumeration value="([^"]*)"\s*(?:\/>|>([\s\S]*?)<\/enumeration>)/g;
   let e;
-  while ((e = reEnum.exec(m[2]))) if (e[1] !== '') vals[e[1]] = doc(e[2]) || e[1];
-  if (Object.keys(vals).length) codes[m[1]] = vals;
+  let empty = false;
+  while ((e = reEnum.exec(m[2]))) { if (e[1] !== '') vals[e[1]] = doc(e[2]) || e[1]; else empty = true; }
+  if (Object.keys(vals).length) { codes[m[1]] = vals; codesAll[m[1]] = { empty }; }
+}
+// value limits of the simple types (base type, range, length, pattern); a union with the empty string allows "unknown"
+const limits = {};
+const reS2 = /\n\t<simpleType name="([A-Za-z0-9_]+)"[^>]*>([\s\S]*?)\n\t<\/simpleType>/g; // top-level types (one tab), with their nested union members
+while ((m = reS2.exec(xsd))) {
+  const body = m[2], o = {};
+  const r = /<restriction base="(?:xs:|xsd:)?([A-Za-z]+)"\s*\/?>([\s\S]*?)(?:<\/restriction>|$)/.exec(body);
+  if (!r) continue;
+  if (/enumeration/.test(r[2])) continue; // code list
+  o.b = r[1];
+  const g = (n) => { const x = new RegExp('<' + n + ' value="([^"]*)"').exec(r[2]); return x ? x[1] : undefined; };
+  if (g('minInclusive') !== undefined) o.min = +g('minInclusive');
+  if (g('maxInclusive') !== undefined) o.max = +g('maxInclusive');
+  if (g('maxLength') !== undefined) o.len = +g('maxLength');
+  if (g('pattern') !== undefined) o.pat = g('pattern');
+  if (/<union>/.test(body) && /length value="0"/.test(body)) o.empty = 1;
+  limits[m[1]] = o;
+}
+function limitOf(typeName) {
+  const t = types[typeName], base = t ? t.base : null;
+  return (base && limits[base]) || limits[typeName] || null;
 }
 // element type (…TypeType) -> code list via its simpleContent base (…BaseTypeType)
 function codeOf(typeName) {
@@ -53,7 +81,11 @@ while ((m = reFeat.exec(xsd))) {
   if (/^(AbstractFeature|FeatureBase|FeatureVerticalQuality|AerodromeMappingDatabase)$/.test(m[1])) continue;
   const list = attrs(m[2] + 'Type');
   if (!list.length) continue;
-  features[m[1]] = { doc: short(doc(m[3])), attrs: list.map((a) => { const o = { n: a.name, d: a.doc }; const c = codeOf(a.type); if (c) o.c = c; return o; }) };
+  features[m[1]] = { doc: short(doc(m[3])), attrs: list.map((a) => { const o = { n: a.name, d: a.doc }; const c = codeOf(a.type); if (c) o.c = c; if (a.req) o.m = 1; const t = types[a.type]; if (t && t.uoms && t.uoms.length) o.u = t.uoms; const l = !c && limitOf(a.type); if (l) o.x = l;
+    if (t && t.nils && t.nils.length) o.nr = t.nils;
+    // can the element be empty (unknown)? a code list with the empty value, a union with the empty string, a text of length 0
+    o.e = c ? (codesAll[c] && codesAll[c].empty ? 1 : 0) : l ? (l.empty || (l.b === 'string' && !l.min) ? 1 : 0) : 1;
+    return o; }) };
 }
 const used = new Set();
 Object.values(features).forEach((f) => f.attrs.forEach((a) => { if (a.c) used.add(a.c); }));

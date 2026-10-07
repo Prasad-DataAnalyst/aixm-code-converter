@@ -540,7 +540,7 @@ var MAPVIEW = (function () {
   // offered. maxZoom: the last zoom the server has pictures for (closer in, those are enlarged).
   var ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/', OSMA = '© OpenStreetMap contributors';
   var ONLINE = {
-    esriStreet: { group: 'Street maps', name: 'World street map (Esri) — recommended', url: ESRI + 'World_Street_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, USGS, NGA, OpenStreetMap contributors', maxZoom: 19 },
+    esriStreet: { group: 'Street maps', name: 'World street map (Esri) — recommended, non-commercial use', url: ESRI + 'World_Street_Map/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, USGS, NGA, OpenStreetMap contributors', maxZoom: 19 },
     osmhot: { group: 'Street maps', name: 'OpenStreetMap (humanitarian style)', url: 'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png', attr: OSMA + ', tiles by HOT / OSM France', maxZoom: 19 },
     osmde: { group: 'Street maps', name: 'OpenStreetMap (German style)', url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png', attr: OSMA, maxZoom: 18 },
     esriGray: { group: 'Plain backgrounds (best under aeronautical data)', name: 'Light grey with place names (Esri)', url: ESRI + 'Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', labels: ESRI + 'Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', attr: 'Tiles © Esri — Esri, HERE, Garmin, OpenStreetMap contributors', maxZoom: 16 },
@@ -1357,7 +1357,7 @@ var MAPVIEW = (function () {
       h += '<option value="' + k + '">' + ONLINE[k].name + '</option>';
     });
     h += '</optgroup>';
-    h += '</select><div class="muted" style="font-size:11.5px;margin-top:4px">Online maps need the laptop\'s internet connection. The offline map always works.</div>';
+    h += '</select><div class="muted" style="font-size:11.5px;margin-top:4px">Online maps need the laptop\'s internet connection. The offline map always works. Esri maps: free for non-commercial use only (Esri terms of use) — for commercial work use the offline, OpenStreetMap or NASA maps, or your own ArcGIS licence.</div>';
     h += '<h4>Aeronautical layers</h4>';
     LAYER_DEF.forEach(function (d) { h += '<label class="chk"><input type="checkbox" data-layer="' + d[0] + '"' + (d[2] ? ' checked' : '') + '> ' + d[1] + ' <span class="muted" data-count="' + d[0] + '"></span></label>'; });
     h += '<h4>Airport view</h4><select class="inp" id="map-adview" aria-label="Airport view" style="width:100%"><option value="">Choose an aerodrome…</option></select>';
