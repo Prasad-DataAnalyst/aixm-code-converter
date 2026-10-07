@@ -283,7 +283,99 @@ The **data originator** stays whoever surveyed or supplied the data (the aerodro
 
 ---
 
-## 8. Sources
+## 8. Permissions, liability and the safe route (decision: study and analysis only)
+
+**Decision (Prasad Selvaraj).**
+- Build the best output we can.
+- Mark every output, and the HTML tool itself, **"NOT FOR NAVIGATION — for study and analysis purposes only"**.
+- Use only inputs that we, or the user, are allowed to use. Where an input is not permitted, take a free, permitted alternative.
+- Say exactly what is inside each package, how it was made and from which data.
+- Help users bring the package into their own formats and processes, such as ARINC 816.
+
+This section records what was checked. It is not legal advice; a short review by a lawyer is recommended before the first public release of the AMDB feature.
+
+### 8.1 The tool (the HTML file)
+
+| Item | Status | Action |
+|---|---|---|
+| Our code | Apache 2.0. Sections 7 and 8 already say "as is", with no warranty and no liability | Keep. Add an AMDB-specific notice (8.5) |
+| "Not for operational use" notice | Already on the About page (`APP_INFO.disclaimer`) | Extend the text to AMDB packages and show it before every AMDB export, with an acknowledgement tick |
+| Third-party libraries (Leaflet, three.js, SheetJS, jsPDF, fflate, …) | Permissive licences, listed in THIRD-PARTY-LICENSES.txt | Nothing new is needed |
+| AIXM schemas (EUROCONTROL & FAA) | BSD-style | Already credited |
+| AMXM 2.0.2 schema (RTCA, EUROCAE) | BSD-style: keep the notice and disclaimer; **the names RTCA and EUROCAE may not be used to endorse or promote** derived products without written permission | Write "uses the public AMXM 2.0 schema". **Never** write "EUROCAE / RTCA approved", "ED-99 compliant" or "certified" |
+| ED-99D, ED-119C, DO-200B, ARINC 816 texts | Copyrighted and sold | Do not copy their text or tables into the tool. Implement rules from public sources (ICAO, the EUROCONTROL ACGAMD pages, the AMXM schema) and cite them. Any rule taken from a purchased standard is cited by clause number only |
+| EUROCONTROL ACGAMD pages | Public guidance | Cite and link them; do not copy large passages |
+| No certification is claimed | No EASA Part-DAT certificate, and no DO-200B process assurance | Packages are never presented as navigation databases. This keeps the work outside Part-DAT, which applies to data intended for use on aircraft for navigation |
+
+### 8.2 Input sources: allowed, conditional, or not allowed
+
+| Source | Can it be used to make AMDB geometry? | Conditions |
+|---|---|---|
+| **The user's own data** (AIXM, AMXM, survey, CAD, GIS, imagery) | ✅ Yes | The user confirms they hold the rights. This is recorded in the metadata as the originator and the licence |
+| **Copernicus Sentinel-2** imagery (10 m) | ✅ Yes, free for any use including commercial | Notice "Contains modified Copernicus Sentinel data [year]". 10 m is good enough for **coarse** only |
+| **National open orthophotos** (e.g. France IGN BD ORTHO under the Etalab Licence Ouverte; Netherlands PDOK CC-BY; Denmark, Switzerland swisstopo, Norway, New Zealand LINZ CC-BY; USGS NAIP, public domain) | ✅ Yes, where the licence is open | Record the licence and the attribution for each source. 0.1 – 1 m imagery allows **medium** quality |
+| **Copernicus DEM GLO-30 / GLO-90** terrain | ✅ Yes | Exact notice: "produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved". Also add the no-liability sentence of the licence |
+| **SRTM, GMTED2010, ETOPO1** | ✅ Public domain | Credit the source |
+| **AWS Terrain Tiles** (already built in) | ✅ Open data | Per-source attribution, already listed |
+| **OpenStreetMap** aeroway data | ⚠ ODbL **share-alike**: an AMDB built from OSM is a derivative database and must itself be released under ODbL with attribution | Use only if the user accepts ODbL for the output. Never mix OSM with closed data in one package. Off by default |
+| **Esri World Imagery** | ⚠ The layer's terms allow tracing features to create vector data, but every other use stays under the Esri Master Agreement / Terms of Use, and tiles may not be exported for offline use | Allowed only as a **visual check**. It is not offered as a digitising source unless the user states they hold an Esri licence; the choice is recorded in the metadata |
+| **Google Maps / Google Earth, Bing, Apple** imagery | ❌ Their terms forbid deriving data | Never used |
+| **State AIP / AIXM data** | ⚠ Copyright stays with each State or ANSP. Some publish freely (e.g. FAA, public domain); others restrict reuse (eAIP copyright notices, EAD terms) | Only data the user loads. The package says which State's data were used and that rights stay with that State. **We never ship or redistribute State data ourselves** |
+| **Commercial AMDBs** (Jeppesen, Lido, NAVBLUE) | ❌ Licensed products | Never used as a source |
+| **FABDEM** and other CC BY-NC data | ❌ Non-commercial only | Not used, to stay safe for any user |
+
+### 8.3 Quality labels follow the source, not ambition
+
+| Source used | `featbase` | Quality classification |
+|---|---|---|
+| The user's survey, or their certified AIXM / AMXM data | as supplied | as declared by the originator |
+| Open orthophoto, 0.1 – 1 m, digitised in the tool | digitized | medium at best, stated as "not verified by survey" |
+| Sentinel-2, or generated from runway, threshold and width data in the AIP | generated / digitized | coarse |
+
+### 8.4 Transparency: what every package states ("what's inside")
+
+1. **README / Package report** (PDF and HTML) states:
+   - the purpose ("study and analysis only — not for navigation");
+   - every file in the package, with its SHA-256;
+   - the inputs: file names, the State or owner, the licence and the date;
+   - the processing steps, in order, with tool name and version: "AIXM Code Converter x.y — created by Prasad Selvaraj";
+   - the transformations: CRS, geoid, and densification tolerance;
+   - the rules checked, with their results;
+   - known gaps and limitations.
+2. **ISO 19115 metadata** carries the same lineage in machine form:
+   - role `processor` = Prasad Selvaraj / AIXM Code Converter;
+   - role `originator` = the data owner;
+   - `useLimitation` = NOT FOR NAVIGATION;
+   - `otherConstraints` = the licence of each source.
+3. **Inside every XML file** (AMXM / AIXM), a header comment and the metadata carry the notice.
+4. **Inside every feature**, `featbase` and `source` show how that feature was made.
+
+### 8.5 Notice text (draft)
+
+> NOT FOR NAVIGATION. FOR STUDY AND ANALYSIS PURPOSES ONLY.
+> This aerodrome mapping package was produced with the AIXM Code Converter, created by Prasad Selvaraj. It is not a certified aeronautical data product. It has not been produced under EUROCAE ED-76A / RTCA DO-200B, is not issued by an EASA Part-DAT or State AIS provider, and must not be loaded into aircraft systems or used for flight planning, navigation, aerodrome operations or any safety-related purpose. It is derived from the sources listed in the package report, which keep their own copyright and licences, and its accuracy is limited to the quality stated per feature. It is provided "as is", without warranty of any kind. The author and contributors accept no liability for any use of it (Apache License 2.0, sections 7 and 8). AMXM is a schema of RTCA and EUROCAE, used under its licence; RTCA and EUROCAE do not endorse this product.
+
+Before any AMDB export, the user ticks "I understand this is not for navigation and I have the right to use the input data". The tick is recorded in the package report.
+
+### 8.6 Helping others use the package (interoperability without liability)
+
+- **Open outputs**:
+  - AMXM 2.0 XML;
+  - AIXM 5.1.1 / 5.2;
+  - GeoPackage, the OGC open standard for import into GIS and AMDB tools;
+  - GeoJSON, KML, Shapefile;
+  - CSV attribute tables.
+- **ARINC 816.** The specification is SAE property and must be purchased. We would not write 816 binaries until a purchased copy confirms the licence permits it. Instead we provide:
+  - a public **mapping guide** from AMXM features and attributes to the ED-99 / ARINC 816 feature list, by feature name, so that an 816 compiler (vendors' tools, or the user's own) can take our AMXM or GeoPackage directly;
+  - a checklist of the data ARINC 816 tools usually need: tiling extent, metadata, CRCs and the AIRAC effective date;
+  - output already coded to the ED-99 conventions (ring orientation, splitting, identifiers), so 816 conversion needs no rework.
+- **Esri ArcGIS Aviation**: our AMXM 2.0 output is made to load with its `ImportAMXM` tool, with a how-to.
+- **AIXM systems** (AIS databases, eAIP tools): the AIXM version keeps the same UUIDs as the AMXM version, so updates can be merged.
+- **An open "how it was made" guide** in `docs/`, so anyone can repeat or audit the process.
+
+---
+
+## 9. Sources
 
 **EUROCONTROL**
 - (ICAO) Aerodrome Mapping Data Sets — supporting material: https://ext.eurocontrol.int/aixm_confluence/x/7gJ9Aw. It covers the standards landscape, general requirements, creation of AMD, information exchange models, metadata, implementation, applications and FAQ.
@@ -318,6 +410,12 @@ The **data originator** stays whoever surveyed or supplied the data (the aerodro
 - IEEE, World-wide precision airport mapping databases: https://ieeexplore.ieee.org/document/5731201
 - Runway Extraction and Improved Mapping from Space Imagery: https://arxiv.org/pdf/2201.00848
 - SUTD × Jeppesen Airport Mapper: https://capstoneshowcase.sutd.edu.sg/2024/project/airport-mapper/
+
+**Licences (section 8)**
+- Esri World Imagery terms: https://goto.arcgis.com/maps/World_Imagery
+- Copernicus DEM GLO-30 licence: https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/DEM/resources/license/License-COPDEM-30.pdf
+- Copernicus Sentinel data licence: https://ewds.climate.copernicus.eu/licences/ec-sentinel
+- OSM licence FAQ (ODbL): https://osmfoundation.org/wiki/Licence_and_Legal_FAQ
 
 ---
 
