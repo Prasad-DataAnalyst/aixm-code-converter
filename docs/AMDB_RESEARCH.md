@@ -471,6 +471,43 @@ Every format carries:
 
 A white-label export removes only our branding.
 
+### 9.3 4D: 3D plus time, across every section (backlog, not started)
+
+**What exists today:**
+- "Latest data / Valid on date" resolves AIXM temporality (BASELINE, PERMDELTA, TEMPDELTA) for any day.
+- The Timeline, Changes and NOTAM views.
+- Timesheets shown in the AIP.
+- The 3D view (`view3d.js`), with terrain, airspace volumes and crew views.
+- Live traffic.
+
+**4D joins these up.** One time control (date plus UTC time, with play / pause / step by AIRAC, day or hour) drives the Map, 3D, AIP, Digital data and Quality views together.
+
+| Section | What 4D shows |
+|---|---|
+| Airspace | Volumes that switch on and off by their timesheets and activations (danger, restricted and TSA areas, CTR hours); 3D blocks appear and disappear as time plays |
+| Routes / airways | Conditional routes, level and direction limits by time |
+| Aerodrome / AMDB | Works areas, closed taxiways and stands, temporary markings and lighting changes (TEMPDELTA / Digital NOTAM) in 3D |
+| Obstacles | Temporary obstacles such as cranes, with their validity; new and removed obstacles by AIRAC |
+| Procedures (IFP) | Which procedures are valid on a date. A **4D flight-path study**: legs with speeds and altitudes become time along the path (estimated times over each fix, climb and descent profiles), drawn in 3D with a moving aircraft, plus terrain and obstacle clearance along it. Study only |
+| Navaids | Outages and maintenance (NOTAM), and the coverage they leave |
+| Terrain | Static, but used as the surface for every 4D view |
+| Live traffic | Real aircraft over the 4D picture, for the current time only |
+| Changes / AIRAC | "Play" from one cycle to the next: features appear, move, change or disappear, with a change report |
+| Digital NOTAM | Each event shown in place, in 3D, during its active period |
+
+**Exports in 4D:**
+- KML with time stamps (Google Earth time slider);
+- CZML (Cesium) for 3D web viewers;
+- GeoJSON with validity fields;
+- a video or GIF of the animation;
+- a PDF "state on date" report.
+
+**Speed rule (section 9):**
+- The state for each time is computed once and cached, reusing the temporality engine already in place.
+- Animation draws only what changes between frames.
+- Nothing runs unless the time control is opened.
+- File reading is not affected.
+
 ---
 
 ## 10. Sources
