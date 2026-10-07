@@ -1022,3 +1022,6 @@ pre, .xml, .notam-text { text-align: left; }
 .xp-aixm { display: inline-flex; gap: 6px; align-items: center; }
 .xp-aixm select { width: auto; }
 .xp-aixm-note { margin: 6px 0 0; font-size: 12.5px; }
+.xp-rel { margin-top: 8px; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; }
+.xp-rel summary { cursor: pointer; }
+.xp-rel .xp-cols { margin: 8px 0; }

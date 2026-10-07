@@ -7,6 +7,26 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.24.0 — 2026-10-07 — AIXM custom export with related data
+
+- **Add related data to the AIXM file** (custom data export, step 4). For the aerodromes chosen in step 1, choose
+  the kinds of related data and a distance from the aerodrome reference point (default 25 NM):
+  - all the aerodrome data: runways, taxiways, aprons, lights, services, frequencies …;
+  - the airspace over the aerodrome, i.e. the volumes its reference point lies in (CTR, ATZ, TMA, CTA, FIR …);
+  - airspace nearby (P, R, D, TMA …);
+  - instrument procedures with their legs, holdings, MSA and TAA;
+  - obstacles and the obstacle areas;
+  - navaids and designated points;
+  - ATS route segments.
+
+  The related data comes from every data set loaded of the State (AIP, obstacle and IFP data sets). The features it
+  references are added too, so the file still stands alone.
+- **Marked in the file**: each related feature carries a comment saying why it is there (e.g. "related: obstacle
+  3.2 NM from EADD", "related: airspace over EADD"). The header and the report count selected, related and
+  supporting features separately.
+- **One version per file**: related data from a data set in another AIXM version (e.g. a 5.2 IFP data set beside a
+  5.1.1 AIP data set) is left out, and the report says which. Export that data set on its own.
+
 ## 1.23.0 — 2026-10-07 — Custom data export in AIXM
 
 - **AIXM in step 4 of the custom data export**: only the data chosen (e.g. the runways of three aerodromes, or the

@@ -3064,10 +3064,10 @@
     if (XSEL) return XSEL;
     var o = {};
     try { o = JSON.parse(localStorage.getItem('aixm-xsel') || '{}'); } catch (e) { o = {}; }
-    XSEL = { keys: new Set(o.keys || []), adCodes: new Set(o.adCodes || []), layout: o.layout || 'table', raw: !!o.raw, aixmv: o.aixmv || 'orig', dss: null };
+    XSEL = { keys: new Set(o.keys || []), adCodes: new Set(o.adCodes || []), layout: o.layout || 'table', raw: !!o.raw, aixmv: o.aixmv || 'orig', rel: o.rel || [], relNm: o.relNm || 25, dss: null };
     return XSEL;
   }
-  function xselSave() { try { localStorage.setItem('aixm-xsel', JSON.stringify({ keys: Array.from(XSEL.keys), adCodes: Array.from(XSEL.adCodes), layout: XSEL.layout, raw: XSEL.raw, aixmv: XSEL.aixmv })); } catch (e) { /* storage unavailable */ } }
+  function xselSave() { try { localStorage.setItem('aixm-xsel', JSON.stringify({ keys: Array.from(XSEL.keys), adCodes: Array.from(XSEL.adCodes), layout: XSEL.layout, raw: XSEL.raw, aixmv: XSEL.aixmv, rel: XSEL.rel, relNm: XSEL.relNm })); } catch (e) { /* storage unavailable */ } }
   function xpDatasets(ds) {
     var X = xsel();
     var list = S.datasets.filter(function (d) { return X.dss ? X.dss.has(d.id) : d === ds; });
@@ -3102,9 +3102,17 @@
       '<span class="xp-sep"></span>' + [['geojson', 'GeoJSON'], ['kml', 'KML'], ['shp', 'Shapefile']].map(function (f) { return '<button class="btn" data-xf="' + f[0] + '">' + I.map + ' ' + f[1] + '</button>'; }).join('') +
       '<span class="xp-sep"></span><span class="xp-aixm"><select class="inp" id="xp-aixmv" aria-label="AIXM version of the file" title="AIXM version of the file">' + aixmTargets(list).map(function (o) { return '<option value="' + o[0] + '"' + (X.aixmv === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>' +
       '<button class="btn" data-xf="aixm" title="The selected features in AIXM, with every feature they reference (aerodrome, runways, points, navaids, borders …) so the file stands alone">' + I.code + ' AIXM</button></span></div>' +
-      '<p class="muted xp-aixm-note">AIXM: the selected features with their original XML, plus every feature they reference (aerodrome, runway, points, navaids, airspace borders, procedure fixes …), so that every reference in the file resolves and it opens on its own in this tool or any AIXM software. As delivered, or converted to another AIXM version.</p></div>';
+      '<p class="muted xp-aixm-note">AIXM: the selected features with their original XML, plus every feature they reference (aerodrome, runway, points, navaids, airspace borders, procedure fixes …), so that every reference in the file resolves and it opens on its own in this tool or any AIXM software. As delivered, or converted to another AIXM version.</p>' +
+      '<details class="xp-rel"' + (X.rel.length ? ' open' : '') + '><summary><b>Add related data to the AIXM file</b> <span class="muted">— for the aerodromes chosen in step 1' + (X.rel.length ? ' · ' + X.rel.length + ' kind(s)' : '') + '</span></summary><div class="xp-cols">' +
+      REL_KINDS.map(function (k) { return '<label class="chk"><input type="checkbox" data-xrel="' + k[0] + '"' + (X.rel.indexOf(k[0]) >= 0 ? ' checked' : '') + '> ' + esc(k[1]) + ' <span class="muted">' + esc(k[2]) + '</span></label>'; }).join('') +
+      '</div><div class="row wrap" style="gap:8px;align-items:center"><span>within</span><input class="inp" id="xp-relnm" type="number" min="1" max="250" step="1" style="width:80px" value="' + X.relNm + '"><span>NM of the aerodrome reference point</span>' +
+      '<button class="btn small ghost" data-xrelall="1">All</button><button class="btn small ghost" data-xrelall="0">None</button></div>' +
+      '<p class="muted" style="margin:6px 0 0">Taken from every data set loaded of the State (AIP, obstacle and IFP data sets). Each related feature is marked in the file with why it is there; the features they reference are added too.</p></details></div>';
     return h;
   }
+  var REL_KINDS = [['aerodrome', 'All the aerodrome data', 'runways, taxiways, aprons, lights, services, frequencies …'], ['over', 'Airspace over the aerodrome', 'CTR, ATZ, TMA, CTA, FIR it lies in'],
+    ['airspace', 'Airspace nearby', 'P, R, D, TMA, CTR … within the distance'], ['procedures', 'Instrument procedures', 'SID, STAR, approaches, legs, holdings, MSA, TAA'],
+    ['obstacles', 'Obstacles', 'within the distance, and the obstacle areas'], ['navaids', 'Navaids and points', 'within the distance'], ['routes', 'ATS routes', 'segments within the distance']];
   // AIXM versions a selection can be written in: as delivered, or converted (AIXM 4.5 -> 5.x by the 4.5 writer)
   function aixmTargets(list) {
     var fam = list[0] ? list[0].family : '5', lab = list[0] ? list[0].sniff.versionLabel : 'AIXM';
@@ -3156,11 +3164,14 @@
       } else if (t.name === 'xp-layout') { X.layout = t.value; xselSave(); }
       else if (t.id === 'xp-raw') { X.raw = t.checked; xselSave(); }
       else if (t.id === 'xp-aixmv') { X.aixmv = t.value; xselSave(); }
+      else if (t.hasAttribute('data-xrel')) { X.rel = $$('[data-xrel]:checked', host).map(function (c) { return c.getAttribute('data-xrel'); }); xselSave(); }
+      else if (t.id === 'xp-relnm') { X.relNm = Math.max(1, Math.min(250, +t.value || 25)); xselSave(); }
     });
     host.addEventListener('click', function (e) {
       var b = e.target.closest('button');
       if (!b) return;
       if (b.classList.contains('xp-more')) { var r = b.nextElementSibling; r.classList.toggle('hidden'); b.textContent = r.classList.contains('hidden') ? 'items ▾' : 'items ▴'; return; }
+      if (b.hasAttribute('data-xrelall')) { var all1 = b.getAttribute('data-xrelall') === '1'; $$('[data-xrel]', host).forEach(function (c) { c.checked = all1; }); X.rel = all1 ? REL_KINDS.map(function (k) { return k[0]; }) : []; xselSave(); return; }
       var qa = b.getAttribute('data-xa');
       if (qa) {
         $$('#xp-ads label.chk', host).forEach(function (l) {
@@ -3197,7 +3208,7 @@
           if (!n) toast('Nothing with a position in the selection.');
           return;
         }
-        if (f === 'aixm') { exportAixmSelection(scope, $('#xp-aixmv', host).value); return; }
+        if (f === 'aixm') { exportAixmSelection(scope, $('#xp-aixmv', host).value, adsChosen(), X.rel, X.relNm); return; }
         if (scope.features && (f === 'pdf' || f === 'print' || f === 'mail')) scope.features = null;
         runExport(f, scope);
       }
@@ -3216,16 +3227,19 @@
     refresh();
   }
   // AIXM file(s) of the selection: one per data set, the chosen features and all they reference
-  async function exportAixmSelection(scope, target) {
+  async function exportAixmSelection(scope, target, ads, rel, relNm) {
     var list = xpDatasets(dsOf()), n = 0, reps = [];
+    var relLabel = rel && rel.length ? REL_KINDS.filter(function (k) { return rel.indexOf(k[0]) >= 0; }).map(function (k) { return k[1].toLowerCase(); }).join(', ') + ' within ' + relNm + ' NM' : '';
+    if (rel && rel.length && !(ads || []).length) toast('Related data is added for the aerodromes chosen in step 1 — none is chosen.', 5000);
     for (var i = 0; i < list.length; i++) {
       var d = list[i], flt = scope.gisFilter(d);
       if (!flt) continue;
       var seeds = d.recs.filter(function (r) { return r.k !== '#error' && !(r.cur && r.cur.gone) && flt(r); }).map(function (r) { return { ds: d, r: r }; });
       if (!seeds.length) continue;
+      if (rel && rel.length) seeds = seeds.concat(CONVERT.related((ads || []).filter(function (x) { return x.ds === d; }), S.datasets, { kinds: new Set(rel), nm: relNm }));
       try {
         toast('Writing the AIXM file of ' + d.name + '…');
-        var res = await CONVERT.selection(d, seeds, S.datasets, target || 'orig', scope.sub);
+        var res = await CONVERT.selection(d, seeds, S.datasets, target || 'orig', scope.sub, null, relLabel);
         var tag = target && target !== 'orig' ? '_AIXM-' + target : '';
         EXPORTS.download(EXPORTS.safeName(d.state + '_' + d.name.replace(/\.[^.]+$/, '') + '_selection') + tag + '.xml', res.blob);
         res.report.notes.unshift(d.name + ':');

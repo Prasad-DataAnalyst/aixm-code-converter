@@ -5,7 +5,9 @@
 // - AIXM 5.1.1 Donlon: runway characteristics of EADD and the danger areas, as delivered and as AIXM 5.2; each file is
 //   read again: the runways of EADD in AD 2.12, the danger areas, no reference left unresolved (in 5.2 only the one to
 //   the AltimeterSource, which AIXM 5.2 removed — the report says so);
-// - AIXM 4.5: an aerodrome with its runways, as delivered (4.5) and as AIXM 5.1.1, both read again.
+// - AIXM 4.5: an aerodrome with its runways, as delivered (4.5) and as AIXM 5.1.1, both read again;
+// - one aerodrome with its related data (aerodrome data, airspace over it and nearby, procedures, obstacles, navaids,
+//   routes within 10 NM) from the AIP, obstacle and IFP data sets loaded; data sets in another AIXM version left out.
 /* global ANALYSIS, AIP */
 const fs = require('fs');
 const path = require('path');
@@ -82,6 +84,24 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
     console.log(path.basename(f.p), JSON.stringify(r));
     if (!r.by.AirportHeliport || !r.rwy.length || r.unresolved.length) fails.push('reread ' + path.basename(f.p) + ': ' + JSON.stringify(r));
   }
+
+  // one aerodrome with its related data from the AIP, obstacle and IFP data sets of the State
+  await load([T + 'Donlon_ALL_Baseline_2025.xml', T + 'EA_EADD_OBS_DS_AREA_2_3_4_FULL_20191205.xml', T + 'ifp_test_EADD.xml', T + 'ifp52_test_EADD.xml']);
+  const vers = await page.evaluate(() => window.__AIXM.S.datasets.map((d) => d.name + ' ' + d.version));
+  await page.evaluate(() => { window.__AIXM.S.active = window.__AIXM.S.datasets.findIndex((d) => /Donlon_ALL/.test(d.name)); window.__AIXM.go('export'); }); await page.waitForSelector('#xp');
+  await page.check('#xp-ads input[data-code="EADD"]');
+  await page.click('.xp-qp:text-is("Magnetic variation")');
+  await page.click('.xp-rel summary'); await page.click('[data-xrelall="1"]');
+  await page.fill('#xp-relnm', '10'); await page.dispatchEvent('#xp-relnm', 'change');
+  await page.screenshot({ path: OUT + '/related.png' });
+  const e = await exportAixm('orig');
+  const tags = {}; (e.xml.match(/<!-- related: [^>]*-->/g) || []).forEach((t) => { const k = t.replace(/<!-- related: /, '').replace(/ (\d|within|of|from).*$/, '').replace(/ -->$/, ''); tags[k] = (tags[k] || 0) + 1; });
+  console.log('versions', JSON.stringify(vers), '\nrelated', JSON.stringify(tags));
+  for (const k of ['EADD aerodrome data', 'airspace over EADD', 'obstacle', 'EADD instrument procedure']) if (!Object.keys(tags).some((t) => t.indexOf(k) === 0)) fails.push('related ' + k + ' missing: ' + JSON.stringify(tags));
+  if (!/related feature\(s\) added/.test(e.rep) || !/Left out .*ifp52_test_EADD\.xml/.test(e.rep)) fails.push('related report: ' + e.rep);
+  const rr = await reread(e.p);
+  console.log('related reread', JSON.stringify(rr));
+  if (!rr.by.VerticalStructure || !rr.by.InstrumentApproachProcedure || !rr.by.Airspace || !rr.rwy.length || rr.unresolved.length) fails.push('related reread: ' + JSON.stringify(rr));
 
   console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'no errors');
   console.log(fails.length ? 'FAIL:\n  ' + fails.join('\n  ') : 'Custom data export in AIXM (selection with supporting features, 4.5 / 5.1 / 5.2, read again) OK');

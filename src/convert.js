@@ -9,7 +9,7 @@
  *  - AIXM 4.5 -> AIXM 5.1.1 BasicMessage writer (from the adapted model)
  *  - GIS: GeoJSON, KML (Google Earth), ESRI Shapefile (zip)
  * ========================================================================== */
-/* global AX, MODEL, AIP, fflate */
+/* global AX, MODEL, AIP, IFP, fflate */
 var CONVERT = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -427,7 +427,7 @@ var CONVERT = (function () {
         if (!t || !t.p) return;
         M.eachRef(t.p, function (ref) {
           var x = M.target(ds, ref), xds = ds;
-          if (!x && peers) for (var i = 0; i < peers.length && !x; i++) if (peers[i] !== ds && peers[i].family === ds.family && peers[i].byId) { x = peers[i].byId.get(ref) || null; xds = peers[i]; }
+          if (!x && peers) for (var i = 0; i < peers.length && !x; i++) if (peers[i] !== ds && peers[i].family === ds.family && peers[i].version === ds.version && peers[i].byId) { x = peers[i].byId.get(ref) || null; xds = peers[i]; }
           if (!x) { missing.set(ref, r); return; }
           if (x.cur && x.cur.gone) return;
           add(xds, x, r);
@@ -435,6 +435,68 @@ var CONVERT = (function () {
       });
     }
     return { all: all, missing: missing };
+  }
+  // Data related to chosen aerodromes, from every data set loaded of the same AIXM family (the AIP, obstacle and IFP
+  // data sets of a State), by kind (opt.kinds, a Set) and distance from the aerodrome reference point (opt.nm):
+  //   aerodrome   every feature of the aerodrome (runways, taxiways, aprons, lights, services, frequencies …)
+  //   over        airspace over the aerodrome: the volumes its reference point lies in (CTR, ATZ, TMA, CTA, FIR …)
+  //   airspace    airspace within the distance (P, R, D, TMA, CTR …)
+  //   procedures  SID, STAR and approaches with their legs, holdings, MSA and TAA
+  //   obstacles   obstacles within the distance and the obstacle areas of the aerodrome
+  //   navaids     navaids and designated points within the distance
+  //   routes      ATS route segments with an end within the distance (and their route)
+  // -> [{ds, r, tag}] (tag: why it is in the file)
+  var PROC_KINDS = ['StandardInstrumentDeparture', 'StandardInstrumentArrival', 'InstrumentApproachProcedure'];
+  var PROC_EXTRA = ['HoldingPattern', 'SafeAltitudeArea', 'MinimumAltitudeArea', 'TerminalArrivalArea', 'CirclingArea', 'ProcedureDME', 'NavigationArea'];
+  function ringsOf(g) { if (!g) return []; if (g.t === 'M') return [].concat.apply([], g.parts.map(ringsOf)); return g.t === 'A' ? g.c.filter(function (r) { return r && r.length > 2; }) : []; }
+  function linesOf(g) { if (!g) return []; if (g.t === 'M') return [].concat.apply([], g.parts.map(linesOf)); return g.t === 'L' ? [g.c] : g.t === 'A' ? g.c : g.t === 'P' ? [[g.c]] : []; }
+  function inRing(c, ring) {
+    var ins = false;
+    for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      var a = ring[i], b = ring[j];
+      if (typeof a[0] !== 'number' || typeof b[0] !== 'number') continue;
+      if (((a[1] > c[1]) !== (b[1] > c[1])) && (c[0] < (b[0] - a[0]) * (c[1] - a[1]) / (b[1] - a[1]) + a[0])) ins = !ins;
+    }
+    return ins;
+  }
+  function related(ads, datasets, opt) {
+    var out = [], seen = new Set(), K = opt.kinds, nm = opt.nm || 25;
+    function add(ds, r, tag) { if (!r || seen.has(r) || (r.cur && r.cur.gone) || r.k === '#error') return; seen.add(r); out.push({ ds: ds, r: r, tag: tag }); }
+    ads.forEach(function (x) {
+      var adDs = x.ds, ad = x.ad, code = M.shortName(ad), arp = M.pointOf(adDs, ad);
+      var dsl = datasets.filter(function (d) { return d.family === adDs.family && d.recs; });
+      function near(c, n) { return c && arp && AX.distNM(arp, c) <= n; }
+      dsl.forEach(function (ds) {
+        ds.recs.forEach(function (r) {
+          if (r.cur && r.cur.gone) return;
+          var own = ds.owner && ds.owner.get(r) === ad, k = r.k;
+          var isProc = PROC_KINDS.indexOf(k) >= 0 || PROC_EXTRA.indexOf(k) >= 0 || /Leg$/.test(k);
+          if (K.has('aerodrome') && own && !isProc && k !== 'VerticalStructure') add(ds, r, 'related: ' + code + ' aerodrome data');
+          if (K.has('procedures') && PROC_KINDS.indexOf(k) >= 0) {
+            var o = own ? { r: ad } : (typeof IFP !== 'undefined' ? IFP.aerodrome(ds, r) : null);
+            if (o && (o.r === ad || (M.shortName(o.r) === code))) {
+              add(ds, r, 'related: ' + code + ' instrument procedure');
+              try { AIP.procLegs(ds, r).forEach(function (l) { add(ds, l.leg, 'related: leg of ' + code + ' procedure'); }); } catch (e) { /* legs not readable */ }
+            }
+          }
+          if (K.has('procedures') && PROC_EXTRA.indexOf(k) >= 0 && (own || near(M.pointOf(ds, r), 15))) add(ds, r, 'related: ' + code + ' holding / minimum altitude area');
+          if (K.has('obstacles') && (k === 'VerticalStructure' || k === 'ObstacleArea')) {
+            if (k === 'ObstacleArea' ? own : (own || near(M.pointOf(ds, r), nm))) add(ds, r, 'related: obstacle ' + (arp && M.pointOf(ds, r) ? (Math.round(AX.distNM(arp, M.pointOf(ds, r)) * 10) / 10) + ' NM from ' + code : 'of ' + code));
+          }
+          if (K.has('navaids') && /^(Navaid|VOR|DME|NDB|TACAN|DesignatedPoint|MarkerBeacon|Localizer|Glidepath)$/.test(k) && near(M.pointOf(ds, r), nm)) add(ds, r, 'related: ' + k + ' within ' + nm + ' NM of ' + code);
+          if (K.has('routes') && k === 'RouteSegment') {
+            var g = M.geometry(ds, r), ends = g && g.t === 'L' ? [g.c[0], g.c[g.c.length - 1]] : [];
+            if (ends.some(function (c) { return near(c, nm); })) add(ds, r, 'related: route segment within ' + nm + ' NM of ' + code);
+          }
+          if ((K.has('over') || K.has('airspace')) && k === 'Airspace' && arp) {
+            var gg = M.geometry(ds, r), rings = ringsOf(gg);
+            if (rings.some(function (ring) { return inRing(arp, ring); })) { if (K.has('over')) add(ds, r, 'related: airspace over ' + code); return; }
+            if (K.has('airspace') && linesOf(gg).some(function (l) { return l.some(function (c) { return typeof c[0] === 'number' && near(c, nm); }); })) add(ds, r, 'related: airspace within ' + nm + ' NM of ' + code);
+          }
+        });
+      });
+    });
+    return out;
   }
   // rewrite AIXM 5 namespaces, the schema location and renamed features from one version to another
   function retarget(txt, from, target, report) {
@@ -449,17 +511,23 @@ var CONVERT = (function () {
     return txt;
   }
   // seeds: [{ds, r}] of one data set; peers: other data sets loaded; target: 'orig' | '5.1' | '5.1.1' | '5.2'
-  async function selection(ds, seeds, peers, target, label, onProgress) {
-    var cl = closure(seeds, peers), chosen = new Set(seeds.map(function (x) { return x.r; }));
+  async function selection(ds, seeds, peers, target, label, onProgress, label2) { // label2: the related data asked for
+    // one file, one AIXM version: related features of data sets in another version are left out (and reported)
+    var other = {};
+    seeds = seeds.filter(function (x) { if (x.ds === ds || x.ds.version === ds.version) return true; other[x.ds.name + ' (' + x.ds.sniff.versionLabel + ')'] = (other[x.ds.name + ' (' + x.ds.sniff.versionLabel + ')'] || 0) + 1; return false; });
+    var cl = closure(seeds, peers), chosen = new Set(seeds.filter(function (x) { return !x.tag; }).map(function (x) { return x.r; })), tagOf = new Map();
+    seeds.forEach(function (x) { if (x.tag && !chosen.has(x.r)) tagOf.set(x.r, x.tag); });
     var byDs = new Map();
     cl.all.forEach(function (v, r) { if (r.k === '#error') return; var l = byDs.get(v.ds); if (!l) byDs.set(v.ds, l = []); l.push(r); });
     var dsList = Array.from(byDs.keys()).sort(function (a, b) { return a === ds ? -1 : b === ds ? 1 : 0; });
     var count = function (pred) { var o = {}; cl.all.forEach(function (v, r) { if (pred(r)) o[r.k] = (o[r.k] || 0) + 1; }); return Object.keys(o).sort().map(function (k) { return k + ' ' + o[k]; }).join(', '); };
-    var nSel = 0, nSup = 0; cl.all.forEach(function (v, r) { if (chosen.has(r)) nSel++; else nSup++; });
+    var nSel = 0, nSup = 0, nRel = 0; cl.all.forEach(function (v, r) { if (chosen.has(r)) nSel++; else if (tagOf.has(r)) nRel++; else nSup++; });
     var report = { title: 'AIXM file of the selection', from: ds.sniff.versionLabel, to: target === 'orig' ? ds.sniff.versionLabel : 'AIXM ' + target, notes: [] };
     var today = new Date().toISOString().slice(0, 10), out;
     var head = ' AIXM file of a selection, made by ' + CREDIT + ' on ' + today + ' from ' + dsList.map(function (d) { return d.name; }).join(', ') + '.\n     Selected: ' + xesc(label || '') +
-      '\n     ' + nSel + ' selected feature(s): ' + xesc(count(function (r) { return chosen.has(r); })) + '\n     ' + nSup + ' supporting feature(s) they reference: ' + xesc(count(function (r) { return !chosen.has(r); }) || 'none') +
+      '\n     ' + nSel + ' selected feature(s): ' + xesc(count(function (r) { return chosen.has(r); })) +
+      (nRel ? '\n     ' + nRel + ' related feature(s) added (' + xesc(label2 || '') + '): ' + xesc(count(function (r) { return tagOf.has(r); })) : '') +
+      '\n     ' + nSup + ' supporting feature(s) they reference: ' + xesc(count(function (r) { return !chosen.has(r) && !tagOf.has(r); }) || 'none') +
       (cl.missing.size ? '\n     ' + cl.missing.size + ' reference(s) to features not in the data loaded.' : '') + ' ';
     if (ds.family !== '5' && target !== 'orig') {
       // AIXM 4.5 to AIXM 5: the 4.5 -> 5.1.1 writer on the features of the selection, then the version asked
@@ -479,7 +547,7 @@ var CONVERT = (function () {
         recs.forEach(function (r) {
           var t = ft.map.get(r);
           if (!t) return;
-          var why = chosen.has(r) ? 'selected' : 'supporting: referenced by ' + r0k(cl.all.get(r).why);
+          var why = chosen.has(r) ? 'selected' : tagOf.has(r) ? tagOf.get(r) : 'supporting: referenced by ' + r0k(cl.all.get(r).why);
           parts.push('  <!-- ' + xesc(why).replace(/--/g, '- -') + (d !== ds ? ' (from ' + xesc(d.name) + ')' : '') + ' -->\n' + (member ? '  <' + member + '>\n    ' + t + '\n  </' + member + '>\n' : '  ' + t + '\n'));
           written++;
         });
@@ -498,7 +566,8 @@ var CONVERT = (function () {
       }
       report.notes.unshift(written + ' features written with their original XML' + (five ? ' (' + slices + ' time slices valid at the moment shown' + (ended ? '; ' + ended + ' ended time slices left out' : '') + ')' : '') + '.');
     }
-    report.notes.unshift(nSel + ' selected feature(s) and ' + nSup + ' supporting feature(s) they reference (aerodromes, runways, points, navaids, borders …), so every reference in the file resolves' + (cl.missing.size ? ', except ' + cl.missing.size + ' to features that are not in the data loaded' : '') + '.');
+    report.notes.unshift(nSel + ' selected feature(s)' + (nRel ? ', ' + nRel + ' related feature(s) added (' + (label2 || '') + '),' : '') + ' and ' + nSup + ' supporting feature(s) they reference (aerodromes, runways, points, navaids, borders …), so every reference in the file resolves' + (cl.missing.size ? ', except ' + cl.missing.size + ' to features that are not in the data loaded' : '') + '.');
+    if (Object.keys(other).length) report.notes.push('Left out — related data in another AIXM version than this file (export that data set on its own): ' + Object.keys(other).map(function (k) { return other[k] + ' from ' + k; }).join(', ') + '.');
     if (dsList.length > 1) report.notes.push('Supporting features taken from ' + dsList.slice(1).map(function (d) { return d.name; }).join(', ') + '.');
     if (onProgress) onProgress(1);
     function r0k(r) { return r ? r.k + ' ' + (M.label ? M.label(all0(r), r) : r.id) : ''; }
@@ -506,5 +575,5 @@ var CONVERT = (function () {
     return { blob: new Blob([out], { type: 'text/xml' }), report: report, selected: nSel, supporting: nSup, missing: cl.missing.size };
   }
 
-  return { convertVersion: convertVersion, consolidate: consolidate, selection: selection, closure: closure, writer45: writer45, toGeoJSON: toGeoJSON, toKML: toKML, toShapefile: toShapefile, uuidFor: uuidFor, gisFeatures: gisFeatures };
+  return { convertVersion: convertVersion, consolidate: consolidate, selection: selection, closure: closure, related: related, writer45: writer45, toGeoJSON: toGeoJSON, toKML: toKML, toShapefile: toShapefile, uuidFor: uuidFor, gisFeatures: gisFeatures };
 })();
