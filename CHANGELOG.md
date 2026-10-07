@@ -7,6 +7,37 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.25.0 — 2026-10-07 — Digital data exports: AIXM with related data, terrain of an area
+
+- **Obstacles in AIXM** (Digital data → Obstacles → Reports):
+  - which obstacles: the ones chosen, the ones affecting flight paths, the list filter, or all;
+  - format: AIXM as delivered, or AIXM 5.1 / 5.1.1 / 5.2 (obstacle tables from Excel / CSV are written as AIXM
+    VerticalStructure);
+  - related data on request: the obstacle areas, the aerodrome, the airspace over it, the procedures whose legs
+    pass within a distance of the obstacles, navaids.
+- **Procedures in AIXM** (Digital data → Procedures):
+  - which procedures: those listed, or all, each with its legs and the fixes, navaids and runways it references;
+  - related data on request: holdings, MSA and TAA, obstacles within a distance of the paths, the aerodromes, the
+    airspace over them, navaids;
+  - procedures of IFP data sets in different AIXM versions can be converted together into one file.
+- **Aerodrome mapping** (Digital data → Aerodrome mapping):
+  - which features: the type shown, the aerodrome, or all;
+  - format: AMXM as delivered, or written as AIXM 5.1 / 5.1.1 / 5.2 aerodrome features;
+  - related data on request: the AIXM aerodrome from the AIP data set, the airspace over it, obstacles nearby.
+- **Terrain of an area** (Digital data → Terrain → Reports):
+  - the area: an aerodrome and a radius, or the whole extent of the terrain files loaded;
+  - the post spacing: as the finest file, 1″, 3″ or 30″;
+  - written as GeoTIFF (Float32, Deflate, WGS 84, EGM96 heights, PixelIsArea, no data −32767), ESRI ASCII grid
+    or XYZ text, with a metadata file (area, posts, spacing, datums, source files and their PANS-AIM area);
+  - "Obstacles of the area in AIXM" writes the obstacles of the same area with their aerodrome.
+- **How the AIXM is written**:
+  - each file stands alone: every referenced feature is added, and each feature is marked *selected*, *related* or
+    *supporting*;
+  - when converting, data of several AIXM versions, tables or AMXM is written from the data read, keeping AIXM 5
+    identifiers;
+  - the report lists what was left out (another version, when as delivered) and features that do not exist in the
+    target version.
+
 ## 1.24.0 — 2026-10-07 — AIXM custom export with related data
 
 - **Add related data to the AIXM file** (custom data export, step 4). For the aerodromes chosen in step 1, choose

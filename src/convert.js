@@ -70,7 +70,11 @@ var CONVERT = (function () {
 
   /* ----------------------------------------------- AIXM 4.5 -> 5.1.1 writer */
   var POS_SRS = 'urn:ogc:def:crs:EPSG::4326';
-  function writer45(ds, only) { // only: optional filter of the features to write (custom data export)
+  // AIXM 5 identifiers are kept; other keys (AIXM 4.5, table rows, AMXM) get a UUID derived from them
+  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function idOf(id) { id = String(id).replace(/^urn:uuid:/, ''); return UUID_RE.test(id) ? id.toLowerCase() : uuidFor(id); }
+  // only: optional filter of the features to write; note(r): optional comment written before a feature (custom export)
+  function writer45(ds, only, note) {
     var D = M.dict(), idc = 0, parts = [], skipped = {}, written = 0;
     // 4.5 frequencies point to their service; AIXM 5 services list their channels and call signs
     var svcExtra = new Map();
@@ -86,7 +90,7 @@ var CONVERT = (function () {
     function gid(p) { return (p || 'ID') + '_' + (++idc); }
     function refId(ref) {
       var t = M.target(ds, ref);
-      return 'urn:uuid:' + uuidFor(t ? t.id : ref.ref);
+      return 'urn:uuid:' + idOf(t ? t.id : ref.ref);
     }
     function posList(c) { return c.filter(function (p) { return typeof p[0] === 'number'; }).map(function (p) { return p[1].toFixed(8) + ' ' + p[0].toFixed(8); }).join(' '); }
     function geomXml(tag, o, ind) {
@@ -122,7 +126,7 @@ var CONVERT = (function () {
       if (r.k.indexOf('45:') === 0 || r.k === 'Service') { skipped[r.s45 || r.k] = (skipped[r.s45 || r.k] || 0) + 1; return ''; }
       var fd = D.v5.features[r.k];
       if (!fd) { skipped[r.k] = (skipped[r.k] || 0) + 1; return ''; }
-      var p = r.cur.p, u = uuidFor(r.id);
+      var p = r.cur.p, u = idOf(r.id);
       var se = svcExtra.get(r);
       if (se) { p = Object.assign({}, p); if (fd.p.radioCommunication) p.radioCommunication = se.radioCommunication; if (fd.p['call-sign'] && se.callSign.length) p['call-sign'] = se.callSign; }
       if (p._ad) { // owning aerodrome of 4.5 relations (Sah, Ful, Pfy …) -> the matching AIXM 5 property
@@ -132,7 +136,7 @@ var CONVERT = (function () {
       var keys = Object.keys(p).filter(function (k) { return k.charAt(0) !== '_' && fd.p[k]; });
       var props = ordered(keys, fd.p).map(function (k) { return valXml(k, p[k], '          ', r.k); }).join('');
       written++;
-      return '  <message:hasMember>\n    <aixm:' + r.k + ' gml:id="uuid.' + u + '">\n      <gml:identifier codeSpace="urn:uuid:">' + u + '</gml:identifier>\n' +
+      return (note && note(r) ? '  <!-- ' + xesc(note(r)).replace(/--/g, '- -') + ' -->\n' : '') + '  <message:hasMember>\n    <aixm:' + r.k + ' gml:id="uuid.' + u + '">\n      <gml:identifier codeSpace="urn:uuid:">' + u + '</gml:identifier>\n' +
         '      <aixm:timeSlice>\n        <aixm:' + r.k + 'TimeSlice gml:id="' + gid('TS') + '">\n' +
         '          <gml:validTime><gml:TimePeriod gml:id="' + gid('VT') + '"><gml:beginPosition>' + xesc(r.cur.b || (ds.sniff.header && ds.sniff.header.effective) || '2000-01-01T00:00:00Z') + '</gml:beginPosition><gml:endPosition indeterminatePosition="unknown"/></gml:TimePeriod></gml:validTime>\n' +
         '          <aixm:interpretation>BASELINE</aixm:interpretation>\n          <aixm:sequenceNumber>1</aixm:sequenceNumber>\n          <aixm:correctionNumber>0</aixm:correctionNumber>\n' +
@@ -417,7 +421,7 @@ var CONVERT = (function () {
   // they need, so that the file stands alone: an aerodrome item brings its aerodrome, a runway direction its runway,
   // an airspace the borders and points it is built on, a procedure its fixes, navaids and runways (also from another
   // data set loaded, e.g. the AIP data set of an IFP data set). Withdrawn features are not followed.
-  function closure(seeds, peers) {
+  function closure(seeds, peers, anyVersion) {
     var all = new Map(), queue = [], missing = new Map();
     function add(ds, r, why) { if (all.has(r)) return; all.set(r, { ds: ds, why: why }); queue.push(r); }
     seeds.forEach(function (x) { add(x.ds, x.r, null); });
@@ -427,7 +431,7 @@ var CONVERT = (function () {
         if (!t || !t.p) return;
         M.eachRef(t.p, function (ref) {
           var x = M.target(ds, ref), xds = ds;
-          if (!x && peers) for (var i = 0; i < peers.length && !x; i++) if (peers[i] !== ds && peers[i].family === ds.family && peers[i].version === ds.version && peers[i].byId) { x = peers[i].byId.get(ref) || null; xds = peers[i]; }
+          if (!x && peers) for (var i = 0; i < peers.length && !x; i++) if (peers[i] !== ds && peers[i].byId && (anyVersion || (peers[i].family === ds.family && peers[i].version === ds.version))) { x = peers[i].byId.get(ref) || null; xds = peers[i]; }
           if (!x) { missing.set(ref, r); return; }
           if (x.cur && x.cur.gone) return;
           add(xds, x, r);
@@ -442,6 +446,7 @@ var CONVERT = (function () {
   //   over        airspace over the aerodrome: the volumes its reference point lies in (CTR, ATZ, TMA, CTA, FIR …)
   //   airspace    airspace within the distance (P, R, D, TMA, CTR …)
   //   procedures  SID, STAR and approaches with their legs, holdings, MSA and TAA
+  //   holdings    holdings, MSA and TAA only
   //   obstacles   obstacles within the distance and the obstacle areas of the aerodrome
   //   navaids     navaids and designated points within the distance
   //   routes      ATS route segments with an end within the distance (and their route)
@@ -479,7 +484,7 @@ var CONVERT = (function () {
               try { AIP.procLegs(ds, r).forEach(function (l) { add(ds, l.leg, 'related: leg of ' + code + ' procedure'); }); } catch (e) { /* legs not readable */ }
             }
           }
-          if (K.has('procedures') && PROC_EXTRA.indexOf(k) >= 0 && (own || near(M.pointOf(ds, r), 15))) add(ds, r, 'related: ' + code + ' holding / minimum altitude area');
+          if ((K.has('procedures') || K.has('holdings')) && PROC_EXTRA.indexOf(k) >= 0 && (own || near(M.pointOf(ds, r), 15))) add(ds, r, 'related: ' + code + ' holding / minimum altitude area');
           if (K.has('obstacles') && (k === 'VerticalStructure' || k === 'ObstacleArea')) {
             if (k === 'ObstacleArea' ? own : (own || near(M.pointOf(ds, r), nm))) add(ds, r, 'related: obstacle ' + (arp && M.pointOf(ds, r) ? (Math.round(AX.distNM(arp, M.pointOf(ds, r)) * 10) / 10) + ' NM from ' + code : 'of ' + code));
           }
@@ -513,9 +518,11 @@ var CONVERT = (function () {
   // seeds: [{ds, r}] of one data set; peers: other data sets loaded; target: 'orig' | '5.1' | '5.1.1' | '5.2'
   async function selection(ds, seeds, peers, target, label, onProgress, label2) { // label2: the related data asked for
     // one file, one AIXM version: related features of data sets in another version are left out (and reported)
+    // AIXM written from the data read (tables, aerodrome mapping, AIXM 4.5 or several versions converted together)
+    var gen = target !== 'orig' && (ds.family !== '5' || seeds.some(function (x) { return x.ds.family !== '5' || x.ds.version !== ds.version; }));
     var other = {};
-    seeds = seeds.filter(function (x) { if (x.ds === ds || x.ds.version === ds.version) return true; other[x.ds.name + ' (' + x.ds.sniff.versionLabel + ')'] = (other[x.ds.name + ' (' + x.ds.sniff.versionLabel + ')'] || 0) + 1; return false; });
-    var cl = closure(seeds, peers), chosen = new Set(seeds.filter(function (x) { return !x.tag; }).map(function (x) { return x.r; })), tagOf = new Map();
+    seeds = seeds.filter(function (x) { if (gen || x.ds === ds || (x.ds.version === ds.version && x.ds.family === ds.family)) return true; other[x.ds.name + ' (' + x.ds.sniff.versionLabel + ')'] = (other[x.ds.name + ' (' + x.ds.sniff.versionLabel + ')'] || 0) + 1; return false; });
+    var cl = closure(seeds, peers, gen), chosen = new Set(seeds.filter(function (x) { return !x.tag; }).map(function (x) { return x.r; })), tagOf = new Map();
     seeds.forEach(function (x) { if (x.tag && !chosen.has(x.r)) tagOf.set(x.r, x.tag); });
     var byDs = new Map();
     cl.all.forEach(function (v, r) { if (r.k === '#error') return; var l = byDs.get(v.ds); if (!l) byDs.set(v.ds, l = []); l.push(r); });
@@ -529,13 +536,21 @@ var CONVERT = (function () {
       (nRel ? '\n     ' + nRel + ' related feature(s) added (' + xesc(label2 || '') + '): ' + xesc(count(function (r) { return tagOf.has(r); })) : '') +
       '\n     ' + nSup + ' supporting feature(s) they reference: ' + xesc(count(function (r) { return !chosen.has(r) && !tagOf.has(r); }) || 'none') +
       (cl.missing.size ? '\n     ' + cl.missing.size + ' reference(s) to features not in the data loaded.' : '') + ' ';
-    if (ds.family !== '5' && target !== 'orig') {
-      // AIXM 4.5 to AIXM 5: the 4.5 -> 5.1.1 writer on the features of the selection, then the version asked
-      var keep = new Set(byDs.get(ds) || []), w = writer45(ds, function (r) { return keep.has(r); });
-      out = await w.blob.text();
-      out = out.replace(/(<\?xml[^>]*\?>)/, '$1\n<!--' + head.replace(/--/g, '- -') + '-->');
+    if (gen) {
+      // the AIXM 5.1.1 writer on the features of every data set involved, in one message, then the version asked
+      var rootOpen = '', body = [];
+      for (var g = 0; g < dsList.length; g++) {
+        var gd = dsList[g], keep = new Set(byDs.get(gd) || []);
+        var w = writer45(gd, function (r) { return keep.has(r); }, function (r) { return (chosen.has(r) ? 'selected' : tagOf.has(r) ? tagOf.get(r) : 'supporting: referenced by ' + r0k(cl.all.get(r).why)) + (gd !== ds ? ' (from ' + gd.name + ')' : ''); });
+        var txt = await w.blob.text(), a0 = txt.indexOf('<message:AIXMBasicMessage'), a1 = txt.indexOf('>', a0) + 1, z = txt.lastIndexOf('</message:AIXMBasicMessage>');
+        if (!rootOpen) rootOpen = txt.slice(a0, a1);
+        body.push(txt.slice(a1, z));
+        w.report.notes.forEach(function (n) { if (/Not converted/.test(n)) report.notes.push(gd.name + ': ' + n); });
+      }
+      out = '<?xml version="1.0" encoding="UTF-8"?>\n<!--' + head.replace(/--/g, '- -') + '-->\n' + rootOpen + body.join('') + '</message:AIXMBasicMessage>\n';
       if (target !== '5.1.1') out = retarget(out, '5.1.1', target, report);
-      report.notes = report.notes.concat(w.report.notes);
+      notInTarget('5.1.1');
+      report.notes.push('Written as AIXM 5.1.1 from the data read' + (target !== '5.1.1' ? ', then as AIXM ' + target : '') + ' (identifiers of AIXM 5 features kept, others derived as UUIDs): validate the file against the XSD before operational use.');
     } else {
       var root = await rootOf(dsList), r0 = root.r0, five = ds.family === '5';
       var member = five ? (r0.member || (r0.name.indexOf(':') > 0 ? r0.name.split(':')[0] + ':hasMember' : 'hasMember')) : null;
@@ -559,9 +574,7 @@ var CONVERT = (function () {
         if (from !== target) {
           out = retarget(out, from, target, report);
           report.notes.push('Namespaces and schema location rewritten from AIXM ' + from + ' to ' + target + ' (as in Converters): validate the file against the ' + target + ' XSD.');
-          var gone = {};
-          cl.all.forEach(function (v, r) { if ((target === '5.2' && REMOVED_52.indexOf(r.k) >= 0) || (target !== '5.2' && from === '5.2' && (M.dict().v5.featureVersions[r.k] || []).indexOf('5.1.1') < 0)) gone[r.k] = (gone[r.k] || 0) + 1; });
-          if (Object.keys(gone).length) report.notes.push('Not in AIXM ' + target + ' (references to them will not resolve there; review): ' + Object.keys(gone).map(function (k) { return k + ' (' + gone[k] + ')'; }).join(', ') + '.');
+          notInTarget(from);
         }
       }
       report.notes.unshift(written + ' features written with their original XML' + (five ? ' (' + slices + ' time slices valid at the moment shown' + (ended ? '; ' + ended + ' ended time slices left out' : '') + ')' : '') + '.');
@@ -570,6 +583,12 @@ var CONVERT = (function () {
     if (Object.keys(other).length) report.notes.push('Left out — related data in another AIXM version than this file (export that data set on its own): ' + Object.keys(other).map(function (k) { return other[k] + ' from ' + k; }).join(', ') + '.');
     if (dsList.length > 1) report.notes.push('Supporting features taken from ' + dsList.slice(1).map(function (d) { return d.name; }).join(', ') + '.');
     if (onProgress) onProgress(1);
+    // features that do not exist in the target version
+    function notInTarget(from) {
+      var gone = {};
+      cl.all.forEach(function (v, r) { if ((target === '5.2' && REMOVED_52.indexOf(r.k) >= 0) || (target !== '5.2' && from === '5.2' && (M.dict().v5.featureVersions[r.k] || []).indexOf('5.1.1') < 0)) gone[r.k] = (gone[r.k] || 0) + 1; });
+      if (Object.keys(gone).length) report.notes.push('Not in AIXM ' + target + ' (references to them will not resolve there; review): ' + Object.keys(gone).map(function (k) { return k + ' (' + gone[k] + ')'; }).join(', ') + '.');
+    }
     function r0k(r) { return r ? r.k + ' ' + (M.label ? M.label(all0(r), r) : r.id) : ''; }
     function all0(r) { var v = cl.all.get(r); return v ? v.ds : ds; }
     return { blob: new Blob([out], { type: 'text/xml' }), report: report, selected: nSel, supporting: nSup, missing: cl.missing.size };

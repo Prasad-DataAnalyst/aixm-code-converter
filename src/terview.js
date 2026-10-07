@@ -16,14 +16,14 @@
  *   reports       PDF, print, Excel, CSV with map pictures
  * Without terrain files the studies use online terrain tiles (when online) or the built-in model, and say so.
  * ========================================================================== */
-/* global L, AX, MODEL, DEM, DEMF, STUDY, DDMAP, OBSTVIEW, OLS, EXPORTS */
+/* global L, AX, MODEL, DEM, DEMF, STUDY, DDMAP, OBSTVIEW, OLS, EXPORTS, DDX, CONVERT, APP_INFO */
 var TERVIEW = (function () {
   'use strict';
   var M = MODEL, s = M.s;
   function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function num(n, d) { return n === null || n === undefined || isNaN(n) ? '—' : Number(n).toLocaleString('en-US', { maximumFractionDigits: d === undefined ? 0 : d }); }
   function fmtSize(n) { return n > 1073741824 ? (n / 1073741824).toFixed(2) + ' GB' : n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
-  var V = { tab: 'files', layout: 'split', tol: 15, ad: '', fp: null, fpRun: false, adRes: {}, xc: null };
+  var V = { tab: 'files', layout: 'split', tol: 15, ad: '', fp: null, fpRun: false, adRes: {}, xc: null, tx: { ad: '', nm: 10, sp: 'file', fmt: 'tif' } };
   var SEVC = { error: '#c62828', warning: '#ef6c00', caution: '#e0a800', ok: '#2e7d32', info: '#5b6676' };
 
   /* --------------------------------------------------------------- checks */
@@ -96,8 +96,10 @@ var TERVIEW = (function () {
     var mapEl = host.querySelector('.tv-map'), mm = null;
     if (mapEl) { mm = DDMAP.create(mapEl, 'ter'); drawMap(mm, ctx, items, segs, ads); setTimeout(function () { mm.map.invalidateSize(); }, 60); }
     host.onclick = function (e) {
-      var b = e.target.closest('[data-tvtab],[data-tvlay],[data-tvrun],[data-tvad],[data-tvxc],[data-tvrep],[data-tvpick],[data-tvrm]');
+      var b = e.target.closest('[data-tvtab],[data-tvlay],[data-tvrun],[data-tvad],[data-tvxc],[data-tvrep],[data-tvpick],[data-tvrm],[data-tvxgo],[data-tvxobs]');
       if (!b) return;
+      if (b.hasAttribute('data-tvxgo')) { exportTerrain(host, ads).catch(function (x) { ctx.toast('Terrain export failed: ' + x.message, 6000); }); return; }
+      if (b.hasAttribute('data-tvxobs')) { exportAreaObstacles(host, ctx, ads).catch(function (x) { ctx.toast('Export failed: ' + x.message, 6000); }); return; }
       if (b.hasAttribute('data-tvtab')) { V.tab = b.getAttribute('data-tvtab'); render(host, ctx); return; }
       if (b.hasAttribute('data-tvlay')) { V.layout = b.getAttribute('data-tvlay'); render(host, ctx); return; }
       if (b.hasAttribute('data-tvrm')) { var it = items[+b.getAttribute('data-tvrm')]; if (it) { DEM.remove(it); render(host, ctx); } return; }
@@ -107,6 +109,7 @@ var TERVIEW = (function () {
       if (b.hasAttribute('data-tvrep')) { report(b.getAttribute('data-tvrep'), ctx, segs, ads); return; }
       if (b.hasAttribute('data-tvpick') && mm) { var p = b.getAttribute('data-tvpick').split(',').map(Number); mm.map.setView([p[1], p[0]], Math.max(mm.map.getZoom(), 12)); L.popup().setLatLng([p[1], p[0]]).setContent(esc(b.getAttribute('title') || '')).openOn(mm.map); }
     };
+    host.onchange = function (e) { var k = e.target.getAttribute('data-tvx'); if (k) V.tx[k] = k === 'nm' ? Math.max(1, Math.min(200, +e.target.value || 10)) : e.target.value; };
     host.oninput = function (e) { if (e.target.getAttribute('data-tvtol') !== null) { V.tol = +e.target.value || 15; var t = host.querySelector('.tv-xc-body'); if (t && V.xc) t.innerHTML = xcTable(); } };
   }
   function sevChip(sv) { return '<span class="sev ' + (sv === 'caution' ? 'warning' : sv === 'ok' ? 'info' : sv) + '" style="' + (sv === 'ok' ? 'color:#2e7d32;background:#e4f4ec' : '') + '">' + sv + '</span>'; }
@@ -145,7 +148,56 @@ var TERVIEW = (function () {
         '<button class="btn primary" data-tvxc' + (DEM.items().length ? '' : ' disabled') + '>Compare</button> <span class="muted tv-prog"></span>' + (DEM.items().length ? '' : ' <span class="muted">(needs a terrain file)</span>') + '</div><div class="tv-xc-body">' + (V.xc ? xcTable() : '') + '</div>';
     }
     return '<div class="card card-pad"><p style="margin-top:0">The terrain report: files and checks, the cross-check with the AIXM data, the flight path study and the aerodrome studies, with map pictures.</p><div class="btn-group">' +
-      ['pdf:PDF', 'print:Print', 'xlsx:Excel', 'csv:CSV'].map(function (f) { var p = f.split(':'); return '<button class="btn" data-tvrep="' + p[0] + '">' + p[1] + '</button>'; }).join('') + '</div><p class="muted tv-prog" style="margin-bottom:0"></p></div>';
+      ['pdf:PDF', 'print:Print', 'xlsx:Excel', 'csv:CSV'].map(function (f) { var p = f.split(':'); return '<button class="btn" data-tvrep="' + p[0] + '">' + p[1] + '</button>'; }).join('') + '</div><p class="muted tv-prog" style="margin-bottom:0"></p></div>' + terrainExportHtml(items, ads);
+  }
+  // terrain data of an area (an aerodrome and a radius, or every file) and the obstacles of that area
+  function terrainExportHtml(items, ads) {
+    var X = V.tx, ok = items.some(function (i) { return i.status === 'ready'; });
+    return '<div class="card card-pad tv-x"><h3 style="margin-top:0">Terrain data of an area</h3><p class="muted" style="margin-top:0">The terrain of the files loaded, cut to an area and written as a new file — with a metadata file (sources, post spacing, datum). The obstacles of the same area can go with it in AIXM.</p>' +
+      '<div class="row wrap" style="gap:8px;align-items:center"><span>Area</span><select class="inp" data-tvx="ad"><option value="">every terrain file loaded</option>' + ads.map(function (a) { return '<option value="' + esc(a.code) + '"' + (X.ad === a.code ? ' selected' : '') + '>' + esc(a.code) + ' and</option>'; }).join('') + '</select>' +
+      '<input class="inp" type="number" min="1" max="200" style="width:80px" data-tvx="nm" value="' + X.nm + '"><span>NM around it</span>' +
+      '<span>Post spacing</span><select class="inp" data-tvx="sp">' + [['file', 'as the finest file'], ['1', '1″ (Area 2)'], ['3', '3″ (Area 1)'], ['30', '30″']].map(function (o) { return '<option value="' + o[0] + '"' + (X.sp === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+      '<span>Format</span><select class="inp" data-tvx="fmt">' + [['tif', 'GeoTIFF (Float32)'], ['asc', 'ESRI ASCII grid'], ['xyz', 'XYZ text (CSV)']].map(function (o) { return '<option value="' + o[0] + '"' + (X.fmt === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+      '<button class="btn primary" data-tvxgo' + (ok ? '' : ' disabled') + '>Export terrain</button><button class="btn" data-tvxobs title="The obstacles of the same area in AIXM, with their aerodrome">Obstacles of the area in AIXM</button></div>' +
+      (ok ? '' : '<p class="muted">Needs a terrain file.</p>') + '<p class="muted tv-xprog" style="margin-bottom:0"></p></div>';
+  }
+  function areaOf(ads) {
+    var X = V.tx, a = ads.filter(function (x) { return x.code === X.ad; })[0];
+    if (a) return { bb: DDX.bboxAround(a.c, X.nm), name: a.code + '_' + X.nm + 'NM', a: a };
+    var bb = null;
+    DEM.items().forEach(function (it) { var b = it.r && it.r.bbox; if (!b) return; bb = bb ? [Math.min(bb[0], b[0]), Math.min(bb[1], b[1]), Math.max(bb[2], b[2]), Math.max(bb[3], b[3])] : b.slice(); });
+    return bb ? { bb: bb, name: 'terrain_files' } : null;
+  }
+  async function exportTerrain(host, ads) {
+    var X = V.tx, ar = areaOf(ads), pr = host.querySelector('.tv-xprog');
+    if (!ar) return;
+    var ready = DEM.items().filter(function (i) { return i.status === 'ready'; });
+    var fine = Math.min.apply(null, ready.map(function (i) { return i.r.spacingArcsec ? Math.max(i.r.spacingArcsec[0], i.r.spacingArcsec[1]) : 3; }));
+    var sp = X.sp === 'file' ? fine : +X.sp;
+    if (pr) pr.textContent = 'reading the terrain…';
+    var G = await DDX.terrainGrid(ar.bb, sp);
+    var n = 0; for (var i = 0; i < G.d.length; i++) if (G.d[i] === G.d[i]) n++;
+    if (!n) { if (pr) pr.textContent = 'No terrain in that area.'; return; }
+    var base = EXPORTS.safeName('terrain_' + ar.name + '_' + Math.round(G.sx * 3600 * 100) / 100 + 'arcsec');
+    EXPORTS.download(base + (X.fmt === 'tif' ? '.tif' : X.fmt === 'asc' ? '.asc' : '.csv'), X.fmt === 'tif' ? DDX.geotiff(G) : X.fmt === 'asc' ? DDX.ascii(G) : DDX.xyz(G));
+    var meta = ['Terrain data exported by ' + APP_INFO.credit + ' on ' + new Date().toISOString().slice(0, 10),
+      'Area: ' + (ar.a ? ar.a.code + ' aerodrome reference point and ' + X.nm + ' NM around' : 'the extent of the terrain files loaded') + ' — west ' + G.bb[0].toFixed(6) + ', south ' + G.bb[1].toFixed(6) + ', east ' + G.bb[2].toFixed(6) + ', north ' + G.bb[3].toFixed(6),
+      'Posts: ' + G.W + ' x ' + G.H + ', spacing ' + (G.sx * 3600).toFixed(3) + '" x ' + (G.sy * 3600).toFixed(3) + '" (cells; values are the nearest post of the finest file covering each cell)',
+      'Horizontal: WGS 84 (EPSG:4326). Vertical: as in the source files (' + ready.map(function (i) { return i.r.vDatum || 'not stated'; }).filter(function (v, k, a) { return a.indexOf(v) === k; }).join(', ') + '), metres. No data: -32767.',
+      'Posts with a value: ' + n + ' of ' + G.d.length,
+      'Sources: ' + ready.map(function (i) { return i.name + ' (' + i.r.format + ', ' + (i.r.spacingArcsec ? i.r.spacingArcsec.map(function (v) { return v.toFixed(2); }).join(' x ') + '"' : '') + (i.r.area ? ', PANS-AIM Area ' + i.r.area : '') + ')'; }).join('; ')];
+    EXPORTS.download(base + '_metadata.txt', new Blob([meta.join('\r\n') + '\r\n'], { type: 'text/plain' }));
+    if (pr) pr.textContent = G.W + ' × ' + G.H + ' posts written, with the metadata file.';
+  }
+  async function exportAreaObstacles(host, ctx, ads) {
+    var ar = areaOf(ads), pr = host.querySelector('.tv-xprog');
+    if (!ar) { if (pr) pr.textContent = 'Choose an aerodrome or load a terrain file to set the area.'; return; }
+    var seeds = [];
+    OBSTVIEW.model(ctx.datasets).sets.forEach(function (st) { st.rows.forEach(function (x) { if (x.c && x.c[0] >= ar.bb[0] && x.c[0] <= ar.bb[2] && x.c[1] >= ar.bb[1] && x.c[1] <= ar.bb[3]) seeds.push({ ds: x.ds, r: x.r }); }); });
+    if (!seeds.length) { if (pr) pr.textContent = 'No obstacle in that area.'; return; }
+    var rel = ar.a ? CONVERT.related([{ ds: ar.a.ds, ad: ar.a.r }], ctx.datasets, { kinds: new Set(['aerodrome']), nm: V.tx.nm }) : [];
+    var vers = DDX.versions(Array.from(new Set(seeds.map(function (x) { return x.ds; }))));
+    await DDX.aixm(seeds, rel, vers[0][0], 'obstacles of ' + ar.name + ' (' + seeds.length + ')', rel.length ? 'the aerodrome' : '', function (t) { if (pr) pr.textContent = t; });
   }
   function fpTable() {
     var list = V.fp.slice().sort(function (a, b) { var r = { error: 0, warning: 1, caution: 2, info: 3, ok: 4 }; return r[a.sev] - r[b.sev] || (a.clr === null ? 1e9 : a.clr) - (b.clr === null ? 1e9 : b.clr); });

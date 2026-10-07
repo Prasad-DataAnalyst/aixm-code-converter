@@ -23,7 +23,7 @@
  *                indicative MOC of the leg is flagged (list column and filter, compliance check)
  * Nothing here changes the data or the AIXM views.
  * ========================================================================== */
-/* global AX, MODEL, EXPORTS, CONVERT, OLS, DDMAP, STUDY */
+/* global AX, MODEL, EXPORTS, CONVERT, OLS, DDMAP, STUDY, DDX */
 var OBSTVIEW = (function () {
   'use strict';
   var M = MODEL, arr = AX.arr, s = M.s;
@@ -273,8 +273,9 @@ var OBSTVIEW = (function () {
     h += overviewHtml(sets, rows, issues);
     var tabs = [['list', 'Obstacle list'], ['comp', 'eTOD compliance'], ['stats', 'Statistics'], ['report', 'Reports']];
     h += '<div class="pill-tabs ov-tabs">' + tabs.map(function (t) { return '<button data-ovtab="' + t[0] + '" class="' + (V.tab === t[0] ? 'active' : '') + '">' + t[1] + (t[0] === 'comp' ? ' <span class="chip ' + (issues.some(function (i) { return i.sev === 'error'; }) ? 'err' : 'ok') + '">' + num(issues.filter(function (i) { return i.sev !== 'info'; }).length, 0) + '</span>' : '') + '</button>'; }).join('') + '</div>';
-    h += '<div class="ov-body">' + (V.tab === 'list' ? listHtml(rows, issues) : V.tab === 'comp' ? compHtml(sets, issues) : V.tab === 'stats' ? statsHtml(sets, rows) : reportHtml(sets, rows)) + '</div>';
+    h += '<div class="ov-body">' + (V.tab === 'list' ? listHtml(rows, issues) : V.tab === 'comp' ? compHtml(sets, issues) : V.tab === 'stats' ? statsHtml(sets, rows) : reportHtml(sets, rows, ctx)) + '</div>';
     host.innerHTML = h;
+    if (typeof DDX !== 'undefined') DDX.bind(host);
     // the workspace map: the obstacles of the list (filter applied), linked both ways with the rows
     var mapEl = host.querySelector('.ov-map'), mm = null;
     if (mapEl && typeof DDMAP !== 'undefined') {
@@ -487,7 +488,32 @@ var OBSTVIEW = (function () {
       d.tall.map(function (x) { return '<tr data-ovi="' + rows.indexOf(x) + '"><td class="mono click" data-ovrow><b>' + esc(x.id || x.name) + '</b></td><td>' + esc(typeTxt(x.type)) + '</td><td class="num">' + len(x.hgt, V.unit) + '</td><td class="num">' + len(x.elev, V.unit) + '</td><td>' + yn(x.lighted) + '</td><td class="mono">' + esc(pos(x.c, V.fmt)) + '</td></tr>'; }).join('') + '</tbody></table></div>';
     return h;
   }
-  function reportHtml(sets, rows) {
+  // AIXM export of obstacles: chosen / affecting flight paths / list filter / all, with related data
+  function aixmPanel(sets, rows, ctx) {
+    var issues = [].concat.apply([], sets.map(compliance)), nSel = pickedRows(rows).length, nFp = rows.filter(function (x) { return x.fp; }).length, nList = filtered(rows, issues).length;
+    var dss = sets.map(function (x) { return x.ds; });
+    return DDX.panel('obs', {
+      title: 'Obstacles in AIXM', what: '— the obstacles chosen, with their obstacle areas, the aerodrome, airspace and procedures if wished',
+      scopes: [['sel', 'the ' + num(nSel, 0) + ' obstacle(s) chosen', nSel], ['fp', 'the ' + num(nFp, 0) + ' obstacle(s) affecting flight paths', nFp], ['list', 'the ' + num(nList, 0) + ' obstacle(s) of the list', nList], ['all', 'all ' + num(rows.length, 0) + ' obstacles', rows.length]],
+      versions: DDX.versions(dss),
+      related: [['areas', 'Obstacle areas', 'the eTOD area polygons of the data sets'], ['aerodrome', 'The aerodrome', 'its runways, taxiways, lights … (AIP data set)'], ['over', 'Airspace over the aerodrome', 'CTR, ATZ, TMA …'],
+        ['procs', 'Procedures passing near', 'legs within the distance of the obstacles'], ['navaids', 'Navaids and points', 'within the distance of the aerodrome']],
+      nm: 1, note: 'Obstacle tables (Excel / CSV) are written as AIXM 5.x VerticalStructure.',
+      run: async function (o) {
+        var list = o.scope === 'sel' ? pickedRows(rows) : o.scope === 'fp' ? rows.filter(function (x) { return x.fp; }) : o.scope === 'list' ? filtered(rows, issues) : rows;
+        var seeds = list.map(function (x) { return { ds: x.ds, r: x.r }; }), rel = [], kinds = [];
+        if (o.rel.has('areas')) sets.forEach(function (st) { (st.ds.byType.ObstacleArea || []).forEach(function (a) { rel.push({ ds: st.ds, r: a, tag: 'related: obstacle area of ' + st.ds.name }); }); });
+        var codes = sets.map(function (st) { return st.ad ? st.ad.icao : st.adCode; }).filter(Boolean);
+        var ads = DDX.adsByCode(ctx.datasets, codes);
+        ['aerodrome', 'over', 'navaids'].forEach(function (k) { if (o.rel.has(k)) kinds.push(k); });
+        if (kinds.length && ads.length) rel = rel.concat(CONVERT.related(ads, ctx.datasets, { kinds: new Set(kinds), nm: Math.max(o.nm, 5) }));
+        if (o.rel.has('procs')) rel = rel.concat(DDX.procsNear(ctx.datasets, list.filter(function (x) { return x.c; }).map(function (x) { return { c: x.c, name: x.id || x.name }; }), o.nm));
+        await DDX.aixm(seeds, rel, o.ver, 'obstacles ' + (o.scope === 'sel' ? 'chosen' : o.scope === 'fp' ? 'affecting flight paths' : o.scope === 'list' ? 'of the list' : 'all') + ' (' + list.length + ')',
+          Array.from(o.rel).join(', ') + (o.rel.size ? ', within ' + o.nm + ' NM' : ''), o.prog);
+      }
+    });
+  }
+  function reportHtml(sets, rows, ctx) {
     var fr = V.q || V.type || V.lit || V.minH || V.only;
     function line(id, title, what) {
       return '<div class="ov-rep"><div><b>' + title + '</b><div class="muted">' + what + '</div></div><div class="btn-group">' +
@@ -501,7 +527,7 @@ var OBSTVIEW = (function () {
       line('full', 'Complete obstacle report', 'Data set details, statistics, compliance and the obstacle list in one document.') +
       anaLine(sets, rows) +
       '<div class="ov-rep"><div><b>Map data</b><div class="muted">The obstacles as GIS layers (with all their attributes).</div></div><div class="btn-group"><button class="btn small" data-ovrep="gis:geojson">GeoJSON</button><button class="btn small" data-ovrep="gis:kml">KML</button></div></div>' +
-      '</div>';
+      '</div>' + (typeof DDX !== 'undefined' && ctx ? aixmPanel(sets, rows, ctx) : '');
   }
 
   function anaLine(sets, rows) {

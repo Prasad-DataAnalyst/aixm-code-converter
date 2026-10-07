@@ -1025,3 +1025,8 @@ pre, .xml, .notam-text { text-align: left; }
 .xp-rel { margin-top: 8px; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; }
 .xp-rel summary { cursor: pointer; }
 .xp-rel .xp-cols { margin: 8px 0; }
+.ddx { margin-top: 12px; }
+.ddx-row { gap: 8px; align-items: center; margin: 8px 0; }
+.ddx-row select { width: auto; }
+.ddx-rel summary { cursor: pointer; }
+.ddx-note { margin: 6px 0 0; font-size: 12.5px; }

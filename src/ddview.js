@@ -13,7 +13,7 @@
  *   Terrain                terrain files, flight path and aerodrome terrain studies (terview.js)
  * The AIP, map and export views are not changed; this tab only reads the data.
  * ========================================================================== */
-/* global MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW, TERVIEW, DEM, IFP */
+/* global MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW, TERVIEW, DEM, IFP, DDX, CONVERT, STUDY */
 var DDVIEW = (function () {
   'use strict';
   var M = MODEL, s = M.s;
@@ -77,6 +77,28 @@ var DDVIEW = (function () {
         chk: IFP.checks(x.ds, x.r, legs) };
     });
   }
+  // AIXM export of procedures: those listed or all, with legs, fixes, runways and related data
+  function ifpAixmPanel(rows, all, ctx) {
+    if (typeof DDX === 'undefined') return '';
+    var dss = Array.from(new Set(all.map(function (x) { return x.ds; })));
+    return DDX.panel('ifp', {
+      title: 'Procedures in AIXM', what: '— with their legs, fixes, navaids and runways, and related data if wished',
+      scopes: [['list', 'the ' + num(rows.length) + ' procedure(s) listed', rows.length], ['all', 'all ' + num(all.length) + ' procedures', all.length]],
+      versions: DDX.versions(dss),
+      related: [['holdings', 'Holdings, MSA and TAA', 'of the aerodromes'], ['obstacles', 'Obstacles near the paths', 'within the distance of the legs'], ['aerodrome', 'The aerodromes', 'runways, taxiways, lights … (AIP data set)'],
+        ['over', 'Airspace over the aerodromes', 'CTR, ATZ, TMA …'], ['navaids', 'Navaids and points', 'within 10 NM of the aerodromes']],
+      nm: 1, note: 'Fixes, navaids and runways in the AIP data set are taken from it when it is in the same AIXM version (or when the file is converted).',
+      run: async function (o) {
+        var list = o.scope === 'all' ? all : rows, seeds = [], rel = [];
+        list.forEach(function (x) { seeds.push({ ds: x.ds, r: x.r }); AIP.procLegs(x.ds, x.r).forEach(function (l) { seeds.push({ ds: x.ds, r: l.leg }); }); });
+        var ads = []; list.forEach(function (x) { if (x.ad && !ads.some(function (a) { return a.ad === x.ad; })) ads.push({ ds: x.adDs, ad: x.ad }); });
+        var kinds = ['holdings', 'aerodrome', 'over', 'navaids'].filter(function (k) { return o.rel.has(k); });
+        if (kinds.length && ads.length) rel = rel.concat(CONVERT.related(ads, ctx.datasets, { kinds: new Set(kinds), nm: 10 }));
+        if (o.rel.has('obstacles')) { var mine = new Set(list.map(function (x) { return x.r; })); rel = rel.concat(DDX.obstaclesNear(ctx.datasets, STUDY.segments(ctx.datasets).filter(function (sg) { return mine.has(sg.pr); }), o.nm)); }
+        await DDX.aixm(seeds, rel, o.ver, 'procedures ' + (o.scope === 'all' ? 'all' : 'listed') + ' (' + list.length + ')', Array.from(o.rel).join(', '), o.prog);
+      }
+    });
+  }
   function chkChip(list) {
     var e = list.filter(function (c) { return c.sev === 'error'; }).length, w = list.filter(function (c) { return c.sev === 'warning'; }).length, i = list.length - e - w;
     if (!list.length) return '<span class="chip ok" title="No coding finding">✓</span>';
@@ -121,8 +143,9 @@ var DDVIEW = (function () {
         return '<tr data-ddi="' + i + '"' + (!x.legs || !x.ad ? ' class="ov-bad"' : '') + '><td class="mono"><b>' + esc(x.adCode || '—') + '</b></td><td>' + x.kind + '</td><td class="mono click" data-ddrow><b>' + esc(x.desig) + '</b></td><td>' + esc(x.name) + '</td><td>' + esc(x.rwy) + '</td><td>' + esc(x.appr) + '</td><td>' + esc(x.pbn || (x.rnav === 'YES' ? 'RNAV' : '')) + '</td>' +
           '<td>' + esc([x.design, x.coding].filter(Boolean).join(' · ')) + '</td><td>' + esc(x.mag) + '</td><td>' + (x.checked === 'YES' ? 'Yes' : x.checked === 'NO' ? 'No' : '') + '</td><td class="num">' + x.legs + '</td><td>' + (x.minima ? '✓' : '') + '</td><td>' + (x.fas ? '✓' : '') + '</td><td>' + chkChip(x.chk) + '</td><td>' + esc(String(x.from).slice(0, 10)) + '</td>' +
           '<td class="nowrap"><button class="btn small ghost" data-ddaip title="AD 2.22 of the aerodrome">AIP</button><button class="btn small ghost" data-ddmap title="Show the procedure on the map">🗺</button><button class="btn small ghost" data-ddxml title="AIXM code">&lt;/&gt;</button></td></tr>';
-      }).join('') + '</tbody></table></div>' + (F.checks ? checksHtml(rows) : '') + '</div></div>';
+      }).join('') + '</tbody></table></div>' + (F.checks ? checksHtml(rows) : '') + ifpAixmPanel(rows, all, ctx) + '</div></div>';
     host.innerHTML = h;
+    if (typeof DDX !== 'undefined') DDX.bind(host);
     // the workspace map: the paths of the procedures listed, coloured by kind; a click selects the row
     var mm = null, mapEl = host.querySelector('.ov-map');
     if (mapEl) {
@@ -205,6 +228,25 @@ var DDVIEW = (function () {
     if (typeof v === 'object') { if (v.nil !== undefined) return '(' + (v.nil || 'nil') + ')'; if (v.v !== undefined) return v.v + (v.u ? ' ' + v.u : ''); if (v._geo) return ''; return ''; }
     return String(v);
   }
+  // AMXM features as delivered (AMXM) or written as AIXM 5.x, with the AIXM data of the aerodrome if wished
+  function amAixmPanel(recs, inAd, sets, ctx) {
+    if (typeof DDX === 'undefined') return '';
+    var F = V.am, nType = F.type ? inAd.filter(function (x) { return x.t === F.type; }).length : 0;
+    return DDX.panel('amxm', {
+      title: 'Aerodrome mapping in AMXM / AIXM', what: '— as delivered (AMXM) or written as AIXM 5.x aerodrome features',
+      scopes: [['type', F.type ? 'the ' + num(nType) + ' ' + F.type + ' feature(s)' : 'the type chosen (choose one)', nType], ['ad', F.ad ? 'all ' + num(inAd.length) + ' features of ' + F.ad : 'the aerodrome chosen (choose one)', F.ad ? inAd.length : 0], ['all', 'all ' + num(recs.length) + ' features', recs.length]],
+      versions: DDX.versions(sets),
+      related: [['aerodrome', 'The aerodrome in AIXM', 'from the AIP data set (AIXM versions only)'], ['over', 'Airspace over the aerodrome', 'CTR, ATZ, TMA …'], ['obstacles', 'Obstacles', 'within the distance (obstacle data sets)']],
+      nm: 5, note: 'AIXM is written from the AMXM attributes the tool reads (runway, taxiway and apron elements, thresholds, stands, holding positions …).',
+      run: async function (o) {
+        var list = o.scope === 'type' ? inAd.filter(function (x) { return x.t === F.type; }) : o.scope === 'ad' ? inAd : recs;
+        var seeds = list.map(function (x) { return { ds: x.ds, r: x.r }; }), codes = Array.from(new Set(list.map(function (x) { return x.ad; })));
+        var ads = DDX.adsByCode(ctx.datasets.filter(function (d) { return d.family !== 'amxm'; }), codes), kinds = ['aerodrome', 'over', 'obstacles'].filter(function (k) { return o.rel.has(k); });
+        var rel = kinds.length && ads.length ? CONVERT.related(ads, ctx.datasets, { kinds: new Set(kinds), nm: o.nm }) : [];
+        await DDX.aixm(seeds, rel, o.ver, 'aerodrome mapping ' + (o.scope === 'type' ? F.type : o.scope === 'ad' ? F.ad : 'all') + ' (' + list.length + ')', Array.from(o.rel).join(', '), o.prog);
+      }
+    });
+  }
   function amRender(host, ctx) {
     var D = M.amxmDict(), F = V.am, sets = amxmOf(ctx.datasets), recs = [];
     sets.forEach(function (d) { amRecs(d).forEach(function (r) { recs.push({ ds: d, r: r, t: r.cur.p._amxm, ad: s(r.cur.p.idarpt) || '(none)' }); }); });
@@ -229,8 +271,9 @@ var DDVIEW = (function () {
             '<td class="nowrap"><button class="btn small ghost" data-ammap title="Show on the map">🗺</button><button class="btn small ghost" data-amdet title="All data">⋯</button></td></tr>';
         }).join('') + '</tbody></table></div>' + (fs.length > 2000 ? '<p class="muted">First 2,000 shown; the report has all.</p>' : '') + '</div>';
     } else h += '<div class="card card-pad muted">Choose a feature type to see its features with every AMXM attribute (the heading shows how many give it; code values with their meaning).</div>';
-    h += '</div></div>';
+    h += amAixmPanel(recs, inAd, sets, ctx) + '</div></div>';
     host.innerHTML = h;
+    if (typeof DDX !== 'undefined') DDX.bind(host);
     // the workspace map: the features of the chosen type (or every feature of the aerodrome chosen)
     var mm = null, mapEl = host.querySelector('.am-map');
     if (mapEl) {
