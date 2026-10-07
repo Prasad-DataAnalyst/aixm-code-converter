@@ -373,6 +373,20 @@ Before any AMDB export, the user ticks "I understand this is not for navigation 
 - **AIXM systems** (AIS databases, eAIP tools): the AIXM version keeps the same UUIDs as the AMXM version, so updates can be merged.
 - **An open "how it was made" guide** in `docs/`, so anyone can repeat or audit the process.
 
+### 8.7 Risk register (checked 2026-10-07)
+
+| # | Risk | Today | Level | Action |
+|---|---|---|---|---|
+| R1 | Esri base maps (street, grey, topo, imagery) are used through server.arcgisonline.com without an ArcGIS account. Esri allows this with attribution, but **commercial or revenue use needs a subscription and token**, and its content may not be harvested, redistributed or used offline | Exists now in the tool | Medium if the tool is sold or used commercially; low for free, non-commercial use | Keep the attribution. State "Esri maps: non-commercial use; for commercial use add your own ArcGIS key". Make an open map the default. Never use Esri tiles in exports or as an AMDB source without a licence |
+| R2 | Third-party OSM tile servers (openstreetmap.de, openstreetmap.fr, OpenTopoMap) have fair-use policies and can block heavy use | Exists now | Low | Keep attribution and use only interactively, with no bulk download. Already in place |
+| R3 | Someone uses an output for navigation and something goes wrong | Future AMDB, and the existing exports | Low; cannot be zero. Disclaimers do not exclude liability for death, injury or gross negligence in some countries (e.g. the UK Unfair Contract Terms Act 1977, s.2(1)) | "Not for navigation" on every file and page, the acknowledgement tick, honest quality labels, no certification claims, keep it free (no sale as a navigation product) |
+| R4 | The output is presented as ED-99 compliant or EUROCAE / RTCA endorsed | Future | Low if worded correctly | Approved wording only (8.1, 8.5) |
+| R5 | Copyrighted standards' text is copied into the tool | Future | Low | Cite clause numbers; never copy text |
+| R6 | Input data rights (State AIP, imagery) | User-supplied | Low for us, because the user declares their rights | Tick box; licence of each source in the metadata; we never ship State data |
+| R7 | OSM share-alike accidentally applies to a package | Future | Low | OSM off by default and never mixed |
+| R8 | Part-DAT / State AIS rules | Future | Very low while not for navigation and not supplied for aircraft use | Never offer loading into avionics or ARINC 816 binaries |
+| R9 | Trademarks (AIXM, AMXM, ARINC, Jeppesen, …) | Names used descriptively | Low | Descriptive use only; no logos; "not affiliated with EUROCONTROL, FAA, RTCA, EUROCAE, SAE / ARINC" |
+
 ---
 
 ## 9. Sources
@@ -416,6 +430,10 @@ Before any AMDB export, the user ticks "I understand this is not for navigation 
 - Copernicus DEM GLO-30 licence: https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/DEM/resources/license/License-COPDEM-30.pdf
 - Copernicus Sentinel data licence: https://ewds.climate.copernicus.eu/licences/ec-sentinel
 - OSM licence FAQ (ODbL): https://osmfoundation.org/wiki/Licence_and_Legal_FAQ
+- Esri terms of use summary: https://downloads2.esri.com/arcgisonline/docs/tou_summary.pdf
+- Esri basemap attribution: https://developers.arcgis.com/documentation/mapping-apis-and-services/deployment/basemap-attribution/
+- Esri licensing requirements: https://developers.arcgis.com/javascript/latest/licensing/index.html
+- OSM tile usage policy: https://operations.osmfoundation.org/policies/tiles/
 
 ---
 
