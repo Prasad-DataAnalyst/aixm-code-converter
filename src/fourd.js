@@ -220,7 +220,7 @@ var FOURD = (function () {
 
   /* ------------------------------------------------------------------- state */
   var V = { on: false, api: null, host: null, layer: null, items: [], sig: '', T: null, range: 'day', step: 15 * MIN, play: null, speed: 1,
-    o: { hol: new Set(), dst: 'EU' }, show: { as: true, rt: true, pt: true, other: true }, hideBase: false, hidden: [], follow: false, st: new Map(), flight: null, filter: '' };
+    o: { hol: new Set(), dst: 'EU' }, from: null, to: null, dock: 'top', pos: null, show: { as: true, rt: true, pt: true, other: true }, hideBase: false, hidden: [], follow: false, st: new Map(), flight: null, filter: '' };
   var KIND = { Airspace: 'as', RouteSegment: 'rt', AirportHeliport: 'pt', Navaid: 'pt', VOR: 'pt', DME: 'pt', NDB: 'pt', TACAN: 'pt', MarkerBeacon: 'pt', Localizer: 'pt', Glidepath: 'pt', DesignatedPoint: 'pt', VerticalStructure: 'pt', RunwayDirection: 'pt', Runway: 'pt', AircraftStand: 'pt', Taxiway: 'pt', Apron: 'pt', WorkArea: 'as' };
   var COL = { as: { on: '#d32f2f', maybe: '#f9a825', off: '#90a4ae', none: '#b0bec5', unknown: '#7e57c2', steady: '#5c6bc0' }, gen: { on: '#2e7d32', maybe: '#f9a825', off: '#c62828', none: '#b0bec5', unknown: '#7e57c2', steady: '#5c6bc0' } };
   var LBL = { as: { on: 'active', maybe: 'available for activation / by NOTAM', off: 'inactive', none: 'not valid at this time', unknown: 'unknown', steady: 'no schedule' }, gen: { on: 'available', maybe: 'limited / conditional', off: 'closed / not available', none: 'not valid at this time', unknown: 'unknown', steady: 'no schedule' } };
@@ -337,6 +337,7 @@ var FOURD = (function () {
   /* ------------------------------------------------------------------ time bar */
   function rangeOf() {
     var T = V.T;
+    if (V.range === 'custom' && V.from !== null && V.to > V.from) return [V.from, V.to, 'chosen period'];
     if (V.range === 'airac') { var a = airac(T); return [a.start, a.end, 'AIRAC ' + a.id]; }
     if (V.range === 'week') { var d0 = Math.floor(T / DAYMS) * DAYMS, w = (new Date(d0).getUTCDay() + 6) % 7; return [d0 - w * DAYMS, d0 + (7 - w) * DAYMS, 'week']; }
     var z = Math.floor(T / DAYMS) * DAYMS; return [z, z + DAYMS, 'day'];
@@ -349,11 +350,12 @@ var FOURD = (function () {
   }
   var STEPS = [[10000, '10 s'], [MIN, '1 min'], [15 * MIN, '15 min'], [3600000, '1 h'], [DAYMS, '1 day'], ['airac', 'AIRAC cycle']];
   function barHtml() {
-    var h = '<div class="fd-head"><b>🕓 4D</b><span class="muted">' + NOTICE + '</span><span class="sp"></span><button class="btn small ghost" data-fd="min" title="Fold or unfold">▾</button><button class="btn small ghost" data-fd="close" title="Switch 4D off (the map is as before)">✕</button></div>' +
+    var h = '<div class="fd-head"><b>🕓 4D</b><span class="muted">' + NOTICE + '</span><span class="sp"></span><button class="btn small ghost" data-fd="dock" title="' + (V.dock === 'top' ? 'Float: a window you can move anywhere on the map' : 'Fix at the top of the map') + '">' + (V.dock === 'top' ? '⧉ Float' : '📌 Fix at top') + '</button><button class="btn small ghost" data-fd="min" title="Fold or unfold">▾</button><button class="btn small ghost" data-fd="close" title="Switch 4D off (the map is as before)">✕</button></div>' +
       '<div class="fd-body"><div class="fd-row"><button class="btn small" data-fd="back" title="One step back">⏮</button><button class="btn small primary" data-fd="play" title="Play / pause">▶</button><button class="btn small" data-fd="fwd" title="One step forward">⏭</button>' +
       '<input class="inp mono" type="datetime-local" step="60" data-fd="t" aria-label="Date and time (UTC)"><span class="muted">UTC</span><button class="btn small" data-fd="now">Now</button>' +
       '<label>Step <select class="inp" data-fd="step">' + STEPS.map(function (x) { return '<option value="' + x[0] + '"' + (String(V.step) === String(x[0]) ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></label>' +
-      '<label>Range <select class="inp" data-fd="range">' + [['day', 'day'], ['week', 'week'], ['airac', 'AIRAC cycle']].map(function (x) { return '<option value="' + x[0] + '"' + (V.range === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></label></div>' +
+      '<label>Range <select class="inp" data-fd="range">' + [['day', 'day'], ['week', 'week'], ['airac', 'AIRAC cycle'], ['custom', 'from … to …']].map(function (x) { return '<option value="' + x[0] + '"' + (V.range === x[0] ? ' selected' : '') + '>' + x[1] + '</option>'; }).join('') + '</select></label></div>' +
+      '<div class="fd-row fd-period"><label>From <input class="inp mono" type="datetime-local" step="60" data-fd="from" aria-label="From (UTC)"></label><label>To <input class="inp mono" type="datetime-local" step="60" data-fd="to" aria-label="To (UTC)"></label><span class="muted">UTC — the slider, play and the exports cover this period</span></div>' +
       '<div class="fd-row"><span class="fd-r0 mono muted"></span><input type="range" class="fd-slider" min="0" max="1000" data-fd="slider" aria-label="Time in the range"><span class="fd-r1 mono muted"></span></div>' +
       '<div class="fd-row fd-kpis"></div>' +
       '<details class="fd-more"><summary>Options, procedure in time, exports</summary><div class="fd-row">' +
@@ -380,6 +382,10 @@ var FOURD = (function () {
     paint();
     var r = rangeOf(), q = function (k) { return V.host.querySelector(k); };
     q('[data-fd="t"]').value = new Date(V.T).toISOString().slice(0, 16);
+    var fi = q('[data-fd="from"]'), ti = q('[data-fd="to"]');
+    if (document.activeElement !== fi) fi.value = new Date(r[0]).toISOString().slice(0, 16);
+    if (document.activeElement !== ti) ti.value = new Date(r[1]).toISOString().slice(0, 16);
+    q('[data-fd="range"]').value = V.range;
     q('.fd-r0').textContent = fmt(r[0]).slice(0, 16); q('.fd-r1').textContent = fmt(r[1]).slice(0, 16) + ' · ' + r[2];
     q('[data-fd="slider"]').value = String(Math.round((V.T - r[0]) / (r[1] - r[0]) * 1000));
     var hol = q('[data-fd="hol"]'); if (hol) hol.checked = V.o.hol.has(ymd(Math.floor(V.T / DAYMS) * DAYMS));
@@ -435,6 +441,7 @@ var FOURD = (function () {
       if (b.hasAttribute('data-fdx')) { exportAs(b.getAttribute('data-fdx')); return; }
       var k = b.getAttribute('data-fd');
       if (k === 'close') close();
+      else if (k === 'dock') { V.dock = V.dock === 'top' ? 'float' : 'top'; try { localStorage.setItem('aixm.fourd.dock', V.dock); } catch (e) { /* private mode */ } place(); var lbl = h.querySelector('[data-fd="dock"]'); lbl.textContent = V.dock === 'top' ? '⧉ Float' : '📌 Fix at top'; lbl.title = V.dock === 'top' ? 'Float: a window you can move anywhere on the map' : 'Fix at the top of the map'; }
       else if (k === 'min') { h.classList.toggle('fd-min'); b.textContent = h.classList.contains('fd-min') ? '▴' : '▾'; }
       else if (k === 'play') playToggle();
       else if (k === 'back') stepBy(-1);
@@ -449,7 +456,15 @@ var FOURD = (function () {
       if (sh) { V.show[sh] = t.checked; paint(); return; }
       if (k === 't' && t.value) setT(Date.parse(t.value + ':00Z'));
       else if (k === 'step') { V.step = t.value === 'airac' ? 'airac' : +t.value; if (V.play) { playToggle(); playToggle(); } }
-      else if (k === 'range') { V.range = t.value; update(); }
+      else if (k === 'range') { if (t.value === 'custom') { var r0 = rangeOf(); V.from = r0[0]; V.to = r0[1]; } V.range = t.value; update(); }
+      else if (k === 'from' || k === 'to') {
+        var a0 = Date.parse(h.querySelector('[data-fd="from"]').value + ':00Z'), b0 = Date.parse(h.querySelector('[data-fd="to"]').value + ':00Z');
+        if (isNaN(a0) || isNaN(b0) || b0 <= a0) { V.api.toast('"To" must be after "From".'); update(); return; }
+        if (b0 - a0 > 366 * DAYMS) { V.api.toast('Choose a period of a year at most.'); update(); return; }
+        V.range = 'custom'; V.from = a0; V.to = b0;
+        if (V.T < a0 || V.T >= b0) V.T = a0;
+        update();
+      }
       else if (k === 'dst') { V.o.dst = t.value; update(); }
       else if (k === 'hol') { var d = ymd(Math.floor(V.T / DAYMS) * DAYMS); if (t.checked) V.o.hol.add(d); else V.o.hol.delete(d); h.querySelector('[data-fd="hols"]').value = Array.from(V.o.hol).sort().join(', '); update(); }
       else if (k === 'hols') { V.o.hol = new Set((t.value.match(/\d{4}-\d\d-\d\d/g) || [])); update(); }
@@ -459,6 +474,27 @@ var FOURD = (function () {
     });
     h.addEventListener('input', function (e) { if (e.target.getAttribute('data-fd') === 'slider') { var r = rangeOf(); setT(r[0] + (r[1] - r[0]) * (+e.target.value / 1000), true); } });
     h.querySelector('.fd-listbox').addEventListener('toggle', function (e) { if (e.target.open) listHtml(); });
+  }
+  // fixed at the top of the map, or a floating window moved by its title bar (kept inside the map)
+  function place() {
+    var h = V.host, wrap = h && h.parentNode;
+    if (!h || !wrap) return;
+    h.classList.toggle('fd-top', V.dock === 'top'); h.classList.toggle('fd-float', V.dock !== 'top');
+    if (V.dock === 'top') { h.style.left = h.style.top = ''; return; }
+    var W = wrap.clientWidth, H = wrap.clientHeight, w = h.offsetWidth, hh = h.offsetHeight;
+    if (!V.pos) V.pos = { x: Math.max(8, (W - w) / 2), y: Math.max(8, H - hh - 50) };
+    V.pos.x = Math.min(Math.max(0, V.pos.x), Math.max(0, W - Math.min(w, W))); V.pos.y = Math.min(Math.max(0, V.pos.y), Math.max(0, H - 40));
+    h.style.left = V.pos.x + 'px'; h.style.top = V.pos.y + 'px';
+  }
+  function dragBind() {
+    var head = V.host.querySelector('.fd-head'), st = null;
+    head.addEventListener('pointerdown', function (e) {
+      if (V.dock === 'top' || e.target.closest('button,input,select')) return;
+      st = { x: e.clientX, y: e.clientY, px: V.pos ? V.pos.x : V.host.offsetLeft, py: V.pos ? V.pos.y : V.host.offsetTop };
+      head.setPointerCapture(e.pointerId); e.preventDefault();
+    });
+    head.addEventListener('pointermove', function (e) { if (!st) return; V.pos = { x: st.px + e.clientX - st.x, y: st.py + e.clientY - st.y }; place(); });
+    head.addEventListener('pointerup', function (e) { if (!st) return; st = null; try { head.releasePointerCapture(e.pointerId); } catch (x) { /* released */ } });
   }
   function unfly() { if (V.flight && V.layer) { if (V.flight.line) V.layer.removeLayer(V.flight.line); if (V.flight.mk) V.layer.removeLayer(V.flight.mk); } V.flight = null; var el = V.host && V.host.querySelector('.fd-eto'); if (el) el.innerHTML = ''; }
 
@@ -479,7 +515,7 @@ var FOURD = (function () {
   function hexAbgr(c, a) { return a + c.slice(5, 7) + c.slice(3, 5) + c.slice(1, 3); }
   function rgba(c, a) { return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16), a]; }
   function exportAs(kind) {
-    var r = rangeOf(), res = r[1] - r[0] > 8 * DAYMS ? 60 * MIN : 15 * MIN, list = timedItems().slice(0, 3000), base = EXPORTS.safeName('4D_' + new Date(r[0]).toISOString().slice(0, 10) + '_' + r[2]);
+    var r = rangeOf(), res = Math.max(15 * MIN, Math.ceil((r[1] - r[0]) / 2000 / (15 * MIN)) * 15 * MIN) /* at most 2000 samples per feature */, list = timedItems().slice(0, 3000), base = EXPORTS.safeName('4D_' + new Date(r[0]).toISOString().slice(0, 10) + '_' + r[2]);
     var credit = APP_INFO.name + ' ' + APP_INFO.version + ' — created by ' + APP_INFO.author;
     if (kind === 'kml') {
       var st = ''; ['as', 'gen'].forEach(function (s1) { Object.keys(COL[s1]).forEach(function (k) { st += '<Style id="' + s1 + '_' + k + '"><LineStyle><color>' + hexAbgr(COL[s1][k], 'ff') + '</color><width>2</width></LineStyle><PolyStyle><color>' + hexAbgr(COL[s1][k], k === 'on' ? '55' : '22') + '</color></PolyStyle><IconStyle><color>' + hexAbgr(COL[s1][k], 'ff') + '</color></IconStyle></Style>'; }); });
@@ -539,8 +575,11 @@ var FOURD = (function () {
     V.host.className = 'card fd-bar'; V.host.setAttribute('role', 'region'); V.host.setAttribute('aria-label', '4D time bar');
     V.host.innerHTML = barHtml();
     wrap.appendChild(V.host);
-    ['mousedown', 'dblclick', 'wheel', 'touchstart'].forEach(function (ev) { V.host.addEventListener(ev, function (e) { e.stopPropagation(); }); });
-    bind();
+    ['mousedown', 'pointerdown', 'dblclick', 'wheel', 'touchstart'].forEach(function (ev) { V.host.addEventListener(ev, function (e) { e.stopPropagation(); }); });
+    bind(); dragBind();
+    try { var sd = localStorage.getItem('aixm.fourd.dock'); if (sd === 'top' || sd === 'float') V.dock = sd; } catch (e) { /* private mode */ }
+    var dl = V.host.querySelector('[data-fd="dock"]'); dl.textContent = V.dock === 'top' ? '⧉ Float' : '📌 Fix at top';
+    place();
     var b = container.querySelector('#map-4d'); if (b) { b.setAttribute('aria-pressed', 'true'); b.classList.add('primary'); }
     if (V.hideBase) baseAirspace(true);
     update();

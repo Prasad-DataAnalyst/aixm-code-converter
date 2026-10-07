@@ -38,10 +38,13 @@ var DDVIEW = (function () {
     var nAm = am.reduce(function (n, d) { return n + d.recs.filter(function (r) { return r.cur && r.cur.p && r.cur.p._amxm && !r.syn; }).length; }, 0);
     // without AMXM: the AIXM aerodrome features (pavement, guidance lines, holding positions, stands) for the AMDB tools
     var nAx = nAm ? 0 : datasets.reduce(function (n, d) { return d.family === 'amxm' ? n : n + AM_AIXM.reduce(function (m, k) { return m + (d.byType[k] || []).length; }, 0); }, 0);
+    // no mapping data at all: the runways of the AIP data set are enough to generate it (Generate from AIP)
+    var nRwy = nAm ? 0 : datasets.reduce(function (n, d) { return d.family === 'amxm' || d.family === 'tab' || !d.byType ? n : n + (d.byType.Runway || []).length; }, 0);
+    var nRwe = datasets.reduce(function (n, d) { return n + ((d.byType && d.byType.RunwayElement) || []).length; }, 0);
     return [
       { id: 'obs', title: 'Obstacles (eTOD)', n: nObs, what: 'obstacles', icon: '⛫' },
       { id: 'ifp', title: 'Procedures (IFP)', n: nProc, what: 'procedures', icon: '✈' },
-      { id: 'amxm', title: 'Aerodrome mapping (AMDB)', n: nAm || nAx, what: nAm ? 'AMXM features' : 'aerodrome features (AIXM)', icon: '▦' },
+      { id: 'amxm', title: 'Aerodrome mapping (AMDB)', n: nAm || nAx || nRwy, what: nAm ? 'AMXM features' : !nRwe && nRwy ? (nAx ? 'AIXM features · runways to generate from AIP' : 'runways — generate from AIP') : 'aerodrome features (AIXM)', gen: !nAm && !nRwe && nRwy > 0, icon: '▦' },
       { id: 'ter', title: 'Terrain', n: typeof DEM !== 'undefined' ? DEM.items().length : 0, what: 'terrain file(s)', icon: '⛰' }
     ];
   }
@@ -60,7 +63,7 @@ var DDVIEW = (function () {
     host.querySelector('.dd-secs').onclick = function (e) { var b = e.target.closest('[data-ddsec]'); if (b && !b.disabled) { V.sec = b.getAttribute('data-ddsec'); render(host, ctx); } };
     if (V.sec === 'obs') { OBSTVIEW.render(body, ctx); var t = body.querySelector('.view-title'); if (t) t.outerHTML = ''; var sub = body.querySelector('.view-sub'); if (sub) sub.outerHTML = ''; }
     else if (V.sec === 'ifp') ifpRender(body, ctx);
-    else if (V.sec === 'amxm') amRender(body, ctx);
+    else if (V.sec === 'amxm') { var am = secs.filter(function (x) { return x.id === 'amxm'; })[0]; if (am.gen && V.am.tab === 'features' && !V.am.picked) V.am.tab = 'generate'; amRender(body, ctx); }
     else TERVIEW.render(body, ctx);
   }
 
@@ -257,7 +260,7 @@ var DDVIEW = (function () {
     var F = V.am;
     host.innerHTML = '<div class="pill-tabs am-tabs" role="tablist" aria-label="Aerodrome mapping tools">' + AM_TABS.map(function (t) { return '<button role="tab" class="' + (F.tab === t[0] ? 'active' : '') + '" data-amtab="' + t[0] + '">' + t[1] + '</button>'; }).join('') +
       '</div><div class="am-body"></div>';
-    host.querySelector('.am-tabs').onclick = function (e) { var b = e.target.closest('[data-amtab]'); if (b) { F.tab = b.getAttribute('data-amtab'); amRender(host, ctx); } };
+    host.querySelector('.am-tabs').onclick = function (e) { var b = e.target.closest('[data-amtab]'); if (b) { F.tab = b.getAttribute('data-amtab'); F.picked = true; amRender(host, ctx); } };
     var body = host.querySelector('.am-body');
     if (F.tab === 'features') { amFeatures(body, ctx); return; }
     amdbTools(F.tab, body, ctx);
@@ -277,7 +280,10 @@ var DDVIEW = (function () {
       var cnt = {};
       ctx.datasets.forEach(function (d) { AM_AIXM.concat(['AircraftStand', 'RunwayCentrelinePoint']).forEach(function (k) { var n = (d.byType[k] || []).length; if (n) cnt[k] = (cnt[k] || 0) + n; }); });
       host.innerHTML = '<div class="card card-pad"><h3 style="margin-top:0">No AMXM file loaded</h3><p>The AIXM data loaded has aerodrome features: ' + Object.keys(cnt).sort().map(function (k) { return esc(k) + ' ' + num(cnt[k]); }).join(' · ') +
-        '. <b>AMDB checks</b> check them as their AMXM counterparts and <b>Build package</b> writes them as an aerodrome mapping package (AMXM 2.0 and AIXM, with metadata).</p></div>';
+        '. <b>AMDB checks</b> check them as their AMXM counterparts and <b>Build package</b> writes them as an aerodrome mapping package (AMXM 2.0 and AIXM, with metadata).</p>' +
+        (AM_AIXM.some(function (k) { return cnt[k]; }) ? '' : '<p>There are no runway, taxiway or apron elements, guidance lines or holding positions yet: <button class="btn small primary" data-amgo="generate">Generate from AIP</button> builds runway elements, thresholds, stopways, the reference point and stands from the runway data (coarse, labelled as such), or open survey, CAD or GIS files (AMXM, GeoJSON, CSV with WKT, DXF, GeoPackage) on Files.</p>') + '</div>';
+      var go = host.querySelector('[data-amgo]');
+      if (go) go.onclick = function () { F.tab = 'generate'; F.picked = true; amRender(host.closest('.dd-body') || host.parentNode, ctx); };
       return;
     }
     sets.forEach(function (d) { amRecs(d).forEach(function (r) { recs.push({ ds: d, r: r, t: r.cur.p._amxm, ad: s(r.cur.p.idarpt) || '(none)' }); }); });

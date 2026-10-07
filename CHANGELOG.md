@@ -13,8 +13,9 @@ NOT FOR NAVIGATION — for study and analysis only.
 
 - **4D — the data at a chosen time** (Map → 🕓 4D time). Off until switched on; off, the map, the 3D view and every
   tab are exactly as before, and nothing of it is loaded:
-  - time bar in UTC: date and time, slider over a day, a week or an AIRAC cycle, steps (10 s, 1 min, 15 min,
-    1 h, 1 day, AIRAC cycle), play / pause, Now;
+  - time bar in UTC, fixed at the top of the map or floating (moved by its title bar; the choice is remembered):
+    date and time, a slider over a day, a week, an AIRAC cycle or a period chosen from … to …, steps (10 s,
+    1 min, 15 min, 1 h, 1 day, AIRAC cycle), play / pause, Now;
   - AIXM 5.x timesheets: days and day ranges (MON..SUN, working days, holidays, the days before and after),
     dates (DD-MM, SDLST / EDLST), times and windows over midnight, sunrise and sunset at the feature (with the
     offset, earliest / latest), local time references (UTC+n), the daylight saving adjustment (EU or US rule),
@@ -29,6 +30,8 @@ NOT FOR NAVIGATION — for study and analysis only.
   - exports of the range on the bar: KML with time spans and the flight as a gx:Track, CZML (Cesium), GeoJSON with
     the intervals of each feature, PDF and Excel reports of the state at that time.
 - **Aerodrome mapping — more tools** (Digital data → Aerodrome mapping (AMDB)):
+  - the Aerodrome mapping (AMDB) section is open for an AIP data set with runways and no mapping data, and starts on
+    Generate from AIP;
   - *Generate from AIP*: aerodromes without mapping data get runway elements (from the runway ends, or a
     threshold, the bearing and the length, and the width), thresholds with elevation and declared distances,
     stopways (ASDA − TORA), the reference point and stands, written as AMXM 2.0 (valid against the schema) and

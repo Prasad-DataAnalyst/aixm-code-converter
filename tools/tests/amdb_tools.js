@@ -48,6 +48,13 @@ const { validateAmxm } = require('./_xsd');
   await load([T + 'EA_AIP_DS_FULL_20170701.xml']);
   const idle = await page.evaluate(() => ({ x: typeof window.AMDBX, block: (document.getElementById('src-amdbx') || {}).type }));
   if (idle.x !== 'undefined' || idle.block !== 'text/plain') fails.push('AMDBX ran before it was needed: ' + JSON.stringify(idle));
+  // an AIP data set with runways but no mapping data: the section is on and opens on Generate from AIP
+  const card = await page.evaluate(() => { window.__AIXM.go('digital'); const b = document.querySelector('[data-ddsec="amxm"]'); return { dis: b.disabled, txt: b.textContent }; });
+  if (card.dis || !/generate from AIP/.test(card.txt)) fails.push('AMDB section for an AIP data set without mapping data: ' + JSON.stringify(card));
+  await page.click('[data-ddsec="amxm"]');
+  await page.waitForSelector('[data-gengo]', { timeout: 30000 });
+  const tab = await page.$eval('.am-tabs .active', (b) => b.getAttribute('data-amtab'));
+  if (tab !== 'generate') fails.push('default tab without mapping data: ' + tab);
   await openTab('generate', '[data-gengo]');
   const cand = await page.evaluate(() => AMDBX.candidates(window.__AIXM.S.datasets).map((c) => ({ code: c.code, rwys: c.rwys.length, thr: c.thr })));
   const eadd = cand.find((c) => c.code === 'EADD');

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 // 4D (Map -> 4D time):
 // - off until switched on: nothing of it runs when the page opens or the map is shown, the map is as before;
-// - on: the time bar, the airspace of Donlon active / possible / inactive at different times, steps (15 min,
+// - on: the time bar (fixed at the top, or floating and moved; a chosen period from ... to ...), the airspace of Donlon active / possible / inactive at different times, steps (15 min,
 //   AIRAC), the list with the reason, a procedure flown in time with its ETO, the 3D view at that time;
 // - a Digital NOTAM: the navaid unserviceable while it is in force;
 // - exports: KML with time spans and the flight track, CZML, GeoJSON with intervals, PDF and Excel reports;
@@ -40,6 +40,17 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   // on
   await page.click('#map-4d');
   await page.waitForSelector('.fd-bar', { timeout: 20000 });
+  // fixed at the top by default; floating and moved by its title bar; fixed again
+  const box = () => page.$eval('.fd-bar', (e) => { const r = e.getBoundingClientRect(); return { cls: e.className, x: Math.round(r.left), y: Math.round(r.top) }; });
+  const b0 = await box();
+  if (!/fd-top/.test(b0.cls) || b0.y > 80) fails.push('4D bar not fixed at the top: ' + JSON.stringify(b0));
+  await page.click('[data-fd="dock"]');
+  const b1 = await box();
+  await page.mouse.move(b1.x + 60, b1.y + 12); await page.mouse.down(); await page.mouse.move(b1.x - 140, b1.y - 200, { steps: 6 }); await page.mouse.up();
+  const b2 = await box();
+  if (!/fd-float/.test(b1.cls) || Math.abs(b2.x - (b1.x - 200)) > 6 || Math.abs(b2.y - (b1.y - 212)) > 6) fails.push('floating 4D bar not moved: ' + JSON.stringify([b1, b2]));
+  await page.click('[data-fd="dock"]');
+  if (!/fd-top/.test((await box()).cls)) fails.push('4D bar not fixed at the top again');
   const setTime = async (v) => { await page.fill('[data-fd="t"]', v); await page.dispatchEvent('[data-fd="t"]', 'change'); await page.waitForTimeout(250); };
   const counts = () => page.evaluate(() => { const n = { on: 0, maybe: 0, off: 0, none: 0 }; FOURD.state.st.forEach((x) => { if (n[x.st] !== undefined) n[x.st]++; }); return { n, T: FOURD.time(), items: FOURD.state.items.length }; });
   await setTime('2026-10-07T10:00');
@@ -59,6 +70,16 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   await page.click('[data-fd="fwd"]'); await page.waitForTimeout(300);
   if ((await counts()).T !== Date.UTC(2026, 9, 29)) fails.push('AIRAC step: ' + new Date((await counts()).T).toISOString());
   await page.selectOption('[data-fd="step"]', String(15 * 60000));
+  await setTime('2026-10-07T10:00');
+  // a chosen period: from ... to ...
+  await page.fill('[data-fd="from"]', '2026-10-05T06:00'); await page.dispatchEvent('[data-fd="from"]', 'change');
+  await page.fill('[data-fd="to"]', '2026-10-09T18:00'); await page.dispatchEvent('[data-fd="to"]', 'change');
+  await page.waitForTimeout(300);
+  const per = await page.evaluate(() => ({ range: document.querySelector('[data-fd="range"]').value, r1: document.querySelector('.fd-r1').textContent, T: FOURD.time() }));
+  if (per.range !== 'custom' || !/2026-10-09 18:00/.test(per.r1) || per.T < Date.UTC(2026, 9, 5, 6) || per.T >= Date.UTC(2026, 9, 9, 18)) fails.push('chosen period: ' + JSON.stringify(per));
+  await page.fill('[data-fd="to"]', '2026-10-01T00:00'); await page.dispatchEvent('[data-fd="to"]', 'change'); await page.waitForTimeout(200);
+  if (!/2026-10-09 18:00/.test(await page.$eval('.fd-r1', (e) => e.textContent))) fails.push('a "To" before "From" was taken');
+  await page.selectOption('[data-fd="range"]', 'day');
   await setTime('2026-10-07T10:00');
   // the list
   await page.evaluate(() => { document.querySelector('.fd-more').open = true; document.querySelector('.fd-listbox').open = true; document.querySelector('.fd-listbox').dispatchEvent(new Event('toggle')); });

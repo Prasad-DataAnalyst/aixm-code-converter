@@ -1048,7 +1048,11 @@ pre, .xml, .notam-text { text-align: left; }
 .amdb-src td input, .amdb-src td select { width: 100%; min-width: 120px; }
 
 /* 4D time bar (fourd.js; only when 4D is switched on) */
-.fd-bar { position: absolute; left: 12px; bottom: 44px; z-index: 520; width: min(860px, calc(100% - 150px)); max-height: calc(100% - 120px); overflow: auto; padding: 8px 12px; font-size: 12.5px; box-shadow: var(--shadow-lg); }
+.fd-bar { position: absolute; z-index: 520; max-height: calc(100% - 120px); overflow: auto; padding: 8px 12px; font-size: 12.5px; box-shadow: var(--shadow-lg); }
+.fd-bar.fd-top { top: 8px; left: 400px; right: 132px; width: auto; max-height: 62%; }
+.fd-bar.fd-float { width: min(860px, calc(100% - 24px)); }
+.fd-bar.fd-float .fd-head { cursor: move; touch-action: none; user-select: none; }
+@media (max-width: 1100px) { .fd-bar.fd-top { left: 12px; right: 132px; } }
 .fd-bar .fd-head { display: flex; align-items: center; gap: 8px; }
 .fd-bar .fd-head .sp { flex: 1; }
 .fd-bar .fd-head .muted { font-size: 11px; }
@@ -1062,4 +1066,4 @@ pre, .xml, .notam-text { text-align: left; }
 .fd-bar details { margin-top: 6px; }
 .fd-bar summary { cursor: pointer; font-weight: 600; color: var(--brand-2); }
 .fd-bar .fd-list .tbl-wrap, .fd-bar .fd-eto { max-height: 220px; overflow: auto; }
-:root[data-device="phone"] .fd-bar { left: 8px; right: 8px; width: auto; bottom: 40px; max-height: 55%; }
+:root[data-device="phone"] .fd-bar, :root[data-device="phone"] .fd-bar.fd-top { left: 8px; right: 8px; width: auto; top: 52px; max-height: 55%; }
