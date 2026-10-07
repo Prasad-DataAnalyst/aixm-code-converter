@@ -389,7 +389,91 @@ Before any AMDB export, the user ticks "I understand this is not for navigation 
 
 ---
 
-## 9. Sources
+## 9. Enhancements and export options (backlog, not started)
+
+### 9.1 Enhancements beyond the core plan
+
+**Checks across data sets (study only)**
+- **AMDB ↔ AIP AD 2:**
+  - runway length and width against the declared distances;
+  - threshold coordinates and elevations;
+  - PCN and surface;
+  - the stand list.
+- **AMDB ↔ obstacles:** vertical structures against the eTOD Area 2 / 3 obstacles: missing, duplicated, or with different heights.
+- **AMDB ↔ terrain:** threshold and runway elevations against the DEM, and the runway slope.
+- **Annex 14 geometry study:** runway strip, RESA, taxiway widths and separation distances (Annex 14 tables), and holding-position distances from the runway centreline. Each result cites its clause.
+- **Feature-catalogue coverage:** which ED-99 feature types are present, a completeness score per aerodrome, and a quality dashboard (surveyed, digitised or generated).
+
+**Making and fixing data**
+- **Fix suggestions** with before / after preview. The user applies them, never the tool on its own:
+  - ring orientation;
+  - closing open polygons;
+  - densifying curves;
+  - splitting lines at intersections;
+  - snapping gaps and slivers.
+- **Taxi-route network (ASRN):**
+  - built from the guidance lines;
+  - connectivity check;
+  - taxi route from a stand to a runway drawn on the map (study only).
+- **Imagery alignment check:** the offset between the data and an open orthophoto, measured at control points.
+- **Change between two packages or AIRAC cycles:**
+  - added, removed and moved features, with distances;
+  - shown on the map and in a report;
+  - written as a delta file (AIXM temporality / AMXM `revdate`).
+
+**Views**
+- **Compare two packages side by side**, with maps kept in sync.
+- **3D aerodrome:** surfaces, vertical structures and Annex 14 surfaces.
+- **Aerodrome chart print** (Annex 4-style layout, A4 / A3 / A2, "not for navigation" border), taxi diagram, and stand list.
+- **Time slider** for works areas and temporary changes.
+
+**Productivity**
+- **Saved export presets**, e.g. "Runways and taxiways only, GeoPackage + PDF".
+- **Batch export:** many aerodromes in one run, one zip each, with a summary.
+- **Consistent file naming:** `<ICAO>_<type>_<AIRAC>_<date>`. Every zip carries a manifest with SHA-256 checksums.
+
+### 9.2 Custom export and full export
+
+**Custom export** (choose what you want):
+- aerodrome(s);
+- feature types;
+- area: a radius, a drawn polygon or the whole aerodrome;
+- quality class;
+- attributes;
+- effective date;
+- related data: AIP aerodrome, airspace, obstacles, terrain, procedures, as in 1.24 / 1.25.
+
+**Full export** (everything for the chosen aerodrome or for all aerodromes): every format ticked, in one zip with the manifest.
+
+| Format | Contents | Custom | Full |
+|---|---|---|---|
+| AMXM 2.0 XML | aerodrome mapping features | ✓ | ✓ |
+| AIXM 5.1 / 5.1.1 / 5.2 | the same features, with the same UUIDs | ✓ | ✓ |
+| GeoPackage (.gpkg) | one layer per feature type, with metadata tables | ✓ | ✓ |
+| GeoJSON | one file per type, or a single file | ✓ | ✓ |
+| JSON | attributes, metadata (ISO 19115 as JSON), check results, manifest | ✓ | ✓ |
+| KML / KMZ | styled, with folders per type, for Google Earth | ✓ | ✓ |
+| Shapefile (.zip) | point, line and polygon sets with .prj | ✓ | ✓ |
+| DXF | CAD layers per feature type, for engineers | ✓ | ✓ |
+| GML (simple features) | generic GIS exchange | ✓ | ✓ |
+| CSV / Excel (.xlsx) | attribute tables, one sheet per type, plus a check-results sheet | ✓ | ✓ |
+| PDF | audit report, "what's inside" report, aerodrome chart, map atlas | ✓ | ✓ |
+| HTML report | the same report, offline and searchable | ✓ | ✓ |
+| SVG / PNG | chart and map pictures | ✓ | ✓ |
+| ISO 19115 metadata XML, data product specification (ISO 19131) | ✓ | ✓ | ✓ |
+| GeoTIFF / ASCII grid / XYZ | terrain of the area (exists today) | ✓ | ✓ |
+| Handover record | for white-label exports (8.x) | ✓ | ✓ |
+
+Every format carries:
+- the notice;
+- the attributions the source licences require;
+- the quality labels per feature.
+
+A white-label export removes only our branding.
+
+---
+
+## 10. Sources
 
 **EUROCONTROL**
 - (ICAO) Aerodrome Mapping Data Sets — supporting material: https://ext.eurocontrol.int/aixm_confluence/x/7gJ9Aw. It covers the standards landscape, general requirements, creation of AMD, information exchange models, metadata, implementation, applications and FAQ.
