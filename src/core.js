@@ -583,7 +583,7 @@ var AX = (function () {
     'StandGuidanceLine', 'PaintedCenterline', 'DeicingArea', 'DeicingGroup', 'Hotspot', 'ConstructionArea', 'ServiceRoad', 'Water', 'FrequencyArea', 'AerodromeSign',
     'AerodromeSurfaceLighting', 'PositionMarking', 'VerticalPointStructure', 'VerticalLineStructure', 'VerticalPolygonalStructure', 'SurveyControlPoint',
     'ArrestingGearLocation', 'ArrestingSystemLocation', 'LandAndHoldShortOperationLocation', 'ATCBlindSpot', 'BridgeSide', 'AsrnNode', 'AsrnEdge'];
-  var AM_UOM = { meters: 'M', metres: 'M', meter: 'M', feet: 'FT', foot: 'FT', degrees: 'DEG' };
+  var AM_UOM = { meters: 'M', metres: 'M', meter: 'M', m: 'M', feet: 'FT', foot: 'FT', ft: 'FT', degrees: 'DEG', degree: 'DEG', kilometers: 'KM', km: 'KM', knots: 'KT', kt: 'KT' };
   // AMXM code values used to build the AIXM view (the full code lists are in data/amxm_dictionary.json)
   var AM_INTERP = { 0: 'SNAPSHOT', 1: 'BASELINE', 2: 'TEMPDELTA', 3: 'PERMDELTA', 4: 'SNAPSHOT' };
   var AM_CATSTOP = { 1: 'CAT_I', 2: 'CAT_II/III', 3: 'CAT_II', 4: 'CAT_III', 5: 'CAT_I/II/III', 6: 'CAT_I/II', 7: 'CAT_I/III' };
@@ -634,7 +634,7 @@ var AX = (function () {
         break;
       case 'RunwayThreshold': case 'HelipadThreshold':
         key = amTxt(raw.idthr);
-        if (T === 'RunwayThreshold') { id = amId(ad, 'thr', key); p.role = amTxt(raw.thrtype) === '1' ? 'DISTHR' : 'THR'; p.onRunway = { ref: amId(ad, 'rdn', key) }; } // thrtype 1: displaced
+        if (T === 'RunwayThreshold') { if (key) id = amId(ad, 'thr', key); p.role = amTxt(raw.thrtype) === '1' ? 'DISTHR' : 'THR'; if (key) p.onRunway = { ref: amId(ad, 'rdn', key) }; } // thrtype 1: displaced; without a designator: not linked
         if (pnt) { p.location = pnt; if (raw.elev && raw.elev.v !== undefined) p.location.elevation = raw.elev; }
         p.associatedDeclaredDistance = ['tora', 'toda', 'asda', 'lda'].filter(function (d) { return raw[d] && raw[d].v !== undefined; })
           .map(function (d) { return { _t: 'RunwayDeclaredDistance', type: d.toUpperCase(), declaredValue: { _t: 'RunwayDeclaredDistanceValue', distance: raw[d] } }; });
@@ -652,7 +652,7 @@ var AX = (function () {
         p.designator = amTxt(raw.idstd) || undefined;
         if (area) p.extent = area;
         if (pnt) p.location = pnt;
-        if (T === 'ParkingStandArea') id = amId(ad, 'std', amTxt(raw.idstd) || id);
+        if (T === 'ParkingStandArea' && amTxt(raw.idstd)) id = amId(ad, 'std', amTxt(raw.idstd));
         break;
       case 'TaxiwayGuidanceLine': case 'StandGuidanceLine': case 'RunwayExitLine': case 'PaintedCenterline':
         p.designator = amTxt(raw.idlin) || amTxt(raw.idstd) || undefined;

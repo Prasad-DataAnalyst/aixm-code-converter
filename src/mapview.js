@@ -16,7 +16,7 @@
  * Terrain: grid MORA per 1° square (built-in terrain model), online terrain
  * shading, terrain elevation under the mouse, and the 3D view (view3d.js).
  * ========================================================================== */
-/* global L, topojson, AX, MODEL, AIP, ADCHART, TERRAIN, VIEW3D */
+/* global L, topojson, AX, MODEL, AIP, ADCHART, TERRAIN, VIEW3D, LAZY, FOURD */
 var MAPVIEW = (function () {
   'use strict';
   // phones and tablets (device.js; the pop-out map window has no DEVICE and counts as a computer)
@@ -1370,7 +1370,7 @@ var MAPVIEW = (function () {
     h += '<h4>Display</h4><label class="chk"><input type="checkbox" id="map-labels" checked> Labels</label>';
     h += '<label class="chk"><input type="checkbox" id="map-cmp" disabled> Show comparison result (added / removed / modified)</label>';
     h += '</div>';
-    h += '<div class="map-tools"><button class="btn small" id="map-fit" title="Zoom to data">⤢ Fit data</button><button class="btn small" id="map-measure" title="Measure distance and bearing">📏 Measure</button><button class="btn small" id="map-png" title="Save the current view as PNG">🖼 Save PNG</button><button class="btn small" id="map-print" title="Print or save the map as PDF: choose area, paper, legend, north arrow">🖨 Print map</button><button class="btn small" id="map-3d" title="3D view: terrain, airspace volumes with their vertical limits, approach and departure crew views">🗻 3D view</button><button class="btn small" id="map-traffic" aria-pressed="false" title="Live air traffic on this map, on or off (adsb.lol, free community flight tracking; needs internet)">✈ Live traffic</button><button class="btn small" id="map-panel-toggle">☰ Layers</button>' +
+    h += '<div class="map-tools"><button class="btn small" id="map-fit" title="Zoom to data">⤢ Fit data</button><button class="btn small" id="map-measure" title="Measure distance and bearing">📏 Measure</button><button class="btn small" id="map-png" title="Save the current view as PNG">🖼 Save PNG</button><button class="btn small" id="map-print" title="Print or save the map as PDF: choose area, paper, legend, north arrow">🖨 Print map</button><button class="btn small" id="map-3d" title="3D view: terrain, airspace volumes with their vertical limits, approach and departure crew views">🗻 3D view</button><button class="btn small" id="map-4d" aria-pressed="false" title="4D: the data at a chosen time — airspace activation, availability of routes, aerodromes, navaids and services, temporary changes, AIRAC playback, a procedure flown in time. Off until switched on; the map stays as it is when off.">🕓 4D time</button><button class="btn small" id="map-traffic" aria-pressed="false" title="Live air traffic on this map, on or off (adsb.lol, free community flight tracking; needs internet)">✈ Live traffic</button><button class="btn small" id="map-panel-toggle">☰ Layers</button>' +
       (hooks.popout ? '<button class="btn small" id="map-popout" title="Open the map in its own window (for a second screen); the main window keeps the data">⧉ New window</button>' : '') +
       (hooks.dock ? '<button class="btn small" id="map-dock" title="Close this window and show the map in the main window again">⇲ Back to main window</button>' : '') + '</div>';
     h += '<div class="card map-status" id="map-status">' + (touchDev() ? 'Tap the map to read the position' : 'Move the mouse over the map') + '</div>';
@@ -1385,6 +1385,7 @@ var MAPVIEW = (function () {
     var mdiv = container.querySelector('#map');
     if (devKind() === 'phone' || (devKind() === 'tablet' && window.innerHeight > window.innerWidth)) container.querySelector('#map-panel').classList.add('hidden'); // phones, upright tablets: map first, Layers opens the panel
     VIEW3D.close();
+    if (typeof FOURD !== 'undefined') FOURD.detach();
     if (map) { map.remove(); map = null; base = { offline: null, current: 'offline', online: {} }; over = {}; vec = null; }
     live = []; traffic = null; state.adView = null; state.all = datasets; state.shown = null; tipLayer = null;
     map = L.map(mdiv, { zoomControl: false, worldCopyJump: true, preferCanvas: true, minZoom: 2, maxZoom: 20 }).setView([30, 10], 3);
@@ -1439,6 +1440,7 @@ var MAPVIEW = (function () {
     q('#map-print').addEventListener('click', function () { printDialog(null); });
     q('#map-3d').addEventListener('click', function () { open3d('area', state.adView && state.adView.ds === state.ds ? state.adView.ad : null); });
     q('#map-traffic').addEventListener('click', function () { if (traffic) trafficOff(); else trafficOn(); });
+    q('#map-4d').addEventListener('click', function (e) { toggle4d(container, e.currentTarget); });
     q('#map-traffic-info').addEventListener('click', function () { trafficDetails(); });
     q('#map-panel-toggle').addEventListener('click', function () { q('#map-panel').classList.toggle('hidden'); });
     bindSearch(container);
@@ -1483,7 +1485,15 @@ var MAPVIEW = (function () {
     datasets = null; // the handlers above use state.all, which Remove can clear (release)
     if (ds) { setShown(keep.indexOf(ds) >= 0 ? keep : [ds], ds); if (opts.procs) showProcs(ds, opts.procs, true); else fit(true); }
     if (opts.cmp) setCompare(opts.cmp);
+    if (typeof FOURD !== 'undefined' && FOURD.on) FOURD.open(container, api4d()); // 4D stays on until switched off
     setTimeout(function () { map.invalidateSize(); }, 50);
+  }
+  // 4D (fourd.js): loaded and switched on only when asked for; off, nothing of it runs
+  function api4d() { return { map: function () { return map; }, shown: shownList, toast: function (t, ms) { hooks.toast(t, ms); }, popup: function (ds, r, at) { openPopup(ds, r, at); } }; }
+  async function toggle4d(container, btn) {
+    if (typeof FOURD !== 'undefined' && FOURD.on) { FOURD.close(); return; }
+    btn.disabled = true;
+    try { if (typeof FOURD === 'undefined') await LAZY.run('src-fourd'); FOURD.open(container, api4d()); } catch (e) { hooks.toast('4D could not start: ' + e.message, 6000); } finally { btn.disabled = false; }
   }
   function fillProcAd(list) {
     var sel = document.getElementById('map-proc-ad');
@@ -1503,6 +1513,7 @@ var MAPVIEW = (function () {
     var used = state.ds === ds || (state.all && state.all.indexOf(ds) >= 0) || (state.cmp && (state.cmp.a === ds || state.cmp.b === ds));
     if (!used) return;
     VIEW3D.close();
+    if (typeof FOURD !== 'undefined') FOURD.detach();
     if (map) { map.remove(); map = null; }
     over = {}; live = []; traffic = null; vec = null; tipLayer = null; el = {};
     state.ds = null; state.all = null; state.shown = null; state.cmp = null; state.adView = null; state.procAd = null;

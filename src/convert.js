@@ -104,13 +104,41 @@ var CONVERT = (function () {
       if (v === undefined || v === null || v === '') return '';
       if (Array.isArray(v)) return v.map(function (x) { return valXml(name, x, ind, ctxType); }).join('');
       var tag = 'aixm:' + name;
-      if (typeof v !== 'object') return ind + '<' + tag + '>' + xesc(v) + '</' + tag + '>\n';
+      if (typeof v !== 'object') {
+        if (!validFor(ctxType, name, v)) { invalid++; return ind + '<' + tag + ' xsi:nil="true" nilReason="other:invalid"/>\n'; }
+        return ind + '<' + tag + '>' + xesc(upperText(ctxType, name, v)) + '</' + tag + '>\n';
+      }
       if (v.ref !== undefined) return ind + '<' + tag + ' xlink:href="' + refId(v) + '"/>\n';
       if (v.nil !== undefined) return ind + '<' + tag + ' xsi:nil="true" nilReason="' + xesc(v.nil) + '"/>\n';
-      if (v.v !== undefined) return ind + '<' + tag + (v.u ? ' uom="' + xesc(v.u) + '"' : '') + '>' + xesc(v.v) + '</' + tag + '>\n';
+      if (v.v !== undefined) {
+        if (!validFor(ctxType, name, v.v)) { invalid++; return ind + '<' + tag + ' xsi:nil="true" nilReason="other:invalid"/>\n'; }
+        return ind + '<' + tag + (v.u ? ' uom="' + xesc(UOM5[String(v.u).toLowerCase()] || v.u) + '"' : '') + '>' + xesc(v.v) + '</' + tag + '>\n';
+      }
       var t = v._t || 'Object';
-      if (v._geo) return ind + '<' + tag + '>\n' + geomXml('aixm:' + t, v, ind + '  ') + ind + '</' + tag + '>\n';
+      if (v._geo) {
+        // a geometry that does not fit the property (a surface with fewer than three positions read as a point …) is left out
+        if ((/Surface$/.test(t) && v._geo.t !== 'A') || (/Point$/.test(t) && v._geo.t !== 'P') || (/Curve$/.test(t) && v._geo.t !== 'L')) return '';
+        return ind + '<' + tag + '>\n' + geomXml('aixm:' + t, v, ind + '  ') + ind + '</' + tag + '>\n';
+      }
       return ind + '<' + tag + '>\n' + ind + '  <aixm:' + t + ' gml:id="' + gid(t.slice(0, 4).toUpperCase()) + '">\n' + objProps(v, t, ind + '    ') + ind + '  </aixm:' + t + '>\n' + ind + '</' + tag + '>\n';
+    }
+    // AIXM 5 units of measure (UomDistanceType …) from the spellings other formats use
+    var UOM5 = { m: 'M', meters: 'M', metres: 'M', meter: 'M', ft: 'FT', feet: 'FT', foot: 'FT', km: 'KM', nm: 'NM', kt: 'KT', knots: 'KT' };
+    // values the AIXM 5 schema would reject (a measure that is not a number, a location indicator that is not four
+    // letters) - e.g. from AMXM or table data - are written as nil with the reason INVALID_IN_SOURCE and counted
+    var invalid = 0;
+    function validFor(t, name, v) {
+      var o = t && (D.v5.features[t] || D.v5.objects[t]), pt = o && o.p && o.p[name] && o.p[name].t;
+      if (!pt) return true;
+      v = String(v).trim();
+      if (/^Val/.test(pt) && pt !== 'ValHex') return v !== '' && (!isNaN(Number(v)) || (pt === 'ValDistanceVertical' && /^(GND|FLOOR|CEILING|UNL|UNLTD)$/.test(v)));
+      if (pt === 'CodeICAO') return /^[A-Z]{4}$/.test(v);
+      return true;
+    }
+    // AIXM 5 names are upper case (TextNameType pattern): a name from AMXM or AIXM 4.5 in mixed case is written in capitals
+    function upperText(t, name, v) {
+      var o = t && (D.v5.features[t] || D.v5.objects[t]), pt = o && o.p && o.p[name] && o.p[name].t;
+      return pt === 'TextName' && typeof v === 'string' ? v.toUpperCase() : v;
     }
     function ordered(keys, dictProps) {
       var known = dictProps ? Object.keys(dictProps) : [];
@@ -134,6 +162,8 @@ var CONVERT = (function () {
         if (ap) { p = Object.assign({}, p); p[ap] = p._ad; }
       }
       var keys = Object.keys(p).filter(function (k) { return k.charAt(0) !== '_' && fd.p[k]; });
+      // a feature read from AMXM: its coded attributes use the AMXM code lists (numbers), not AIXM's; they are left out
+      if (p._amxm && M.amxmDict()) { var ad = M.amxmDict().features[p._amxm]; if (ad) keys = keys.filter(function (k) { return !ad.attrs.some(function (a) { return a.n === k && a.c; }); }); }
       var props = ordered(keys, fd.p).map(function (k) { return valXml(k, p[k], '          ', r.k); }).join('');
       written++;
       return (note && note(r) ? '  <!-- ' + xesc(note(r)).replace(/--/g, '- -') + ' -->\n' : '') + '  <message:hasMember>\n    <aixm:' + r.k + ' gml:id="uuid.' + u + '">\n      <gml:identifier codeSpace="urn:uuid:">' + u + '</gml:identifier>\n' +
@@ -148,7 +178,7 @@ var CONVERT = (function () {
     for (var i = 0; i < ds.recs.length; i++) if (!only || only(ds.recs[i])) parts.push(feature(ds.recs[i]));
     parts.push('</message:AIXMBasicMessage>\n');
     return { blob: new Blob(parts, { type: 'text/xml' }), report: { from: ds.sniff.versionLabel, to: 'AIXM 5.1.1', written: written, skipped: skipped,
-      notes: ['Converted ' + written + ' features to AIXM 5.1.1.', Object.keys(skipped).length ? 'Not converted (no AIXM 5 equivalent in this tool yet): ' + Object.keys(skipped).map(function (k) { return k + ' (' + skipped[k] + ')'; }).join(', ') : 'All features were converted.',
+      notes: ['Converted ' + written + ' features to AIXM 5.1.1.' + (invalid ? ' ' + invalid + ' value(s) the AIXM 5 schema does not allow (a measure that is not a number, a location indicator that is not four letters) were written as nil (nilReason other:invalid).' : ''), Object.keys(skipped).length ? 'Not converted (no AIXM 5 equivalent in this tool yet): ' + Object.keys(skipped).map(function (k) { return k + ' (' + skipped[k] + ')'; }).join(', ') : 'All features were converted.',
         'Property order follows the AIXM 5.1.1 schema; validate the result against the 5.1.1 XSD before operational use.'] } };
   }
 

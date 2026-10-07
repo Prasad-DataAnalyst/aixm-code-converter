@@ -16,7 +16,7 @@ const path = require('path');
 const ROOT = env.ROOT, OUT = env.out('amdb_package'), T = ROOT + '/testdata/';
 const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
 const fflate = require(path.join(ROOT, 'tools/node_modules/fflate'));
-const { validateAmxm } = require('./_xsd');
+const { validateAmxm, validateAixm511 } = require('./_xsd');
 
 (async () => {
   const browser = await env.playwright.chromium.launch({ executablePath: env.chrome });
@@ -77,6 +77,9 @@ const { validateAmxm } = require('./_xsd');
   // valid against the AMXM 2.0.2 XML schema (with GML 3.2.1 and ISO 19139), although the source has a wrong code
   const v1 = await validateAmxm(amxm);
   if (!v1.valid) fails.push('AMXM file not valid against the AMXM 2.0.2 schema: ' + v1.errors.slice(0, 3).join(' | '));
+  // the AIXM 5.1.1 file of the package is valid against the AIXM 5.1.1 schema
+  const vx = await validateAixm511(get(/_AIXM-5\.1\.1\.xml$/).toString());
+  if (!vx.valid) fails.push('AIXM file not valid against the AIXM 5.1.1 schema: ' + vx.errors.slice(0, 3).join(' | '));
   const src = await validateAmxm(fs.readFileSync(T + 'amxm_test_EAXM.xml', 'utf8'));
   if (src.valid) fails.push('the schema check accepts the (incomplete) test source file: it checks nothing');
   if (!/<amxm:feattype>0<\/amxm:feattype>/.test(amxm)) fails.push('feattype of RunwayElement (0)');
@@ -148,6 +151,8 @@ const { validateAmxm } = require('./_xsd');
   const bAmxm = Buffer.from(bzz[Object.keys(bzz).find((n) => /_AMXM-2\.0\.xml$/.test(n))]).toString();
   const v2 = await validateAmxm(bAmxm);
   if (!v2.valid) fails.push('AMXM of the defect aerodromes not schema-valid: ' + v2.errors.slice(0, 3).join(' | '));
+  const vx2 = await validateAixm511(Buffer.from(bzz[Object.keys(bzz).find((n) => /_AIXM-5\.1\.1\.xml$/.test(n))]).toString());
+  if (!vx2.valid) fails.push('AIXM of the defect aerodromes not schema-valid: ' + vx2.errors.slice(0, 3).join(' | '));
   const bRep = Buffer.from(bzz[Object.keys(bzz).find((n) => /_package_report\.html$/.test(n))]).toString();
   if (!/value\(s\) of the sources the schema does not allow/.test(bRep)) fails.push('report does not list the values written as unknown');
 

@@ -1046,3 +1046,20 @@ pre, .xml, .notam-text { text-align: left; }
 .amdb-form label.chk { display: block; margin: 3px 0; }
 .amdb-ack { border: 1px solid var(--warn); background: var(--warn-soft); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
 .amdb-src td input, .amdb-src td select { width: 100%; min-width: 120px; }
+
+/* 4D time bar (fourd.js; only when 4D is switched on) */
+.fd-bar { position: absolute; left: 12px; bottom: 44px; z-index: 520; width: min(860px, calc(100% - 150px)); max-height: calc(100% - 120px); overflow: auto; padding: 8px 12px; font-size: 12.5px; box-shadow: var(--shadow-lg); }
+.fd-bar .fd-head { display: flex; align-items: center; gap: 8px; }
+.fd-bar .fd-head .sp { flex: 1; }
+.fd-bar .fd-head .muted { font-size: 11px; }
+.fd-bar.fd-min .fd-body { display: none; }
+.fd-bar .fd-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 6px; }
+.fd-bar .fd-row label { display: inline-flex; align-items: center; gap: 4px; }
+.fd-bar .fd-row .chk { margin: 0; }
+.fd-bar .inp { padding: 3px 6px; font-size: 12.5px; }
+.fd-bar .fd-slider { flex: 1; min-width: 160px; accent-color: var(--brand-3); }
+.fd-bar .fd-kpi { border-left: 4px solid; padding: 1px 8px; background: var(--surface-2); border-radius: 4px; }
+.fd-bar details { margin-top: 6px; }
+.fd-bar summary { cursor: pointer; font-weight: 600; color: var(--brand-2); }
+.fd-bar .fd-list .tbl-wrap, .fd-bar .fd-eto { max-height: 220px; overflow: auto; }
+:root[data-device="phone"] .fd-bar { left: 8px; right: 8px; width: auto; bottom: 40px; max-height: 55%; }

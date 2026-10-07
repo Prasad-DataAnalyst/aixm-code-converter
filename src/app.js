@@ -20,7 +20,7 @@
  *   EXPORT, e-mail, search, help, start . exports/conversions, Outlook text, Ctrl+K search, startup
  * Every view is a function viewXxx(v, opts) registered in go(); add a view there and in VIEWS.
  * ========================================================================== */
-/* global AMDBUI, AMDB, AMDBPKG, LAZY, APP_INFO, APP_SETTINGS, OBSTAB, DDVIEW, DEMF, DEM, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, ADCHART, OLS, INTEGRITY, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
+/* global AMDBUI, AMDB, AMDBPKG, AMDBX, LAZY, APP_INFO, APP_SETTINGS, OBSTAB, DDVIEW, DEMF, DEM, AX, MODEL, AIP, ANALYSIS, MAPVIEW, MAPWIN, ABOUT, ADCHART, OLS, INTEGRITY, EXPORTS, CONVERT, LIBRARY, REVIEW, RULES, I18N, fflate */
 (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -406,12 +406,27 @@
           if (!gx.features) toast(f.name + ': no aerodrome mapping layers (tables named after AMXM feature types)', 7000);
           else { await addOne(new File([gx.xml], f.name.replace(/\.gpkg$/i, '') + '_from_GeoPackage_AMXM.xml', { type: 'text/xml', lastModified: f.lastModified }), f.name); toast(f.name + ': ' + gx.features + ' features in ' + gx.tables + ' table(s) read as AMXM' + (gx.skipped ? ' (' + gx.skipped + ' other table(s) left out)' : ''), 6000); }
         } catch (err) { toast('Could not read ' + f.name + ': ' + err.message, 7000); }
+      } else if (/\.(geojson|json|dxf)$/i.test(f.name) || (/\.csv$/i.test(f.name) && await amxmCsv(f))) {
+        // GIS, table (WKT) and CAD files of aerodrome mapping features (layers or a column named after the AMXM
+        // feature type, as the package's own files): read as AMXM (the reader is loaded only now)
+        try {
+          await LAZY.run('src-amdb'); await LAZY.run('src-amdbpkg'); await LAZY.run('src-amdbx');
+          var ix = await AMDBX.importFile(f);
+          if (!ix) { if (/\.csv$/i.test(f.name)) await addOne(f); else toast(f.name + ': not aerodrome mapping data', 7000); }
+          else if (!ix.features) toast(f.name + ': no aerodrome mapping features (layers or types named after AMXM feature types)' + (ix.skipped ? ', ' + ix.skipped + ' left out' : ''), 7000);
+          else { await addOne(new File([ix.xml], f.name.replace(/\.[a-z]+$/i, '') + '_AMXM.xml', { type: 'text/xml', lastModified: f.lastModified }), f.name); toast(f.name + ': ' + ix.features + ' features read as AMXM' + (ix.skipped ? ' (' + ix.skipped + ' left out)' : ''), 6000); }
+        } catch (err) { toast('Could not read ' + f.name + ': ' + err.message, 7000); }
       } else await addOne(f);
     }
     S.adding--;
     applyManifests();
     renderFileList();
     verifyChecksums();
+  }
+  // a CSV of aerodrome mapping features has a WKT and an AMXM type column (other CSV stays a table)
+  async function amxmCsv(f) {
+    var h = (await f.slice(0, 8192).text()).split(/\r?\n/).filter(function (l) { return l && l.charAt(0) !== '#'; })[0] || '';
+    return /(^|,)"?wkt"?(,|$)/i.test(h) && /(^|,)"?(amxm_type|feature_type)"?(,|$)/i.test(h);
   }
   async function openPackage(f) {
     var bytes = new Uint8Array(await f.arrayBuffer());
@@ -872,7 +887,8 @@
     DEM.scan(it, function (q) { item.detail = item.detail.replace(/ · statistics.*$/, '') + ' · statistics ' + Math.round(q * 100) + ' %'; updateFileItem(item); }).then(function (st) {
       item.detail = item.detail.replace(/ · statistics.*$/, '') + (st ? ' · ' + Math.round(st.min) + ' … ' + Math.round(st.max) + ' m' + (st.voids ? ' · ' + (Math.round(1000 * st.voids / st.posts) / 10) + ' % voids' : '') : '');
       updateFileItem(item);
-      if (S.view === 'digital') go('digital', { sec: 'ter' });
+      // the statistics refresh the Terrain section when it is shown; another section the user is working in stays
+      if (S.view === 'digital' && (DDVIEW.current() === 'ter' || !DDVIEW.current())) go('digital', { sec: 'ter' });
     }).catch(function (e) { console.warn('terrain statistics', e); });
     return it;
   }

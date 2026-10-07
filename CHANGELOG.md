@@ -7,6 +7,44 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.27.0 — 2026-10-07 — 4D and more aerodrome mapping tools
+
+NOT FOR NAVIGATION — for study and analysis only.
+
+- **4D — the data at a chosen time** (Map → 🕓 4D time). Off until switched on; off, the map, the 3D view and every
+  tab are exactly as before, and nothing of it is loaded:
+  - time bar in UTC: date and time, slider over a day, a week or an AIRAC cycle, steps (10 s, 1 min, 15 min,
+    1 h, 1 day, AIRAC cycle), play / pause, Now;
+  - AIXM 5.x timesheets: days and day ranges (MON..SUN, working days, holidays, the days before and after),
+    dates (DD-MM, SDLST / EDLST), times and windows over midnight, sunrise and sunset at the feature (with the
+    offset, earliest / latest), local time references (UTC+n), the daylight saving adjustment (EU or US rule),
+    excluded periods, the H24 and NOTAM nil reasons; AIXM 4.5 working hours (H24, HJ, HN, HX, HO);
+  - airspace activation (active, available for activation or by NOTAM, inactive) and the availability of routes,
+    aerodromes, navaids, units, services and frequencies; temporary changes (TEMPDELTA, Digital NOTAM, also without
+    the baseline) and features not valid yet or no longer valid;
+  - on the map (its own layer; the normal airspace layer can be hidden), in a list with the reason and the next
+    change within 48 h, and in the 3D view (inactive airspace left out, active airspace in red);
+  - a procedure flown at a ground speed from the time on the bar: the aircraft on the map, the ETO over each leg end;
+  - the date can be applied to every tab (Data valid on), once or each time it changes;
+  - exports of the range on the bar: KML with time spans and the flight as a gx:Track, CZML (Cesium), GeoJSON with
+    the intervals of each feature, PDF and Excel reports of the state at that time.
+- **Aerodrome mapping — more tools** (Digital data → Aerodrome mapping (AMDB)):
+  - *Generate from AIP*: aerodromes without mapping data get runway elements (from the runway ends, or a
+    threshold, the bearing and the length, and the width), thresholds with elevation and declared distances,
+    stopways (ASDA − TORA), the reference point and stands, written as AMXM 2.0 (valid against the schema) and
+    opened; every feature says it is generated, coarse quality, and Sources & quality records it so;
+  - *Import*: GeoJSON, CSV with WKT and an AMXM type column, and DXF (WGS 84 / UTM, layers named after AMXM
+    feature types) open on Files as AMXM; other CSV files stay tables;
+  - *Compare*: two aerodrome mapping data sets (two cycles, two suppliers, AIXM against AMXM) — added, removed,
+    moved (with the distance) and changed (with the attributes), on a map, in PDF / Excel / CSV / JSON reports and
+    as an AMXM change file (permanent changes, ended features).
+- **Fixes**:
+  - the AIXM 5.1.1 file of an aerodrome mapping package is valid against the AIXM 5.1.1 schema (upper-case names,
+    AIXM units of measure, invalid source values written as nil with a reason, geometry only where the property
+    takes it);
+  - AMXM thresholds and stands without a designator are no longer merged into one;
+  - the terrain statistics finishing in the background no longer switch the Digital data tab to Terrain.
+
 ## 1.26.0 — 2026-10-07 — Aerodrome mapping (AMDB): checks and packages
 
 NOT FOR NAVIGATION — the aerodrome mapping tools are for study and analysis only.

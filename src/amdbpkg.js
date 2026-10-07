@@ -114,7 +114,8 @@ var AMDBPKG = (function () {
     var cnt = {};
     feats.forEach(function (f) { var v = f.a.source && f.a.source.v; if (v) cnt[v] = (cnt[v] || 0) + 1; });
     var best = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; })[0];
-    return { orig: best || ds.state || '', lic: '', date: typeof ds.effective === 'number' ? new Date(ds.effective).toISOString().slice(0, 10) : '', method: ds.family === 'amxm' ? 'Unknown' : 'Derived from AIP / AIXM data', q: 'unknown', note: '', rights: false };
+    var gen = /^Generated from AIP/.test(best || '');
+    return { orig: gen ? '' : best || ds.state || '', lic: '', date: typeof ds.effective === 'number' ? new Date(ds.effective).toISOString().slice(0, 10) : '', method: ds.family === 'amxm' && !gen ? 'Unknown' : 'Derived from AIP / AIXM data', q: gen ? 'coarse' : 'unknown', note: gen ? best : '', rights: false };
   }
   function sources(ctx) {
     var col = API.features(ctx.datasets);
@@ -739,6 +740,12 @@ var AMDBPKG = (function () {
     })();
     return out;
   }
+  // plain features ({t, a, g, ad, id …}) -> an AMXM 2.0 document (schema-valid; no metadata), with a comment
+  function writeAmxm(list, comment) {
+    var W = { plain: true, now: new Date(), pid: uuid(), dict: M.amxmDict(), srcs: [], tag: '', ads: [], fix: { closed: 0, oriented: 0, dup: 0, unknown: 0, invalid: [], placeholder: [] } };
+    list = list.map(function (f, i) { return Object.assign({ i: i, src: 'AMXM', keys: [], label: '', ref: [0, 0] }, f, { w: f.g.map(function (x) { return cleanGeom(x, W.fix); }), uid: uidOf(Object.assign({ i: i }, f)) }); });
+    return amxmXml(list, W, '').replace('\n  <amxm:metadata></amxm:metadata>', '').replace('<?xml version="1.0" encoding="UTF-8"?>\n', '<?xml version="1.0" encoding="UTF-8"?>\n<!-- ' + xe(comment || '').replace(/--/g, '- -') + ' -->\n');
+  }
   async function gpkgToAmxm(bytes, name) {
     var SQL = await sql(), db = new SQL.Database(bytes), D = M.amxmDict(), byName = {};
     Object.keys(D.features).forEach(function (t) { byName[t.toLowerCase()] = t; });
@@ -766,10 +773,7 @@ var AMDBPKG = (function () {
       });
       db.close();
       if (!list.length) return { features: 0, tables: used, skipped: skipped };
-      var W = { plain: true, now: new Date(), pid: uuid(), dict: D, srcs: [], tag: name, ads: [], fix: { closed: 0, oriented: 0, dup: 0, unknown: 0, invalid: [], placeholder: [] } };
-      list = list.map(function (f) { return Object.assign(f, { w: f.g.map(function (x) { return cleanGeom(x, W.fix); }), uid: uidOf(f) }); });
-      var xml = amxmXml(list, W, '').replace('\n  <amxm:metadata></amxm:metadata>', '').replace('<?xml version="1.0" encoding="UTF-8"?>\n', '<?xml version="1.0" encoding="UTF-8"?>\n<!-- Read from the GeoPackage ' + xe(name).replace(/--/g, '- -') + ' -->\n');
-      return { xml: xml, features: list.length, tables: used, skipped: skipped };
+      return { xml: writeAmxm(list, 'Read from the GeoPackage ' + name), features: list.length, tables: used, skipped: skipped };
     } catch (e) { try { db.close(); } catch (x) { /* closed */ } throw e; }
   }
 
@@ -778,5 +782,5 @@ var AMDBPKG = (function () {
     if (tab === 'sources') sourcesView(host, ctx); else packageView(host, ctx);
   }
   function setApi(api) { API = api; }
-  return { render: render, make: make, verify: verify, sha256: sha256, utm: utm, settings: SET, setApi: setApi, gpkgToAmxm: gpkgToAmxm };
+  return { render: render, make: make, verify: verify, sha256: sha256, utm: utm, settings: SET, setApi: setApi, gpkgToAmxm: gpkgToAmxm, writeAmxm: writeAmxm, uuid: uuid };
 })();

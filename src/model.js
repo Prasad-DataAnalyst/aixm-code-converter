@@ -131,7 +131,7 @@ var MODEL = (function () {
       if (p.associatedTaxiway) make('Taxiway', p.associatedTaxiway.ref, r, { designator: sv(p.idlin), _ad: { ref: adId }, _amxm: 'taxiway (named by idlin)' });
       if (p.connectedTaxiway) make('Taxiway', p.connectedTaxiway.ref, r, { designator: sv(p.idlin), _ad: { ref: adId }, _amxm: 'taxiway (named by idlin)' });
       if (p.associatedApron) make('Apron', p.associatedApron.ref, r, { name: sv(p.idapron), designator: sv(p.idapron), _ad: { ref: adId }, _amxm: 'apron (named by idapron)' });
-      if (p._amxm === 'ParkingStandArea' || p._amxm === 'ParkingStandLocation') {
+      if ((p._amxm === 'ParkingStandArea' || p._amxm === 'ParkingStandLocation') && sv(p.idstd)) { // stands without a designator are not paired
         var sk = adId + '|' + sv(p.idstd), e = stands.get(sk) || {};
         e[p._amxm === 'ParkingStandArea' ? 'area' : 'loc'] = r; stands.set(sk, e);
       }

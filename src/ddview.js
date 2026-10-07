@@ -14,7 +14,7 @@
  *   Terrain                terrain files, flight path and aerodrome terrain studies (terview.js)
  * The AIP, map and export views are not changed; this tab only reads the data.
  * ========================================================================== */
-/* global MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW, TERVIEW, DEM, IFP, DDX, CONVERT, STUDY, LAZY, AMDBUI */
+/* global MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW, TERVIEW, DEM, IFP, DDX, CONVERT, STUDY, LAZY, AMDBUI, AMDBX */
 var DDVIEW = (function () {
   'use strict';
   var M = MODEL, s = M.s;
@@ -252,7 +252,7 @@ var DDVIEW = (function () {
     });
   }
   // Aerodrome mapping: the features (AMXM) and the AMDB tools - checks, package, sources (loaded when opened)
-  var AM_TABS = [['features', 'Features'], ['checks', 'AMDB checks'], ['package', 'Build package'], ['sources', 'Sources & quality']];
+  var AM_TABS = [['features', 'Features'], ['checks', 'AMDB checks'], ['package', 'Build package'], ['sources', 'Sources & quality'], ['generate', 'Generate from AIP'], ['compare', 'Compare']];
   function amRender(host, ctx) {
     var F = V.am;
     host.innerHTML = '<div class="pill-tabs am-tabs" role="tablist" aria-label="Aerodrome mapping tools">' + AM_TABS.map(function (t) { return '<button role="tab" class="' + (F.tab === t[0] ? 'active' : '') + '" data-amtab="' + t[0] + '">' + t[1] + '</button>'; }).join('') +
@@ -266,7 +266,9 @@ var DDVIEW = (function () {
     body.innerHTML = '<div class="card card-pad"><span class="spinner"></span> Loading the aerodrome mapping tools…</div>';
     try {
       await LAZY.run('src-amdb'); await LAZY.run('src-amdbui');
-      if (V.am.tab === tab && body.isConnected) await AMDBUI.render(tab, body, ctx);
+      if ((tab === 'generate' || tab === 'compare') && typeof AMDBX === 'undefined') { await LAZY.run('src-amdbpkg'); await LAZY.run('src-amdbx'); }
+      if (V.am.tab !== tab || !body.isConnected) return;
+      if (tab === 'generate' || tab === 'compare') AMDBX.render(tab, body, ctx); else await AMDBUI.render(tab, body, ctx);
     } catch (e) { body.innerHTML = '<div class="card card-pad">The aerodrome mapping tools could not start: ' + esc(e.message) + '</div>'; }
   }
   function amFeatures(host, ctx) {
@@ -346,5 +348,5 @@ var DDVIEW = (function () {
     runReport(fmt, { title: 'Aerodrome mapping data' + (V.am.ad ? ' — ' + V.am.ad : ''), sub: recs.length + ' features', ds: recs[0] ? recs[0].ds : null, sections: secs }, ctx);
   }
 
-  return { render: render, has: has, sections: sections, open: function (sec, tab) { V.sec = sec; if (tab) V.am.tab = tab; } };
+  return { render: render, has: has, sections: sections, open: function (sec, tab) { V.sec = sec; if (tab) V.am.tab = tab; }, current: function () { return V.sec; } };
 })();

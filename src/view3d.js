@@ -20,7 +20,7 @@
  * Local east-north-up frame in metres; vertical exaggeration selectable.
  * Indicative visualisation.
  * ========================================================================== */
-/* global THREE, AX, MODEL, AIP, ADCHART, TERRAIN, MAPVIEW, OLS, topojson */
+/* global THREE, AX, MODEL, AIP, ADCHART, TERRAIN, MAPVIEW, OLS, topojson, FOURD */
 var VIEW3D = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr, FT = 0.3048, NMM = 1852, D2R = Math.PI / 180;
@@ -214,6 +214,9 @@ var VIEW3D = (function () {
     (ds.byType.Airspace || []).forEach(function (a) {
       var cat = MAPVIEW.asCat(s(a.cur.p.type));
       if (cat === 'fir' ? !layerOn('fir') : !layerOn('airspace')) return;
+      // 4D switched on: the airspace at the time of the time bar (inactive or not valid then: not drawn; active: red)
+      var t4 = typeof FOURD !== 'undefined' ? FOURD.stateOf(ds, a) : null;
+      if (t4 === 'off' || t4 === 'none') return;
       var g = M.geometry(ds, a), parts = !g ? [] : g.t === 'M' ? g.parts : [g], pi = 0;
       arr(a.cur.p.geometryComponent).forEach(function (gc) {
         var vol = gc && gc.theAirspaceVolume;
@@ -233,8 +236,8 @@ var VIEW3D = (function () {
         var shape = new THREE.Shape(ring.map(function (p) { return new THREE.Vector2(V.P.x(p[0]), -V.P.z(p[1])); }));
         var geo = new THREE.ExtrudeGeometry(shape, { depth: (top - bot) * V.ex, bevelEnabled: false, curveSegments: 1 });
         geo.rotateX(-Math.PI / 2);
-        var col = new THREE.Color(MAPVIEW.COLORS[cat] || '#546e7a');
-        var mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: cat === 'fir' ? 0.05 : V.opts.mode === 'area' ? 0.12 : 0.05, depthWrite: false, side: THREE.DoubleSide }));
+        var col = new THREE.Color(t4 === 'on' ? '#d32f2f' : t4 === 'maybe' ? '#f9a825' : MAPVIEW.COLORS[cat] || '#546e7a');
+        var mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: cat === 'fir' ? 0.05 : t4 === 'on' ? 0.3 : V.opts.mode === 'area' ? 0.12 : 0.05, depthWrite: false, side: THREE.DoubleSide }));
         mesh.position.y = bot * V.ex;
         var info = { rec: a, ring: ring, lo: lo, up: up, bot: bot, top: up.m, cls: AIP.airspaceClass(a).split('\n')[0], name: M.label(ds, a), cat: cat, clipped: up.m > cap };
         mesh.userData.as = info;

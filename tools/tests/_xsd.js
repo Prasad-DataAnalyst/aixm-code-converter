@@ -20,4 +20,13 @@ async function validateAmxm(xml) {
   const r = await validateXML({ xml: [{ fileName: 'amxm.xml', contents: xml }], schema: [schema], preload, initialMemoryPages: 1024, maxMemoryPages: 32768 });
   return { valid: r.valid, errors: r.errors.map((e) => e.message || e.rawMessage || String(e)) };
 }
-module.exports = { validateAmxm };
+// AIXM 5.1.1 basic message (schemas/5.1.1 + the message schema kept in tools/tests/xsd/aixm-5.1.1-message)
+async function validateAixm511(xml) {
+  const preload = walk(XSD, []).filter((p) => !/aixm-5\.1\.1-message/.test(p)).map((p) => ({ fileName: '/xsd/' + path.relative(XSD, p).split(path.sep).join('/'), contents: local(fs.readFileSync(p, 'utf8')) }));
+  const A = path.join(ROOT, 'schemas/5.1.1');
+  fs.readdirSync(A).filter((n) => /\.xsd$/.test(n)).forEach((n) => preload.push({ fileName: '/aixm/' + n, contents: local(fs.readFileSync(path.join(A, n), 'utf8')) }));
+  const msg = local(fs.readFileSync(path.join(XSD, 'aixm-5.1.1-message/AIXM_BasicMessage.xsd'), 'utf8')).replace('schemaLocation="../ISO_19136_Schemas/gml.xsd"', 'schemaLocation="/xsd/gml/3.2.1/gml.xsd"');
+  const r = await validateXML({ xml: [{ fileName: 'aixm.xml', contents: xml }], schema: [{ fileName: '/aixm/message/AIXM_BasicMessage.xsd', contents: msg }], preload, initialMemoryPages: 2048, maxMemoryPages: 65536 });
+  return { valid: r.valid, errors: r.errors.map((e) => e.message || e.rawMessage || String(e)) };
+}
+module.exports = { validateAmxm, validateAixm511 };

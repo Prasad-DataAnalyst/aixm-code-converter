@@ -512,20 +512,24 @@ A white-label export removes only our branding.
 
 ---
 
-## 10. Implementation status (1.26.0)
+## 10. Implementation status (1.27.0)
 
 | Stage | Built | Where |
 |---|---|---|
 | 0 — groundwork | Research, permissions and risks (this document); Esri maps marked non-commercial; NOTICE wording; engines stored unopened and started only when used (`src/lazy.js`); performance measured against 1.25.0 | `src/lazy.js`, `tools/build.js` (`INLINE_LAZY`), NOTICE |
 | 1 — AMDB checks | 36 rules with their sources (generic, quality, geometry, functional, completeness), AIXM features as their AMXM counterparts, background worker with JSTS, findings by rule / on a map / with the feature, audit report, Quality summary | `src/amdb.js`, `src/amdbui.js`, Digital data → Aerodrome mapping (AMDB) → AMDB checks |
 | 2 — aerodrome mapping package | Sources & quality; custom / full export; AMXM 2.0 (schema-valid), AIXM 5.1.1, GeoPackage, GeoJSON, KML, Shapefile, CSV, Excel, DXF; ISO 19115, DPS, report, guides, checksums; standard / for further processing with handover record; package verification and GeoPackage reading on Files | `src/amdbpkg.js`, Build package, Sources & quality, Files |
+| 3 — more tools | Generate from AIP (Tier D: runway elements, thresholds, stopways, reference point, stands — coarse, labelled); GeoJSON / CSV (WKT) / DXF read as AMXM (Tier C); compare two data sets (added, removed, moved, changed) with an AMXM change file; AIXM 5.1.1 output validated against the AIXM 5.1.1 schema | `src/amdbx.js`, Generate from AIP, Compare, Files |
+| 4 — 4D (opt-in) | Map → 4D time: timesheet evaluation (days, holidays, dates, times, sunrise / sunset, local time, daylight saving, excluded, H24 / NOTAM, AIXM 4.5 hours), airspace activation and availability of routes, aerodromes, navaids, units, services at a time, temporary changes, validity; AIRAC steps; procedure flown at a ground speed with ETO; 3D at that time; KML (time spans, gx:Track), CZML, GeoJSON, PDF, Excel | `src/fourd.js`, Map |
 
 Verified by the tests:
 - every rule finds its defect on `testdata/amdb_test_EAXB.xml` (made by `tools/make_amdb_testdata.js`);
 - the AMXM written validates against the AMXM 2.0.2 XML schema with GML 3.2.1 and ISO 19139 (libxml2, offline, `tools/tests/_xsd.js`), also from source data with invalid values;
-- checksums, reopening, tamper detection, GeoPackage round trip, white-label cleanliness (`tools/tests/amdb_package.js`).
+- checksums, reopening, tamper detection, GeoPackage round trip, white-label cleanliness, the package's AIXM 5.1.1 file against the AIXM 5.1.1 schema (`tools/tests/amdb_package.js`);
+- generation, GeoJSON / CSV / DXF round trip and comparison (`tools/tests/amdb_tools.js`);
+- timesheets, sun, daylight saving, AIRAC and 4D on the map, in 3D and in the exports (`tools/tests/unit/fourd.test.js`, `tools/tests/fourd.js`).
 
-Not built (planned): generation from AIP data alone (Tier D), survey / CAD / GIS import (Tier C), imagery digitising (Tier E), package comparison, 4D, ARINC 816 encoding.
+Not built: imagery digitising (Tier E — needs imagery licensed for it and a survey-grade process) and ARINC 816 encoding (the specification is sold by SAE ITC; the AMXM, GeoPackage and mapping table of a package are the way into ARINC 816 tools).
 
 ---
 
