@@ -3,8 +3,8 @@
 // Data issues: a copy of the Donlon sample with coding errors put in (an aerodrome at 0°N 0°E, one location
 // indicator for two aerodromes, an implausible field elevation and runway length, a route segment lower limit above its
 // upper limit). The Quality tab runs the checks by itself and lists each issue with what was found and what is
-// expected, grouped by kind; the AIP tab marks the sections (⚠ badge), shows the issues of the open section in a box
-// and marks the values concerned; a Quality row opens its AIP section. A copy whose runway thresholds have no
+// expected, grouped by kind; a Quality row opens its AIP section, which stays clean: one quiet line with the number of
+// issues and a link back to the Quality tab, filtered to that section; marking the values is an option. A copy whose runway thresholds have no
 // coordinates (as in some deliveries): each threshold is flagged, and the map's airport view still opens with the
 // runways listed from the data and a note of what the data set does not give.
 const fs = require('fs');
@@ -60,15 +60,24 @@ fs.writeFileSync(NOTHR, fs.readFileSync(ROOT + '/testdata/Donlon_ALL_Baseline_20
   await page.click('.q-rules [data-qrule="Position"]'); await page.waitForTimeout(200);
   if (await page.evaluate(() => [...document.querySelectorAll('.q-table tbody tr')].some((tr) => !/Position/.test(tr.textContent)))) fails.push('a kind chip should filter the list');
   await page.screenshot({ path: OUT + '/quality.png' });
-  // a row opens its AIP section, which shows the issue and marks the value
+  // a row opens its AIP section: no list there, one quiet line with the number of issues and a link; no marks or badges
   await page.click('.q-table [data-qaip]'); await page.waitForTimeout(1200);
-  const aip = await page.evaluate(() => ({ view: window.__AIXM.S.view, box: (document.querySelector('.q-box') || {}).textContent || '', flags: [...document.querySelectorAll('.src.qflag')].map((x) => x.title.split('\n')[0]), badges: document.querySelectorAll('.tree .qbadge').length }));
-  if (aip.view !== 'aip' || !/0°N 0°E/.test(aip.box) || !aip.flags.some((t) => /DATA ISSUE \(error\) Position 0°N 0°E/.test(t)) || !aip.badges) fails.push('AIP: issue box, marked value, section badges ' + JSON.stringify(aip).slice(0, 400));
+  const aip = await page.evaluate(() => ({ view: window.__AIXM.S.view, line: (document.querySelector('.q-link') || {}).textContent || '', box: !!document.querySelector('.q-box'), flags: document.querySelectorAll('.src.qflag').length, badges: document.querySelectorAll('.tree .qbadge').length }));
+  if (aip.view !== 'aip' || !/\d+ data issues? in this section/.test(aip.line) || aip.box || aip.flags || aip.badges) fails.push('AIP: one quiet line, no list, no marks, no badges ' + JSON.stringify(aip).slice(0, 300));
   await page.screenshot({ path: OUT + '/aip.png' });
-  // marks can be switched off
-  await page.click('.q-box [data-qon]'); await page.waitForTimeout(400);
-  if (await page.evaluate(() => document.querySelectorAll('.src.qflag').length)) fails.push('"Mark them in the tables" off should remove the marks');
-  await page.click('.q-box [data-qon]'); await page.waitForTimeout(400);
+  // marking the values is an option
+  await page.click('.q-link [data-qon]'); await page.waitForTimeout(400);
+  const on = await page.evaluate(() => ({ flags: [...document.querySelectorAll('.src.qflag')].map((x) => x.title.split('\n')[0]), badges: document.querySelectorAll('.tree .qbadge').length }));
+  if (!on.flags.some((t) => /DATA ISSUE \(error\) Position 0°N 0°E/.test(t)) || !on.badges) fails.push('"mark the values" should mark them: ' + JSON.stringify(on).slice(0, 300));
+  await page.click('.q-link [data-qon]'); await page.waitForTimeout(400);
+  if (await page.evaluate(() => document.querySelectorAll('.src.qflag').length)) fails.push('"mark the values" off should remove the marks');
+  // the link opens the Quality tab on just the issues of this section; "show all" and "back" work
+  await page.click('.q-link [data-qtab-go="sec"]'); await page.waitForTimeout(800);
+  const qf = await page.evaluate(() => ({ view: window.__AIXM.S.view, banner: (document.querySelector('.q-focus') || {}).textContent || '', rows: document.querySelectorAll('.q-table tbody tr').length, all: (window.__AIXM.S.quality.get(window.__AIXM.S.datasets[0]) || []).length }));
+  if (qf.view !== 'quality' || !/issue\(s\) of the AIP section/.test(qf.banner) || !qf.rows || qf.rows >= qf.all) fails.push('Quality tab on the issues of the section: ' + JSON.stringify(qf).slice(0, 300));
+  await page.click('[data-qall]'); await page.waitForTimeout(300);
+  if (await page.evaluate(() => !!document.querySelector('.q-focus'))) fails.push('"Show all issues"');
+  await page.screenshot({ path: OUT + '/quality_section.png' });
   // thresholds without coordinates
   await page.goto(URL); await page.waitForSelector('#drop');
   await page.setInputFiles('#file-input', [NOTHR]);

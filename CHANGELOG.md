@@ -74,6 +74,10 @@ NOT FOR NAVIGATION — for study and analysis only.
   - *Compare*: two aerodrome mapping data sets (two cycles, two suppliers, AIXM against AMXM) — added, removed,
     moved (with the distance) and changed (with the attributes), on a map, in PDF / Excel / CSV / JSON reports and
     as an AMXM change file (permanent changes, ended features).
+- **AIP view without the data-issue lists**: the issues are listed in the Quality tab only; an AIP section with issues
+  shows one quiet line (how many, of which severity) whose link opens the Quality tab on just the issues of that
+  section (with "show all" and "back to the AIP section"); marking the values in the tables and the ⚠ counts in the
+  section list are an option, off unless switched on.
 - **Fixes**:
   - the AIXM 5.1.1 file of an aerodrome mapping package is valid against the AIXM 5.1.1 schema (upper-case names,
     AIXM units of measure, invalid source values written as nil with a reason, geometry only where the property

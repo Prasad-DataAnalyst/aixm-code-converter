@@ -307,6 +307,7 @@
   function go(view, opts) {
     // the map lives in its own window: send "show on map" there and keep the current view here
     if (view === 'map' && MAPWIN.isOpen() && !(opts && opts.docked)) { MAPWIN.apply(S.datasets, Object.assign({ cmp: S.cmp }, opts || {})); return; }
+    if (view !== 'quality') S.qFocus = null;
     S.view = view;
     renderNav();
     closeSearch();
@@ -1601,7 +1602,7 @@
     var side = $('#aip-side');
     var keepFilter = ($('#tree-filter', side) || {}).value || ''; // a folded or unfolded group keeps the filter text
     var bs = S.hlOn ? (getCyc(ds) || {}).bySection || {} : {};
-    var qs = S.qOn !== false && qIndex(ds) ? qIndex(ds).bySection : {};
+    var qs = S.qOn === true && qIndex(ds) ? qIndex(ds).bySection : {};
     function bdg(id) {
       var q = qs[id];
       return (bs[id] ? '<span class="cbadge" title="' + bs[id] + ' feature(s) change in this AIRAC cycle">' + bs[id] + '</span>' : '') +
@@ -1679,36 +1680,32 @@
   }
   // issues of a feature that concern this value (property), or the whole feature
   function qOf(ds, r, p) {
-    var ix = S.qOn !== false && r ? qIndex(ds) : null, l = ix && ix.byRec.get(r);
+    var ix = S.qOn === true && r ? qIndex(ds) : null, l = ix && ix.byRec.get(r);
     return l ? l.filter(function (i) { return p ? i.p === p : !i.p; }) : [];
   }
   function rowIssue(ds, cells) {
-    var ix = S.qOn !== false ? qIndex(ds) : null;
+    var ix = S.qOn === true ? qIndex(ds) : null;
     if (!ix) return '';
     var sev = '';
     cells.forEach(function (c) { (c && c.r && ix.byRec.get(c.r) || []).forEach(function (i) { if (i.sev === 'error') sev = 'err'; else if (i.sev === 'warning' && sev !== 'err') sev = 'warn'; }); });
     return sev ? ' q-row-' + sev : '';
   }
   var SEV_CLS = { error: 'err', warning: 'warn', info: 'info' };
-  function qBoxHtml(ds, secs) {
-    if (S.qOn === false && !S.quality.has(ds)) return '';
-    if (!S.quality.has(ds)) return '<div class="q-box q-wait"><span class="spinner"></span> Checking the data quality of this data set…</div>';
+  // The AIP stays clean: a section with data issues gets one quiet line linking to the Quality tab, which then lists
+  // just the issues of this section; marking the values in the tables is an option (off unless switched on)
+  var qSecFocus = null;
+  function qBoxHtml(ds, secs, label) {
+    if (!S.quality.has(ds)) return '';
     var ix = qIndex(ds), seen = new Set(), list = [];
     secs.forEach(function (x) { (x.blocks || []).forEach(function (b) { (b.rows || []).forEach(function (r) { (r.cells || r).forEach(function (c) { if (c && c.r && !seen.has(c.r)) { seen.add(c.r); (ix.byRec.get(c.r) || []).forEach(function (i) { list.push(i); }); } }); }); }); });
-    var rank = { error: 0, warning: 1, info: 2 };
-    list.sort(function (a, b) { return rank[a.sev] - rank[b.sev]; });
-    var all = S.quality.get(ds).length;
-    if (!list.length) return '<div class="q-box q-ok">✓ No data issues found in this section' + (all ? ' <span class="muted">(' + num(all) + ' in the whole data set — <a href="#" data-qtab-go="1">Quality tab</a>)</span>' : '') + '</div>';
+    if (!list.length) { qSecFocus = null; return ''; }
+    qSecFocus = { ds: ds, recs: seen, label: label || '' };
     var c = { error: 0, warning: 0, info: 0 };
     list.forEach(function (i) { c[i.sev]++; });
-    return '<details class="q-box" open><summary><b>⚠ ' + num(list.length) + ' data issue' + (list.length > 1 ? 's' : '') + ' in this section</b> <span class="q-counts">' +
-      ['error', 'warning', 'info'].filter(function (k) { return c[k]; }).map(function (k) { return '<span class="q-chip q-' + SEV_CLS[k] + '">' + c[k] + ' ' + k + (c[k] > 1 ? 's' : '') + '</span>'; }).join(' ') + '</span>' +
-      '</summary><div class="q-tools"><label class="chk" title="Dotted underline on the values with an issue; the issue shows on hover"><input type="checkbox" data-qon="1"' + (S.qOn !== false ? ' checked' : '') + '> Mark them in the tables</label><span class="sp"></span><a href="#" data-qtab-go="1">All ' + num(all) + ' issues of the data set in the Quality tab</a></div>' +
-      '<div class="tbl-wrap"><table class="aip q-table"><thead><tr><th>Severity</th><th>Issue</th><th>Feature</th><th>Details: found / expected</th></tr></thead><tbody>' +
-      list.slice(0, 60).map(function (i) {
-        var idx = cellRegistry.push({ ds: ds, r: i.rec, p: i.p || undefined }) - 1;
-        return '<tr><td><span class="q-chip q-' + SEV_CLS[i.sev] + '">' + i.sev + '</span></td><td><b>' + esc(i.rule) + '</b> · ' + esc(i.msg) + '</td><td><span class="src" data-cell="' + idx + '" title="View the AIXM code' + (i.p ? ' of ' + esc(i.p) : '') + ' (line ' + num(i.rec.line) + ')">' + esc(M.label(ds, i.rec)) + '</span></td><td class="q-det">' + esc(i.detail || '') + '</td></tr>';
-      }).join('') + '</tbody></table>' + (list.length > 60 ? '<div class="more-rows muted">Showing 60 of ' + num(list.length) + ' — all of them in the Quality tab</div>' : '') + '</div></details>';
+    return '<div class="q-link" role="note"><span class="q-link-ic" aria-hidden="true">⚠</span> <b>' + num(list.length) + ' data issue' + (list.length > 1 ? 's' : '') + '</b> in this section' +
+      ' <span class="muted">(' + ['error', 'warning', 'info'].filter(function (k) { return c[k]; }).map(function (k) { return c[k] + ' ' + k + (c[k] > 1 ? 's' : ''); }).join(', ') + ')</span>' +
+      ' — <a href="#" data-qtab-go="sec">view them in the Quality tab →</a>' +
+      '<label class="chk q-link-mark" title="Mark the values with an issue in the tables (the issue on hover)"><input type="checkbox" data-qon="1"' + (S.qOn === true ? ' checked' : '') + '> mark the values</label></div>';
   }
   /* ---------------------------------------------- cycle change highlighting */
   function getCyc(ds) {
@@ -1892,7 +1889,7 @@
         '<button class="btn small" data-x="json">' + I.json + ' JSON</button><button class="btn small" data-x="mail">' + I.mail + ' E-mail</button></div></div><div class="sec-body">';
       var sbs = S.sbs ? sbsBuild(ds, item, sec) : null;
       if (sbs && sbs.err) { toast(sbs.err, 6000); S.sbs = null; sbs = null; }
-      if (!sbs) h += qBoxHtml(ds, secs);
+      if (!sbs) h += qBoxHtml(ds, secs, (code ? code + ' ' : '') + (sec.group ? sec.title : (sec.no + ' ' + sec.title)));
       if (sbs) h += sbsHtml(sbs);
       else secs.forEach(function (x) {
         h += '<div class="aip-sec" data-secid="' + esc(x.id || '') + '">' + (secs.length > 1 ? '<h3><span class="no">' + esc(x.no) + '</span> ' + esc(x.title) + '</h3>' : '') + sectionBodyHtml(ds, x) + '</div>';
@@ -1908,7 +1905,8 @@
       if (!S.quality.has(ds)) ensureQuality(ds, function () { if (S.view === 'aip' && dsOf() === ds && S.aipSel === id) { renderTree(ds, ds.catalogue); renderSection(ds, id); } });
       host.onchange = function (e) { if (e.target.matches('[data-qon]')) { S.qOn = e.target.checked; renderTree(ds, ds.catalogue); renderSection(ds, S.aipSel); } };
       host.onclick = function (e) {
-        if (e.target.closest('[data-qtab-go]')) { e.preventDefault(); S.qTab = 'basic'; go('quality'); return; }
+        var qg = e.target.closest('[data-qtab-go]');
+        if (qg) { e.preventDefault(); S.qFocus = qg.getAttribute('data-qtab-go') === 'sec' && qSecFocus && qSecFocus.ds === ds ? qSecFocus : null; S.qTab = 'basic'; go('quality'); return; }
         var c = e.target.closest('[data-cell]');
         if (c) { var reg = cellRegistry[+c.getAttribute('data-cell')]; openXml(reg.ds, reg.r, reg.p, undefined, reg.t); return; }
         var more = e.target.closest('[data-more]');
@@ -2786,7 +2784,7 @@
     if (S.qTab === 'complete') { viewCompleteness(v, ds); return; }
     if (S.qTab === 'amdb') { viewAmdbQuality(v); return; }
     var iss = S.quality.get(ds), ruleF = '';
-    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Checks based on the AIXM schema code lists, AIXM temporality rules and the minimum ICAO AIP data: coordinates (incl. 0°N 0°E placeholders), positions far from their aerodrome, references, duplicates, frequencies, bearings, implausible elevations, lengths and vertical limits, missing mandatory AIP items. Each issue says what was found and what is expected; the AIP marks the sections and values concerned. ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('basic') +
+    v.innerHTML = '<h1 class="view-title">Data quality check</h1><p class="view-sub">Checks based on the AIXM schema code lists, AIXM temporality rules and the minimum ICAO AIP data: coordinates (incl. 0°N 0°E placeholders), positions far from their aerodrome, references, duplicates, frequencies, bearings, implausible elevations, lengths and vertical limits, missing mandatory AIP items. Each issue says what was found and what is expected; a section of the AIP with issues links here (its values can be marked on request). ' + esc(ds.state) + ' · ' + esc(ds.name) + '</p>' + qTabs('basic') +
       '<div class="toolbar"><button class="btn primary" id="q-run">' + I.check + (iss ? ' Run again' : ' Run checks') + '</button><select class="inp" id="q-sev" aria-label="Severity"><option value="">All severities</option><option value="error">Errors</option><option value="warning">Warnings</option><option value="info">Info</option></select><input class="inp" id="q-q" aria-label="Filter issues" placeholder="Filter…"><span class="sp"></span>' +
       '<button class="btn small" id="q-pdf">' + I.pdf + ' PDF</button><button class="btn small" id="q-xlsx">' + I.xls + ' Excel</button><button class="btn small" id="q-mail">' + I.mail + ' E-mail</button></div><div id="q-out"></div>';
     $('#q-run').onclick = async function (how) {
@@ -2798,17 +2796,19 @@
     };
     function cur() {
       var sv = $('#q-sev').value, q = $('#q-q').value.toLowerCase();
-      return (iss || []).filter(function (i) { return (!sv || i.sev === sv) && (!ruleF || i.rule === ruleF) && (!q || (i.rule + ' ' + i.msg + ' ' + (i.detail || '') + ' ' + (i.rec && i.rec.k ? M.label(ds, i.rec) : '')).toLowerCase().indexOf(q) >= 0); });
+      var fo = S.qFocus && S.qFocus.ds === ds ? S.qFocus.recs : null;
+      return (iss || []).filter(function (i) { return (!fo || fo.has(i.rec)) && (!sv || i.sev === sv) && (!ruleF || i.rule === ruleF) && (!q || (i.rule + ' ' + i.msg + ' ' + (i.detail || '') + ' ' + (i.rec && i.rec.k ? M.label(ds, i.rec) : '')).toLowerCase().indexOf(q) >= 0); });
     }
     function draw() {
       if (!iss) { $('#q-out').innerHTML = '<div class="card card-pad muted">Press <b>Run checks</b>.</div>'; return; }
       var c = { error: 0, warning: 0, info: 0 }, byRule = new Map();
       iss.forEach(function (i) { c[i.sev]++; var b = byRule.get(i.rule) || { n: 0, sev: i.sev }; b.n++; if (i.sev === 'error' || (i.sev === 'warning' && b.sev === 'info')) b.sev = i.sev; byRule.set(i.rule, b); });
-      var list = cur();
+      var list = cur(), foc = S.qFocus && S.qFocus.ds === ds ? S.qFocus : null;
       var rules = Array.from(byRule.keys()).sort(function (a, b) { return byRule.get(b).n - byRule.get(a).n; });
       cellRegistry = [];
       $('#q-out').innerHTML = '<div class="stat-row"><div class="card stat"><b class="sev-err">' + num(c.error) + '</b><span class="muted">errors</span></div><div class="card stat"><b class="sev-warn">' + num(c.warning) + '</b><span class="muted">warnings</span></div><div class="card stat"><b class="sev-info">' + num(c.info) + '</b><span class="muted">info</span></div></div>' +
         (rules.length ? '<div class="q-rules" role="group" aria-label="Issues by kind"><span class="muted">By kind:</span> ' + rules.map(function (k) { var b = byRule.get(k); return '<button type="button" class="q-chip q-' + SEV_CLS[b.sev] + (ruleF === k ? ' on' : '') + '" data-qrule="' + esc(k) + '" aria-pressed="' + (ruleF === k) + '">' + esc(k) + ' · ' + num(b.n) + '</button>'; }).join(' ') + (ruleF ? ' <a href="#" data-qrule="">show all</a>' : '') + '</div>' : '') +
+        (foc ? '<div class="nfo-box q-focus" role="status">Showing the <b>' + num(list.length) + '</b> issue(s) of the AIP section <b>' + esc(foc.label) + '</b>. <button class="btn small" data-qall>Show all ' + num(iss.length) + ' issues</button> <button class="btn small ghost" data-qback>← Back to the AIP section</button></div>' : '') +
         (list.length ? '<div class="tbl-wrap"><table class="aip q-table"><thead><tr><th>Severity</th><th>Rule</th><th>Issue</th><th>Details: found / expected</th><th>Feature</th><th>AIP section</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>' + list.slice(0, 1000).map(function (i) {
           var ok = i.rec && i.rec.k && i.rec.cur;
           var idx = ok ? cellRegistry.push({ ds: ds, r: i.rec, p: i.p || undefined }) - 1 : -1;
@@ -2818,6 +2818,8 @@
     }
     $('#q-sev').onchange = draw; $('#q-q').oninput = draw;
     $('#q-out').onclick = function (e) {
+      if (e.target.closest('[data-qall]')) { S.qFocus = null; draw(); return; }
+      if (e.target.closest('[data-qback]')) { S.qFocus = null; go('aip'); return; }
       var a = e.target.closest('[data-det]'), x = e.target.closest('[data-xml]'), rl = e.target.closest('[data-qrule]'), ap = e.target.closest('[data-qaip]');
       if (rl) { e.preventDefault(); ruleF = rl.getAttribute('data-qrule') === ruleF ? '' : rl.getAttribute('data-qrule'); draw(); return; }
       if (ap) { e.preventDefault(); var r3 = cellRegistry[+ap.getAttribute('data-qaip')]; openAipFor(r3.ds, r3.r); return; }
@@ -3474,7 +3476,7 @@
       '<p><b>Digital data sets.</b> Besides the AIP data set the tool reads obstacle data sets, aerodrome mapping data sets (AIXM or AMXM 2.0, ED-99 / DO-272) and instrument flight procedure (IFP) data sets; electronic obstacle data sets (eTOD) also as Excel or CSV tables (headings recognised in any order; every other column kept as a remark); an IFP file named like the AIP file of its delivery (…_IFP_DS_… beside …_AIP_DS_…) is read with it as one data set.</p>' +
       '<p><b>Map.</b> <b>Several data sets on one map</b>: with more than one loaded, tick those to show (e.g. several States or several AIRAC cycles together), <i>only</i> for one, <i>Show all</i> for every one. <b>Search on the map</b> (box at the top left): airways, waypoints, navaids, aerodromes, runways, taxiways, aprons, stands, airspace, obstacles — also as you would say them, e.g. "twy C", "EADD stand 5", "airway UL123"; a pick zooms there and outlines it in magenta (Esc clears). A complete offline world map is built in. When the laptop is online you can switch to 14 free online maps that need no API key: street maps (Esri, OpenStreetMap), plain light/dark backgrounds, terrain and relief, ocean floor, satellite imagery (Esri, NASA) and the Earth at night. Instrument procedures can be drawn per aerodrome. <b>Airport view</b>: airport chart (runways to scale with markings, taxiway signs, stands, ILS) and an information card. <b>🗻 3D view</b>: terrain, airspace volumes, approach and departure crew views; <i>Grid MORA</i> and terrain elevation on the map. <b>⧉ New window</b> puts the map on a second screen. <b>Print map</b>: drag an area, choose A4/A3, legend, north arrow and grid.</p>' +
       '<p><b>Digital data.</b> Obstacles (eTOD), procedures (IFP) and aerodrome mapping each have a workspace in the <i>Digital data</i> tab: overview by aerodrome and area, list with filters, a map beside the list (the filter applies; a click on the map selects the row and a row its feature), checks and reports (PDF, print, Excel, CSV, GeoJSON, KML). For obstacles: the eTOD area of each obstacle, the PANS-AIM accuracy it requires, the coverage of the obstacle area, distance and bearing from the ARP and the Annex 14 surfaces.</p>' +
-      '<p><b>Quality.</b> <b>Data issues are flagged in the AIP</b>: ⚠ counts on the sections, a box at the top of each section saying what is wrong, what was found and what is expected, and the values concerned underlined (the issue on hover). Basic checks, the official AIXM 5.1 business rules (SBVR) and their catalogue, the ICAO Annex 14 obstacle limitation surfaces (penetrations, also in 3D) and data integrity (PANS-AIM accuracy, CRC32Q fingerprints, verification against a saved CRC list). Instrument approaches in AD 2.22 show their vertical profile.</p>' +
+      '<p><b>Quality.</b> <b>Data issues are listed in the Quality tab</b>; a section of the AIP with issues shows one line with their number and a link that opens the Quality tab on just those issues (marking the values in the tables is optional). Basic checks, the official AIXM 5.1 business rules (SBVR) and their catalogue, the ICAO Annex 14 obstacle limitation surfaces (penetrations, also in 3D) and data integrity (PANS-AIM accuracy, CRC32Q fingerprints, verification against a saved CRC list). Instrument approaches in AD 2.22 show their vertical profile.</p>' +
       '<p><b>Library, links and languages.</b> Connect a folder with one sub-folder per State; extracted data is kept for instant reopening. ☆ saves views; the address (#…) of any view can be shared. The interface is available in English, العربية (right-to-left), Français and Español. Files over 1.5 GB use the Lite memory mode automatically.</p>' +
       '<p><b>Exports.</b> Any single section or the whole data set: JSON (with source references), Excel, printable PDF, print, or an e-mail to paste into Outlook (.eml opens as a draft).</p>' +
       '<p><b>Sources.</b> AIXM schemas, code lists and definitions from aixm.aero (4.5 r2, 5.1, 5.1.1, 5.2), AIXM temporality and feature-identification concepts, ICAO Annex 15 / PANS-AIM AIP structure. Base map: Natural Earth (public domain). Terrain: Terrain Tiles (Mapzen / AWS Open Data: SRTM, GMTED2010, ETOPO1). Libraries: Leaflet, three.js, SheetJS, jsPDF, fflate, topojson. Live traffic: adsb.lol (ODbL). Flight and aircraft data: adsbdb.com.</p>' +
