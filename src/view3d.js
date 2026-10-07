@@ -20,7 +20,7 @@
  * Local east-north-up frame in metres; vertical exaggeration selectable.
  * Indicative visualisation.
  * ========================================================================== */
-/* global THREE, AX, MODEL, AIP, ADCHART, TERRAIN, MAPVIEW, OLS, topojson, FOURD */
+/* global THREE, AX, MODEL, AIP, ADCHART, TERRAIN, MAPVIEW, OLS, topojson, FOURD, DDMAP */
 var VIEW3D = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr, FT = 0.3048, NMM = 1852, D2R = Math.PI / 180;
@@ -93,7 +93,7 @@ var VIEW3D = (function () {
       '<select class="inp" data-3="ex" title="Vertical exaggeration"><option value="1">1× height</option><option value="2">2× height</option><option value="3" selected>3× height</option><option value="5">5× height</option></select>' +
       '<select class="inp" data-3="cap" title="Show airspace up to"><option value="3048">airspace to FL100</option><option value="6096">to FL200</option><option value="7620" selected>to FL250</option><option value="13716">to FL450</option><option value="18288">to FL600</option></select>' +
       '<span class="sp"></span><button class="btn small ghost" data-3="close" title="Close the 3D view">✕ Close 3D</button></div>' +
-      '<div class="v3d-layers card">' + [['terrain', 'Terrain', 1], ['airspace', 'Airspace', 1], ['fir', 'FIR / UIR', 0], ['obst', 'Obstacles', 1], ['ols', 'Obstacle surfaces (Annex 14)', 0], ['procs', 'Procedures', 1], ['labels', 'Labels', 1]]
+      '<div class="v3d-layers card">' + [['terrain', 'Terrain', 1], ['amdb', 'Aerodrome mapping (AMDB)', 1], ['night', 'Night (lights)', 0], ['airspace', 'Airspace', 1], ['fir', 'FIR / UIR', 0], ['obst', 'Obstacles', 1], ['ols', 'Obstacle surfaces (Annex 14)', 0], ['procs', 'Procedures', 1], ['labels', 'Labels', 1]]
         .map(function (x) { return '<label class="chk"><input type="checkbox" data-l="' + x[0] + '"' + (x[2] ? ' checked' : '') + '> ' + x[1] + '</label>'; }).join('') + '</div>' +
       '<div class="v3d-info card" data-3="info">Move the mouse over the terrain: elevation and the airspace column at that point.</div>' +
       '<div class="v3d-read card hidden" data-3="read"></div>' +
@@ -122,6 +122,7 @@ var VIEW3D = (function () {
     }
     var b = o.bbox.slice(), cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, mx = 6, my = 4.5, nx = 1.2 / Math.cos(cy * D2R), ny = 0.9;
     if (b[2] - b[0] > mx || b[3] - b[1] > my) { V.capped = true; b = [cx - mx / 2, cy - my / 2, cx + mx / 2, cy + my / 2]; }
+    if (o.tight) return b; // an aerodrome close up (aerodrome mapping)
     if (b[2] - b[0] < nx && b[3] - b[1] < ny) b = [cx - nx / 2, cy - ny / 2, cx + nx / 2, cy + ny / 2]; // at least about 70 x 55 NM
     return b;
   }
@@ -140,13 +141,18 @@ var VIEW3D = (function () {
       V.sample = online ? online.sample : TERRAIN.elev;
       V.terrainSrc = online ? online.source : 'built-in terrain model (0.25°)';
       V.ex = +q('ex').value;
+      if (V.opts.tight && !V.exSet) { V.ex = 1; q('ex').value = '1'; V.exSet = true; }
       if (V.opts.mode !== 'area') V.ex = Math.min(V.ex, 1.5);
       V.world = new THREE.Group();
       V.scene.add(V.world);
       V.pick = []; V.volumes = [];
       if (layerOn('terrain')) terrain(); else flatGround();
       airspaces();
-      runways();
+      var night = layerOn('night');
+      V.scene.background = new THREE.Color(night ? 0x0a1220 : 0xbfd9ee);
+      V.hemi.intensity = night ? 0.18 : 0.75; V.sunL.intensity = night ? 0.12 : 0.75;
+      var amdbDrawn = layerOn('amdb') ? amdbLayer(night) : 0;
+      if (!amdbDrawn || !V.opts.tight) runways();
       if (layerOn('obst')) obstacles();
       if (layerOn('ols')) olsLayer();
       if (layerOn('procs')) procedures();
@@ -283,6 +289,76 @@ var VIEW3D = (function () {
         sp.position.copy(vec(arp[0], arp[1], e2 + 400)); V.world.add(sp);
       }
     });
+  }
+  // aerodrome mapping (AMXM features of the data sets on the map) in 3D: surfaces at the aerodrome elevation in the
+  // colours of the aerodrome chart (in drawing order, a few centimetres apart), markings, guidance lines, lights as
+  // glowing points, obstacles, buildings and navaid antennas at their height, runway designators
+  function amdbLayer(night) {
+    var sets = (V.opts.obsSets || [V.ds]).filter(function (d) { return d.family === 'amxm' || d.recs.some(function (r) { return r.cur && r.cur.p && r.cur.p._amxm && !r.syn; }); });
+    if (!sets.length || typeof DDMAP === 'undefined') return 0;
+    var bb = V.bb, n = 0, elev = {};
+    sets.forEach(function (d) { d.recs.forEach(function (r) { var p = r.cur && r.cur.p; if (p && p._amxm === 'AerodromeReferencePoint' && toM(p.elev) !== null) elev[s(p.idarpt)] = toM(p.elev); }); });
+    var lights = {}, mats = {}, labelled = {}, ext = { n: 0, x0: Infinity, x1: -Infinity, z0: Infinity, z1: -Infinity, y: Infinity };
+    function mat(col, z, line) {
+      var k = col + '|' + z + '|' + (line ? 1 : 0);
+      if (!mats[k]) mats[k] = line ? new THREE.LineBasicMaterial({ color: new THREE.Color(col) }) : new THREE.MeshLambertMaterial({ color: new THREE.Color(col), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1 - z, polygonOffsetUnits: -4 - z * 2 });
+      return mats[k];
+    }
+    sets.forEach(function (d) {
+      d.recs.forEach(function (r) {
+        var p = r.cur && r.cur.p;
+        if (!p || !p._amxm || r.syn || r.cur.gone) return;
+        var g = M.geometry(d, r); if (!g) return;
+        var t2 = p._amxm, st = DDMAP.chartStyle(t2, { pntsttyp: s(p.pntsttyp), lgtuse: s(p.lgtuse) }), z = st.z || 20;
+        var parts = g.t === 'M' ? g.parts : [g], any = parts[0] && (parts[0].t === 'P' ? parts[0].c : parts[0].t === 'L' ? parts[0].c[0] : parts[0].c[0][0]);
+        if (!any || any[0] < bb[0] || any[0] > bb[2] || any[1] < bb[1] || any[1] > bb[3]) return;
+        var e0 = elev[s(p.idarpt)], gr = ground(any[0], any[1]), base = Math.max(e0 !== undefined ? e0 : gr, gr) + 0.3;
+        var y = (base + z * 0.02) * V.ex;
+        parts.forEach(function (gp) {
+          if (gp.t === 'A') {
+            var ring = gp.c[0].filter(function (q2) { return typeof q2[0] === 'number'; });
+            if (ring.length < 4) return;
+            if (/^(RunwayElement|TaxiwayElement|ApronElement|Stopway|RunwayShoulder)$/.test(t2)) ring.forEach(function (q2) { var X = V.P.x(q2[0]), Z = V.P.z(q2[1]); ext.n++; if (X < ext.x0) ext.x0 = X; if (X > ext.x1) ext.x1 = X; if (Z < ext.z0) ext.z0 = Z; if (Z > ext.z1) ext.z1 = Z; if (y < ext.y) ext.y = y; });
+            var shp = new THREE.Shape(ring.map(function (q2) { return new THREE.Vector2(V.P.x(q2[0]), -V.P.z(q2[1])); }));
+            (gp.c.slice(1) || []).forEach(function (h2) { shp.holes.push(new THREE.Path(h2.map(function (q2) { return new THREE.Vector2(V.P.x(q2[0]), -V.P.z(q2[1])); }))); });
+            var tall = t2 === 'VerticalPolygonalStructure' ? (toM(p.height) || 10) : 0;
+            var geo = tall ? new THREE.ExtrudeGeometry(shp, { depth: tall * V.ex, bevelEnabled: false }) : new THREE.ShapeGeometry(shp);
+            geo.rotateX(-Math.PI / 2);
+            var idl = t2 === 'TaxiwayElement' ? s(p.idlin) : t2 === 'ApronElement' ? s(p.idapron) : '';
+            if (idl && layerOn('labels') && !labelled[t2 + idl]) { labelled[t2 + idl] = 1; var cx2 = 0, cz2 = 0; ring.forEach(function (q2) { cx2 += V.P.x(q2[0]); cz2 += V.P.z(q2[1]); }); var sp3 = sprite([idl], t2 === 'TaxiwayElement' ? '#000000' : '#37474f', 0.008); sp3.position.set(cx2 / ring.length, y + 8, cz2 / ring.length); V.world.add(sp3); }
+            var mesh = new THREE.Mesh(geo, mat(st.f || '#888888', z));
+            mesh.position.y = y; mesh.renderOrder = z; mesh.userData.amdb = { t: t2, p: p };
+            V.world.add(mesh); n++;
+          } else if (gp.t === 'L') {
+            var pts = gp.c.filter(function (q2) { return typeof q2[0] === 'number'; }).map(function (q2) { return new THREE.Vector3(V.P.x(q2[0]), y + 0.05 * V.ex, V.P.z(q2[1])); });
+            if (pts.length < 2) return;
+            var ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat(st.s || '#ffcf00', z, true)); ln.renderOrder = z + 1; V.world.add(ln); n++;
+          } else if (gp.t === 'P') {
+            if (t2 === 'AerodromeSurfaceLighting') { var col = st.p || '#fff59d'; (lights[col] = lights[col] || []).push(new THREE.Vector3(V.P.x(gp.c[0]), y + 0.4 * V.ex, V.P.z(gp.c[1]))); n++; return; }
+            if (/^Vertical/.test(t2) || t2 === 'AerodromeReferencePoint') {
+              var h = toM(p.height) || (s(p.pntsttyp) === '9' ? 6 : t2 === 'AerodromeReferencePoint' ? 0 : 15);
+              if (!h) return;
+              var cyl = new THREE.Mesh(new THREE.CylinderGeometry(s(p.pntsttyp) === '9' ? 2 : 1.2, s(p.pntsttyp) === '9' ? 2 : 1.6, h * V.ex, 8), new THREE.MeshLambertMaterial({ color: new THREE.Color(st.p || '#d32f2f') }));
+              cyl.position.set(V.P.x(gp.c[0]), y + h * V.ex / 2, V.P.z(gp.c[1])); V.world.add(cyl); n++;
+              if (layerOn('labels') && p.height !== undefined && h > 25) { var sp0 = sprite([Math.round(h) + ' m'], '#d32f2f', 0.012); sp0.position.set(cyl.position.x, y + h * V.ex + 12, cyl.position.z); V.world.add(sp0); }
+              return;
+            }
+            if (t2 === 'ParkingStandLocation' && layerOn('labels') && s(p.idstd)) { var sp2 = sprite([s(p.idstd)], '#0d47a1', 0.006); sp2.position.set(V.P.x(gp.c[0]), y + 6, V.P.z(gp.c[1])); V.world.add(sp2); return; }
+            if (t2 === 'RunwayThreshold' && layerOn('labels') && s(p.idthr)) { var sp = sprite([s(p.idthr)], '#1f2328', 0.018); sp.position.set(V.P.x(gp.c[0]), y + 25, V.P.z(gp.c[1])); V.world.add(sp); }
+          }
+        });
+      });
+    });
+    // the aerodrome close up: the airfield's grass under the pavement (the terrain model is too coarse to show it)
+    if (V.opts.tight && ext.n) {
+      var pad = 150, gx0 = ext.x0 - pad, gx1 = ext.x1 + pad, gz0 = ext.z0 - pad, gz1 = ext.z1 + pad;
+      var grass = new THREE.Mesh(new THREE.PlaneGeometry(gx1 - gx0, gz1 - gz0), new THREE.MeshLambertMaterial({ color: night ? 0x1d2a1a : 0x8fae6b, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+      grass.rotation.x = -Math.PI / 2; grass.position.set((gx0 + gx1) / 2, ext.y - 0.2 * V.ex, (gz0 + gz1) / 2); grass.renderOrder = -1; V.world.add(grass);
+    }
+    Object.keys(lights).forEach(function (col) {
+      V.world.add(new THREE.Points(new THREE.BufferGeometry().setFromPoints(lights[col]), new THREE.PointsMaterial({ color: new THREE.Color(col), size: night ? 5 : 3, sizeAttenuation: false, transparent: true, opacity: night ? 1 : 0.9, blending: night ? THREE.AdditiveBlending : THREE.NormalBlending, depthWrite: false })));
+    });
+    return n;
   }
   // edge lights and a 900 m approach light line, so the runway stands out in the crew views
   function runwayLights(rm, elev, y) {
@@ -558,8 +634,8 @@ var VIEW3D = (function () {
     gl.appendChild(renderer.domElement);
     V.scene = new THREE.Scene();
     V.scene.background = new THREE.Color(0xbfd9ee);
-    V.scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8070, 0.75));
-    var sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(-1, 1.2, -0.6); V.scene.add(sun);
+    V.hemi = new THREE.HemisphereLight(0xffffff, 0x8a8070, 0.75); V.scene.add(V.hemi);
+    var sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(-1, 1.2, -0.6); V.scene.add(sun); V.sunL = sun;
     V.camera = new THREE.PerspectiveCamera(45, 1, 10, 1e7);
     V.controls = new THREE.OrbitControls(V.camera, renderer.domElement);
     V.controls.maxPolarAngle = Math.PI * 0.495; V.controls.screenSpacePanning = false;
@@ -567,6 +643,7 @@ var VIEW3D = (function () {
     size();
     V.ro = new ResizeObserver(size); V.ro.observe(gl);
     q('mode').value = V.opts.mode;
+    if (V.opts.tight) el.querySelector('[data-l="airspace"]').checked = false; // an aerodrome close up: the pavement first
     if (V.opts.ols) { el.querySelector('[data-l="ols"]').checked = true; el.querySelector('[data-l="airspace"]').checked = false; } // surfaces in front
     fillAd();
     el.addEventListener('change', function (e) {

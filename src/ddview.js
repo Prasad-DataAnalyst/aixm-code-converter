@@ -21,7 +21,7 @@ var DDVIEW = (function () {
   function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function num(n) { return Number(n || 0).toLocaleString('en-US'); }
   var PROC = { StandardInstrumentDeparture: 'SID', StandardInstrumentArrival: 'STAR', InstrumentApproachProcedure: 'IAP' };
-  var V = { sec: null, ifp: { ad: '', kind: '', q: '', layout: 'split', checks: false }, am: { ad: '', type: '', layout: 'split', tab: 'features', colorBy: 'type' } };
+  var V = { sec: null, ifp: { ad: '', kind: '', q: '', layout: 'split', checks: false }, am: { ad: '', type: '', layout: 'split', tab: 'features', colorBy: 'chart' } };
   var KCOL = { SID: '#2e7d32', STAR: '#1565c0', IAP: '#b0186e' };
   var AM_AIXM = ['RunwayElement', 'TaxiwayElement', 'ApronElement', 'GuidanceLine', 'TaxiHoldingPosition'];
 
@@ -255,7 +255,7 @@ var DDVIEW = (function () {
     });
   }
   // Aerodrome mapping: the features (AMXM) and the AMDB tools - checks, package, sources (loaded when opened)
-  var AM_TABS = [['features', 'Features'], ['checks', 'AMDB checks'], ['package', 'Build package'], ['sources', 'Sources & quality'], ['generate', 'Generate from AIP'], ['compare', 'Compare']];
+  var AM_TABS = [['features', 'Features'], ['checks', 'AMDB checks'], ['package', 'Build package'], ['sources', 'Sources & quality'], ['generate', 'Generate from AIP'], ['compare', 'Compare'], ['guide', '📘 How to create AMDB']];
   function amRender(host, ctx) {
     var F = V.am;
     host.innerHTML = '<div class="pill-tabs am-tabs" role="tablist" aria-label="Aerodrome mapping tools">' + AM_TABS.map(function (t) { return '<button role="tab" class="' + (F.tab === t[0] ? 'active' : '') + '" data-amtab="' + t[0] + '">' + t[1] + '</button>'; }).join('') +
@@ -269,10 +269,42 @@ var DDVIEW = (function () {
     body.innerHTML = '<div class="card card-pad"><span class="spinner"></span> Loading the aerodrome mapping tools…</div>';
     try {
       await LAZY.run('src-amdb'); await LAZY.run('src-amdbui');
-      if ((tab === 'generate' || tab === 'compare') && typeof AMDBX === 'undefined') { await LAZY.run('src-amdbpkg'); await LAZY.run('src-amdbx'); }
+      var x = tab === 'generate' || tab === 'compare' || tab === 'guide';
+      if (x && typeof AMDBX === 'undefined') { await LAZY.run('src-amdbpkg'); await LAZY.run('src-amdbx'); }
       if (V.am.tab !== tab || !body.isConnected) return;
-      if (tab === 'generate' || tab === 'compare') AMDBX.render(tab, body, ctx); else await AMDBUI.render(tab, body, ctx);
+      var host = body.parentNode && body.parentNode.closest ? body.closest('.dd-body') : null;
+      var c2 = Object.assign({}, ctx, { amTab: function (t2, reload) { V.am.tab = t2; V.am.picked = true; if (reload || !host) window.__AIXM.go('digital'); else amRender(host, ctx); } });
+      if (x) AMDBX.render(tab, body, c2); else await AMDBUI.render(tab, body, c2);
     } catch (e) { body.innerHTML = '<div class="card card-pad">The aerodrome mapping tools could not start: ' + esc(e.message) + '</div>'; }
+  }
+  // the aerodrome mapping of the aerodrome chosen (or all shown) in the 3D view, over the Map tab
+  function am3d(list, ctx) {
+    var b = [180, 90, -180, -90], PAVE = /^(RunwayElement|TaxiwayElement|ApronElement|ParkingStandArea|FinalApproachAndTakeOffArea|TouchDownLiftOffArea|Stopway|RunwayShoulder|DeicingArea)$/;
+    var pave = list.filter(function (x) { return PAVE.test(x.t); });
+    if (!pave.length) pave = list.filter(function (x) { return /^(RunwayThreshold|AerodromeReferencePoint|RunwayCenterlinePoint)$/.test(x.t); });
+    if (pave.length) list = pave;
+    list.forEach(function (x) { var g = M.geometry(x.ds, x.r); (function walk(gg) { if (!gg) return; if (gg.t === 'M') { gg.parts.forEach(walk); return; } (gg.t === 'P' ? [gg.c] : gg.t === 'L' ? gg.c : gg.c[0]).forEach(function (c) { if (typeof c[0] !== 'number') return; b[0] = Math.min(b[0], c[0]); b[1] = Math.min(b[1], c[1]); b[2] = Math.max(b[2], c[0]); b[3] = Math.max(b[3], c[1]); }); })(g); });
+    if (b[0] > b[2]) { ctx.toast('No aerodrome mapping feature with a position.'); return; }
+    var cy = (b[1] + b[3]) / 2, my = 0.006, mx = my / Math.cos(cy * Math.PI / 180);
+    if (b[2] - b[0] > 0.6 || b[3] - b[1] > 0.45) { ctx.toast('Choose one aerodrome (the list above) to see it in 3D.'); return; }
+    var bb = [b[0] - mx, b[1] - my, b[2] + mx, b[3] + my];
+    window.__AIXM.go('map');
+    setTimeout(function () { var ll = MAPVIEW.leaflet(); if (ll) ll.fitBounds([[bb[1], bb[0]], [bb[3], bb[2]]]); MAPVIEW.open3d('area', null, { bbox: bb, tight: true }); }, 400);
+  }
+  // labels of the aerodrome chart: runway designators at the thresholds, taxiway, apron and stand names
+  function amChartLabel(t, p) {
+    if (t === 'RunwayThreshold' || t === 'HelipadThreshold') return s(p.idthr) ? [s(p.idthr), 13, 'ddm-rwy'] : null;
+    if (t === 'TaxiwayElement' || t === 'TaxiwayGuidanceLine') return s(p.idlin) ? [s(p.idlin), 16, 'ddm-twy'] : null;
+    if (t === 'ApronElement') return s(p.idapron) ? [s(p.idapron), 15, 'ddm-apn'] : null;
+    if (t === 'ParkingStandLocation') return s(p.idstd) ? [s(p.idstd), 17, 'ddm-std'] : null;
+    if (t === 'ParkingStandArea') return s(p.idstd) ? [s(p.idstd), 17, 'ddm-std ddm-sta'] : null;
+    if (t === 'StandGuidanceLine') return null;
+    if (t === 'TaxiwayHoldingPosition') return s(p.rwyahtxt) ? [s(p.rwyahtxt), 17, 'ddm-hold'] : null;
+    if (t === 'DeicingArea') return s(p.ident) ? [s(p.ident), 15, 'ddm-apn'] : null;
+    if (t === 'VerticalPointStructure' && s(p.pntsttyp) === '9') return null;
+    if (t === 'AerodromeReferencePoint') return [s(p.idarpt) + (s(p.name) ? ' ' + s(p.name) : ''), 0, 'ddm-arp'];
+    if (t === 'Hotspot') return s(p.idhot) ? [s(p.idhot), 15, 'ddm-hot'] : null;
+    return null;
   }
   function amFeatures(host, ctx) {
     var D = M.amxmDict(), F = V.am, sets = amxmOf(ctx.datasets), recs = [];
@@ -294,8 +326,9 @@ var DDVIEW = (function () {
     if (F.type && !types[F.type]) F.type = '';
     var h = '<div class="kpis ov-kpis">' + [['aerodromes', Object.keys(ads).length], ['features', recs.length], ['feature types', Object.keys(types).length], ['data sets', sets.length]].map(function (k) { return '<div class="kpi-h"><b>' + num(k[1]) + '</b><span>' + k[0] + '</span></div>'; }).join('') + '</div>';
     h += '<div class="toolbar ov-filter"><select class="inp" data-ddf="ad"><option value="">All aerodromes</option>' + Object.keys(ads).sort().map(function (k) { return '<option' + (F.ad === k ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select><span class="sp"></span>' +
+      '<button class="btn small primary" data-am3d title="The aerodrome in 3D: surfaces, markings, lights (also at night), obstacles and navaids">🗻 3D</button>' +
       '<span class="muted">Report:</span><span class="btn-group">' + ['pdf:PDF', 'print:Print', 'xlsx:Excel', 'csv:CSV'].map(function (f) { var p = f.split(':'); return '<button class="btn small" data-amrep="' + p[0] + '" title="Inventory and every feature type with its AMXM attributes">' + p[1] + '</button>'; }).join('') + '</span></div>';
-    h += layoutHtml(F) + (F.layout !== 'list' ? '<span class="pill-tabs ov-lay am-colby" title="Colours on the map">' + [['type', 'Colour: feature type'], ['source', 'Colour: source']].map(function (l) { return '<button data-amcol="' + l[0] + '" class="' + (F.colorBy === l[0] ? 'active' : '') + '">' + l[1] + '</button>'; }).join('') + '</span>' : '') + (F.layout !== 'list' ? '<div class="ov-map am-map" role="application" aria-label="Aerodrome mapping map"></div>' : '') + '<div class="am-grid"' + (F.layout === 'map' ? ' hidden' : '') + '><div class="card card-pad am-types"><h3 style="margin-top:0">Feature types' + (F.ad ? ' at ' + esc(F.ad) : '') + '</h3><table class="mini-table"><tbody>' +
+    h += layoutHtml(F) + (F.layout !== 'list' ? '<span class="pill-tabs ov-lay am-colby" title="Colours on the map">' + [['chart', 'Aerodrome chart'], ['type', 'Colour: feature type'], ['source', 'Colour: source']].map(function (l) { return '<button data-amcol="' + l[0] + '" class="' + (F.colorBy === l[0] ? 'active' : '') + '">' + l[1] + '</button>'; }).join('') + '</span>' : '') + (F.layout !== 'list' ? '<div class="ov-map am-map" role="application" aria-label="Aerodrome mapping map"></div>' : '') + '<div class="am-grid"' + (F.layout === 'map' ? ' hidden' : '') + '><div class="card card-pad am-types"><h3 style="margin-top:0">Feature types' + (F.ad ? ' at ' + esc(F.ad) : '') + '</h3><table class="mini-table"><tbody>' +
       Object.keys(types).sort().map(function (t) { return '<tr class="click' + (F.type === t ? ' ov-hl' : '') + '" data-amtype="' + esc(t) + '"><td>' + esc(t) + '</td><td class="num">' + num(types[t]) + '</td></tr>'; }).join('') + '</tbody></table></div><div class="am-feat">';
     if (F.type) {
       var fs = inAd.filter(function (x) { return x.t === F.type; }), def = D.features[F.type] || { attrs: [] };
@@ -321,13 +354,19 @@ var DDVIEW = (function () {
       var srcOf = function (x) { return s(x.r.cur.p.source) || '(source not given)'; }, keyOf = F.colorBy === 'source' ? srcOf : function (x) { return x.t; };
       var keys = {}; shown.forEach(function (x) { var k = keyOf(x); keys[k] = (keys[k] || 0) + 1; });
       Object.keys(keys).sort().forEach(function (t, i) { tcol[t] = palette[i % palette.length]; });
-      DDMAP.shapes(mm, shown.slice(0, 8000).map(function (x) { return { key: x, g: M.geometry(x.ds, x.r), color: tcol[keyOf(x)] || '#1d4e89', label: x.ad + ' · ' + x.t + (M.label(x.ds, x.r) ? ' · ' + M.label(x.ds, x.r) : '') + (F.colorBy === 'source' ? ' · ' + srcOf(x) : '') }; }),
-        { legend: Object.keys(keys).sort().slice(0, 10).map(function (t) { return [tcol[t], t]; }), note: Object.keys(keys).length > 10 ? 'and ' + (Object.keys(keys).length - 10) + ' more' : '',
+      var chart = F.colorBy === 'chart';
+      DDMAP.shapes(mm, shown.slice(0, 8000).map(function (x) {
+        var it = { key: x, g: M.geometry(x.ds, x.r), color: tcol[keyOf(x)] || '#1d4e89', label: x.ad + ' · ' + x.t + (M.label(x.ds, x.r) ? ' · ' + M.label(x.ds, x.r) : '') + (F.colorBy === 'source' ? ' · ' + srcOf(x) : '') };
+        if (chart) { var p = x.r.cur.p; it.style = DDMAP.chartStyle(x.t, { pntsttyp: s(p.pntsttyp), lgtuse: s(p.lgtuse) }); var lb = amChartLabel(x.t, p); if (lb) { it.text = lb[0]; it.minZ = lb[1]; it.textCls = lb[2]; } }
+        return it;
+      }),
+        { legend: chart ? DDMAP.CHART_LEGEND : Object.keys(keys).sort().slice(0, 10).map(function (t) { return [tcol[t], t]; }), note: chart ? 'labels appear as you zoom in' : Object.keys(keys).length > 10 ? 'and ' + (Object.keys(keys).length - 10) + ' more' : '',
           onPick: function (x) { pickRow(host, recs.indexOf(x)); } });
       setTimeout(function () { if (mm) mm.map.invalidateSize(); }, 60);
     }
     host.onclick = function (e) {
       if (layoutClick(e, F, function () { amFeatures(host, ctx); })) return;
+      if (e.target.closest('[data-am3d]')) { am3d(inAd, ctx); return; }
       var cb = e.target.closest('[data-amcol]');
       if (cb) { F.colorBy = cb.getAttribute('data-amcol'); amFeatures(host, ctx); return; }
       var b = e.target.closest('[data-amtype],[data-ammap],[data-amdet],[data-amrep]');

@@ -1067,3 +1067,28 @@ pre, .xml, .notam-text { text-align: left; }
 .fd-bar summary { cursor: pointer; font-weight: 600; color: var(--brand-2); }
 .fd-bar .fd-list .tbl-wrap, .fd-bar .fd-eto { max-height: 220px; overflow: auto; }
 :root[data-device="phone"] .fd-bar, :root[data-device="phone"] .fd-bar.fd-top { left: 8px; right: 8px; width: auto; top: 52px; max-height: 55%; }
+
+/* aerodrome chart labels on the AMDB maps (shown from a zoom level on) */
+.ddm-lbl { white-space: nowrap; transform: translate(-50%, -50%); font: 600 11px/1.1 var(--font, system-ui); color: #14202e; text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; pointer-events: none; }
+.ddm-lbl.ddm-rwy { font-size: 13px; font-weight: 800; color: #fff; background: #1f2328; padding: 1px 5px; border-radius: 3px; text-shadow: none; transform: translate(-50%, -150%); }
+.ddm-lbl.ddm-twy { background: #ffcf00; color: #000; padding: 0 4px; border-radius: 2px; text-shadow: none; font-weight: 800; }
+.ddm-lbl.ddm-apn { color: #37474f; font-style: italic; }
+.ddm-lbl.ddm-std { color: #0d47a1; font-size: 10px; transform: translate(-50%, -140%); }
+.ddm-lbl.ddm-arp { color: #b0186e; font-size: 12px; font-weight: 800; transform: translate(-50%, -160%); }
+.ddm-lbl.ddm-hot { color: #fff; background: #e53935; padding: 0 4px; border-radius: 8px; text-shadow: none; }
+.ddm-below13 .ddm-m13, .ddm-below15 .ddm-m15, .ddm-below16 .ddm-m16, .ddm-below17 .ddm-m17 { display: none; }
+
+/* Generate from AIP and the step-by-step guide (aerodrome mapping) */
+.gen-tools { flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.gen-tbl { max-height: 420px; overflow: auto; }
+.gen-opts { margin: 10px 0; } .gen-opts summary { cursor: pointer; font-weight: 600; } .gen-opts .chk { display: block; margin: 4px 0; }
+.gen-out { margin-top: 10px; padding: 8px 12px; border-left: 4px solid var(--ok); background: var(--ok-soft); border-radius: 6px; }
+.amg-routes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 10px 0 16px; }
+.amg-routes > div { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); }
+.amg-routes span { display: block; font-size: 11.5px; color: var(--muted); } .amg-routes p { margin: 6px 0 0; font-size: 12.5px; }
+.amg-steps { list-style: none; padding: 0; margin: 0; } .amg-step { display: flex; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.amg-n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--brand-2); color: #fff; display: grid; place-items: center; font-weight: 700; }
+.amg-step p { margin: 4px 0 0; } .amg code { font-size: 12px; }
+.ddm-lbl.ddm-sta { transform: translate(-50%, -50%); background: rgba(255,255,255,.85); padding: 0 3px; border-radius: 2px; text-shadow: none; }
+.ddm-lbl.ddm-hold { background: #c62828; color: #fff; padding: 0 3px; border-radius: 2px; font-size: 10px; text-shadow: none; }
+.gen-ready { margin: 10px 0; } .gen-ready summary { cursor: pointer; font-weight: 600; } .ready-tbl td, .ready-tbl th { padding: 3px 6px; } .ready-tbl td.muted { font-size: 11.5px; }

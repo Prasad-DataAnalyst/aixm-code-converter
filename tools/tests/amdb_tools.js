@@ -6,6 +6,8 @@
 //   point (EADD of the EA AIP data set), after the NOT FOR NAVIGATION acknowledgement; the file opens, is valid
 //   against the AMXM 2.0.2 schema and says in every feature that it is generated, coarse quality;
 // - Import: the GeoJSON, CSV (WKT) and DXF files of a package read back as AMXM with the same features;
+// - everything the AIP gives (Donlon EADD): markings, lights, taxiways, aprons, guidance lines, holding positions, stands,
+//   navaids, obstacles — valid against the schema; search / select all / options; the aerodrome chart, base maps, 3D, guide;
 // - Compare: a changed copy of the EAXM aerodrome shows the feature removed, moved and changed; reports and the
 //   AMXM change file (valid against the schema).
 /* global LAZY, AMDB, AMDBX, AMDBPKG, MODEL */
@@ -42,7 +44,7 @@ const { validateAmxm } = require('./_xsd');
     await page.waitForSelector(sel, { timeout: 30000 });
   }
   // the aerodrome mapping features of each AMXM data set, as the AMDB tools see them
-  const amxmFeatures = () => page.evaluate(async () => { await LAZY.run('src-amdb'); return window.__AIXM.S.datasets.filter((d) => d.family === 'amxm').map((d) => { const f = AMDB.collect([d], MODEL).features; return { name: d.name, n: f.length, types: Array.from(new Set(f.map((x) => x.t))).sort(), gen: f.every((x) => /Generated from AIP data .*coarse quality/.test(x.a.source && x.a.source.v)) }; }); });
+  const amxmFeatures = () => page.evaluate(async () => { await LAZY.run('src-amdb'); return window.__AIXM.S.datasets.filter((d) => d.family === 'amxm').map((d) => { const f = AMDB.collect([d], MODEL).features; return { name: d.name, n: f.length, types: Array.from(new Set(f.map((x) => x.t))).sort(), gen: f.every((x) => /^(Generated from AIP data .*(coarse quality|Annex 14)|From .*as published)/.test(x.a.source && x.a.source.v)) }; }); });
 
   /* ---------------------------------------------------------- generate from AIP */
   await load([T + 'EA_AIP_DS_FULL_20170701.xml']);
@@ -82,6 +84,58 @@ const { validateAmxm } = require('./_xsd');
   const sv = await page.evaluate(() => Array.from(document.querySelectorAll('select[data-k="method"],select[data-k="q"]')).map((s) => s.value).join('|'));
   if (!/Derived from AIP \/ AIXM data/.test(sv) || !/coarse/.test(sv)) fails.push('sources defaults of the generated set: ' + sv);
   await page.screenshot({ path: OUT + '/generate.png' });
+
+  /* ------------------------------------- everything the AIP gives (Donlon EADD) */
+  await load([T + 'Donlon_ALL_Baseline_2025.xml']);
+  await openTab('generate', '[data-gengo]');
+  // search, deselect all, select shown
+  await page.click('[data-gensel="none"]');
+  if (await page.$$eval('[data-gen]', (c) => c.some((x) => x.checked))) fails.push('Deselect all left a choice');
+  await page.fill('[data-genq]', 'eadd');
+  const shownRows = await page.$$eval('[data-genrow]', (r) => r.filter((x) => !x.hidden).map((x) => x.textContent));
+  if (!shownRows.length || shownRows.some((x) => !/EADD/.test(x))) fails.push('search: ' + shownRows.join(' | '));
+  await page.click('[data-gensel="shown"]');
+  const picked = await page.$$eval('[data-gen]', (c) => c.filter((x) => x.checked).length);
+  if (picked !== shownRows.length) fails.push('select shown: ' + picked);
+  await page.click('[data-gensel="all"]');
+  if (await page.$$eval('[data-gen]', (c) => c.some((x) => !x.checked && !x.disabled))) fails.push('Select all');
+  // data readiness: what the AIP gives, item by item, and the report
+  const rd = await page.evaluate(() => ({ rows: document.querySelectorAll('.ready-tbl tbody tr').length, ok: document.querySelectorAll('.ready-tbl td[title="ok"]').length, miss: document.querySelectorAll('.ready-tbl td[title="missing"]').length, pct: (document.querySelector('[data-genrow] td:nth-last-child(2)') || {}).textContent }));
+  if (rd.rows < 16 || !rd.ok || !rd.miss || !/%/.test(rd.pct || '')) fails.push('data readiness: ' + JSON.stringify(rd));
+  const [rdl] = await Promise.all([page.waitForEvent('download'), page.click('[data-genrep="csv"]')]);
+  const rcsv = fs.readFileSync(await rdl.path(), 'utf8');
+  if (!/EADD/.test(rcsv) || !/Threshold positions/.test(rcsv) || !/NOT FOR NAVIGATION/.test(rcsv)) fails.push('readiness CSV');
+  const full = await page.evaluate(() => { const c = AMDBX.candidates(window.__AIXM.S.datasets).filter((x) => x.code === 'EADD'); const g = AMDBX.generate(c); const n = {}; g.features.forEach((f) => { n[f.t] = (n[f.t] || 0) + 1; }); return { n, xml: AMDBPKG.writeAmxm(g.features, 'test') }; });
+  const want = ['AerodromeReferencePoint', 'RunwayElement', 'RunwayThreshold', 'RunwayCenterlinePoint', 'RunwayMarking', 'PaintedCenterline', 'Stopway', 'AerodromeSurfaceLighting', 'TaxiwayElement', 'ApronElement', 'TaxiwayGuidanceLine', 'StandGuidanceLine', 'TaxiwayHoldingPosition', 'ParkingStandLocation', 'VerticalPointStructure'];
+  const lack = want.filter((k) => !full.n[k]);
+  if (lack.length) fails.push('Donlon EADD generation lacks: ' + lack.join(', ') + ' — ' + JSON.stringify(full.n));
+  const vf = await validateAmxm(full.xml);
+  if (!vf.valid) fails.push('full generation not valid against the AMXM schema: ' + vf.errors.slice(0, 3).join(' | '));
+  // options: no lights, no markings
+  const lean = await page.evaluate(() => { const c = AMDBX.candidates(window.__AIXM.S.datasets).filter((x) => x.code === 'EADD'); return AMDBX.generate(c, { lights: false, markings: false }).features.filter((f) => f.t === 'AerodromeSurfaceLighting' || f.t === 'RunwayMarking').length; });
+  if (lean) fails.push('options: lights / markings generated although switched off');
+  // generate EADD through the UI: the chart, its labels, the base maps, 3D
+  await page.click('[data-gensel="none"]'); await page.click('[data-gensel="shown"]');
+  await page.check('[data-genack]'); await page.click('[data-gengo]');
+  await page.waitForSelector('.am-map', { timeout: 60000 }); await page.waitForTimeout(800);
+  const ch = await page.evaluate(() => { const el = document.querySelector('.am-map'); return { mode: (document.querySelector('[data-amcol].active') || {}).textContent, labels: el.querySelectorAll('.ddm-lbl.ddm-rwy').length, bases: Array.from(el.querySelectorAll('.ddm-ctl option')).map((o) => o.value) }; });
+  if (!/Aerodrome chart/.test(ch.mode || '') || ch.labels < 2) fails.push('aerodrome chart: ' + JSON.stringify(ch).slice(0, 200));
+  if (!ch.bases.includes('offline') || !ch.bases.includes('osmhot') || !ch.bases.includes('esri') || ch.bases.length < 8) fails.push('base maps of the AMDB map: ' + ch.bases.join(','));
+  await page.screenshot({ path: OUT + '/chart.png' });
+  await page.selectOption('[data-ddf="ad"]', 'EADD'); await page.waitForTimeout(500);
+  await page.click('[data-am3d]');
+  await page.waitForSelector('.v3d', { timeout: 20000 }).catch(() => fails.push('3D view of the aerodrome did not open'));
+  await page.waitForTimeout(4000);
+  const v3 = await page.evaluate(() => { const st = window.VIEW3D.state(); if (!st || !st.world) return null; let n = 0; st.world.traverse((o) => { if (o.userData && o.userData.amdb) n++; }); return { n, air: document.querySelector('[data-l="airspace"]').checked }; });
+  if (!v3 || v3.n < 50 || v3.air) fails.push('3D aerodrome mapping: ' + JSON.stringify(v3));
+  await page.screenshot({ path: OUT + '/amdb_3d.png' });
+  await page.evaluate(() => window.VIEW3D.close());
+  // the step-by-step guide
+  await openTab('guide', '.amg-steps');
+  const gs = await page.$$eval('.amg-step', (x) => x.length);
+  if (gs < 8) fails.push('guide steps: ' + gs);
+  await page.click('.amg [data-amgoto="generate"]');
+  await page.waitForSelector('[data-gengo]', { timeout: 20000 }).catch(() => fails.push('guide → Generate did not open'));
 
   /* --------------------------------------------------------------------- import */
   await load([T + 'amxm_test_EAXM.xml']);

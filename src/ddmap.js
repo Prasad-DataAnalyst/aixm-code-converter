@@ -10,26 +10,41 @@
  *   obstacles   sized by height, coloured by what matters (penetrates an Annex 14 surface, has an error, lighted,
  *               other); the obstacle area boundary; the aerodrome reference point with 2 / 5 / 10 NM rings
  *   lines       procedure paths and aerodrome mapping geometry (points, lines, areas)
- * Base: the built-in offline world map, or (online, no key) Esri streets or imagery.
+ * Base: the built-in offline world map, or the free online maps of the Map tab (Esri, OpenStreetMap, OpenTopoMap, NASA).
  * ========================================================================== */
-/* global L, topojson, MODEL */
+/* global L, topojson, MODEL, MAPVIEW */
 var DDMAP = (function () {
   'use strict';
   var M = MODEL, world = null;
   function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-  var BASES = {
-    offline: { label: 'Offline world map' },
-    streets: { label: 'Streets (online, Esri, non-commercial use)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', att: 'Tiles © Esri' },
-    imagery: { label: 'Satellite (online, Esri, non-commercial use)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', att: 'Imagery © Esri' }
-  };
-  var baseChoice = 'offline';
-  try { baseChoice = localStorage.getItem('aixm-ddmap-base') || 'offline'; } catch (e) { /* storage unavailable */ }
+  // base maps: the built-in offline world map, or the same free online maps as the Map tab (Esri, OpenStreetMap,
+  // OpenTopoMap, NASA), loaded the same way; Google map tiles are not offered (their terms need a paid Google Maps key)
+  var OLD = { streets: 'esriStreet', imagery: 'esri' };
+  function online() { try { return MAPVIEW.baseMaps().list; } catch (e) { return {}; } }
+  function valid(k) { return k === 'offline' || !!online()[k]; }
+  function firstChoice() {
+    var k = '';
+    try { k = localStorage.getItem('aixm-ddmap-base') || ''; } catch (e) { /* storage unavailable */ }
+    k = OLD[k] || k;
+    if (valid(k)) return k;
+    try { k = MAPVIEW.savedBase(); } catch (e) { k = ''; }
+    return valid(k) ? k : valid('esriStreet') ? 'esriStreet' : 'offline';
+  }
+  var baseChoice = null;
+  function options() {
+    var L0 = online(), groups = {};
+    Object.keys(L0).forEach(function (k) { (groups[L0[k].group] = groups[L0[k].group] || []).push(k); });
+    return '<option value="offline"' + (baseChoice === 'offline' ? ' selected' : '') + '>Offline world map (always works)</option>' + Object.keys(groups).map(function (g) {
+      return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (k) { return '<option value="' + k + '"' + (k === baseChoice ? ' selected' : '') + '>' + esc(L0[k].name) + '</option>'; }).join('') + '</optgroup>';
+    }).join('');
+  }
 
   // a map in el; keeps its view across redraws of the same content (key)
   var views = {};
   function create(el, key) {
     el.innerHTML = '';
-    var map = L.map(el, { zoomControl: true, attributionControl: true, preferCanvas: true, worldCopyJump: true, zoomSnap: 0.5 });
+    if (baseChoice === null) baseChoice = firstChoice();
+    var map = L.map(el, { zoomControl: true, attributionControl: true, preferCanvas: true, worldCopyJump: true, zoomSnap: 0.5, maxZoom: 21 });
     var rend = L.canvas({ padding: 0.3 });
     var mm = { map: map, rend: rend, key: key, layers: L.layerGroup().addTo(map), sel: L.layerGroup().addTo(map), base: null, world: null, onPick: null, items: [] };
     el._ddmap = mm; // for the tests
@@ -38,9 +53,10 @@ var DDMAP = (function () {
     var ctl = L.control({ position: 'topright' });
     ctl.onAdd = function () {
       var d = L.DomUtil.create('div', 'ddm-ctl');
-      d.innerHTML = '<select aria-label="Base map">' + Object.keys(BASES).map(function (k) { return '<option value="' + k + '"' + (k === baseChoice ? ' selected' : '') + '>' + BASES[k].label + '</option>'; }).join('') + '</select>';
-      L.DomEvent.disableClickPropagation(d);
-      d.querySelector('select').onchange = function (e) { baseChoice = e.target.value; try { localStorage.setItem('aixm-ddmap-base', baseChoice); } catch (x) { /* storage unavailable */ } setBase(mm, baseChoice); };
+      d.innerHTML = '<select aria-label="Base map">' + options() + '</select>';
+      L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
+      mm.sel_ = d.querySelector('select');
+      mm.sel_.onchange = function (e) { pick(mm, e.target.value); };
       return d;
     };
     ctl.addTo(map);
@@ -48,18 +64,33 @@ var DDMAP = (function () {
     map.on('moveend', function () { views[key] = { c: map.getCenter(), z: map.getZoom() }; });
     return mm;
   }
+  function pick(mm, k) { baseChoice = k; try { localStorage.setItem('aixm-ddmap-base', k); } catch (x) { /* storage unavailable */ } setBase(mm, k); if (mm.sel_) mm.sel_.value = k; }
   function setBase(mm, k) {
     if (mm.base) { mm.map.removeLayer(mm.base); mm.base = null; }
     var dark = document.documentElement.getAttribute('data-theme') === 'dark' || (!document.documentElement.getAttribute('data-theme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    mm.map.getContainer().style.background = k === 'offline' ? (dark ? '#0d1a2b' : '#dfe9f3') : '#ccc';
-    if (k !== 'offline' && BASES[k]) { mm.base = L.tileLayer(BASES[k].url, { maxZoom: 19, attribution: BASES[k].att, crossOrigin: true }).addTo(mm.map); mm.base.bringToBack(); }
+    var d = k !== 'offline' ? online()[k] : null;
+    mm.map.getContainer().style.background = !d ? (dark ? '#0d1a2b' : '#dfe9f3') : d.dark ? '#111' : '#e8e8e8';
+    if (d) {
+      var tl = L.tileLayer(d.url, { attribution: d.attr, maxZoom: 21, maxNativeZoom: d.maxZoom, subdomains: d.sub || 'abc', crossOrigin: true, referrerPolicy: 'strict-origin-when-cross-origin' });
+      mm.base = d.labels ? L.layerGroup([tl, L.tileLayer(d.labels, { maxZoom: 21, maxNativeZoom: d.maxZoom, crossOrigin: true, referrerPolicy: 'strict-origin-when-cross-origin' })]) : tl;
+      var errors = 0, loaded = 0;
+      tl.on('tileload', function () { loaded++; });
+      // a server that refuses the tiles, or no internet: OpenStreetMap, then the offline map
+      tl.on('tileerror', function () {
+        if (++errors !== 4 || loaded || baseChoice !== k) return;
+        var to = k !== 'osmhot' && online().osmhot ? 'osmhot' : 'offline';
+        pick(mm, to);
+      });
+      mm.base.addTo(mm.map);
+      if (mm.base.bringToBack) mm.base.bringToBack(); else tl.bringToBack();
+    }
     if (!mm.world) {
       try {
         if (!world) { var w = JSON.parse(document.getElementById('data-world50').textContent); world = topojson.feature(w, w.objects.countries); }
         mm.world = L.geoJSON(world, { renderer: mm.rend, interactive: false, style: function () { return { color: dark ? '#4a6078' : '#9aa9b9', weight: 0.8, fillColor: dark ? '#1b2b40' : '#f6f4ee', fillOpacity: 1 }; } });
       } catch (e) { mm.world = null; }
     }
-    if (mm.world) { if (k === 'offline') mm.world.addTo(mm.map); else mm.map.removeLayer(mm.world); }
+    if (mm.world) { if (!d) mm.world.addTo(mm.map); else mm.map.removeLayer(mm.world); }
   }
   function fit(mm, bounds) {
     var v = views[mm.key];
@@ -137,7 +168,7 @@ var DDMAP = (function () {
     var lg = L.control({ position: 'bottomleft' });
     lg.onAdd = function () {
       var d = L.DomUtil.create('div', 'ddm-leg');
-      d.innerHTML = items.map(function (i) { return '<span><i style="background:' + i[0] + '"></i>' + esc(i[1]) + '</span>'; }).join('') + (note ? '<span class="muted">' + esc(note) + '</span>' : '');
+      d.innerHTML = items.map(function (i) { return '<span><i style="background:' + i[0] + (/^#f[a-f0-9]{5}$/i.test(i[0]) ? ';box-shadow:0 0 0 1px #8a939e inset' : '') + '"></i>' + esc(i[1]) + '</span>'; }).join('') + (note ? '<span class="muted">' + esc(note) + '</span>' : '');
       return d;
     };
     lg.addTo(mm.map); mm.leg = lg;
@@ -145,25 +176,72 @@ var DDMAP = (function () {
 
   /* ------------------------------------------------- lines, areas, points */
   // items: [{key (row), g: geometry {t, c} | paths: [{coords, dashed}], color, label}]
+  /* --------------------------------------------- aerodrome chart style (AMXM) */
+  // colours of an aerodrome chart made for the screen: dark runways with white markings, grey shoulders, taxiways
+  // and aprons in steps of grey, yellow guidance lines and holding positions, green thresholds, blue stands,
+  // purple navaids, red obstacles and hot spots; z: drawing order
+  var CH = {
+    Water: { f: '#7ec8ee', s: '#4aa3d8', z: 2 }, ServiceRoad: { f: '#d8c7ad', s: '#b49b78', z: 3 },
+    ApronElement: { f: '#c3cad2', s: '#a3acb6', z: 5 }, ParkingStandArea: { f: '#dbe1e8', s: '#8b96a3', z: 6 }, DeicingArea: { f: '#a8daf4', s: '#3b8fc4', z: 7 },
+    TaxiwayShoulder: { f: '#b3b9c0', s: '#b3b9c0', z: 8 }, TaxiwayElement: { f: '#868e98', s: '#717983', z: 9 },
+    ConstructionArea: { f: '#ffa726', fo: 0.5, s: '#e65100', d: '5 3', z: 10 }, VerticalPolygonalStructure: { f: '#a1887f', s: '#5d4037', z: 11 },
+    RunwayShoulder: { f: '#a0a6ae', s: '#a0a6ae', z: 12 }, Blastpad: { f: '#61656c', s: '#f5c518', d: '6 4', z: 13 }, Stopway: { f: '#61656c', s: '#f5c518', d: '6 4', w: 1.6, z: 13 },
+    RunwayElement: { f: '#353a41', s: '#1f2328', z: 14 }, FinalApproachAndTakeOffArea: { f: '#4f7a3a', s: '#2f5a1f', z: 14 }, TouchDownLiftOffArea: { f: '#2e5e8e', s: '#ffffff', z: 15 },
+    RunwayIntersection: { f: '#30353b', s: '#1f2328', z: 15 }, RunwayDisplacedArea: { f: '#4a4f57', s: '#ffffff', d: '4 4', z: 16 },
+    RunwayMarking: { f: '#ffffff', s: '#ffffff', w: 0.3, z: 20, minZ: 14 }, TaxiwayIntersectionMarking: { f: '#ffcf00', s: '#ffcf00', z: 20 }, PositionMarking: { f: '#ffcf00', s: '#ffcf00', z: 20 },
+    PaintedCenterline: { s: '#ffffff', w: 1.2, d: '12 10', z: 21 }, RunwayExitLine: { s: '#ffcf00', w: 1.4, z: 22 }, TaxiwayGuidanceLine: { s: '#ffcf00', w: 1.6, z: 22 }, StandGuidanceLine: { s: '#ffcf00', w: 1.2, d: '5 3', z: 22, minZ: 15 },
+    TaxiwayHoldingPosition: { s: '#ffcf00', w: 3.5, z: 23 }, LandAndHoldShortOperationLocation: { s: '#ff6f00', w: 3, z: 23 }, Hotspot: { f: '#e53935', fo: 0.22, s: '#e53935', w: 2, z: 24 },
+    RunwayCenterlinePoint: { p: '#ffffff', ps: '#30353b', r: 2.5, z: 30, minZ: 14 }, RunwayThreshold: { p: '#00c853', ps: '#ffffff', r: 5, z: 32 }, HelipadThreshold: { p: '#00c853', ps: '#ffffff', r: 5, z: 32 },
+    ParkingStandLocation: { p: '#1565c0', ps: '#ffffff', r: 3.5, z: 31 }, VerticalPointStructure: { p: '#d32f2f', ps: '#ffffff', r: 4, z: 33 }, VerticalLineStructure: { s: '#d32f2f', w: 2, z: 25 },
+    AerodromeSign: { p: '#ffcf00', ps: '#000000', r: 3, z: 31 }, AerodromeReferencePoint: { p: '#b0186e', ps: '#ffffff', r: 6.5, z: 34 }, SurveyControlPoint: { p: '#00897b', ps: '#ffffff', r: 3, z: 31 },
+    AsrnEdge: { s: '#00acc1', w: 1, d: '2 3', z: 26 }, AsrnNode: { p: '#00acc1', ps: '#ffffff', r: 2, z: 30 }
+  };
+  // the style of an AMXM feature type (attributes: navaids drawn purple), and the label shown when zoomed in
+  function chartStyle(t, a) {
+    var c = CH[t] || { f: '#1d4e89', s: '#1d4e89', p: '#1d4e89', ps: '#ffffff', r: 3.5, z: 26 };
+    if (t === 'VerticalPointStructure' && a && String(a.pntsttyp) === '9') c = Object.assign({}, c, { p: '#7b1fa2' });
+    if (t === 'AerodromeSurfaceLighting') { var u = a && String(a.lgtuse); c = { p: { 0: '#2979ff', 1: '#00e676', 4: '#00e676', 7: '#ffd600', 8: '#ff1744' }[u] || '#fff59d', ps: '#3a3f46', r: 1.8, z: 35, minZ: 15 }; }
+    return c;
+  }
+  var CHART_LEGEND = [['#353a41', 'runway'], ['#ffffff', 'runway marking (zoom in)'], ['#a0a6ae', 'shoulder'], ['#f5c518', 'stopway / blast pad'], ['#868e98', 'taxiway'], ['#c3cad2', 'apron'], ['#ffcf00', 'guidance line / holding position'], ['#00c853', 'threshold'], ['#1565c0', 'stand'], ['#7b1fa2', 'navaid'], ['#d32f2f', 'obstacle / hot spot'], ['#fff59d', 'light, white (zoom in)'], ['#00e676', 'light, green'], ['#ff1744', 'light, red'], ['#b0186e', 'reference point']];
+  // details drawn from a zoom level on (lights, markings, centre line points): a chart that fills in as you zoom in
+  function zoomDetail(mm) {
+    if (mm._zd) return;
+    mm._zd = true;
+    mm.map.on('zoomend', function () { var z = mm.map.getZoom(); (mm.byZoom || []).forEach(function (x) { var on = z >= x[0], has = mm.layers.hasLayer(x[1]); if (on && !has) x[1].addTo(mm.layers); else if (!on && has) mm.layers.removeLayer(x[1]); }); });
+  }
+  function zoomLabels(mm) {
+    if (mm._zl) return;
+    mm._zl = true;
+    var upd = function () { var z = mm.map.getZoom(), el = mm.map.getContainer(); [13, 15, 16, 17].forEach(function (k) { el.classList.toggle('ddm-below' + k, z < k); }); };
+    mm.map.on('zoomend', upd); upd();
+  }
   function shapes(mm, items, opt) {
-    mm.layers.clearLayers(); mm.items = [];
-    var b = L.latLngBounds([]);
+    mm.layers.clearLayers(); mm.items = []; mm.byZoom = [];
+    var b = L.latLngBounds([]), placed = {};
+    // aerodrome chart: framed on the pavement (far obstacles and navaids do not shrink it)
+    opt.paveFit = items.some(function (it) { return it.style && it.g && it.g.t === 'A'; });
+    if (items.some(function (it) { return it.style; })) items = items.slice().sort(function (x, y) { return ((x.style && x.style.z) || 0) - ((y.style && y.style.z) || 0); });
     items.forEach(function (it) {
-      var lay = [];
+      var lay = [], st = it.style;
       (it.paths || []).forEach(function (p) { if (p.coords && p.coords.length > 1) lay.push(L.polyline(p.coords.map(ll), { renderer: mm.rend, color: it.color, weight: 2.5, opacity: 0.9, dashArray: p.dashed ? '7 5' : null })); });
       (function walk(g) {
         if (!g) return;
         if (g.t === 'M') { g.parts.forEach(walk); return; }
-        if (g.t === 'P' && typeof g.c[0] === 'number') lay.push(L.circleMarker(ll(g.c), { renderer: mm.rend, radius: 4, color: '#fff', weight: 1, fillColor: it.color, fillOpacity: 0.95 }));
-        else if (g.t === 'L') lay.push(L.polyline(g.c.filter(function (p) { return typeof p[0] === 'number'; }).map(ll), { renderer: mm.rend, color: it.color, weight: 2.2 }));
-        else if (g.t === 'A') lay.push(L.polygon(g.c[0].filter(function (p) { return typeof p[0] === 'number'; }).map(ll), { renderer: mm.rend, color: it.color, weight: 1, fillColor: it.color, fillOpacity: 0.35 }));
+        if (g.t === 'P' && typeof g.c[0] === 'number') lay.push(L.circleMarker(ll(g.c), st ? { renderer: mm.rend, radius: st.r || 3.5, color: st.ps || '#fff', weight: 1.2, fillColor: st.p || st.f || it.color, fillOpacity: 1 } : { renderer: mm.rend, radius: 4, color: '#fff', weight: 1, fillColor: it.color, fillOpacity: 0.95 }));
+        else if (g.t === 'L') lay.push(L.polyline(g.c.filter(function (p) { return typeof p[0] === 'number'; }).map(ll), st ? { renderer: mm.rend, color: st.s || it.color, weight: st.w || 1.6, dashArray: st.d || null, lineCap: 'butt' } : { renderer: mm.rend, color: it.color, weight: 2.2 }));
+        else if (g.t === 'A') lay.push(L.polygon(g.c.map(function (r) { return r.filter(function (p) { return typeof p[0] === 'number'; }).map(ll); }), st ? { renderer: mm.rend, color: st.s || st.f, weight: st.w === undefined ? 0.8 : st.w, dashArray: st.d || null, fillColor: st.f || it.color, fillOpacity: st.fo === undefined ? 1 : st.fo } : { renderer: mm.rend, color: it.color, weight: 1, fillColor: it.color, fillOpacity: 0.35 }));
       })(it.g);
       if (!lay.length) return;
       var grp = L.featureGroup(lay);
+      if (it.text && (placed[it.text] || []).some(function (q) { var c1 = grp.getBounds().getCenter(); return Math.abs(q.lat - c1.lat) < 0.0027 && Math.abs(q.lng - c1.lng) < 0.0027 / Math.cos(c1.lat * Math.PI / 180); })) it = Object.assign({}, it, { text: null }); // one label per name every ~300 m
+      if (it.text) { (placed[it.text] = placed[it.text] || []).push(grp.getBounds().getCenter()); }
+      if (it.text) { var c0 = grp.getBounds().getCenter(); L.marker(c0, { interactive: false, keyboard: false, icon: L.divIcon({ className: 'ddm-lbl ddm-m' + (it.minZ || 15) + (it.textCls ? ' ' + it.textCls : ''), html: esc(it.text), iconSize: null }) }).addTo(mm.layers); zoomLabels(mm); }
       grp.bindTooltip(esc(it.label), { sticky: true, opacity: 0.95 });
       grp.on('click', function () { selectShape(mm, it.key); if (opt.onPick) opt.onPick(it.key); });
-      grp.addTo(mm.layers); grp._row = it.key; mm.items.push(grp);
-      b.extend(grp.getBounds());
+      grp._row = it.key; mm.items.push(grp);
+      if (st && st.minZ) { (mm.byZoom = mm.byZoom || []).push([st.minZ, grp]); if (mm.map.getZoom() >= st.minZ) grp.addTo(mm.layers); zoomDetail(mm); } else grp.addTo(mm.layers);
+      if (!st || !opt.paveFit || it.g && (it.g.t === 'A' || (it.g.t === 'M' && it.g.parts.some(function (q) { return q.t === 'A'; })))) b.extend(grp.getBounds());
     });
     if (opt.legend) legend(mm, opt.legend, opt.note);
     fit(mm, b);
@@ -178,5 +256,5 @@ var DDMAP = (function () {
   }
   function forget(key) { delete views[key]; }
 
-  return { create: create, obstacles: obstacles, select: select, shapes: shapes, selectShape: selectShape, forget: forget, legendOf: legend, picks: picks, OCOL: OCOL, geometryOf: function (ds, r) { return M.geometry(ds, r); } };
+  return { chartStyle: chartStyle, CHART_LEGEND: CHART_LEGEND, create: create, obstacles: obstacles, select: select, shapes: shapes, selectShape: selectShape, forget: forget, legendOf: legend, picks: picks, OCOL: OCOL, geometryOf: function (ds, r) { return M.geometry(ds, r); } };
 })();

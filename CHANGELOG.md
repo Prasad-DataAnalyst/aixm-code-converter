@@ -32,10 +32,43 @@ NOT FOR NAVIGATION — for study and analysis only.
 - **Aerodrome mapping — more tools** (Digital data → Aerodrome mapping (AMDB)):
   - the Aerodrome mapping (AMDB) section is open for an AIP data set with runways and no mapping data, and starts on
     Generate from AIP;
-  - *Generate from AIP*: aerodromes without mapping data get runway elements (from the runway ends, or a
-    threshold, the bearing and the length, and the width), thresholds with elevation and declared distances,
-    stopways (ASDA − TORA), the reference point and stands, written as AMXM 2.0 (valid against the schema) and
-    opened; every feature says it is generated, coarse quality, and Sources & quality records it so;
+  - *Generate from AIP* — everything the AIP data set gives, written as AMXM 2.0 (valid against the schema):
+    - runway elements (from the runway ends, or a threshold, the bearing and the length, and the width), shoulders
+      (from the shoulder width), stopways (ASDA − TORA), displaced threshold areas, runway intersections, FATO and
+      TLOF areas, thresholds (elevation, TDZ elevation, true and magnetic bearing, TORA / TODA / ASDA / LDA), every
+      runway centre line point, a painted centre line, the reference point;
+    - taxiway and apron elements, taxiway and stand guidance lines, holding positions (a line across the taxiway,
+      CAT I / II / III), stands (points and areas), de-icing and work areas — where the AIP has their geometry; a
+      taxiway with a width but no element gets its surface along its guidance line;
+    - runway markings at the ICAO Annex 14 Volume I Chapter 5 standard layout (threshold stripes by runway width,
+      aiming point and touchdown zone by landing distance, side stripes);
+    - lights declared in AD 2.14 / 2.15: each light where the AIP gives it, otherwise at the Annex 14 spacing
+      (edge, centre line, touchdown zone, threshold, end, approach lighting by class — CAT I, CAT II / III with
+      side rows and crossbars, simple — and runway guard lights);
+    - navaid antennas (ILS localizer and glide path, DME, VOR, NDB, markers), aerodrome beacons and obstacles of the
+      aerodrome;
+    - every feature says it is generated (coarse quality, or the Annex 14 standard layout); the notes list what the
+      AIP names but cannot be drawn (e.g. taxiways without coordinates) — what to survey;
+    - the runway reaches the furthest point published on its centre line (start, end, points without a role);
+      obstacles, navaids and beacons also from the other data sets loaded (an obstacle data set beside the AIP);
+    - where an AIP withholds the runway positions, an optional SCHEMATIC runway (single-runway aerodromes: at the
+      reference point, bearing from the designator and the magnetic variation), labelled schematic in every feature;
+    - *Data readiness*: for every aerodrome, 16 items an aerodrome mapping needs (reference point, threshold and end
+      positions, width, shoulders, declared distances, elevations, bearing, surface and PCN, taxiway and apron
+      geometry, stands, holding positions, lights, navaids, obstacles) — available, partly or missing, with what each
+      gives and where it comes from; a readiness score; CSV and PDF reports;
+    - search, select all / deselect all / select shown, and what to derive (markings, lights, taxiway surfaces,
+      obstacles and navaids, schematic runways);
+  - *Aerodrome chart*: the AMDB map coloured as an aerodrome chart (dark runways with white markings, grey shoulders,
+    taxiways and aprons, yellow guidance lines and holding positions, green thresholds, blue stands, purple navaids,
+    red obstacles, lights by colour), runway designators, taxiway letters, apron names and stand numbers, details
+    and labels filling in as you zoom in; the free online base maps of the Map tab (Esri, OpenStreetMap,
+    OpenTopoMap, NASA) with a fall-back to OpenStreetMap and to the offline map; Google map tiles are not offered
+    (their terms need a paid Google Maps key);
+  - *3D*: the aerodrome in 3D — surfaces at the aerodrome elevation, markings, lights (also at night), buildings,
+    obstacles and navaid antennas at their height, runway designators, taxiway, apron and stand names;
+  - *How to create AMDB*: a step-by-step guide (from the AIP only, from survey / CAD / GIS files, or both; the file
+    formats and columns; checks, sources, package);
   - *Import*: GeoJSON, CSV with WKT and an AMXM type column, and DXF (WGS 84 / UTM, layers named after AMXM
     feature types) open on Files as AMXM; other CSV files stay tables;
   - *Compare*: two aerodrome mapping data sets (two cycles, two suppliers, AIXM against AMXM) — added, removed,

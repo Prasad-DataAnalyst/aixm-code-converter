@@ -1755,8 +1755,9 @@ var MAPVIEW = (function () {
     if (own) state.ds = own;
     else if (!ad) { var under = shownList().filter(function (d) { var x = dsBounds(d); return x && x.contains(ctr); }); if (under.length && under.indexOf(state.ds) < 0) state.ds = under[0]; }
     var b = map.getBounds(), bb = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+    if (extra && extra.bbox) bb = extra.bbox;
     if (extra && extra.ols && ad) { var c = M.pointOf(state.ds, ad); if (c) bb = [c[0] - 0.22 / Math.cos(c[1] * Math.PI / 180), c[1] - 0.17, c[0] + 0.22 / Math.cos(c[1] * Math.PI / 180), c[1] + 0.17]; }
-    VIEW3D.open(map.getContainer().parentNode, state.ds, hooks, { mode: mode, ad: ad || null, bbox: bb, ols: !!(extra && extra.ols),
+    VIEW3D.open(map.getContainer().parentNode, state.ds, hooks, { mode: mode, ad: ad || null, bbox: bb, ols: !!(extra && extra.ols), tight: !!(extra && extra.tight),
       obsSets: state.all || [state.ds] });
   }
   // fits the aerodrome diagram into the part of the map not covered by the card
