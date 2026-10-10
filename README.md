@@ -1,6 +1,6 @@
 # AIXM Code Converter: downloads and traffic
 
-Updated 2026-10-09 (daily). GitHub does not report the location of visitors.
+Updated 2026-10-10 (daily). GitHub does not report the location of visitors.
 
 > Page views, visitors and referring sites are not recorded yet: add the `TRAFFIC_TOKEN` secret (see `tools/stats.js`).
 
@@ -8,10 +8,10 @@ Updated 2026-10-09 (daily). GitHub does not report the location of visitors.
 
 | | |
 |---|---|
-| Release downloads (all files, all versions) | **114** |
+| Release downloads (all files, all versions) | **117** |
 | Stars · forks · watchers | 0 · 0 · 0 |
 
-## Downloads per file (2026-10-09)
+## Downloads per file (2026-10-10)
 
 | Release | File | Downloads |
 |---|---|---|
@@ -68,7 +68,7 @@ Updated 2026-10-09 (daily). GitHub does not report the location of visitors.
 | v1.24.0 | AIXM-Code-Converter.html | 1 |
 | v1.24.0 | AIXM-Code-Converter.zip | 1 |
 | v1.24.0 | SHA256SUMS.txt | 1 |
-| v1.25.0 | AIXM-Code-Converter.html | 2 |
+| v1.25.0 | AIXM-Code-Converter.html | 5 |
 | v1.25.0 | AIXM-Code-Converter.zip | 1 |
 | v1.25.0 | SHA256SUMS.txt | 1 |
 | v1.3.0 | AIXM-Code-Converter.html | 0 |
