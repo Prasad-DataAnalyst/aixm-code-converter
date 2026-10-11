@@ -1,6 +1,6 @@
 # AIXM Code Converter: downloads and traffic
 
-Updated 2026-10-10 (daily). GitHub does not report the location of visitors.
+Updated 2026-10-11 (daily). GitHub does not report the location of visitors.
 
 > Page views, visitors and referring sites are not recorded yet: add the `TRAFFIC_TOKEN` secret (see `tools/stats.js`).
 
@@ -11,7 +11,7 @@ Updated 2026-10-10 (daily). GitHub does not report the location of visitors.
 | Release downloads (all files, all versions) | **117** |
 | Stars · forks · watchers | 0 · 0 · 0 |
 
-## Downloads per file (2026-10-10)
+## Downloads per file (2026-10-11)
 
 | Release | File | Downloads |
 |---|---|---|
