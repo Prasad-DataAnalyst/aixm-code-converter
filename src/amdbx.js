@@ -22,7 +22,7 @@
  *   user traced on imagery (amdbtrace.js), OpenStreetMap, then the ICAO Annex 14 minimum — each feature says which.
  * Loaded only when one of these tools is used (src/lazy.js).
  * ========================================================================== */
-/* global MODEL, AMDB, AMDBPKG, AMDBOSM, AMDBDOC, AMDBTRACE, LAZY, DDMAP, EXPORTS, APP_INFO, AIP */
+/* global MODEL, AMDB, AMDBPKG, AMDBOSM, AMDBDOC, AMDBTRACE, AMDBOCR, LAZY, DDMAP, EXPORTS, APP_INFO, AIP, fflate */
 var AMDBX = (function () {
   'use strict';
   var M = MODEL, s = M.s, D2R = Math.PI / 180;
@@ -294,7 +294,7 @@ var AMDBX = (function () {
         // no lights in the AIP data set: the lighting the State's charts list (positions at the Annex 14 layout)
         var chartL = {}, LPOS = { EDGE: 'EDGE', CL: 'CL', TDZ: 'TDZ', THR: 'THR', END: 'END' };
         if (K) [d1, d2].forEach(function (d) { if (d && !d.lights.length) { var l = AMDBDOC.lightsFor(K, AMDBDOC.des2(d.des), c.rwys.length === 1); if (l.length) chartL[d.des] = l; } });
-        Object.keys(chartL).forEach(function (k) { var other = chartL[k].filter(function (l) { return !LPOS[l.kind] && l.kind !== 'ALS'; }).map(function (l) { return AMDBDOC.LNAME[l.kind]; }); notes.push(c.code + ' ' + k + ': lighting from the State\'s chart — ' + chartL[k].map(function (l) { return (l.kind === 'ALS' && l.cls ? l.cls + ' ' : '') + AMDBDOC.LNAME[l.kind]; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join(', ') + (other.length ? ' (' + other.join(', ') + ': listed, no AMXM light type to draw)' : '')); });
+        Object.keys(chartL).forEach(function (k) { var other = chartL[k].filter(function (l) { return !LPOS[l.kind] && l.kind !== 'ALS'; }).map(function (l) { return AMDBDOC.LNAME[l.kind]; }); notes.push(c.code + ' ' + k + ': lighting from the State\'s chart — ' + chartL[k].map(function (l) { return (l.kind === 'ALS' && l.cls ? l.cls + ' ' : '') + AMDBDOC.LNAME[l.kind]; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join(', ') + (other.length ? ' (' + other.join(', ') + ': listed, not drawn)' : '')); });
         // no lights declared but an ILS: the Annex 14 minimum for a precision approach runway CAT I (inferred)
         var inferL = opt.infer && !(d1 && d1.lights.length) && !(d2 && d2.lights.length) && !Object.keys(chartL).length && Object.keys(ilsD).length > 0;
         function lightsOf(d) {
@@ -504,7 +504,7 @@ var AMDBX = (function () {
         // an OSM stand whose number the State's chart also gives: confirmed by the chart
         var named = K ? K.standNames.concat(K.stands.map(function (x) { return x.id; })) : [];
         oc.features.forEach(function (f) { if (named.length && f.t === 'ParkingStandLocation' && f.a.idstd && named.indexOf(String(f.a.idstd.v).toUpperCase()) >= 0) f.a.source.v = (f.a.source.v + '; number on the State\'s chart').slice(0, 254); push(f); });
-        if (K && K.twyNames.length) { var oref = {}; oc.taxi.forEach(function (t) { String(t.ref || '').toUpperCase().split(/[;,]/).forEach(function (x) { oref[x.trim()] = 1; }); }); var miss = K.twyNames.filter(function (x) { return !oref[x] && !tracedRef[x]; }); if (miss.length) notes.push(c.code + ': named on the State\'s chart but not mapped in OpenStreetMap: TWY ' + miss.slice(0, 20).join(', ') + (miss.length > 20 ? ' …' : '') + ' — trace them on imagery (Trace tab)'); }
+        if (K && K.twyNames.length) { var oref = {}; oc.taxi.forEach(function (t) { String(t.ref || '').toUpperCase().split(/[;,]/).forEach(function (x) { oref[x.trim()] = 1; }); }); var miss = K.twyNames.filter(function (x) { return !oref[x] && !tracedRef[x]; }); if (miss.length) notes.push(c.code + ': taxiways named on the State\'s chart that no OpenStreetMap line is named after (' + oc.taxi.length + ' lines, ' + oc.taxi.filter(function (t) { return t.ref; }).length + ' named): TWY ' + miss.slice(0, 20).join(', ') + (miss.length > 20 ? ' …' : '') + ' — name or trace them (Trace on imagery)'); }
         if (opt.network) AMDBOSM.network(c, osm, H, function (f) { return AMDBOSM.uuid(f.id); }).forEach(push);
         notes.push(c.code + ': ' + oc.features.length + ' feature(s) from OpenStreetMap (' + osm.src.name + ', ' + AMDBOSM.ATTR + ')');
       }
@@ -783,10 +783,13 @@ var AMDBX = (function () {
     var kRw = function (k) { return K ? c.rwys.filter(function (r) { return r.dirs.some(function (d) { var R = kr(d); return R && R[k]; }); }).length : 0; };
     var kLgt = K ? dirs.filter(function (d) { return AMDBDOC.lightsFor(K, AMDBDOC.des2(d.des), c.rwys.length === 1).some(function (l) { return l.kind === 'EDGE' || l.kind === 'ALS' || l.kind === 'THR'; }); }).length : 0;
     var oRefs = {}; if (osmO) osmO.els.forEach(function (e) { if (/^(taxiway|taxilane)$/.test(e.tags.aeroway) && e.tags.ref) String(e.tags.ref).toUpperCase().split(/[;,]/).forEach(function (x) { oRefs[x.trim()] = 1; }); });
-    var twyCov = K && K.twyNames.length && o && o.taxiway ? K.twyNames.filter(function (x) { return oRefs[x]; }).length / K.twyNames.length : 1;
+    // taxiway geometry: OpenStreetMap with at least as many taxiway lines as the charts name taxiways has it, names or not
+    var twyCov = K && K.twyNames.length && o && o.taxiway ? (o.taxiway >= K.twyNames.length ? 1 : K.twyNames.filter(function (x) { return oRefs[x]; }).length / K.twyNames.length) : 1;
     // stands: all of those the charts name have a position (or nearly), or only part of them
     var named = K ? K.standNames.concat(K.stands.map(function (x) { return x.id; })).filter(function (x, i, a) { return x && a.indexOf(x) === i; }).length : 0;
-    var stdN = (K ? K.stands.length : 0) + (T.std || 0), stdC = stdN ? (named ? (stdN >= 0.9 * named ? 'ok' : 'part') : K && K.stands.length ? 'ok' : T.std >= 10 ? 'ok' : 'part') : '';
+    // a parking / docking chart publishes the coordinates of every stand (ICAO Annex 4, 15.6.1 c): its tables are complete
+    var apdc = K && K.kinds.indexOf('apdc') >= 0 && K.stands.length >= 10;
+    var stdN = (K ? K.stands.length : 0) + (T.std || 0), stdC = stdN ? (apdc || (named ? stdN >= 0.9 * named : K && K.stands.length) || T.std >= 10 ? 'ok' : 'part') : '';
     // taxiways traced: all of those the charts name, or a few lines only
     var twyT = T.twy ? (K && K.twyNames.length ? (twyCovT() >= 0.9 ? 'ok' : 'part') : T.twy >= 3 ? 'ok' : 'part') : '';
     function twyCovT() { var tr = {}; AMDBTRACE.features(c.code).forEach(function (f) { if (f.t === 'TaxiwayGuidanceLine' && f.a.idlin) tr[String(f.a.idlin.v).toUpperCase()] = 1; }); return K.twyNames.filter(function (x) { return oRefs[x] || tr[x]; }).length / K.twyNames.length; }
@@ -970,7 +973,15 @@ var AMDBX = (function () {
       say('Reading ' + nm + ' …');
       try {
         if (/\.prj$/i.test(nm) && arr.some(function (g) { return IMG.test(g.name) && stem(g.name) === stem(nm); })) continue;
-        if (/\.(pdf|txt|text)$/i.test(nm)) { var d = await AMDBDOC.addFile(f, list); got.push(nm + ': ' + AMDBDOC.KINDS[d.f ? d.f.kind.id : 'other'].name + (d.ad ? ' of ' + d.ad : '')); continue; }
+        // a zip: its charts and documents read here; its data (AIXM, AMXM …) to the reader of the tool
+        if (/\.zip$/i.test(nm) && f.size < 400 * 1048576 && typeof fflate !== 'undefined') {
+          var zb = new Uint8Array(await f.arrayBuffer()), other = 0, docsZ = fflate.unzipSync(zb, { filter: function (e) { var k = /\.(pdf|txt)$/i.test(e.name) && !/(^|\/)__MACOSX\//.test(e.name); if (!k && !/\/$/.test(e.name)) other++; return k; } });
+          var names = Object.keys(docsZ);
+          for (var z = 0; z < names.length; z++) { say('Reading ' + names[z] + ' …'); var dz = await AMDBDOC.addFile(new File([docsZ[names[z]]], names[z].split('/').pop()), list); got.push(names[z].split('/').pop() + ' (in ' + nm + '): ' + AMDBDOC.KINDS[dz.f ? dz.f.kind.id : 'other'].name + (dz.ad ? ' of ' + dz.ad : '') + (dz.image ? ' — a picture: read it with OCR' : '')); }
+          if (other) toApp.push(f);
+          continue;
+        }
+        if (/\.(pdf|txt|text)$/i.test(nm)) { var d = await AMDBDOC.addFile(f, list); got.push(nm + ': ' + AMDBDOC.KINDS[d.f ? d.f.kind.id : 'other'].name + (d.ad ? ' of ' + d.ad : '') + (d.image ? ' — a picture: read it with OCR' : '')); continue; }
         if (IMG.test(nm)) {
           var w = worlds.filter(function (x) { return stem(x.name) === stem(nm); })[0], pj = prjs.filter(function (x) { return stem(x.name) === stem(nm); })[0];
           if (w) { await LAZY.run('src-amdbtrace'); var o = await AMDBTRACE.addOrtho(f, await w.text(), pj ? await pj.text() : '', list.filter(function (c) { return c.arp; }).map(function (c) { return c.arp; })); got.push(nm + ': orthophoto ' + o.w + ' × ' + o.h + ' px (' + o.crs + ') — shown in Trace on imagery'); continue; }
@@ -1045,11 +1056,12 @@ var AMDBX = (function () {
     docs.forEach(function (d) { if (!d.ad && d.f && list.length) d.ad = AMDBDOC.assign(d.f, list); });
     var ads = list.slice().sort(function (a, b) { return b.rwys.length - a.rwys.length; }).map(function (c) { return c.code; }).filter(function (x, i, a) { return x && a.indexOf(x) === i; });
     var KIND = [['🗂', 'AIP data set', 'AIXM 4.5 / 5.x (.xml), a cycle (.zip)'], ['🧭', 'Aerodrome mapping', 'AMXM (.xml), a package (.zip), GeoPackage, GeoJSON, CSV with WKT, DXF'], ['🌍', 'OpenStreetMap', '.osm, Overpass JSON, GeoJSON with aeroway tags'],
-      ['📄', 'The State\'s charts', 'aerodrome chart, ground movement chart, parking / docking chart, AD 2 pages (PDF) — read, checked against ICAO Annex 4'], ['📋', 'Stand tables', 'CSV or text: stand, latitude, longitude'], ['🛰', 'Orthophoto', 'JPEG / PNG with its world file (.jgw / .pgw / .wld, and .prj) — for tracing'],
+      ['📄', 'The State\'s charts', 'aerodrome, ground movement, parking / docking and lighting charts, AD 2 pages (PDF) — read, checked against ICAO Annex 4; a chart that is a picture is read by OCR'], ['📋', 'Stand tables', 'CSV or text: stand, latitude, longitude'], ['🛰', 'Orthophoto', 'JPEG / PNG with its world file (.jgw / .pgw / .wld, and .prj) — for tracing'],
       ['⛫', 'Obstacles and terrain', 'AIXM obstacle data sets, eTOD Excel / CSV; GeoTIFF, DTED, .hgt, .asc'], ['📎', 'Supporting documents', 'any other file (images, Word, KML …): kept and listed, not read']];
     var h = '<div class="nfo-box amdb-notice" role="note">⚠ ' + NOTICE + ' Everything stays in this browser: files are read here and sent nowhere. <button class="linkbtn" data-amgoto="guide">How to create AMDB data — step by step</button></div>' +
       '<div class="card card-pad up-card"><h3 style="margin-top:0">📤 Upload &amp; sources for aerodrome mapping</h3>' +
-      '<div class="up-drop" tabindex="0" role="button" aria-label="Drop files here or choose files"><div class="up-drop-ic" aria-hidden="true">⬆</div><b>Drop files here, or click to choose</b><div class="muted">Each file is recognised and goes where it belongs.</div><input type="file" multiple class="hidden" data-upin aria-label="Files for aerodrome mapping"></div>' +
+      '<div class="up-drop" tabindex="0" role="button" aria-label="Drop files here or choose files"><div class="up-drop-ic" aria-hidden="true">⬆</div><b>Drop files or a folder here, or click to choose</b><div class="muted">As many as you have — every chart of the aerodrome, the AIP data set, the GIS files: each file is recognised and goes where it belongs.</div><input type="file" multiple class="hidden" data-upin aria-label="Files for aerodrome mapping"></div>' +
+      '<p class="up-more"><button class="btn small" data-updirbtn>Choose a folder…</button><input type="file" multiple webkitdirectory class="hidden" data-updir aria-label="A folder of charts and data"> <span class="muted">A zip of charts works too.</span></p>' +
       '<div class="up-kinds">' + KIND.map(function (k) { return '<div><span aria-hidden="true">' + k[0] + '</span><b>' + esc(k[1]) + '</b><span class="muted">' + esc(k[2]) + '</span></div>'; }).join('') + '</div>' +
       '<div class="muted up-st">' + (G.upMsg || '') + '</div></div>';
     // online sources and pasted text
@@ -1060,12 +1072,14 @@ var AMDBX = (function () {
     h += '<div class="card card-pad up-card"><h3 style="margin-top:0">📄 The State\'s charts and documents (' + docs.length + ')</h3>';
     if (!docs.length) h += '<p class="muted">None yet. Best: the Aircraft Parking / Docking Chart (stand coordinates), the Aerodrome Chart (threshold coordinates, dimensions, strength, lighting) and the AD 2 pages. When a State has only an aerodrome chart, or a chart is unclear, what it lacks is filled from OpenStreetMap, from tracing on imagery and from ICAO Annex 14 — each labelled. Commercial charts (e.g. Jeppesen) are licensed for display only and are not read.</p>';
     else {
+      var pics = docs.filter(function (d) { return d.image && !d.ocr; });
+      if (pics.length) h += '<div class="nfo-box up-ocr" role="note"><b>' + pics.length + ' chart(s) are pictures</b> — their tables (stand and threshold coordinates, taxiways) are an image, not text. <button class="btn small primary" data-dococrall>Read ' + (pics.length > 1 ? 'them all' : 'it') + ' with OCR</button><br><span class="muted">The OCR engine (Tesseract, Apache-2.0, about ' + (typeof AMDBOCR !== 'undefined' ? AMDBOCR.size() : 7) + ' MB) is downloaded once from jsDelivr, checked against its SHA-256 and kept in this browser; the charts are read here and sent nowhere. Reading takes about half a minute per chart.</span></div>';
       h += '<div class="tbl-wrap"><table class="mini-table up-docs"><thead><tr><th>Document</th><th>Type</th><th>Aerodrome</th><th>What it gives</th><th></th></tr></thead><tbody>' + docs.map(function (d) {
         var kd = d.f ? AMDBDOC.KINDS[d.f.kind.id] : null;
         return '<tr data-doc="' + d.id + '"><td><b>' + esc(d.name) + '</b><br><small class="muted">' + num(Math.round(d.size / 1024)) + ' KB' + (d.pages ? ' · ' + d.pages + ' page(s)' : '') + '</small></td><td>' + (kd ? esc(kd.name) + (d.f.kind.icaoTitle ? ' <span title="titled — ICAO" style="color:#1f7a4d">✓</span>' : '') : '<span class="muted">' + esc(d.type === 'image' ? 'image' : 'document') + '</span>') + '</td>' +
           '<td>' + (d.f ? '<select class="inp small" data-docad="' + d.id + '" aria-label="Aerodrome of ' + esc(d.name) + '"><option value="">—</option>' + ads.map(function (k) { return '<option' + (k === d.ad ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select>' : '') + '</td>' +
           '<td class="muted">' + esc(AMDBDOC.gave(d)) + (d.note && d.f ? '<br><span style="color:#b76e00">' + esc(d.note) + '</span>' : '') + '</td>' +
-          '<td style="white-space:nowrap">' + (d.f ? '<button class="btn small" data-doccheck="' + d.id + '">' + (G.open[d.id] ? 'Hide check' : 'ICAO check') + '</button> ' : '') + '<button class="btn small" data-docdel="' + d.id + '" aria-label="Remove ' + esc(d.name) + '">✕</button></td></tr>' +
+          '<td style="white-space:nowrap">' + (d.image && !d.ocr ? '<button class="btn small primary" data-dococr="' + d.id + '">Read the picture (OCR)</button> ' : '') + (d.f ? '<button class="btn small" data-doccheck="' + d.id + '">' + (G.open[d.id] ? 'Hide check' : 'ICAO check') + '</button> ' : '') + '<button class="btn small" data-docdel="' + d.id + '" aria-label="Remove ' + esc(d.name) + '">✕</button></td></tr>' +
           (G.open[d.id] && d.f ? '<tr class="doc-chk-row"><td colspan="5">' + checkHtml(d, list) + '</td></tr>' : '');
       }).join('') + '</tbody></table></div>' +
         '<p><button class="btn small" data-docrep>Chart check report (PDF)</button></p>';
@@ -1090,6 +1104,8 @@ var AMDBX = (function () {
       if (r.data && ctx.amTab) ctx.amTab('upload', true); else uploadView(host, ctx);
     }
     drop.onclick = function () { inp.click(); };
+    var dir = host.querySelector('[data-updir]'); host.querySelector('[data-updirbtn]').onclick = function () { dir.click(); };
+    dir.onchange = function () { var fl = Array.prototype.slice.call(dir.files); dir.value = ''; take(fl); };
     drop.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inp.click(); } };
     ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); drop.classList.add('over'); }); });
     ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); drop.classList.remove('over'); }); });
@@ -1102,6 +1118,20 @@ var AMDBX = (function () {
       var dl = e.target.closest('[data-docdel]'); if (dl) { AMDBDOC.remove(+dl.getAttribute('data-docdel')); uploadView(host, ctx); return; }
       if (e.target.closest('[data-upread]')) { var tx = host.querySelector('[data-uptext]').value; if (!tx.trim()) return; await LAZY.run('src-amdbdoc'); var d = AMDBDOC.addText(tx, 'pasted text ' + new Date().toISOString().slice(11, 19), list); G.upMsg = '✓ pasted text: ' + esc(AMDBDOC.gave(d)) + (d.ad ? ' — ' + esc(d.ad) : ' — choose its aerodrome below'); uploadView(host, ctx); return; }
       if (e.target.closest('[data-docrep]')) { docReport(list); return; }
+      var oc = e.target.closest('[data-dococr], [data-dococrall]');
+      if (oc) {
+        var ids = oc.hasAttribute('data-dococrall') ? AMDBDOC.list().filter(function (d) { return d.image && !d.ocr; }).map(function (d) { return d.id; }) : [+oc.getAttribute('data-dococr')], done = [];
+        host.querySelectorAll('[data-dococr], [data-dococrall]').forEach(function (b) { b.disabled = true; });
+        try {
+          for (var q = 0; q < ids.length; q++) {
+            var dd = AMDBDOC.get(ids[q]), lab = (ids.length > 1 ? (q + 1) + ' / ' + ids.length + ' ' : '') + dd.name + ': ';
+            await AMDBDOC.ocrDoc(ids[q], list, function (m) { st.innerHTML = '<span class="spinner"></span> ' + esc(lab + m); });
+            done.push(dd.name + ': ' + AMDBDOC.gave(dd));
+          }
+          G.upMsg = '✓ ' + done.map(esc).join('<br>✓ ');
+        } catch (er) { G.upMsg = (done.length ? '✓ ' + done.map(esc).join('<br>✓ ') + '<br>' : '') + '<span style="color:var(--err)">' + esc(er.message) + '</span>'; }
+        uploadView(host, ctx); return;
+      }
       if (e.target.closest('[data-upget]')) {
         var code = host.querySelector('[data-uposm]').value, c = list.filter(function (x) { return x.code === code && x.arp; })[0], so = host.querySelector('.osm-st');
         if (!c) { ctx.toast('This aerodrome has no reference point to look about.'); return; }
@@ -1198,7 +1228,7 @@ var AMDBX = (function () {
       '<div><b>B · Survey, CAD or GIS files</b><span>best accuracy</span><p>Your own surveyed or digitised pavement, guidance lines, holding positions, stands and buildings — AMXM, AIXM, GeoJSON, CSV with WKT, DXF or GeoPackage.</p></div>' +
       '<div><b>C · Both</b><span>recommended</span><p>Generate the frame from the AIP, then load the surveyed files; Compare shows what the survey adds or moves.</p></div></div>' +
       '<ol class="amg-steps">' +
-      step(1, 'Load everything in one place (📤 Upload)', '<p><b>Digital data → Aerodrome mapping → 📤 Upload</b> takes every file and sends it where it belongs (Files works too). Drop the State\'s AIXM 5.x AIP data set (a .xml or a cycle .zip). Add any survey or GIS files of the aerodrome: <i>AMXM 2.0</i> (.xml), <i>AIXM</i> aerodrome features, <i>GeoJSON</i> with a property <code>amxm_type</code> per feature (e.g. <code>RunwayElement</code>) in WGS 84, <i>CSV</i> with the columns <code>amxm_type</code> and <code>wkt</code> plus attributes (<code>idarpt</code>, <code>idrwy</code>, <code>idlin</code>, <code>idstd</code> …), <i>DXF</i> with layers named after the AMXM types in WGS 84 / UTM (zone in the file name, e.g. <code>EADD_UTM34N.dxf</code>; the aerodrome code first), or a <i>GeoPackage</i> with one table per type.</p><p>Add <b>the State\'s charts</b> as PDF — the Aircraft Parking / Docking Chart (stand coordinates), the Aerodrome Chart and the Ground Movement Chart (threshold coordinates, dimensions, strength, lighting) and the AD 2 pages: their text is read, each is checked against ICAO Annex 4 (<b>ICAO check</b>) and against the AIP data set. A State with only an aerodrome chart, or an unclear chart, is fine: what it lacks is filled from OpenStreetMap, tracing and Annex 14, and a stand far from all others (a misread number) is left out with a note. A scanned chart has no text: paste the stand table. Add <b>OpenStreetMap</b> (Get, or an .osm / Overpass file) and your <b>orthophoto</b> (JPEG / PNG with its world file). Charts of commercial providers (e.g. Jeppesen) are not read: their licence is for display only.</p>') +
+      step(1, 'Load everything in one place (📤 Upload)', '<p><b>Digital data → Aerodrome mapping → 📤 Upload</b> takes every file and sends it where it belongs (Files works too). Drop the State\'s AIXM 5.x AIP data set (a .xml or a cycle .zip). Add any survey or GIS files of the aerodrome: <i>AMXM 2.0</i> (.xml), <i>AIXM</i> aerodrome features, <i>GeoJSON</i> with a property <code>amxm_type</code> per feature (e.g. <code>RunwayElement</code>) in WGS 84, <i>CSV</i> with the columns <code>amxm_type</code> and <code>wkt</code> plus attributes (<code>idarpt</code>, <code>idrwy</code>, <code>idlin</code>, <code>idstd</code> …), <i>DXF</i> with layers named after the AMXM types in WGS 84 / UTM (zone in the file name, e.g. <code>EADD_UTM34N.dxf</code>; the aerodrome code first), or a <i>GeoPackage</i> with one table per type.</p><p>Add <b>the State\'s charts</b> as PDF — the Aircraft Parking / Docking Chart (stand coordinates), the Aerodrome Chart and the Ground Movement Chart (threshold coordinates, dimensions, strength, lighting) and the AD 2 pages: their text is read, each is checked against ICAO Annex 4 (<b>ICAO check</b>) and against the AIP data set. A State with only an aerodrome chart, or an unclear chart, is fine: what it lacks is filled from OpenStreetMap, tracing and Annex 14, and a stand far from all others (a misread number) is left out with a note. Add as many charts as the State has — several PDFs at once, a folder or a .zip — or just the one aerodrome chart: each adds what it carries. A chart that is a picture (a scan, no text) is read with OCR on request (the OCR engine, about 7 MB, is downloaded once and kept in the browser), or paste its stand table. Add <b>OpenStreetMap</b> (Get, or an .osm / Overpass file) and your <b>orthophoto</b> (JPEG / PNG with its world file). Charts of commercial providers (e.g. Jeppesen) are not read: their licence is for display only.</p>') +
       step(2, 'Generate the frame from the AIP (route A or C)', '<p><b>Digital data → Aerodrome mapping (AMDB) → Generate from AIP</b>. Search and tick the aerodromes (<i>Select all</i>, <i>Deselect all</i>), choose what to derive (markings, lights, taxiway surfaces, obstacles and navaids), confirm the notice and click <b>Generate and open</b>. The table shows, per aerodrome, what the AIP gives: runways, thresholds, centre line points, light systems, taxiway and apron geometry, holding positions, stands, navaids and obstacles. The notes list what the AIP names but cannot be drawn (for example taxiways without coordinates) — that is what to survey.</p>') +
       step('2b', 'Trace what no source gives (✏️ Trace on imagery)', '<p>On imagery whose licence allows deriving data — national orthophotos (Netherlands, France, Switzerland, Spain, Austria, Japan, New South Wales, USGS for the United States), Sentinel-2 (2016 for any use; the newest 2025 mosaic for non-commercial use), your own orthophoto or imagery service — trace stands, taxiway centre lines (the surface follows from the width), aprons, holding positions, buildings and service roads over what Generate makes now. Esri imagery is for a visual check only; Google imagery is not offered. Generate again: the traced features are taken in, each saying it was digitised by you, on which imagery, with an unknown accuracy.</p>') +
       step(3, 'Look at it — chart, map and 3D', '<p><b>Features</b> shows every feature type with its AMXM attributes, on a map coloured as an aerodrome chart (switch to colours by type or by source). Choose a base map in the map (offline, street, light grey, satellite, OpenStreetMap…). <b>🗻 3D</b> shows the aerodrome in 3D with its markings, lights (try <i>Night</i>), obstacles and navaids; the Map tab\'s <i>Airport view</i> draws the airport chart.</p>') +
@@ -1207,7 +1237,7 @@ var AMDBX = (function () {
       step(6, 'Record the sources', '<p><b>Sources & quality</b>: for each data set who made it, its licence and date, how it was captured (survey, photogrammetry, CAD, imagery, AIP) and the quality class; tick <i>right of use confirmed</i> only when you have the permission. Generated data is already marked "Derived from AIP / AIXM data", coarse.</p>') +
       step(7, 'Build the package', '<p><b>Build package</b>: custom (aerodromes, feature types, formats) or full — AMXM 2.0 (schema-valid), AIXM 5.1.1, GeoPackage, GeoJSON, KML, Shapefile, CSV, Excel, DXF, ISO 19115 metadata, a report of what is inside and how it was made, guides for GIS and ARINC 816 tools, checksums. <i>For further processing</i> leaves the tool\'s name out and adds a handover record.</p>') +
       step(8, 'Take it further', '<p>Open the package in QGIS or ArcGIS (GeoPackage, Shapefile), in CAD (DXF), or convert the AMXM / GeoPackage with ARINC 816 tools. A package dropped on Files again is verified (✓) and opened.</p>') +
-      '</ol><h4>Good to know</h4><ul class="ab-list"><li>Coordinates must be WGS 84 (latitude / longitude), or WGS 84 / UTM in DXF. Convert local grids first (QGIS, your CAD tool).</li><li>Chart PDFs are read for their text (coordinates, names, dimensions, lighting); their drawing is not — a scanned chart (no text) needs its table pasted, or tracing on imagery.</li><li>OpenStreetMap data comes under the ODbL: a package that contains it says so, and must be shared alike.</li><li>Generated geometry is indicative: runway shapes come from published ends, width and shoulders; markings and lights without published positions follow the ICAO Annex 14 standard layout; only what the AIP declares is generated.</li><li>Everything stays in your browser; nothing is uploaded.</li></ul>' +
+      '</ol><h4>Good to know</h4><ul class="ab-list"><li>Coordinates must be WGS 84 (latitude / longitude), or WGS 84 / UTM in DXF. Convert local grids first (QGIS, your CAD tool).</li><li>Chart PDFs are read for their text (coordinates, names, dimensions, lighting); their drawing is not. A chart that is a picture is read with OCR when you ask (its tables and labels are read; the values are checked like any other chart, but they remain a reading of the chart — check them), or paste its table, or trace on imagery.</li><li>OpenStreetMap data comes under the ODbL: a package that contains it says so, and must be shared alike.</li><li>Generated geometry is indicative: runway shapes come from published ends, width and shoulders; markings and lights without published positions follow the ICAO Annex 14 standard layout; only what the AIP declares is generated.</li><li>Everything stays in your browser; nothing is uploaded.</li></ul>' +
       '<p><button class="btn primary" data-amgoto="upload">Start: 📤 Upload</button> <button class="btn" data-amgoto="generate">Generate from AIP</button> <button class="btn" data-amgoto="trace">✏️ Trace on imagery</button> <button class="btn" data-amgoto="features">Features (chart, map, 3D)</button></p></div>';
     host.onclick = function (e) { var b = e.target.closest('[data-amgoto]'); if (b && ctx.amTab) ctx.amTab(b.getAttribute('data-amgoto')); };
   }

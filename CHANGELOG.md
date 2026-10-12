@@ -77,7 +77,8 @@ NOT FOR NAVIGATION — for study and analysis only.
 - **Aerodrome mapping from every source there is** (Digital data → Aerodrome mapping (AMDB)). Each item comes from the
   best source available, in this order: the AIP data set (A), the State's charts (C), what the user traced on imagery
   (T), OpenStreetMap (O), then the ICAO Annex 14 minimum (S). Every feature says which; the readiness table shows the
-  letter per item. With OpenStreetMap, the readiness of large aerodromes goes from about 50–70 % to 94–97 %:
+  letter per item. With OpenStreetMap, the readiness of large aerodromes goes from about 50–70 % to 94–97 %; with the
+  State's parking / docking charts as well (read by OCR where they are pictures), to 100 %:
   - **📤 Upload**, one place for everything aerodrome mapping is made from: the AIP data set, AMXM / GIS / CAD files
     and packages, OpenStreetMap files, the State's charts and AD 2 pages (PDF), stand tables (CSV / text, or pasted),
     an orthophoto (JPEG / PNG with its world file and .prj), obstacles and terrain; any other file is kept and listed
@@ -96,7 +97,19 @@ NOT FOR NAVIGATION — for study and analysis only.
   - **unclear or incomplete charts**: a stand far from every other stand, given twice, or far from the aerodrome is
     left out with the reason (a misread number); thresholds that contradict the runway length are not used; a State
     with only an aerodrome chart gets its stands from OpenStreetMap or tracing; "How the gaps are filled" says, per
-    aerodrome, where each missing item comes from; a scanned chart (no text) is noted, and its table can be pasted;
+    aerodrome, where each missing item comes from;
+  - **as many charts as the State has, or just one**: several PDFs at once, a folder, or a .zip of a State's charts
+    (and any other files) in one go; each chart adds what it carries, and the readiness says what is still missing.
+    Tested with a full set (aerodrome chart, two parking / docking charts, lighting chart) and with an aerodrome chart
+    only;
+  - **charts that are pictures read with OCR** (a scan, or a chart exported as an image): on request, the chart's
+    tables (stand coordinates, threshold coordinates, taxiway widths and strength) are found by their ruled lines and
+    read cell by cell, the rest of the page as text; the OCR engine (Tesseract, about 7 MB) is downloaded once from a
+    public CDN, checked by its SHA-256 and kept in the browser — it is not in the file, so opening the tool is as fast
+    as before. What OCR misreads is repaired where the chart itself shows the answer (a stand number given twice by
+    the order of the table, letters for digits, a lost decimal point or hemisphere letter); values read by OCR are
+    marked "read by OCR" and checked like any other chart value (against the AIP, the runway length, the other
+    stands); a threshold is compared at the precision the chart gives (whole seconds: about 31 m);
   - **✏️ Trace on imagery**: stands, taxiway centre lines (the surface from the width), aprons, holding positions,
     buildings (with their height) and service roads traced over what Generate makes now, with points that snap to
     each other; the imagery by licence — national orthophotos that allow deriving data (Netherlands PDOK, France IGN,

@@ -9,7 +9,9 @@
  * Aircraft Parking / Docking Chart (ICAO Annex 4 Chapters 13, 14, 15), the AD 2 text pages, stand tables.
  *   Read      the text of a PDF (PDF.js, loaded only now, opened without running any of its code), of a text or
  *             CSV file, or pasted; lines rebuilt whatever the text direction (rotated charts) and however the
- *             producer split the words; common misreadings of a scanned and recognised text repaired in numbers.
+ *             producer split the words; a chart that is a picture is read by OCR when asked (amdbocr.js);
+ *             common misreadings of a scanned and recognised text repaired in numbers, names put right from the
+ *             order of their table.
  *   Facts     every coordinate with what it is (stand, threshold, runway end, reference point, holding position),
  *             stand coordinates tables, stand, taxiway and apron names, runway dimensions, bearing strength (PCN /
  *             PCR), taxiway and shoulder widths, approach and runway lighting, magnetic variation, elevation, hot
@@ -23,7 +25,7 @@
  * Charts of commercial providers (e.g. Jeppesen) are licensed for display only: they are not read for data.
  * Loaded only when used (src/lazy.js).
  * ========================================================================== */
-/* global LAZY, AIP */
+/* global LAZY, AIP, AMDBOCR */
 var AMDBDOC = (function () {
   'use strict';
   var D2R = Math.PI / 180;
@@ -35,7 +37,7 @@ var AMDBDOC = (function () {
   /* ---------------------------------------------------------------- PDF text */
   // the text of a PDF as lines: the text pieces of a page grouped by their direction and their line (a rotated
   // chart reads as well as an upright one); a wide gap between two pieces is kept as a tab (table columns)
-  async function pdfRead(bytes) {
+  async function pdfLib() {
     await LAZY.run('lazy-pdfjs');
     var lib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
     // the worker is given as a port: PDF.js would otherwise wrap a blob address in a second worker, which a page
@@ -44,7 +46,11 @@ var AMDBDOC = (function () {
       try { lib.GlobalWorkerOptions.workerPort = new Worker(URL.createObjectURL(new Blob([LAZY.text('lazy-pdfworker')], { type: 'text/javascript' }))); }
       catch (e) { lib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([LAZY.text('lazy-pdfworker')], { type: 'text/javascript' })); }
     }
-    var doc = await lib.getDocument({ data: bytes, isEvalSupported: false, disableFontFace: true, useSystemFonts: false }).promise, lines = [], pieces = 0;
+    return lib;
+  }
+  async function pdfRead(bytes) {
+    var lib = await pdfLib();
+    var doc = await lib.getDocument({ data: bytes.slice(0), isEvalSupported: false, disableFontFace: true, useSystemFonts: false }).promise, lines = [], pieces = 0;
     for (var i = 1; i <= doc.numPages; i++) {
       var tc = await (await doc.getPage(i)).getTextContent();
       pieces += tc.items.length;
@@ -52,7 +58,7 @@ var AMDBDOC = (function () {
     }
     var pages = doc.numPages;
     await doc.destroy();
-    return { lines: lines, pages: pages, textless: pieces < 5 };
+    return { lines: lines, pages: pages, textless: pieces < 5, pieces: pieces };
   }
   function textLines(items) {
     var groups = {};
@@ -83,12 +89,16 @@ var AMDBDOC = (function () {
   // misreadings of a scanned text in numbers (O for 0, I or l for 1) and typographic quotes and degree signs
   function clean(line) {
     line = String(line).replace(/[’′‘`´]/g, '\'').replace(/[″“”]/g, '"').replace(/[º˚]/g, '°').replace(/\u00a0/g, ' ');
-    return line.replace(/[0-9OoIl|.,°'"]{4,}[NSEW]?/g, function (t) { return (t.match(/\d/g) || []).length >= 3 ? t.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1') : t; });
+    line = line.replace(/[0-9OoIl|.,°'"]{4,}[NSEW]?/g, function (t) { return (t.match(/\d/g) || []).length >= 3 ? t.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1') : t; });
+    // a runway designator read with the letter O for the zero (O9L)
+    line = line.replace(/\bO(\d[LRC]?)\b/g, '0$1');
+    // seconds read with a space for the decimal point, or a quote for the seconds sign: 046°42'22 14'E
+    return line.replace(/(\d{1,3}°\s?\d{2}'?\s?\d{2}) (\d{1,2})\s?["'”°]{0,2}\s?([NSEW])\b/g, '$1.$2"$3').replace(/(\d{1,3}°\s?\d{2}'\s?)(\d{2})(\d{2})(["'”°]{0,2}\s?[NSEW])\b/g, '$1$2.$3$4');
   }
   // a coordinate pair in a line, from position 'from': DMS (251530.12N 0513612.34E, 25 15 30.12 N, N25°15'30.12"),
   // or decimal degrees; {at, end, lat, lon}
-  var LAT = /(?:([NS])\s*)?(\d{1,2})(?:[°\s:]\s*|(?=\d{2}))(\d{2})(?:['\s:]\s*|(?=\d{2}))(\d{2}(?:[.,]\d+)?)\s*"?\s*([NS])?/g;
-  var LON = /(?:([EW])\s*)?(\d{1,3})(?:[°\s:]\s*|(?=\d{2}))(\d{2})(?:['\s:]\s*|(?=\d{2}))(\d{2}(?:[.,]\d+)?)\s*"?\s*([EW])?/y;
+  var LAT = /(?:([NS])\s*)?(\d{1,2})(?:[°\s:]\s*|(?=\d{2}))(\d{2})(?:["'\s:]\s*|(?=\d{2}))(\d{2}(?:[.,]\d+)?)\s*["'”°]{0,2}\s*([NS])?/g;
+  var LON = /(?:([EW])\s*)?(\d{1,3})(?:[°\s:]\s*|(?=\d{2}))(\d{2})(?:["'\s:]\s*|(?=\d{2}))(\d{2}(?:[.,]\d+)?)\s*["'”°]{0,2}\s*([EW])?/y;
   function dd(d, mi, se, h) { var v = +d + +mi / 60 + parseFloat(String(se).replace(',', '.')) / 3600; return /[SW]/.test(h) ? -v : v; }
   function ok(p) { return p && Math.abs(p.lat) <= 90 && Math.abs(p.lon) <= 180 && !(p.lat === 0 && p.lon === 0); }
   function coordAt(line, from) {
@@ -116,6 +126,8 @@ var AMDBDOC = (function () {
       best = { at: de.index, end: de.index + de[0].length, lat: a, lon: b };
     }
     if (!best || !ok(best)) return null;
+    var sec = /(\d{2})[.,](\d+)\s*["'”]{0,2}\s*[NS]|[NS]\s*\d{4}(\d{2})[.,](\d+)|(\d{6})[.,](\d+)\s*[NS]/.exec(s.slice(best.at, best.end));
+    best.dec = sec ? (sec[2] || sec[4] || sec[6] || '').length : /\d[.,]\d{4,}/.test(s.slice(best.at, best.end)) ? 9 : 0;
     best.at += from; best.end += from;
     return best;
   }
@@ -148,13 +160,14 @@ var AMDBDOC = (function () {
     star: { name: 'Standard Arrival Chart — Instrument (STAR) — ICAO', ch: 'Annex 4 Chapter 10' },
     iac: { name: 'Instrument Approach Chart — ICAO', ch: 'Annex 4 Chapter 11' },
     vac: { name: 'Visual Approach Chart — ICAO', ch: 'Annex 4 Chapter 12' },
+    alc: { name: 'Aerodrome lighting / marking chart (a State chart beside the Annex 4 types)', ch: '', amdb: true },
     ad2: { name: 'AIP AD 2 text pages', ch: 'Annex 15 / PANS-AIM Appendix 2 (AD 2)', amdb: true },
     table: { name: 'Table of stand coordinates', ch: '', amdb: true },
     other: { name: 'Document (type not recognised)', ch: '' }
   };
   function kindOf(text) {
     var T = text.slice(0, 6000).toUpperCase().replace(/\s+/g, ' '), A = text.toUpperCase().replace(/\s+/g, ' ');
-    var k = /GROUND MOVEMENT CHART/.test(T) ? 'agmc' : /(PARKING\s*\/?\s*(AND\s*)?DOCKING|DOCKING CHART|PARKING CHART|STAND CHART|APDC)/.test(T) ? 'apdc'
+    var k = /GROUND MOVEMENT CHART/.test(T) ? 'agmc' : /LIGHTING (AND MARKING )?CHART|LIGHTING AND MARKING AIDS|MARKING AIDS|\bLIGHTING CHART/.test(T) ? 'alc' : /(PARKING\s*[/-]?\s*(AND\s*)?DOCKING|DOCKING CHART|PARKING CHART|STAND CHART|APDC)/.test(T) ? 'apdc'
       : /AERODROME OBSTACLE CHART.{0,40}TYPE\s*B|AOC\s*TYPE\s*B/.test(T) ? 'aocb' : /AERODROME OBSTACLE CHART|AOC\s*TYPE\s*A/.test(T) ? 'aoca'
         : /PRECISION APPROACH TERRAIN/.test(T) ? 'patc' : /VISUAL APPROACH CHART/.test(T) ? 'vac'
           : /INSTRUMENT APPROACH CHART|\b(ILS|LOC|RNP|RNAV|VOR|NDB)\b.{0,20}\bRWY\s*\d{2}/.test(T) && !/AERODROME CHART/.test(T) ? 'iac'
@@ -186,9 +199,44 @@ var AMDBDOC = (function () {
     var out = []; for (var i = +ma[2]; i <= +mb[2]; i++) out.push(ma[1] + i); return out;
   }
   // everything a document says for aerodrome mapping
+  // a latitude alone on its line and the longitude a line or two below (a table cell of two lines): one coordinate
+  var LAT1 = /(\d{1,2})°\s?(\d{2})'\s?(\d{2}(?:[.,]\d+)?)"?\s?([NS])\b/, LON1 = /(\d{2,3})°\s?(\d{2})'\s?(\d{2}(?:[.,]\d+)?)"?\s?([EW])\b/;
+  function stacked(lines) {
+    var out = [];
+    lines.forEach(function (l, i) {
+      out.push(l);
+      var a = LAT1.exec(l); if (!a || coordsIn(l).length || LON1.test(l)) return;
+      for (var j = i + 1; j <= i + 2 && j < lines.length; j++) {
+        var b = LON1.exec(lines[j]); if (!b || LAT1.test(lines[j])) continue;
+        var ds = []; for (var k = Math.max(0, i - 1); k <= j; k++) desOf(lines[k].toUpperCase()).forEach(function (x) { if (ds.indexOf(x) < 0) ds.push(x); });
+        out.push((ds.length === 1 ? ds[0] + '\t' : '') + a[0] + ' ' + b[0]);
+        return;
+      }
+    });
+    return out;
+  }
+  // designators of a table read in order: one misread (A4 read as "Ad") put right from its neighbours (A3 … A5)
+  function series(rows, key) {
+    var P = /^([A-Z]{1,2})(\d{1,3})$/;
+    rows.forEach(function (r, i) {
+      if (P.test(r[key]) && !/[a-z]/.test(r.raw.slice(1))) return;
+      var j = i - 1; while (j >= 0 && !(P.test(rows[j][key]) && !/[a-z]/.test(rows[j].raw.slice(1)))) j--;
+      var k = i + 1; while (k < rows.length && !(P.test(rows[k][key]) && !/[a-z]/.test(rows[k].raw.slice(1)))) k++;
+      var a = j >= 0 ? P.exec(rows[j][key]) : null, b = k < rows.length ? P.exec(rows[k][key]) : null, pre = r[key].charAt(0);
+      if (a && b && a[1] === b[1] && a[1].charAt(0) === pre && +b[2] - +a[2] === k - j) { r[key] = a[1] + (+a[2] + (i - j)); r.fixed = 'order'; return; }
+      var sub = r.raw.charAt(0).toUpperCase() + r.raw.slice(1).replace(/[lI|]/g, '1').replace(/[Oo]/g, '0').replace(/[Ss]/g, '5').replace(/[Zz]/g, '2').replace(/B/g, '8').replace(/G/g, '6');
+      if (!P.test(sub) && /^[A-Z][TA]$/.test(r[key])) sub = r[key].charAt(0) + (r[key].charAt(1) === 'T' ? '7' : '4');
+      var sib = rows.some(function (x) { return x !== r && P.test(x[key]) && x[key].charAt(0) === sub.charAt(0); });
+      if (P.test(sub) && sib && !rows.some(function (x) { return x !== r && x[key] === sub; })) { r[key] = sub; r.fixed = 'characters'; }
+    });
+  }
   function read(text, name) {
-    var raw = String(text || '').split(/\r?\n/), lines = raw.map(clean), U = lines.map(function (l) { return l.toUpperCase(); }), all = U.join('\n');
-    var f = { name: name || 'document', kind: kindOf(raw.join('\n')), icao: [], coords: [], stands: [], standNames: [], twyNames: [], apronNames: [], rwy: {}, dims: [], pcn: [], twyW: {}, shoulder: {}, lights: [], hotspots: [], ev: {}, lines: lines.length, chars: all.length };
+    var nm = String(name || '').replace(/\.[a-z0-9]+$/i, '').replace(/^[0-9a-f]{6,}-/, '').replace(/[_]+/g, ' ');
+    var raw = stacked(String(text || '').split(/\r?\n/)), lines = raw.map(clean);
+    var hE = (lines.join('\n').match(/\d{3}°\s?\d{2}'?\s?\d{2}(?:[.,]\d+)?\s*["'”°]{0,2}\s*E\b/g) || []).length, hW = (lines.join('\n').match(/\d{3}°\s?\d{2}'?\s?\d{2}(?:[.,]\d+)?\s*["'”°]{0,2}\s*W\b/g) || []).length;
+    if (hE + hW >= 3 && (hE === 0 || hW === 0)) lines = lines.map(function (l) { return /\d{1,2}°\s?\d{2}'?\s?\d{2}(?:[.,]\d+)?\s*["'”°]{0,2}\s*[NS]\b/.test(l) ? l.replace(/(\d{3}°\s?\d{2}'?\s?\d{2}(?:[.,]\d+)?)\s*["'”°]{0,2}(?=\s|$)(?!\s*[EW]\b)/g, '$1"' + (hE ? 'E' : 'W')) : l; });
+    var U = lines.map(function (l) { return l.toUpperCase(); }), all = U.join('\n');
+    var f = { name: name || 'document', kind: kindOf(nm.toUpperCase() + '\n' + raw.join('\n')), icao: [], coords: [], stands: [], standNames: [], twyNames: [], apronNames: [], rwy: {}, dims: [], pcn: [], twyW: {}, twyPcn: {}, shoulder: {}, lights: [], hotspots: [], ev: {}, lines: lines.length, chars: all.length, twyRows: [] };
     var add = function (list, v) { if (v && list.indexOf(v) < 0) list.push(v); };
     var ev = function (k, i) { if (!f.ev[k]) f.ev[k] = lines[i].replace(/\t/g, '  ').trim().slice(0, 160); };
     var rw = function (d) { return (f.rwy[d] = f.rwy[d] || {}); };
@@ -201,20 +249,25 @@ var AMDBDOC = (function () {
       var L = U[i], cs = coordsIn(line), ds = desOf(L, cs.length && cs[0].at < 4);
       // what the following lines of a table are
       if (!cs.length && /\b(STAND|STANDS|GATE|PARKING|AIRCRAFT STAND|INS|GNSS|CHECK ?POINT)\b/.test(L) && /\b(COORD|POSITION|LAT|LONG|WGS|TABLE|INS|GNSS|LOCATION)/.test(L)) { ctx = 'stand'; ctxAge = 0; }
-      else if (!cs.length && /\b(THR|THRESHOLD)\b.*\b(COORD|LAT|POSITION)/.test(L)) { ctx = 'thr'; ctxAge = 0; }
+      else if (!cs.length && (/\b(THR|THRESHOLD)\b.*\b(COORD|LAT|POSITION)/.test(L) || (/\b(RWY|RUNWAY)\b/.test(L) && /\b(THR|THRESHOLD)\b/.test(L)))) { ctx = 'thr'; ctxAge = 0; }
       else if (!cs.length && ++ctxAge > 60) ctx = '';
       // coordinates and what they are
       cs.forEach(function (p, j) {
         var before = L.slice(j ? cs[j - 1].end : 0, p.at), lab = /\bARP\b|REFERENCE\s*POINT|AD\s*REF/.test(before) ? 'arp' : /\bDTHR\b|DISPLACED/.test(before) ? 'dthr' : /\bTHR\b|THRESHOLD/.test(before) ? 'thr'
           : /\bRWY\s*END\b|\bEND\s*OF\s*RWY\b|\bEND\b|\bSTART\b|\bSOR\b/.test(before) ? 'end' : /\bHOLD|HLDG\b/.test(before) ? 'hold' : /\b(STAND|STD|GATE|PARKING|PRKG|INS|GNSS)\b/.test(before) ? 'stand'
             : /\bTWY\b|TAXIWAY|\bCL\s*(PT|POINT)/.test(before) ? 'twy' : /\b(VOR|DME|LOC|GP|NDB|TACAN)\b/.test(before) ? 'nav' : '';
+        // a runway row (a designator with L / R / C, a bearing such as 088°, THR) is not a stand, whatever the table above
+        var rwyRow = /^\s*(?:RWY\s*)?\d{2}[LRC](?=[\s:\t]|$)/.test(L) || /\b\d{3}(?:[.,]\d+)?°(?=\s|$)/.test(L) || /\bTHR\b/.test(L);
+        if (!lab && rwyRow && ds.length && /^\s*(RWY\s*)?\d{2}[LRC]?\b/.test(L)) lab = j === 0 ? 'thr' : 'end';
         if (!lab && ctx === 'stand') lab = 'stand';
         if (!lab && (ctx === 'thr' || ds.length) && /^\s*(RWY\s*)?\d{2}[LRC]?\b/.test(L)) lab = j === 0 ? 'thr' : 'end';
         var toks = line.slice(j ? cs[j - 1].end : 0, p.at).replace(/\b(STAND|STD|PARKING|POSITION|GATE|NO\.?|NR\.?|INS|GNSS)\b/gi, ' ').trim().split(/[\s|;,\t]+/).filter(Boolean);
-        var id = toks.map(function (x) { return idOf(x.toUpperCase()); }).filter(Boolean).pop() || '';
+        var id = toks.map(function (x) { return idOf(x.toUpperCase()); }).filter(Boolean).pop() || '', rawId = toks[toks.length - 1] || '';
+        // a number read with a letter doubled or in the wrong case (2wW for 2W): one letter
+        if (/[a-z]/.test(rawId) && /^\d{0,4}[A-Za-z]{2,3}$/.test(rawId) && new Set(rawId.replace(/^\d+/, '').toUpperCase()).size === 1) id = (rawId.match(/^\d*/)[0] + rawId.slice(-1)).toUpperCase();
         var rec = { c: [p.lon, p.lat], label: lab || 'point', line: i, des: ds[0] || '' };
-        if (lab === 'stand' || (!lab && id && !ds.length && !/\b(RWY|THR|ARP|VOR|DME)\b/.test(L))) { rec.label = 'stand'; rec.id = id; if (!/^\d{2}[LRC]$/.test(id) || ctx === 'stand') f.stands.push({ id: id, c: rec.c, line: i }); }
-        if (rec.label === 'thr' || rec.label === 'dthr' || rec.label === 'end') { var d1 = ds[0] || (/^\s*(?:RWY\s*)?(\d{2}[LRC]?)\b/.exec(L) || [])[1]; d1 = d1 ? des2(d1) : ''; if (d1) { rec.des = d1; var R = rw(d1); if (rec.label === 'thr' && !R.thr) R.thr = rec.c; else if (rec.label === 'dthr' && !R.dthr) R.dthr = rec.c; else if (rec.label === 'end' && !R.end) R.end = rec.c; ev('thrc', i); } }
+        if (lab === 'stand' || (!lab && id && !ds.length && !/\b(RWY|THR|ARP|VOR|DME)\b/.test(L))) { rec.label = 'stand'; rec.id = id; if (!/^\d{2}[LRC]$/.test(id) || ctx === 'stand') f.stands.push({ id: id, c: rec.c, line: i, raw: rawId }); }
+        if (rec.label === 'thr' || rec.label === 'dthr' || rec.label === 'end') { var d1 = ds[0] || (/^\s*(?:RWY\s*)?(\d{2}[LRC]?)\b/.exec(L) || [])[1]; d1 = d1 ? des2(d1) : ''; if (d1) { rec.des = d1; var R = rw(d1); if (rec.label === 'thr' && !R.thr) { R.thr = rec.c; R.thrDec = p.dec; } else if (rec.label === 'dthr' && !R.dthr) R.dthr = rec.c; else if (rec.label === 'end' && !R.end) R.end = rec.c; ev('thrc', i); } }
         if (rec.label === 'arp' && !f.arp) { f.arp = rec.c; ev('arp', i); }
         if (rec.label === 'stand') ev('stdc', i);
         if (rec.label === 'twy') ev('twyc', i);
@@ -222,7 +275,7 @@ var AMDBDOC = (function () {
       });
       // stand names (lists and ranges) where a line speaks of stands but gives no coordinates
       if (!cs.length && /\b(STANDS?|GATES?|PARKING POSITIONS?)\b/.test(L)) {
-        var body = L.replace(/^.*?\b(STANDS?|GATES?|PARKING POSITIONS?)\b/, ''), rg = /\b([A-Z]{0,3}\d{1,4})\s*(?:-|–|TO|THRU|THROUGH)\s*([A-Z]{0,3}\d{1,4})\b/g, m2;
+        var body = L.replace(/^.*?\b(STANDS?|GATES?|PARKING POSITIONS?)\b/, '').split('\t')[0].replace(/\b\d{2,4}\s*[RF]\s*[/Il1|]\s*[A-D]\s*[/Il1|]\s*[W-Z]\s*[/Il1|]\s*[TU]\b/g, ' ').replace(/\b\d+(?:[.,]\d+)?\s*M\b/g, ' '), rg = /\b([A-Z]{0,3}\d{1,4})\s*(?:-|–|TO|THRU|THROUGH)\s*([A-Z]{0,3}\d{1,4})\b/g, m2;
         while ((m2 = rg.exec(body))) expand(m2[1], m2[2]).forEach(function (x) { add(f.standNames, x); });
         body.replace(rg, ' ').split(/[\s,;/&]+|\bAND\b/).forEach(function (x) { x = idOf(x.trim()); if (x && /\d/.test(x) && x.length <= 6) add(f.standNames, x); });
         ev('std', i);
@@ -243,13 +296,21 @@ var AMDBDOC = (function () {
         dsx.forEach(function (d) { var R = rw(d); if (!R.wid) { R.wid = Math.round(wid * 10) / 10; R.len = Math.round(len); } });
         ev('dims', i);
       }
-      // bearing strength: PCN (Annex 14 until 2024) or PCR (from 28 November 2024)
-      var pc = /\b(PCN|PCR)\s*:?\s*(\d{1,4})\s*\/?\s*([RF])\s*\/?\s*([A-D])\s*\/?\s*([W-Z])\s*\/?\s*([TU])\b/g, m6;
+      // a row of a taxiway table: designator, width, strength (PCN / PCR) and surface
+      var tr = /^\s*(?:[^A-Za-z0-9(]{1,3}\s+)?([A-Z][A-Za-z|]?\d{0,2}[A-Za-z]?)(?:\s*\([^)]{0,24}\))?\s+(\d{2}(?:[.,]\d)?)\s+(\d{2,4})\s*([RF])\s*[/Il1|]?\s*([A-D])\s*[/Il1|]?\s*([W-Z])\s*[/Il1|]?\s*([TU])/i.exec(line);
+      if (tr && n(tr[2]) >= 7 && n(tr[2]) <= 60 && !/^(RWY|TWY|APN|APRON|GATE|STAND|PCN|PCR)$/i.test(tr[1])) { f.twyRows.push({ raw: tr[1], des: tr[1].toUpperCase(), w: n(tr[2]), pcr: tr[3] + '/' + tr[4] + '/' + tr[5] + '/' + tr[6] + '/' + tr[7], surf: (/\b(ASPHALT|ASPH|CONCRETE|CONC|BITUMEN|GRASS|GRAVEL)\b/i.exec(line) || [])[1] || '', line: i }); ev('twyw', i); ev('twy', i); }
+      // bearing strength: PCN (Annex 14 until 2024) or PCR (from 28 November 2024); "/" read as I or l in a scan
+      var pcSeen = /\bPC[NR]\b/.test(L), pc = /\b(PCN|PCR)\s*:?\s*(\d{1,4})\s*[/Il1|]?\s*([RF])\s*[/Il1|]?\s*([A-D])\s*[/Il1|]?\s*([W-Z])\s*[/Il1|]?\s*([TU])\b/g, m6;
       while ((m6 = pc.exec(L))) {
         var near = ds.length ? ds : [-1, 1, -2, 2].map(function (o) { return U[i + o] ? desOf(U[i + o], true) : []; }).filter(function (x) { return x.length; })[0] || [];
         var v = m6[1] + ' ' + m6[2] + '/' + m6[3] + '/' + m6[4] + '/' + m6[5] + '/' + m6[6];
         f.pcn.push({ des: near, v: v, line: i }); near.forEach(function (d) { if (!rw(d).pcn) rw(d).pcn = v; });
         ev(/APRON|TWY|TAXIWAY|STAND/.test(L) && !ds.length ? 'pcnApn' : 'pcn', i);
+      }
+      if (!pcSeen && ds.length === 1 && /^\s*(?:RWY\s*)?\d{2}[LRC]?\b/.test(L)) {
+        var rs = /\b(\d{2,4})\s*([RF])\s*[/Il1|]\s*([A-D])\s*[/Il1|]\s*([W-Z])\s*[/Il1|]\s*([TU])\b/.exec(L);
+        if (rs) { var R3 = rw(ds[0]); if (!R3.pcn) R3.pcn = (+rs[1] > 150 ? 'PCR ' : 'PCN ') + rs[1] + '/' + rs[2] + '/' + rs[3] + '/' + rs[4] + '/' + rs[5]; f.pcn.push({ des: ds.slice(), v: R3.pcn, line: i }); ev('pcn', i); }
+        var sf = /\b(ASPHALT|ASPH|CONCRETE|CONC|BITUMEN|GRASS|GRAVEL)\b/.exec(L); if (sf && !rw(ds[0]).surf) { rw(ds[0]).surf = sf[1]; ev('surf', i); }
       }
       // taxiway and shoulder widths
       if (/\b(TWY|TWYS|TAXIWAYS?)\b/.test(L) && /\bWID|\bWIDE\b|\bWIDTH\b/.test(L)) {
@@ -288,7 +349,27 @@ var AMDBDOC = (function () {
         ['apron', /\bAPRON\b|\bRAMP\b/], ['stand', /\bSTANDS?\b|\bGATES?\b|PARKING/], ['twyName', /\bTWY|TAXIWAY/], ['rwyName', /\bRWY\b|RUNWAY/], ['marking', /MARKING/], ['servicing', /SERVICING|FUEL|DE-?ICING|ENGINE\s*RUN/], ['heli', /HELIPORT|\bFATO\b|\bTLOF\b/]
       ].forEach(function (x) { if (x[1].test(L)) ev(x[0], i); });
     });
-    // a single runway pair: unassigned dimensions and strengths are its own
+    // the taxiway table, its designators put right from their order, then widths and strengths by taxiway
+    series(f.twyRows, 'des');
+    f.twyRows.forEach(function (r) { add(f.twyNames, r.des); if (!f.twyW[r.des]) f.twyW[r.des] = r.w; if (!f.twyPcn[r.des]) f.twyPcn[r.des] = 'PCR ' + r.pcr; });
+    // stand numbers of a table read twice: the first of two, where the number before it is missing, is that number
+    var bySer = {};
+    f.stands.forEach(function (st, i) { var m = /^(\d{1,4})$/.exec(st.id); if (m) (bySer[Math.floor(+m[1] / 100)] = bySer[Math.floor(+m[1] / 100)] || []).push(i); });
+    Object.keys(bySer).forEach(function (k) {
+      var ix = bySer[k], nums = ix.map(function (i) { return +f.stands[i].id; });
+      for (var q = 1; q < ix.length - 1; q++) if (nums[q] === nums[q + 1] && nums[q - 1] + 1 < nums[q] && nums.indexOf(nums[q - 1] + 1) < 0) { f.stands[ix[q]].id = String(nums[q - 1] + 1); f.stands[ix[q]].fixed = 'order'; nums[q] = nums[q - 1] + 1; }
+    });
+    f.stands.forEach(function (st, i) {
+      if (/\d/.test(st.id) || !/^[A-Z]{1,2}$/i.test(st.id || st.raw || '')) return;
+      var L = (st.id || st.raw).slice(-1).toUpperCase(), nx = f.stands.slice(i + 1).filter(function (x) { return new RegExp('^\\d+' + L + '$').test(x.id); })[0];
+      if (nx && +nx.id.slice(0, -1) > 1) { var cand = (+nx.id.slice(0, -1) - 1) + L; if (!f.stands.some(function (x) { return x.id === cand; })) { st.id = cand; st.fixed = 'order'; } }
+    });
+    // lighting of a chart named after its runways (an aerodrome lighting chart): those runways
+    f.titleDes = desOf(nm.toUpperCase() + ' ' + U.slice(0, 12).join(' '));
+    if (f.kind.id === 'alc') [[/RUNWAY\s*CENTRE\s*LINE|RUNWAY\s*CENTER\s*LINE|CENTERLINE-WHITE/, 'CL'], [/TOUCH\s*DOWN\s*ZONE/, 'TDZ'], [/THRESHOLD\s*LIGHT|WING\s*BAR/, 'THR'], [/RUNWAY\s*EDGE|EDGE\s*LIGHT/, 'EDGE'], [/RUNWAY\s*END\s*LIGHT|END\s*LIGHT/, 'END'], [/STOP\s*BAR/, 'STOPBAR'], [/RUNWAY\s*GUARD/, 'RGL'], [/TAXIWAY\s*CENTRE\s*LINE|TAXIWAY\s*CENTERLINE/, 'TWYCL'], [/EDGE\s*OF\s*TAXIWAY|TAXIWAY\s*EDGE/, 'TWYEDGE'], [/APPROACH\s*LIGHT/, 'ALS']].forEach(function (x) {
+      if (x[0].test(all) && !f.lights.some(function (l) { return l.kind === x[1]; })) f.lights.push({ des: [], kind: x[1], cls: x[1] === 'ALS' ? ((/CAT\s*(III|II|I)\b/.exec(all) || [])[1] ? 'CAT' + { III: 3, II: 2, I: 1 }[/CAT\s*(III|II|I)\b/.exec(all)[1]] : '') : '', line: -1 });
+    });
+    if (f.titleDes.length) f.lights.forEach(function (l) { if (!l.des.length) l.des = f.titleDes.slice(); });
     f.textless = all.replace(/\s+/g, '').length < 40;
     f.title = U.slice(0, 40).concat(U.slice(-25)).join(' ').replace(/\s+/g, ' ').slice(0, 4000);
     f.standNames = f.standNames.filter(function (x) { return !/^\d{5,}$/.test(x); }).slice(0, 600);
@@ -333,7 +414,7 @@ var AMDBDOC = (function () {
   function forAd(code, arp) {
     var docs = DOCS.filter(function (d) { return d.ad === code && d.f; });
     if (!docs.length) return null;
-    var K = { docs: docs.map(function (d) { return d.name; }), kinds: [], stands: [], standNames: [], twyNames: [], apronNames: [], rwy: {}, dims: [], pcn: [], twyW: {}, shoulder: {}, lights: [], hotspots: [], arp: null, elev: null, magVar: null };
+    var K = { docs: docs.map(function (d) { return d.name; }), kinds: [], stands: [], standNames: [], twyNames: [], apronNames: [], rwy: {}, dims: [], pcn: [], twyW: {}, twyPcn: {}, shoulder: {}, lights: [], hotspots: [], arp: null, elev: null, magVar: null, ocr: docs.some(function (d) { return d.ocr; }) };
     var raw = [];
     docs.forEach(function (d) {
       var f = d.f;
@@ -343,13 +424,14 @@ var AMDBDOC = (function () {
       Object.keys(f.rwy).forEach(function (r) { var R = K.rwy[r] = K.rwy[r] || {}; Object.keys(f.rwy[r]).forEach(function (k) { if (R[k] === undefined) { R[k] = f.rwy[r][k]; R[k + 'Doc'] = d.name; } }); });
       K.dims = K.dims.concat(f.dims); K.pcn = K.pcn.concat(f.pcn);
       Object.keys(f.twyW).forEach(function (k) { if (!K.twyW[k]) K.twyW[k] = f.twyW[k]; });
+      Object.keys(f.twyPcn || {}).forEach(function (k) { if (!K.twyPcn[k]) K.twyPcn[k] = f.twyPcn[k]; });
       Object.keys(f.shoulder).forEach(function (k) { if (!K.shoulder[k]) K.shoulder[k] = f.shoulder[k]; });
       f.lights.forEach(function (l) { if (!K.lights.some(function (x) { return x.kind === l.kind && x.cls === l.cls && x.des.join() === l.des.join(); })) K.lights.push(Object.assign({ doc: d.name }, l)); });
       if (!K.arp && f.arp) K.arp = f.arp; if (K.elev === null && f.elev !== undefined) K.elev = f.elev; if (K.magVar === null && f.magVar !== undefined) K.magVar = f.magVar;
     });
     var chk = standsChecked(raw, arp || K.arp);
     K.stands = chk.ok; K.standsLeft = chk.left;
-    K.src = docs.map(function (d) { return d.name; }).join(', ');
+    K.src = docs.map(function (d) { return short(d.name) + (d.ocr ? ', read by OCR' : ''); }).join('; ');
     return K;
   }
   // runway dimensions a chart gives without naming the runway: the AIP runway of about the same length
@@ -409,7 +491,7 @@ var AMDBDOC = (function () {
       r.dirs.forEach(function (d) {
         var dz = des2(d.des), R = K.rwy[dz]; if (!R) return;
         var thr = d.pts.filter(function (q) { return /^THR$/.test(q.role) && q.c; })[0];
-        if (R.thr && thr) { var d1 = dist(R.thr, thr.c); out.push({ what: 'Threshold ' + d.des, chart: fmtC(R.thr), aip: fmtC(thr.c), diff: Math.round(d1 * 10) / 10 + ' m', st: d1 <= 1 ? 'ok' : d1 <= 30 ? 'warn' : 'bad' }); }
+        if (R.thr && thr) { var d1 = dist(R.thr, thr.c), tol = R.thrDec >= 2 ? 1 : R.thrDec === 1 ? 4 : 32; out.push({ what: 'Threshold ' + d.des, chart: fmtC(R.thr), aip: fmtC(thr.c), diff: Math.round(d1 * 10) / 10 + ' m' + (R.thrDec === 0 ? ' (the chart gives whole seconds, about 31 m)' : ''), st: d1 <= tol ? 'ok' : d1 <= tol + 30 ? 'warn' : 'bad' }); }
         else if (R.thr) out.push({ what: 'Threshold ' + d.des, chart: fmtC(R.thr), aip: 'no position in the AIP data set', diff: '', st: 'fill' });
       });
       var dz2 = AMDBdes(r.des), R2 = dz2.map(function (x) { return K.rwy[x]; }).filter(Boolean)[0];
@@ -434,6 +516,7 @@ var AMDBDOC = (function () {
     (K.standsLeft || []).forEach(function (x) { out.push({ what: 'Stand left out', chart: x.s.id || '', aip: '', diff: x.why, st: 'bad' }); });
     return out;
   }
+  function short(n) { return String(n).replace(/^[0-9a-f]{6,}-/, '').replace(/\.pdf$/i, '').replace(/_/g, ' ').slice(0, 60); }
   function AMDBdes(des) { return String(des || '').split(/[/.\s-]+/).map(des2).filter(Boolean); }
   function fmtC(c) { function f(v, h) { var a = Math.abs(v), d = Math.floor(a), m = Math.floor((a - d) * 60), s2 = ((a - d) * 60 - m) * 60; return (h === 'NS' ? ('0' + d).slice(-2) : ('00' + d).slice(-3)) + '°' + ('0' + m).slice(-2) + '\'' + ('0' + s2.toFixed(2)).slice(-5) + '"' + (v < 0 ? h[1] : h[0]); } return f(c[1], 'NS') + ' ' + f(c[0], 'EW'); }
 
@@ -443,7 +526,12 @@ var AMDBDOC = (function () {
   async function addFile(file, cands) {
     var d = { id: ++seq, name: file.name, size: file.size, type: PDF.test(file.name) ? 'pdf' : TXT.test(file.name) ? 'text' : /\.(png|jpe?g|webp|gif|tiff?)$/i.test(file.name) ? 'image' : 'other', ad: '', added: new Date().toISOString(), f: null, note: '' };
     try {
-      if (d.type === 'pdf') { var r = await pdfRead(new Uint8Array(await file.arrayBuffer())); d.pages = r.pages; d.f = read(r.lines.map(function (x) { return x.t; }).join('\n'), file.name); if (r.textless) d.note = 'a scanned chart: it has no text to read — paste the table, or trace on imagery'; }
+      if (d.type === 'pdf') {
+        var bytes = new Uint8Array(await file.arrayBuffer()), r = await pdfRead(bytes);
+        d.pages = r.pages; d.frame = r.lines.map(function (x) { return x.t; }).join('\n'); d.f = read(d.frame, file.name);
+        // only a frame of text (title, page number, date) and nothing for mapping: the chart is a picture
+        if (r.textless || (r.pieces / r.pages < 150 && !d.f.coords.length && !d.f.stands.length && !d.f.dims.length && !d.f.twyRows.length)) { d.image = true; d.bytes = bytes; d.note = r.textless ? 'the chart is a picture (a scan, no text): read it with OCR, paste its table, or trace on imagery' : 'the chart is a picture (only its frame is text): read it with OCR'; }
+      }
       else if (d.type === 'text') d.f = read(await file.text(), file.name);
       else d.note = d.type === 'image' ? 'kept as a supporting document (an image is not read)' : 'kept as a supporting document';
     } catch (e) { d.note = 'could not be read: ' + e.message; }
@@ -451,19 +539,30 @@ var AMDBDOC = (function () {
     DOCS.push(d);
     return d;
   }
+  // a chart that is a picture, read by OCR (amdbocr.js): its frame text and what OCR read, checked like any text
+  async function ocrDoc(id, cands, say) {
+    var d = get(id); if (!d || !d.bytes) return d;
+    await LAZY.run('src-amdbocr');
+    var r = await AMDBOCR.readPdf(d.bytes, say || function () {});
+    d.ocr = { conf: r.conf, tables: r.tables, cells: r.cells, when: new Date().toISOString(), text: r.lines.join('\n') };
+    d.f = read((d.frame || '') + '\n' + r.lines.join('\n'), d.name); d.f.ocr = true;
+    d.ad = assign(d.f, cands) || d.ad;
+    d.note = 'read by OCR — ' + r.tables + ' table(s), ' + r.cells + ' cells, confidence ' + r.conf + ' %; the values are checked against the aerodrome, the order of their tables and the AIP data set';
+    return d;
+  }
   function addText(text, name, cands) { var d = { id: ++seq, name: name || 'pasted text', size: text.length, type: 'text', ad: '', added: new Date().toISOString(), f: read(text, name), note: '' }; d.ad = assign(d.f, cands); if (d.f.kind.id === 'other' && d.f.stands.length) d.f.kind.id = 'table'; DOCS.push(d); return d; }
   // a short account of what a document gave
   function gave(d) {
     var f = d.f; if (!f) return d.note || '';
     var g = [], R = Object.keys(f.rwy);
-    if (f.stands.length) g.push(f.stands.length + ' stand position(s)');
+    if (f.stands.length) g.push(f.stands.length + ' stand position(s)' + (f.stands.some(function (x) { return x.fixed; }) ? ' (' + f.stands.filter(function (x) { return x.fixed; }).length + ' number(s) put right from the order of the table)' : ''));
     if (f.standNames.length) g.push(f.standNames.length + ' stand name(s)');
     var thr = R.filter(function (k) { return f.rwy[k].thr; }); if (thr.length) g.push('threshold position ' + thr.join(', '));
     if (f.arp) g.push('reference point');
     var dm = R.filter(function (k) { return f.rwy[k].wid; }); if (dm.length || f.dims.length) g.push((dm.length ? dm.length : f.dims.length) + ' runway dimension(s)');
     if (f.pcn.length) g.push(f.pcn.length + ' strength (PCN / PCR)');
     if (f.twyNames.length) g.push(f.twyNames.length + ' taxiway name(s)');
-    if (Object.keys(f.twyW).length) g.push('taxiway width');
+    if (f.twyRows && f.twyRows.length) g.push('taxiway table: ' + f.twyRows.length + ' row(s) — width, strength, surface'); else if (Object.keys(f.twyW).length) g.push('taxiway width');
     if (Object.keys(f.shoulder).length) g.push('shoulder width');
     if (f.lights.length) g.push('lighting: ' + f.lights.map(function (l) { return (l.cls && l.kind === 'ALS' ? l.cls + ' ' : '') + LNAME[l.kind]; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).slice(0, 6).join(', '));
     if (f.apronNames.length) g.push(f.apronNames.length + ' apron name(s)');
@@ -477,7 +576,7 @@ var AMDBDOC = (function () {
   function setAd(id, code) { var d = get(id); if (d) d.ad = code; }
   function clear() { DOCS = []; }
 
-  return { pdfRead: pdfRead, textLines: textLines, clean: clean, coordsIn: coordsIn, desOf: desOf, read: read, kindOf: kindOf, assign: assign, forAd: forAd, matchDims: matchDims, lightsFor: lightsFor, standsChecked: standsChecked,
+  return { pdfLib: pdfLib, ocrDoc: ocrDoc, stacked: stacked, series: series, pdfRead: pdfRead, textLines: textLines, clean: clean, coordsIn: coordsIn, desOf: desOf, read: read, kindOf: kindOf, assign: assign, forAd: forAd, matchDims: matchDims, lightsFor: lightsFor, standsChecked: standsChecked,
     icaoCheck: icaoCheck, crossCheck: crossCheck, addFile: addFile, addText: addText, gave: gave, list: list, get: get, remove: remove, setAd: setAd, clear: clear, KINDS: KINDS, A4: A4, LNAME: LNAME, fmtC: fmtC, des2: des2, opposite: opposite, esc: esc };
 })();
 if (typeof module !== 'undefined') module.exports = AMDBDOC;

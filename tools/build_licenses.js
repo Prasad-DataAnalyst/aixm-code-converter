@@ -21,6 +21,12 @@ const PACKAGES = [
   ['sql.js', 'sql.js — SQLite for GeoPackage files (stored unopened, loaded when used)', 'MIT'],
   ['pdfjs-dist', 'PDF.js (Mozilla) — reads the text of State chart PDFs, e.g. stand coordinates (stored unopened, loaded when used; opened with isEvalSupported: false)', 'Apache-2.0']
 ];
+// downloaded from cdn.jsdelivr.net when the user asks to read a picture chart (checked by SHA-256, kept in the browser); not in the file
+const OCR = [
+  ['tesseract.js', 'OCR of State charts that are pictures (downloaded when asked, not contained in the file)', 'Apache-2.0'],
+  ['tesseract.js-core', 'Tesseract OCR engine compiled to WebAssembly (downloaded when asked, not contained in the file)', 'Apache-2.0'],
+  ['@tesseract.js-data/eng', 'English trained data (tessdata_best of the Tesseract OCR project, Apache-2.0; npm package MIT) (downloaded when asked, not contained in the file)', 'Apache-2.0 (data), MIT (package)']
+];
 
 function licenceText(dir) {
   // a package without a licence file: its licence text is kept in tools/licenses/<package>.txt
@@ -64,6 +70,14 @@ parts.push(LINE, 'Terrain Tiles — built-in terrain grid (data/terrain.json) an
 parts.push(LINE, 'Online services the tool can link to or load on request (not contained in the file)', LINE, '',
   'Online base maps: each map shows its own attribution on the map (Esri, OpenStreetMap contributors (ODbL),',
   'OpenTopoMap (CC-BY-SA), NASA GIBS). Live traffic: adsb.lol (data under the Open Database Licence), its live',
-  'map shown inside the map on request. Flight and aircraft details: adsbdb.com.', '');
+  'map shown inside the map on request. Flight and aircraft details: adsbdb.com.',
+  'Imagery for tracing aerodrome mapping: each layer states its licence in the tool and on the map (EOX Sentinel-2',
+  'cloudless 2016 CC BY 4.0 and 2025 CC BY-NC-SA 4.0, PDOK CC BY 4.0, IGN Etalab 2.0, swisstopo, PNOA CC BY 4.0,',
+  'basemap.at CC BY 4.0, USGS public domain, GSI, NSW CC BY 4.0; Esri for viewing only).', '');
+for (const [name, what, spdx] of OCR) {
+  const dir = path.join(NM, name);
+  const ver = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).version;
+  parts.push(LINE, name + ' ' + ver + ' — ' + what, 'Licence: ' + spdx, LINE, '', spdx === 'Apache-2.0' ? licenceText(dir) : 'See the Apache License 2.0 text above.', '');
+}
 fs.writeFileSync(path.join(ROOT, 'THIRD-PARTY-LICENSES.txt'), parts.join('\n'));
-console.log('THIRD-PARTY-LICENSES.txt written (' + PACKAGES.length + ' libraries + data)');
+console.log('THIRD-PARTY-LICENSES.txt written (' + PACKAGES.length + ' libraries + data, ' + OCR.length + ' downloaded on request)');

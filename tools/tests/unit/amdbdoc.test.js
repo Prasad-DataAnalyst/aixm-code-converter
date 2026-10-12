@@ -6,7 +6,8 @@
 // - the facts of a parking / docking chart: stands, names, taxiways, widths, thresholds, strength, lighting per
 //   runway, magnetic variation, hot spots; lines rebuilt from rotated and split PDF text;
 // - doubtful stands left out (far, twice, far from all others); the Annex 4 contents; the aerodrome of a document;
-//   the chart against the AIP data set.
+//   the chart against the AIP data set; text read by OCR (lost decimal points, seconds signs, hemispheres; two-line
+//   table cells; misread designators put right by the order of the table).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
@@ -128,4 +129,25 @@ test('the chart against the AIP data set', () => {
   assert.ok(D.lightsFor(K, '09L', true).some((l) => l.kind === 'ALS' && l.cls === 'CAT2'));
   assert.ok(D.lightsFor(K, '27R', false).every((l) => l.kind !== 'ALS'));
   D.clear();
+});
+
+test('text read by OCR from a chart that is a picture', () => {
+  const at = (t) => D.coordsIn(D.clean(t)).map((p) => [+p.lat.toFixed(5), +p.lon.toFixed(5)]);
+  // a space for the decimal point, four digits of seconds, a degree sign or a quote for the seconds sign
+  assert.deepEqual(at('101 31°58\'12 34"S 052°22\'01 50\'E'), [[-31.97009, 52.36708]]);
+  assert.deepEqual(at('102 31°58\'1234"S 052°22\'0150"E'), [[-31.97009, 52.36708]]);
+  assert.deepEqual(at('103 31°58\'12.34°S 052°22\'01.50°E'), [[-31.97009, 52.36708]]);
+  assert.equal(D.clean('RWY O9L'), 'RWY 09L');
+  // a coordinate in a table cell of two lines
+  const st = D.stacked(['104', '31°58\'12.34"S', '052°22\'01.50"E']).flatMap((l) => D.coordsIn(l));
+  assert.deepEqual(st.map((p) => [+p.lat.toFixed(5), +p.lon.toFixed(5)]), [[-31.97009, 52.36708]]);
+  // a designator misread in a table put right by the order of the table, or by the characters
+  const rows = ['A3', 'Ad', 'A5', 'Bl', 'B2'].map((r) => ({ id: r, raw: r }));
+  D.series(rows, 'id');
+  assert.deepEqual(rows.map((r) => r.id + (r.fixed ? ':' + r.fixed : '')), ['A3', 'A4:order', 'A5', 'B1:characters', 'B2']);
+  // a longitude whose E / W was lost takes the hemisphere of the other rows
+  const f = D.read(['AIRCRAFT PARKING / DOCKING CHART - ICAO', 'STAND COORDINATES', '1 31°58\'10.00"S 052°22\'01.00"E', '2 31°58\'11.00"S 052°22\'02.00"E',
+    '3 31°58\'12.00"S 052°22\'03.00"E', '4 31°58\'13.00"S 052°22\'04.00"'].join('\n'), 'chart');
+  assert.deepEqual(f.stands.map((s) => s.id), ['1', '2', '3', '4']);
+  assert.ok(f.stands.every((s) => s.c[0] > 52 && s.c[1] < -31));
 });

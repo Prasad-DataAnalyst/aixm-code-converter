@@ -11,6 +11,12 @@ are read inside your browser. Nothing is requested from any server unless you as
   else. *Aircraft details* shows the same sandboxed live map in a window over the map; *Find* sends
   the callsign, registration or ICAO address you type to adsbdb.com (flight and aircraft data) and loads the
   aircraft photo from airport-data.com.
+- **OpenStreetMap for aerodrome mapping** — only when you press *Get*: the Overpass API receives the area around the
+  aerodrome, nothing else;
+- **imagery for tracing** — only the layer you pick in *Trace on imagery*; its tile server sees the tile coordinates;
+- **the OCR engine** — only when you ask to read a chart that is a picture: Tesseract (about 7 MB) is downloaded once
+  from cdn.jsdelivr.net, checked against the SHA-256 recorded in the tool (a file that does not match is refused)
+  and kept in the browser; the chart itself is read in the browser and never sent.
 
 No AIXM data, file names or search text is ever sent. Map tile servers see only the tile coordinates.
 

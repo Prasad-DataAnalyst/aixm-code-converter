@@ -75,7 +75,7 @@ function dms(v, lat) { const h = lat ? (v < 0 ? 'S' : 'N') : (v < 0 ? 'W' : 'E')
   const docs = await page.evaluate(() => AMDBDOC.list().map((d) => ({ name: d.name, kind: d.f && d.f.kind, ad: d.ad, note: d.note, gave: AMDBDOC.gave(d) })));
   const chart = docs.filter((d) => /parking/.test(d.name))[0] || {}, sc = docs.filter((d) => /scanned/.test(d.name))[0] || {};
   if (!chart.kind || chart.kind.id !== 'apdc' || !chart.kind.icaoTitle || chart.ad !== 'EADD' || !/13 stand position\(s\)/.test(chart.gave)) fails.push('chart read: ' + JSON.stringify(chart));
-  if (!/scanned chart/.test(sc.note || '')) fails.push('scanned chart: ' + JSON.stringify(sc));
+  if (!/picture .*read it with OCR/.test(sc.note || '')) fails.push('scanned chart: ' + JSON.stringify(sc));
   await page.click('[data-doccheck]'); await page.waitForSelector('.doc-chk');
   const chk = await page.evaluate(() => ({ a4: Array.from(document.querySelectorAll('.doc-a4 tr[data-a4]')).map((r) => r.getAttribute('data-a4')), x: Array.from(document.querySelectorAll('.doc-x tr[data-x]')).map((r) => r.getAttribute('data-x') + ' ' + r.children[1].textContent), gaps: Array.from(document.querySelectorAll('.up-gaps li')).map((l) => l.textContent) }));
   if (chk.a4.length !== 17 || chk.a4.filter((x) => x === 'found').length < 9 || chk.a4.indexOf('drawn') < 0) fails.push('ICAO Annex 4 check: ' + JSON.stringify(chk.a4));
