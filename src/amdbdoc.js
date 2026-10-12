@@ -382,7 +382,7 @@ var AMDBDOC = (function () {
     });
     // lighting of a chart named after its runways (an aerodrome lighting chart): those runways
     f.titleDes = desOf(nm.toUpperCase() + ' ' + U.slice(0, 12).join(' '));
-    if (f.kind.id === 'alc') [[/RUNWAY\s*CENTRE\s*LINE|RUNWAY\s*CENTER\s*LINE|CENTERLINE-WHITE/, 'CL'], [/TOUCH\s*DOWN\s*ZONE/, 'TDZ'], [/THRESHOLD\s*LIGHT|WING\s*BAR/, 'THR'], [/RUNWAY\s*EDGE|EDGE\s*LIGHT/, 'EDGE'], [/RUNWAY\s*END\s*LIGHT|END\s*LIGHT/, 'END'], [/STOP\s*BAR/, 'STOPBAR'], [/RUNWAY\s*GUARD/, 'RGL'], [/TAXIWAY\s*CENTRE\s*LINE|TAXIWAY\s*CENTERLINE/, 'TWYCL'], [/EDGE\s*OF\s*TAXIWAY|TAXIWAY\s*EDGE/, 'TWYEDGE'], [/APPROACH\s*LIGHT/, 'ALS']].forEach(function (x) {
+    if (f.kind.id === 'alc') [[/RUNWAY\s*CENTRE\s*LINE|RUNWAY\s*CENTER\s*LINE|CENTERLINE-WHITE/, 'CL'], [/TOUCH\s*DOWN\s*ZONE/, 'TDZ'], [/THRESHOLD\s*LIGHT|WING\s*BAR/, 'THR'], [/RUNWAY\s*EDGE|EDGE\s*LIGHT/, 'EDGE'], [/RUNWAY\s*END\s*LIGHT|END\s*LIGHT/, 'END'], [/STOP\s*BAR/, 'STOPBAR'], [/RUNWAY\s*GUARD/, 'RGL'], [/TAXIWAY\s*CENTRE\s*LINE|TAXIWAY\s*CENTERLINE|TAXIWAYS?\b[^.]{0,80}?CENT(?:RE|ER)\s*LINE\s*LIGHTS/, 'TWYCL'], [/EDGE\s*OF\s*TAXIWAY|TAXIWAY\s*EDGE/, 'TWYEDGE'], [/APPROACH\s*LIGHT/, 'ALS']].forEach(function (x) {
       if (x[0].test(all) && !f.lights.some(function (l) { return l.kind === x[1]; })) f.lights.push({ des: [], kind: x[1], cls: x[1] === 'ALS' ? ((/CAT\s*(III|II|I)\b/.exec(all) || [])[1] ? 'CAT' + { III: 3, II: 2, I: 1 }[/CAT\s*(III|II|I)\b/.exec(all)[1]] : '') : '', line: -1 });
     });
     if (f.titleDes.length) f.lights.forEach(function (l) { if (!l.des.length) l.des = f.titleDes.slice(); });

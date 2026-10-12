@@ -27,6 +27,8 @@ function dms(v, lat) { const h = lat ? (v < 0 ? 'S' : 'N') : (v < 0 ? 'W' : 'E')
   const ctx = await browser.newContext({ viewport: { width: 1500, height: 950 }, acceptDownloads: true });
   await ctx.route(/^https?:\/\//, (r) => r.abort()); // no network: tiles and servers are not needed here
   const page = await ctx.newPage();
+  // below 94 % the first click only says what is missing; the second generates
+  const generateClick = async () => { await page.click('button[data-gengo]'); await page.waitForTimeout(150); if (/below 94/.test(await page.$eval('.gen-st', (e) => e.textContent).catch(() => ''))) await page.click('button[data-gengo]'); };
   const errors = [], fails = [];
   page.on('pageerror', (e) => errors.push(e.message));
   const status = () => page.evaluate(() => (document.querySelector('.up-st') || {}).textContent || '');
@@ -102,6 +104,7 @@ function dms(v, lat) { const h = lat ? (v < 0 ? 'S' : 'N') : (v < 0 ? 'W' : 'E')
   node({ aeroway: 'holding_position', 'holding_position:type': 'ILS' }, [A0[0] + 0.008, A0[1] - 0.0040]);
   way({ aeroway: 'terminal', building: 'terminal', name: 'Terminal 1', 'building:levels': '3' }, [[A0[0] + 0.006, A0[1] - 0.0012], [A0[0] + 0.0075, A0[1] - 0.0012], [A0[0] + 0.0075, A0[1] - 0.0025], [A0[0] + 0.006, A0[1] - 0.0025], [A0[0] + 0.006, A0[1] - 0.0012]]);
   node({ aeroway: 'windsock' }, [A0[0] - 0.01, A0[1] + 0.001]);
+  way({ highway: 'service' }, [[A0[0] + 0.0060, A0[1] - 0.0030], [A0[0] + 0.0075, A0[1] - 0.0030], [A0[0] + 0.0090, A0[1] - 0.0034]]);
   fs.writeFileSync(OUT + '/EADD_osm.json', JSON.stringify(osm));
   await drop([OUT + '/EADD_osm.json'], '.up-drop');
   const os = await page.evaluate(() => ({ st: document.querySelector('.up-st').textContent, sum: AMDBOSM.get('EADD') ? AMDBOSM.summary(AMDBOSM.get('EADD')) : null }));
@@ -170,7 +173,7 @@ function dms(v, lat) { const h = lat ? (v < 0 ? 'S' : 'N') : (v < 0 ? 'W' : 'E')
   // generate and open: the package sources say ODbL and how the data was made
   await page.check('[data-genack]');
   await page.evaluate(() => { document.querySelectorAll('[data-gen]').forEach((cb) => { cb.checked = false; cb.dispatchEvent(new Event('change', { bubbles: true })); }); const r = Array.from(document.querySelectorAll('[data-genrow]')).filter((t) => /EADD/.test(t.textContent))[0]; const cb = r.querySelector('[data-gen]'); cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); });
-  await page.click('[data-gengo]');
+  await generateClick();
   await page.waitForFunction(() => window.__AIXM.S.datasets.some((d) => d.family === 'amxm'), null, { timeout: 60000 });
   await page.evaluate(() => window.__AIXM.go('digital')); await page.click('[data-amtab="sources"]');
   await page.waitForFunction(() => /ODbL/.test(document.querySelector('.am-body').innerHTML), null, { timeout: 30000 }).catch(() => {});

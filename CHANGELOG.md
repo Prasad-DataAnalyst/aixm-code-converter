@@ -125,6 +125,25 @@ NOT FOR NAVIGATION — for study and analysis only.
     taxiways named on the chart but not mapped are listed to trace;
   - packages record what each source added and its licence: OpenStreetMap data under the ODbL (attribution and
     share-alike, also in the README of a package for further processing), the State's charts, non-commercial imagery.
+- **Aerodrome mapping complete enough to be used** (94 % and more):
+  - Generate says, per aerodrome chosen below 94 %, what is still missing, with **🌍 Complete from OpenStreetMap** one
+    click away (taxiways, aprons, stands, holding positions, buildings, service roads) and an option to do it by itself
+    for every aerodrome chosen (the ICAO code is sent to a public Overpass server, nothing else); generating below
+    94 % asks a second click;
+  - readiness counts **buildings**, **service roads** and **taxiway lights** besides the other items;
+  - **taxiway lights** generated along the taxiway centre lines: declared in the AIP (AD 2.15), named on the State's
+    lighting chart ("taxiway centre line lights"), or, the runways being lit, taxiway edge lights (Annex 14 5.3.18);
+    centre line lights 30 m apart, edge lights 60 m apart 1 m outside the edges; positions indicative;
+  - Build package shows what the package holds of an aerodrome map (16 items: reference point, runways, thresholds,
+    shoulders, markings, runway lights, taxiway surfaces and centre lines, holding positions, taxiway lights, aprons,
+    stands, buildings, service roads, navaids and obstacles, routing network) and warns below 94 %; the package report
+    has the same table; the aerodrome with the most features is chosen first.
+- **Valid, non-overlapping pavement**: taxiway and service road surfaces are made with the geometry engine (no
+  outline crossing itself on a tight bend), and the paved surfaces of an aerodrome no longer overlap (runways, then
+  stopways, aprons, taxiways, shoulders — a shoulder stops where a taxiway joins).
+- **Fixed**: an unknown value written by the tool (an empty element with its nilReason, as AMXM allows) was read back as
+  an empty code and counted as a code-list error — a generated package of an AIP data set showed some 1 400 such
+  errors; they are read as unknown now.
 - **Aerodrome mapping, step by step**: the section asks what you want to do — **👁 View AMDB data** (Load → Look →
   Check → Fit for use → Compare (optional) → Export) or **🛠 Create AMDB data** (Sources → Fill the gaps (optional) →
   Generate → Look → Check → Fit for use → Package) — and goes step by step: a bar of numbered steps (✓ done, the next

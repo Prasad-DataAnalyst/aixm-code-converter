@@ -162,7 +162,7 @@ var AMDBOSM = (function () {
   function drop(code) { delete STORE[code]; }
   // what OSM gives for an aerodrome
   function summary(o) {
-    var n = { runway: 0, taxiway: 0, twyRef: 0, apron: 0, stand: 0, standRef: 0, hold: 0, building: 0, terminal: 0, windsock: 0, navaid: 0, surface: 0, boundary: 0, all: 0 };
+    var n = { runway: 0, taxiway: 0, twyRef: 0, apron: 0, stand: 0, standRef: 0, hold: 0, building: 0, terminal: 0, windsock: 0, navaid: 0, surface: 0, boundary: 0, road: 0, all: 0 };
     if (!o) return n;
     o.els.forEach(function (e) {
       var t = e.tags, a = t.aeroway; n.all++;
@@ -174,6 +174,7 @@ var AMDBOSM = (function () {
       else if (a === 'windsock' || t.man_made === 'windsock') n.windsock++;
       else if (a === 'navigationaid') n.navaid++;
       else if (a === 'aerodrome') n.boundary++;
+      if (t.highway === 'service' && e.g && e.g.t === 'L') n.road++;
       if (t.building || a === 'terminal' || a === 'hangar' || a === 'tower') { n.building++; if (a === 'terminal' || t.building === 'terminal') n.terminal++; }
     });
     return n;

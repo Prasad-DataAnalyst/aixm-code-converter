@@ -164,14 +164,45 @@ var AMDBPKG = (function () {
     };
   }
 
+  /* ------------------------------------------------------- content completeness */
+  // what an aerodrome map holds, item by item (an aerodrome with its taxiways, aprons, stands, buildings, roads and
+  // lights): what the data set has, what it lacks, and the share it has
+  var LGT_RWY = { 2: 1, 3: 1, 4: 1, 5: 1, 7: 1, 8: 1, 9: 1, 10: 1 }, LGT_TWY = { 0: 1, 1: 1 };
+  var CONTENT = [['Reference point', ['AerodromeReferencePoint']], ['Runways', ['RunwayElement', 'FinalApproachAndTakeOffArea']], ['Thresholds', ['RunwayThreshold']], ['Runway shoulders', ['RunwayShoulder']],
+    ['Runway markings', ['RunwayMarking', 'PaintedCenterline']], ['Runway lights', function (f) { return f.t === 'AerodromeSurfaceLighting' && f.a.lgtuse && LGT_RWY[f.a.lgtuse.v]; }],
+    ['Taxiway surfaces', ['TaxiwayElement']], ['Taxiway centre lines', ['TaxiwayGuidanceLine']], ['Holding positions', ['TaxiwayHoldingPosition']],
+    ['Taxiway lights', function (f) { return f.t === 'AerodromeSurfaceLighting' && f.a.lgtuse && LGT_TWY[f.a.lgtuse.v]; }], ['Aprons', ['ApronElement']], ['Stands', ['ParkingStandLocation']],
+    ['Buildings', ['VerticalPolygonalStructure']], ['Service roads', ['ServiceRoad']], ['Navaids and obstacles', ['VerticalPointStructure']], ['Routing network', ['AsrnEdge']]];
+  function completeness(features) {
+    var by = {};
+    features.forEach(function (f) { var ad = f.ad || '(none)'; (by[ad] = by[ad] || []).push(f); });
+    var out = {};
+    Object.keys(by).forEach(function (ad) {
+      var fs = by[ad], have = [], miss = [];
+      CONTENT.forEach(function (c) { var ok = typeof c[1] === 'function' ? fs.some(c[1]) : fs.some(function (f) { return c[1].indexOf(f.t) >= 0; }); (ok ? have : miss).push(c[0]); });
+      out[ad] = { have: have, miss: miss, n: CONTENT.length, pct: Math.round(have.length / CONTENT.length * 100) };
+    });
+    return out;
+  }
+  function completeHtml(cm, ads) {
+    var rows = ads.filter(function (a) { return cm[a]; });
+    if (!rows.length) return '';
+    var low = rows.filter(function (a) { return cm[a].pct < 94; });
+    return '<div class="card card-pad pk-complete' + (low.length ? ' low' : '') + '"><h3 style="margin-top:0">Content of the package</h3>' + rows.map(function (a) {
+      var c = cm[a];
+      return '<p><b>' + esc(a) + '</b> — <b style="color:' + (c.pct >= 94 ? 'var(--ok)' : c.pct >= 70 ? 'var(--warn)' : 'var(--err)') + '">' + c.have.length + ' of ' + c.n + ' items (' + c.pct + ' %)</b>' + (c.miss.length ? ' · missing: ' + esc(c.miss.join(', ')) : ' · complete') + '</p>';
+    }).join('') + (low.length ? '<p class="pk-low">⚠ <b>Below 94 %, an aerodrome map is not complete enough to be used.</b> Complete ' + esc(low.join(', ')) + ' first: <i>Create AMDB data</i> → Sources (OpenStreetMap, the State\'s charts) and Fill the gaps (place the charts, trace on imagery), then Generate again. <button class="btn small primary" data-pkgo="generate">Complete it — Generate</button> <button class="btn small" data-pkgo="upload">Sources</button></p>' : '') + '</div>';
+  }
+
   /* ------------------------------------------------------------ build view */
   function packageView(host, ctx) {
     var col = API.features(ctx.datasets), ads = {}, types = {};
     col.features.forEach(function (f) { var a = f.ad || '(none)'; ads[a] = (ads[a] || 0) + 1; types[f.t] = (types[f.t] || 0) + 1; });
     SET.ads = SET.ads.filter(function (a) { return ads[a]; }); SET.types = SET.types.filter(function (t) { return types[t]; });
-    if (!SET.ads.length) SET.ads = Object.keys(ads).filter(function (a) { return a !== '(none)'; }).sort().slice(0, 1);
+    if (!SET.ads.length) SET.ads = Object.keys(ads).filter(function (a) { return a !== '(none)'; }).sort(function (a, b) { return ads[b] - ads[a] || a.localeCompare(b); }).slice(0, 1); // the aerodrome with the most features
     var full = SET.mode === 'full', srcs = sources(ctx), noRights = srcs.filter(function (x) { return !x.info.rights; });
     var h = '<div class="nfo-box amdb-notice" role="note">⚠ ' + esc(API.NOTICE) + '</div>';
+    h += completeHtml(completeness(col.features), full ? Object.keys(ads).sort() : SET.ads);
     h += '<div class="toolbar"><span class="pill-tabs">' + [['custom', 'Custom export'], ['full', 'Full export']].map(function (m) { return '<button data-pkmode="' + m[0] + '" class="' + (SET.mode === m[0] ? 'active' : '') + '">' + m[1] + '</button>'; }).join('') + '</span>' +
       '<span class="muted">' + (full ? 'Everything: every aerodrome, every feature type, every format.' : 'Only what you choose.') + '</span></div>';
     h += '<div class="amdb-form">';
@@ -205,6 +236,7 @@ var AMDBPKG = (function () {
     host.onclick = function (e) {
       var m = e.target.closest('[data-pkmode]');
       if (m) { upd(function () { SET.mode = m.getAttribute('data-pkmode'); }); return; }
+      var g = e.target.closest('[data-pkgo]'); if (g && ctx.amTab) { ctx.amTab(g.getAttribute('data-pkgo')); return; }
       if (e.target.closest('[data-pkbuild]')) build(host, ctx);
     };
   }
@@ -656,6 +688,10 @@ var AMDBPKG = (function () {
       { kind: 'kv', rows: [['Result', W.checks.bySev.error + ' error(s), ' + W.checks.bySev.warning + ' warning(s), ' + W.checks.bySev.info + ' note(s)'], ['Rules', 'AMDB rules ' + AMDB.RULES_VERSION + ', geometry engine ' + W.checks.engine]].map(function (r) { return { label: r[0], cells: [C(r[1])] }; }) },
       { kind: 'table', title: 'Results by rule', cols: ['Rule', 'Check', 'Result', 'Source'], rows: AMDB.RULES.map(function (r) { return [C(r.id), C(r.title), C(!W.checks.ran[r.id] ? 'not run' : byRule[r.id] ? byRule[r.id] + ' finding(s)' : 'passed'), C(r.src)]; }) },
       { kind: 'table', title: 'Findings', cols: ['Severity', 'Rule', 'Aerodrome', 'Feature', 'Finding', 'Found', 'Expected'], rows: W.checks.findings.map(function (x) { var f = byI[x.f]; return [C(x.sev), C(x.r), C(x.ad), C(f ? f.t + (f.label ? ' ' + f.label : '') : ''), C(x.msg), C(x.found), C(x.expected)]; }) }] });
+    // what the package holds of an aerodrome map, item by item
+    var CM = completeness(list);
+    secs.push({ title: 'Content', blocks: [{ kind: 'table', cols: ['Aerodrome', 'Items', 'Share', 'Missing'], rows: Object.keys(CM).sort().map(function (a) { return [C(a), C(CM[a].have.length + ' of ' + CM[a].n), C(CM[a].pct + ' %'), C(CM[a].miss.join(', ') || 'none')]; }) },
+      { kind: 'note', text: 'Items: reference point, runways, thresholds, runway shoulders, markings and lights, taxiway surfaces and centre lines, holding positions, taxiway lights, aprons, stands, buildings, service roads, navaids and obstacles, routing network. Below 94 % an aerodrome map is not complete enough to be used.' }] });
     // each feature type against the accuracy its data needs (ICAO PANS-AIM Appendix 1), from what it declares or its source
     if (typeof AMDBQ !== 'undefined') {
       var FQ = AMDBQ.fitness(list);
@@ -801,5 +837,5 @@ var AMDBPKG = (function () {
     if (tab === 'sources') sourcesView(host, ctx); else packageView(host, ctx);
   }
   function setApi(api) { API = api; }
-  return { render: render, make: make, verify: verify, sha256: sha256, utm: utm, settings: SET, setApi: setApi, gpkgToAmxm: gpkgToAmxm, writeAmxm: writeAmxm, uuid: uuid };
+  return { render: render, make: make, verify: verify, sha256: sha256, utm: utm, settings: SET, setApi: setApi, gpkgToAmxm: gpkgToAmxm, writeAmxm: writeAmxm, uuid: uuid, completeness: completeness };
 })();

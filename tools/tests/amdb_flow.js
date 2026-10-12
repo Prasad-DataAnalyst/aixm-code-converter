@@ -7,6 +7,7 @@
 // - "Create AMDB data": Sources (the AIP data set), Fill the gaps (optional), Generate, Look, Check, Fit for use,
 //   Package — a step waiting for an earlier one says which; generating marks Generate done and opens Look;
 // - the path chosen is kept after a reload; "All tools" shows every tool as a tab; on a phone nothing overflows.
+/* global AMDB, MODEL, jsts */
 const env = require('./_env');
 const ROOT = env.ROOT, OUT = env.out('amdb_flow'), T = ROOT + '/testdata/';
 const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
@@ -71,12 +72,35 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   await next('Generate'); await page.waitForSelector('[data-gengo]', { timeout: 30000 });
   await page.check('[data-genack]');
   await page.evaluate(() => { document.querySelectorAll('[data-gen]').forEach((cb) => { cb.checked = false; cb.dispatchEvent(new Event('change', { bubbles: true })); }); const r = Array.from(document.querySelectorAll('[data-genrow]')).filter((t) => /EADD/.test(t.textContent))[0]; const cb = r.querySelector('[data-gen]'); cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); });
-  await page.click('[data-gengo]');
+  // below 94 %: what is missing and OpenStreetMap one click away; the first click says it, the second generates
+  await page.waitForSelector('.gen-gap');
+  const gap = await page.$eval('.gen-gap', (e) => e.innerText);
+  if (!/EADD is \d+ % ready — still missing: .*Service roads/.test(gap) || !(await page.$('[data-osmone="EADD"]'))) fails.push('generate: what is missing ' + gap.slice(0, 300));
+  await page.click('button[data-gengo]'); await page.waitForTimeout(200);
+  if (!/below 94 %/.test(await page.$eval('.gen-st', (e) => e.textContent))) fails.push('generate below 94 % without a word');
+  await page.click('button[data-gengo]');
   await page.waitForFunction(() => window.__AIXM.S.datasets.some((d) => /_generated_from_AIP/.test(d.name)), null, { timeout: 60000 });
+  // the generated data read back: unknown values are unknown (no empty codes); the surfaces valid and not overlapping
+  const q = await page.evaluate(() => {
+    const ds = window.__AIXM.S.datasets.filter((d) => /_generated_from_AIP/.test(d.name)), f = AMDB.collect(ds, MODEL).features;
+    let empty = 0, nil = 0; f.forEach((x) => Object.keys(x.a).forEach((k) => { if (x.a[k].v === '') empty++; if (x.a[k].nil) nil++; }));
+    const gf = new jsts.geom.GeometryFactory();
+    const pave = f.filter((x) => /^(RunwayElement|ApronElement|TaxiwayElement|Stopway)$/.test(x.t) && x.g[0] && x.g[0].t === 'A').map((x) => ({ t: x.t, g: x.g[0].c[0] }));
+    const o = f.filter((x) => x.t === 'AerodromeReferencePoint')[0].g[0].c, Pl = AMDB.plane(o[0], o[1]);
+    const polys = pave.map((x) => gf.createPolygon(gf.createLinearRing(x.g.map((c) => { const v = Pl.fwd(c); return new jsts.geom.Coordinate(v[0], v[1]); })), []));
+    let invalid = 0, overlap = 0; polys.forEach((g, i) => { if (!g.isValid()) invalid++; for (let k = i + 1; k < polys.length; k++) { try { if (g.intersects(polys[k]) && g.intersection(polys[k]).getArea() > 1) overlap++; } catch (e) { overlap++; } } });
+    return { empty, nil, pave: polys.length, invalid, overlap, tl: f.filter((x) => x.t === 'AerodromeSurfaceLighting' && x.a.lgtuse && /^[01]$/.test(x.a.lgtuse.v)).length };
+  });
+  if (q.empty || !q.nil || q.invalid || q.overlap || !q.pave) fails.push('generated data read back: ' + JSON.stringify(q));
   await page.waitForFunction(() => { const b = document.querySelector('.am-step.on .am-step-t'); return b && b.firstChild.textContent.trim() === 'Look'; }, null, { timeout: 30000 });
   const f5 = await flow();
   if (f5.mode !== 'create' || f5.steps.join() !== 'Sources:done,Fill the gaps:done,Generate:done,>Look:todo,Check:todo,Fit for use:todo,Package:todo') fails.push('create after generating: ' + JSON.stringify(f5));
   await page.screenshot({ path: OUT + '/create_look.png' });
+  // the package says what an aerodrome map of it holds
+  await page.click('.am-step[data-amtab="package"]'); await page.waitForSelector('.pk-complete', { timeout: 30000 });
+  if (!(await page.$eval('[data-pkad="EADD"]', (e) => e.checked))) { await page.click('[data-pkad="EADD"]'); await page.waitForTimeout(300); }
+  const pk = await page.$eval('.pk-complete', (e) => e.innerText);
+  if (!/EADD — \d+ of 16 items \(\d+ %\)/.test(pk)) fails.push('package content: ' + pk);
 
   /* -------------------------------------------------- kept, all tools, phone */
   await page.reload(); await page.waitForSelector('#drop');

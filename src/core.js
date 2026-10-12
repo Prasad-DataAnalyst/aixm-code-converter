@@ -608,6 +608,8 @@ var AX = (function () {
       var ch = node.c[i];
       if (isGml(ch, ctx)) continue;
       var v = convProp(ch, ctx, null);
+      // AMXM gives an unknown value as an empty element with its reason (<amxm:lstype nilReason="Unknown"/>): unknown, not ''
+      if ((v === '' || (v && typeof v === 'object' && v.v === '')) && attr(ch, 'nilReason')) v = { nil: attr(ch, 'nilReason') };
       if (v !== undefined) addProp(raw, ch.n, v);
       else if (attr(ch, 'nil') === 'true') (nils || (nils = [])).push(ch.n); // given as nil without a reason kept: the attribute is there
     }

@@ -1155,3 +1155,8 @@ pre, .xml, .notam-text { text-align: left; }
 .am-extra { margin-top: 6px; font-size: 12.5px; text-align: right; } .am-extra:empty { display: none; }
 .up-create > summary { cursor: pointer; }
 @media (max-width: 760px) { .am-modes { grid-template-columns: 1fr; } .am-now { flex-direction: column; align-items: flex-start; } .am-steps li { min-width: 92px; } }
+/* what an aerodrome lacks before it is generated or packaged */
+.gen-gap { margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: var(--warn-soft); border-left: 4px solid var(--warn); font-size: 13.5px; }
+.gen-gap p { margin: 4px 0; } .gen-gap-do { margin-top: 8px !important; }
+.pk-complete { border-left: 4px solid var(--ok); } .pk-complete.low { border-left-color: var(--err); } .pk-complete p { margin: 4px 0; }
+.pk-low { padding: 8px 10px; border-radius: 8px; background: var(--err-soft); }

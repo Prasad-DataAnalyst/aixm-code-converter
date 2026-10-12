@@ -325,7 +325,7 @@ var AMDB = (function () {
         def.attrs.forEach(function (a) {
           var x = f.a[a.n];
           if (a.m && !x && f.keys.indexOf(a.n) < 0) add('G01', f, f.t + ' has no ' + a.n + ' (' + (a.d || 'required') + ').', null, 'absent', a.n + ' given, or nil with a reason');
-          if (a.c && x && x.v !== undefined && dict.codes[a.c] && !Object.prototype.hasOwnProperty.call(dict.codes[a.c], x.v)) add('G02', f, a.n + ' = "' + x.v + '" is not in the code list ' + a.c.replace(/BaseTypeType$/, '') + '.', null, x.v, Object.keys(dict.codes[a.c]).slice(0, 12).join(', ') + (Object.keys(dict.codes[a.c]).length > 12 ? ' …' : ''));
+          if (a.c && x && x.v !== undefined && x.v !== '' && dict.codes[a.c] && !Object.prototype.hasOwnProperty.call(dict.codes[a.c], x.v)) add('G02', f, a.n + ' = "' + x.v + '" is not in the code list ' + a.c.replace(/BaseTypeType$/, '') + '.', null, x.v, Object.keys(dict.codes[a.c]).slice(0, 12).join(', ') + (Object.keys(dict.codes[a.c]).length > 12 ? ' …' : ''));
         });
         var ft = f.a.feattype && f.a.feattype.v, want = feattypeOf[f.t.toLowerCase()];
         if (ft !== undefined && want !== undefined && ft !== want) add('G03', f, 'feattype ' + ft + ' (' + (dict.codes.feattypeBaseTypeType[ft] || 'unknown') + ') on a ' + f.t + '.', null, ft, want);

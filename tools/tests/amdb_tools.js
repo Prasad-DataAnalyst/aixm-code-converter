@@ -23,6 +23,8 @@ const { validateAmxm } = require('./_xsd');
   const browser = await env.playwright.chromium.launch({ executablePath: env.chrome });
   const ctx = await browser.newContext({ viewport: { width: 1500, height: 950 }, acceptDownloads: true });
   const page = await ctx.newPage();
+  // below 94 % the first click only says what is missing; the second generates
+  const generateClick = async () => { await page.click('button[data-gengo]'); await page.waitForTimeout(150); if (/below 94/.test(await page.$eval('.gen-st', (e) => e.textContent).catch(() => ''))) await page.click('button[data-gengo]'); };
   const errors = [], fails = [];
   page.on('pageerror', (e) => errors.push(e.message));
   async function load(files) {
@@ -72,7 +74,7 @@ const { validateAmxm } = require('./_xsd');
   const idx = cand.findIndex((c) => c.code === 'EADD');
   await page.check('[data-gen="' + idx + '"]');
   await page.check('[data-genack]');
-  await page.click('[data-gengo]');
+  await generateClick();
   await page.waitForFunction(() => window.__AIXM.S.datasets.some((d) => d.family === 'amxm' && /generated_from_AIP/.test(d.name)), null, { timeout: 60000 });
   await page.waitForTimeout(500);
   const gen = (await amxmFeatures()).find((d) => /generated_from_AIP/.test(d.name));
@@ -116,7 +118,7 @@ const { validateAmxm } = require('./_xsd');
   if (lean) fails.push('options: lights / markings generated although switched off');
   // generate EADD through the UI: the chart, its labels, the base maps, 3D
   await page.click('[data-gensel="none"]'); await page.click('[data-gensel="shown"]');
-  await page.check('[data-genack]'); await page.click('[data-gengo]');
+  await page.check('[data-genack]'); await generateClick();
   await page.waitForSelector('.am-map', { timeout: 60000 }); await page.waitForTimeout(800);
   const ch = await page.evaluate(() => { const el = document.querySelector('.am-map'); return { mode: (document.querySelector('[data-amcol].active') || {}).textContent, labels: el.querySelectorAll('.ddm-lbl.ddm-rwy').length, bases: Array.from(el.querySelectorAll('.ddm-ctl option')).map((o) => o.value) }; });
   if (!/Aerodrome chart/.test(ch.mode || '') || ch.labels < 2) fails.push('aerodrome chart: ' + JSON.stringify(ch).slice(0, 200));
