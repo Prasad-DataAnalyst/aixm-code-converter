@@ -27,7 +27,7 @@
  * counter-clockwise and holes clockwise, repeated positions removed, attributes the schema requires and the data
  * does not give written as unknown (nilReason="Unknown"). Nothing else is changed or invented.
  * ========================================================================== */
-/* global MODEL, AMDB, AMDBUI, LAZY, EXPORTS, CONVERT, DDX, INTEGRITY, APP_INFO, XLSX, fflate, initSqlJs */
+/* global MODEL, AMDB, AMDBUI, LAZY, EXPORTS, CONVERT, DDX, INTEGRITY, APP_INFO, XLSX, fflate, initSqlJs, AMDBQ */
 var AMDBPKG = (function () {
   'use strict';
   var M = MODEL;
@@ -261,6 +261,7 @@ var AMDBPKG = (function () {
     put('guides/feature_catalogue_mapping.csv', catalogueCsv(list));
     // the report lists every other file with its checksums
     say('writing the report…');
+    if (typeof AMDBQ === 'undefined') { try { await LAZY.run('src-amdbq'); } catch (e) { /* the report goes without fit for use */ } }
     var rep = reportScope(list, W, fileList(files));
     put('reports/' + base + '_package_report.html', reportHtml(rep, W));
     put('reports/' + base + '_package_report.pdf', new Uint8Array(await EXPORTS.exportPDF(rep, { blob: true, plain: plain, head: plain ? 'Aerodrome mapping package ' + tag : 'AIXM Code Converter — aerodrome mapping package ' + tag }).arrayBuffer()));
@@ -655,6 +656,14 @@ var AMDBPKG = (function () {
       { kind: 'kv', rows: [['Result', W.checks.bySev.error + ' error(s), ' + W.checks.bySev.warning + ' warning(s), ' + W.checks.bySev.info + ' note(s)'], ['Rules', 'AMDB rules ' + AMDB.RULES_VERSION + ', geometry engine ' + W.checks.engine]].map(function (r) { return { label: r[0], cells: [C(r[1])] }; }) },
       { kind: 'table', title: 'Results by rule', cols: ['Rule', 'Check', 'Result', 'Source'], rows: AMDB.RULES.map(function (r) { return [C(r.id), C(r.title), C(!W.checks.ran[r.id] ? 'not run' : byRule[r.id] ? byRule[r.id] + ' finding(s)' : 'passed'), C(r.src)]; }) },
       { kind: 'table', title: 'Findings', cols: ['Severity', 'Rule', 'Aerodrome', 'Feature', 'Finding', 'Found', 'Expected'], rows: W.checks.findings.map(function (x) { var f = byI[x.f]; return [C(x.sev), C(x.r), C(x.ad), C(f ? f.t + (f.label ? ' ' + f.label : '') : ''), C(x.msg), C(x.found), C(x.expected)]; }) }] });
+    // each feature type against the accuracy its data needs (ICAO PANS-AIM Appendix 1), from what it declares or its source
+    if (typeof AMDBQ !== 'undefined') {
+      var FQ = AMDBQ.fitness(list);
+      secs.push({ title: 'Fit for use (estimated from the sources)', blocks: [
+        { kind: 'kv', rows: [['Meets', FQ.all.meets], ['Published by the State, accuracy not declared', FQ.all.state], ['Unknown', FQ.all.unknown], ['Not met', FQ.all['not met']], ['No requirement held', FQ.all['n/a']]].map(function (r) { return { label: r[0], cells: [C(r[1])] }; }) },
+        { kind: 'table', cols: ['Feature type', 'Data class', 'Required (m)', 'Requirement from', 'Features', 'Meets', 'State', 'Unknown', 'Not met'], rows: FQ.types.filter(function (T) { return T.req; }).map(function (T) { return [C(T.t), C(T.req.cls), C(T.req.acc), C(T.req.by), C(T.n), C(T.meets), C(T.state), C(T.unknown), C(T['not met'])]; }) },
+        { kind: 'note', text: 'Accuracy: what a feature declares, else an estimate from its source (the fit of a placed chart, three pixels of the imagery traced on), else its source (a value the State publishes; OpenStreetMap: not stated; ICAO Annex 14 layout: not a measurement). Integrity is not assured: this tool is not an ED-76A / DO-200B process. Not a certification of the data.' }] });
+    }
     secs.push({ title: 'Limits', blocks: [{ kind: 'note', text: 'The quality of this package is the quality of its sources: no position was compared with a survey or with imagery. A rule that passes found nothing; it does not prove the data complete or correct. Requirements of EUROCAE ED-99 / RTCA DO-272 and ED-119 / DO-291 (sold by EUROCAE / RTCA) were not reproduced; the checks follow public ICAO, AMXM schema and EUROCONTROL material.' }] });
     return { title: 'Aerodrome mapping package ' + W.tag, sub: W.plain ? '' : 'NOT FOR NAVIGATION — study and analysis only', ds: null, sections: secs };
   }

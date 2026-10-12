@@ -1124,3 +1124,13 @@ pre, .xml, .notam-text { text-align: left; }
 .tr-map { height: 62vh; min-height: 380px; border-radius: 10px; border: 1px solid var(--border); background: #1b1f24; }
 .tr-help { font-size: 12.5px; margin: 6px 0; } .tr-custom { margin-left: auto; font-size: 12.5px; } .tr-custom input { margin: 3px 0; }
 @media (max-width: 700px) { .tr-map { height: 55vh; min-height: 300px; } .up-kinds { grid-template-columns: 1fr; } }
+/* the State's charts placed on the map (Trace on imagery) and fit for use */
+.tr-charts { margin: 8px 0; font-size: 12.5px; } .tr-charts > summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+.geo-docs td { vertical-align: middle; } .geo-st { min-height: 1em; margin: 4px 0; }
+.geo-ed { border: 1px solid var(--border); border-radius: 10px; padding: 8px; margin: 6px 0; background: var(--surface-2); }
+.geo-scroll { max-height: 460px; overflow: auto; border-radius: 8px; background: #fff; border: 1px solid var(--border); }
+.geo-page { position: relative; min-width: 100%; } .geo-page img { display: block; width: 100%; height: auto; cursor: crosshair; user-select: none; }
+.geo-pt { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border: 2px solid #ff3d00; border-radius: 50%; pointer-events: none; box-shadow: 0 0 0 1px #fff; }
+.geo-pt.hand { border-color: #00b8d4; } .geo-pt.pend { border-color: #d500f9; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-width: 3px; }
+.geo-pts { max-height: 220px; } .geo-step { margin: 6px 0; }
+.fit-card h4 { margin: 14px 0 4px; } .fit-tbl td input { padding: 2px 4px; } .fit-map { height: 380px; margin-top: 8px; }

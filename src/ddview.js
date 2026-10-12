@@ -15,7 +15,7 @@
  * Each section takes its own files too (an upload area in the section, before or after any data is loaded); the
  * Files view stays as it is. The AIP, map and export views are not changed; this tab only reads the data.
  * ========================================================================== */
-/* global MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW, TERVIEW, DEM, IFP, DDX, CONVERT, STUDY, LAZY, AMDBUI, AMDBX, AMDBOSM, AMDBDOC, AMDBTRACE */
+/* global MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW, TERVIEW, DEM, IFP, DDX, CONVERT, STUDY, LAZY, AMDBUI, AMDBX, AMDBOSM, AMDBDOC, AMDBTRACE, AMDBGEO, AMDBQ */
 var DDVIEW = (function () {
   'use strict';
   var M = MODEL, s = M.s;
@@ -290,7 +290,7 @@ var DDVIEW = (function () {
     });
   }
   // Aerodrome mapping: the features (AMXM) and the AMDB tools - checks, package, sources (loaded when opened)
-  var AM_TABS = [['upload', '📤 Upload'], ['features', 'Features'], ['checks', 'AMDB checks'], ['package', 'Build package'], ['sources', 'Sources & quality'], ['generate', 'Generate from AIP'], ['trace', '✏️ Trace on imagery'], ['compare', 'Compare'], ['guide', '📘 How to create AMDB']];
+  var AM_TABS = [['upload', '📤 Upload'], ['features', 'Features'], ['checks', 'AMDB checks'], ['package', 'Build package'], ['sources', 'Sources & quality'], ['generate', 'Generate from AIP'], ['trace', '✏️ Trace on imagery'], ['fit', '📏 Fit for use'], ['compare', 'Compare'], ['guide', '📘 How to create AMDB']];
   function amRender(host, ctx) {
     var F = V.am;
     host.innerHTML = '<div class="pill-tabs am-tabs" role="tablist" aria-label="Aerodrome mapping tools">' + AM_TABS.map(function (t) { return '<button role="tab" class="' + (F.tab === t[0] ? 'active' : '') + '" data-amtab="' + t[0] + '">' + t[1] + '</button>'; }).join('') +
@@ -304,10 +304,11 @@ var DDVIEW = (function () {
     body.innerHTML = '<div class="card card-pad"><span class="spinner"></span> Loading the aerodrome mapping tools…</div>';
     try {
       await LAZY.run('src-amdb'); await LAZY.run('src-amdbui');
-      var x = /^(generate|compare|guide|upload|trace)$/.test(tab);
+      var x = /^(generate|compare|guide|upload|trace|fit)$/.test(tab);
       if (x && typeof AMDBX === 'undefined') { await LAZY.run('src-amdbpkg'); await LAZY.run('src-amdbx'); }
       // the sources of generation: OpenStreetMap, the State's charts and documents, what was traced on imagery
-      if (/^(generate|upload|trace)$/.test(tab)) { if (typeof AMDBOSM === 'undefined') await LAZY.run('src-amdbosm'); if (typeof AMDBDOC === 'undefined') await LAZY.run('src-amdbdoc'); if (typeof AMDBTRACE === 'undefined') await LAZY.run('src-amdbtrace'); }
+      if (/^(generate|upload|trace)$/.test(tab)) { if (typeof AMDBOSM === 'undefined') await LAZY.run('src-amdbosm'); if (typeof AMDBDOC === 'undefined') await LAZY.run('src-amdbdoc'); if (typeof AMDBTRACE === 'undefined') await LAZY.run('src-amdbtrace'); if (typeof AMDBGEO === 'undefined') await LAZY.run('src-amdbgeo'); }
+      if (tab === 'fit' && typeof AMDBQ === 'undefined') await LAZY.run('src-amdbq');
       if (V.am.tab !== tab || !body.isConnected) return;
       var host = body.parentNode && body.parentNode.closest ? body.closest('.dd-body') : null;
       var c2 = Object.assign({}, ctx, { amTab: function (t2, reload) { V.am.tab = t2; V.am.picked = true; if (reload || !host) window.__AIXM.go('digital'); else amRender(host, ctx); } });

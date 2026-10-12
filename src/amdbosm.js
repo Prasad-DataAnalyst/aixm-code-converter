@@ -192,7 +192,7 @@ var AMDBOSM = (function () {
   function convert(c, o, H) {
     var out = [], notes = [], taxi = [], stands = [];
     if (!o) return { features: out, notes: notes, taxi: taxi };
-    function src(e, what) { return { v: ('OpenStreetMap contributors (ODbL 1.0), ' + e.type + ' ' + e.id + ': ' + (what || 'traced from imagery by volunteers') + ', coarse quality').slice(0, 254) }; }
+    function src(e, what) { return { v: ('OpenStreetMap contributors (ODbL 1.0), ' + e.type + ' ' + e.id + ': ' + (what || 'traced from imagery by volunteers') + (e.tags['ref:chart'] ? '; name ' + e.tags.ref + ' from the State\'s chart (its label beside this line)' : '') + ', coarse quality').slice(0, 254) }; }
     function feat(t, e, key, what) { var f = H.base(t, 'osm-' + key + '-' + e.type.charAt(0) + e.id); f.a.source = src(e, what); f.osm = e.type + '/' + e.id; out.push(f); return f; }
     function skip(t) { return H.have[t] > 0; } // the AIP data set gives this type: it is kept, OSM is not added
     var lines = function (k) { return o.els.filter(function (e) { return e.g.t === 'L' && (Array.isArray(k) ? k.indexOf(e.tags.aeroway) >= 0 : e.tags.aeroway === k); }); };

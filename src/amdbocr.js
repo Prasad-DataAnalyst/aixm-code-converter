@@ -135,7 +135,7 @@ var AMDBOCR = (function () {
   function canvas(w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); return c; }
   // one page: its pixels cleaned (ink without the lines), its tables read cell by cell, the rest read as a page
   async function page(src, w, say, label) {
-    var g = src.getContext('2d', { willReadFrequently: true }), img = g.getImageData(0, 0, src.width, src.height), m = masks(img);
+    var g = src.getContext('2d', { willReadFrequently: true }), img = g.getImageData(0, 0, src.width, src.height), m = masks(img), W0 = src.width, H0 = src.height;
     img = null;
     var clean = canvas(m.W, m.H), cg = clean.getContext('2d'), out = cg.getImageData(0, 0, m.W, m.H), op = out.data;
     for (var i = 0, j = 0; i < m.W * m.H; i++, j += 4) if (m.ink[i] && !m.line[i]) { op[j] = op[j + 1] = op[j + 2] = 0; }
@@ -171,12 +171,16 @@ var AMDBOCR = (function () {
     var items = pw.map(function (wd) { var h = Math.max(4, wd.bbox.y1 - wd.bbox.y0); return { str: wd.text, width: wd.bbox.x1 - wd.bbox.x0, transform: [h, 0, 0, h, wd.bbox.x0, -wd.bbox.y1] }; });
     var lines = AMDBDOC.textLines(items);
     T.forEach(function (t) { t.rows.forEach(function (row) { var tx = row.map(function (c) { return c.text; }).filter(Boolean); if (tx.length) lines.push(tx.join('\t')); }); });
-    return { lines: lines, tables: T.length, cells: all.length, conf: conf };
+    // the words of the drawing at their place on the page (0 … 1 across and down): stand numbers, runway designators,
+    // taxiway names beside what they name, for placing the chart on the map (amdbgeo.js)
+    var r5 = function (x) { return Math.round(x * 1e5) / 1e5; };
+    var labels = pw.filter(function (wd) { return wd.text.length <= 24 && wd.confidence >= 40; }).map(function (wd) { return { t: wd.text, u: r5((wd.bbox.x0 + wd.bbox.x1) / 2 / W0), v: r5((wd.bbox.y0 + wd.bbox.y1) / 2 / H0), h: r5((wd.bbox.y1 - wd.bbox.y0) / Math.max(W0, H0)), ocr: 1 }; });
+    return { lines: lines, tables: T.length, cells: all.length, conf: conf, labels: labels };
   }
   // every page of a PDF; the pages drawn at about 5 000 pixels across (at most 20 million pixels)
   async function readPdf(bytes, say) {
     var w = await engine(say), lib = await AMDBDOC.pdfLib(), doc = await lib.getDocument({ data: bytes.slice(0), isEvalSupported: false, disableFontFace: true, useSystemFonts: false }).promise;
-    var res = { lines: [], pages: doc.numPages, tables: 0, cells: 0, conf: 0 }, conf = [];
+    var res = { lines: [], pages: doc.numPages, tables: 0, cells: 0, conf: 0, labels: [], pagePt: {} }, conf = [];
     try {
       for (var i = 1; i <= doc.numPages; i++) {
         var pg = await doc.getPage(i), v1 = pg.getViewport({ scale: 1 }), sc = Math.min(5, Math.max(2.5, 5000 / Math.max(v1.width, v1.height)));
@@ -186,12 +190,44 @@ var AMDBOCR = (function () {
         await pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
         var r = await page(cv, w, say, label.charAt(0).toUpperCase() + label.slice(1));
         res.lines = res.lines.concat(r.lines); res.tables += r.tables; res.cells += r.cells; conf = conf.concat(r.conf);
+        res.pagePt[i] = [v1.width, v1.height]; r.labels.forEach(function (l) { l.p = i; res.labels.push(l); });
         cv.width = cv.height = 1;
       }
     } finally { await doc.destroy(); }
     res.conf = conf.length ? Math.round(conf.reduce(function (a, b) { return a + b; }, 0) / conf.length) : 0;
     return res;
   }
+  // the words of a page written along given directions (degrees, the page as shown, y down): the page turned so each
+  // direction is level, its scattered words read (sparse text), and put back at their place on the page (0 … 1)
+  async function readTurned(bytes, p, angles, say) {
+    var w = await engine(say), lib = await AMDBDOC.pdfLib(), doc = await lib.getDocument({ data: bytes.slice(0), isEvalSupported: false, disableFontFace: true, useSystemFonts: false }).promise, out = [];
+    try {
+      var pg = await doc.getPage(p), v1 = pg.getViewport({ scale: 1 }), sc = Math.min(5, Math.max(2.5, 5000 / Math.max(v1.width, v1.height)));
+      if (v1.width * v1.height * sc * sc > 2e7) sc = Math.sqrt(2e7 / (v1.width * v1.height));
+      var vp = pg.getViewport({ scale: sc }), cv = canvas(Math.round(vp.width), Math.round(vp.height)), W0 = cv.width, H0 = cv.height;
+      say('Drawing the page …');
+      await pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+      for (var i = 0; i < angles.length; i++) {
+        var r = angles[i] * Math.PI / 180, ca = Math.abs(Math.cos(r)), sa = Math.abs(Math.sin(r)), k = 1, W1 = W0 * ca + H0 * sa, H1 = W0 * sa + H0 * ca;
+        if (W1 * H1 > 2.5e7) k = Math.sqrt(2.5e7 / (W1 * H1));
+        W1 = Math.ceil(W1 * k); H1 = Math.ceil(H1 * k);
+        var c2 = canvas(W1, H1), g = c2.getContext('2d');
+        g.translate(W1 / 2, H1 / 2); g.rotate(-r); g.scale(k, k); g.drawImage(cv, -W0 / 2, -H0 / 2);
+        say('Reading the words written at ' + Math.round(angles[i]) + '° (' + (i + 1) + ' / ' + angles.length + ') …');
+        await w.setParameters({ tessedit_pageseg_mode: '11', preserve_interword_spaces: '1', user_defined_dpi: '300' });
+        words(await w.recognize(c2, {}, { blocks: true })).forEach(function (wd) {
+          if (wd.confidence < 50 || !wd.text.trim() || wd.text.length > 24) return;
+          var cx = ((wd.bbox.x0 + wd.bbox.x1) / 2 - W1 / 2) / k, cy = ((wd.bbox.y0 + wd.bbox.y1) / 2 - H1 / 2) / k;
+          var x = cx * Math.cos(r) - cy * Math.sin(r) + W0 / 2, y = cx * Math.sin(r) + cy * Math.cos(r) + H0 / 2;
+          if (x < 0 || y < 0 || x > W0 || y > H0) return;
+          out.push({ t: wd.text, u: Math.round(x / W0 * 1e5) / 1e5, v: Math.round(y / H0 * 1e5) / 1e5, h: Math.round((wd.bbox.y1 - wd.bbox.y0) / k / Math.max(W0, H0) * 1e5) / 1e5, p: p, ocr: 1, turned: Math.round(angles[i]) });
+        });
+        c2.width = c2.height = 1;
+      }
+      cv.width = cv.height = 1;
+    } finally { await doc.destroy(); }
+    return out;
+  }
   async function stop() { if (ENGINE) { try { (await ENGINE).terminate(); } catch (e) { /* gone */ } ENGINE = null; } }
-  return { readPdf: readPdf, engine: engine, cached: cached, size: size, hasSimd: hasSimd, stop: stop, masks: masks, cells: cells, tables: tables, FILES: FILES, CDN: CDN };
+  return { readPdf: readPdf, readTurned: readTurned, engine: engine, cached: cached, size: size, hasSimd: hasSimd, stop: stop, masks: masks, cells: cells, tables: tables, FILES: FILES, CDN: CDN };
 })();

@@ -125,6 +125,32 @@ NOT FOR NAVIGATION — for study and analysis only.
     taxiways named on the chart but not mapped are listed to trace;
   - packages record what each source added and its licence: OpenStreetMap data under the ODbL (attribution and
     share-alike, also in the README of a package for further processing), the State's charts, non-commercial imagery.
+- **The State's charts placed on the map** (Trace on imagery → 📄 The State's charts on the map): a chart is placed by
+  what it shows that the data already knows — stand numbers, runway designators, "ARP", coordinates written beside a
+  point (read from the PDF's text, or by OCR from a picture, also the words written along the runways) and, on an
+  aerodrome chart, its runways drawn as long dark bars, matched to the runways of the AIP; a robust fit (scale,
+  rotation, shift) leaves out the words that do not agree, and believes only a scale a chart of its kind can have.
+  Points given by hand (a point on the chart, then the same point on the map or a known point) are added and kept.
+  The fit says how far each point lies from where the chart puts it (metres), the chart's scale and rotation; the
+  points are drawn on the map with their offsets. Placed, the chart is imagery to trace on (drawn multiplied over the
+  map, its opacity set apart), and what is traced on it gives its accuracy (the fit, no better than half a millimetre
+  of the drawing). Generate takes from it the taxiway names, onto the OpenStreetMap taxiway lines that have none (the
+  nearest line clearly nearer than any other, then the lines joined end to end with it), and the hot spots (HS1,
+  "HOTSPOT 2"), as hot spot features drawn as a circle at their label. A chart drawn in separate panels (e.g. a
+  lighting chart) is not placed as one; it says so.
+- **📏 Fit for use** (Aerodrome mapping): each feature type of a data set against the horizontal accuracy and
+  integrity its data needs — ICAO PANS-AIM Appendix 1, or numbers typed in (e.g. from EUROCAE ED-99D / RTCA DO-272D,
+  which are sold): the accuracy a feature declares (hacc), else an estimate from its source (the fit of a placed chart,
+  three pixels of the imagery traced on), else its source — a value the State publishes (its published resolution
+  bounds it), OpenStreetMap (not stated), the ICAO Annex 14 layout (not a measurement): meets, State (published
+  without a declared accuracy), unknown or not met; what needs a survey; integrity stated as not assured by this tool.
+  **Measured against a reference** (a survey, a supplier's data loaded beside it): each feature's distance to the
+  nearest feature of its type (points; lines and outlines by their vertices every 5 m), per type and source the mean,
+  root mean square, 95th percentile and largest, the share within the requirement, the features not in the
+  reference and what the reference has that the data lacks; a map coloured by distance; PDF, Excel and CSV. The
+  aerodrome mapping package report includes fit for use.
+- Generate gives what it knows of the quality: the accuracy the AIP declares for thresholds and centre line points
+  (hacc), and the resolution of the coordinates a chart publishes (hres) for its stands and thresholds.
 - **Upload in each section of Digital data**: Digital data opens without any data loaded; Obstacles (eTOD), Procedures
   (IFP) and Terrain each have their own upload area (large when the section is empty, a strip above it otherwise), and
   the files read there stay in the section (Files works as before).

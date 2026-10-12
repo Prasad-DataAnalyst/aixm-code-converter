@@ -19,7 +19,7 @@
  *              imagery, under which licence, with an unknown accuracy; exported as GeoJSON (AMXM feature types).
  * Loaded only when used (src/lazy.js).
  * ========================================================================== */
-/* global L, AMDBX */
+/* global L, AMDBX, AMDBGEO */
 var AMDBTRACE = (function () {
   'use strict';
   var D2R = Math.PI / 180, KEY = 'aixm-amdb-traced', CKEY = 'aixm-amdb-imagery';
@@ -31,19 +31,19 @@ var AMDBTRACE = (function () {
   var IMAGERY = [
     { id: 's2y', group: 'World', name: 'Sentinel-2 cloudless 2025 (EOX) — the latest yearly mosaic, 10 m', url: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/{z}/{y}/{x}.jpg', max: 17, date: '2025', res: 10, lic: 'nc', licName: 'CC BY-NC-SA 4.0 (non-commercial)', attr: 'Sentinel-2 cloudless 2025 by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2025), CC BY-NC-SA 4.0' },
     { id: 's2', group: 'World', name: 'Sentinel-2 cloudless 2016 (EOX) — 10 m', url: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg', max: 17, date: '2016', res: 10, lic: 'derive', licName: 'CC BY 4.0', attr: 'Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2016 & 2017), CC BY 4.0' },
-    { id: 'usgs', group: 'National orthophotos', name: 'USGS imagery — United States (NAIP)', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}', max: 16, lic: 'derive', licName: 'public domain', attr: 'USGS The National Map: orthoimagery (public domain)', bbox: [[-180, 17, -64, 72]] },
-    { id: 'pdok', group: 'National orthophotos', name: 'PDOK aerial photo — Netherlands (8 cm)', url: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg', max: 21, lic: 'derive', licName: 'CC BY 4.0', attr: 'Beeldmateriaal Nederland / PDOK, CC BY 4.0', bbox: [[3.2, 50.7, 7.3, 53.7]] },
-    { id: 'ign', group: 'National orthophotos', name: 'IGN orthophotos — France (20 cm)', url: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}', max: 19, lic: 'derive', licName: 'Licence Ouverte Etalab 2.0', attr: 'IGN-F / Géoplateforme, Licence Ouverte Etalab 2.0', bbox: [[-5.5, 41.2, 9.8, 51.2], [-61.9, 15.8, -60.8, 16.6], [-61.3, 14.3, -60.7, 15], [55.1, -21.5, 55.9, -20.8], [-54.7, 2, -51.5, 6], [44.9, -13.1, 45.4, -12.5]] },
-    { id: 'swiss', group: 'National orthophotos', name: 'SWISSIMAGE — Switzerland (10 cm)', url: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg', max: 20, lic: 'derive', licName: 'swisstopo free geodata (attribution)', attr: '© swisstopo', bbox: [[5.9, 45.8, 10.5, 47.9]] },
-    { id: 'pnoa', group: 'National orthophotos', name: 'PNOA orthophoto — Spain (25 cm)', url: 'https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg', max: 19, lic: 'derive', licName: 'CC BY 4.0', attr: 'PNOA © Instituto Geográfico Nacional de España, CC BY 4.0', bbox: [[-9.5, 35.8, 4.4, 43.9], [-18.2, 27.6, -13.3, 29.5]] },
-    { id: 'bmat', group: 'National orthophotos', name: 'basemap.at orthophoto — Austria (30 cm)', url: 'https://mapsneu.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg', max: 20, lic: 'derive', licName: 'CC BY 4.0', attr: 'basemap.at, CC BY 4.0', bbox: [[9.5, 46.3, 17.2, 49.1]] },
+    { id: 'usgs', group: 'National orthophotos', name: 'USGS imagery — United States (NAIP)', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}', max: 16, res: 1, lic: 'derive', licName: 'public domain', attr: 'USGS The National Map: orthoimagery (public domain)', bbox: [[-180, 17, -64, 72]] },
+    { id: 'pdok', group: 'National orthophotos', name: 'PDOK aerial photo — Netherlands (8 cm)', url: 'https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/{z}/{x}/{y}.jpeg', max: 21, res: 0.08, lic: 'derive', licName: 'CC BY 4.0', attr: 'Beeldmateriaal Nederland / PDOK, CC BY 4.0', bbox: [[3.2, 50.7, 7.3, 53.7]] },
+    { id: 'ign', group: 'National orthophotos', name: 'IGN orthophotos — France (20 cm)', url: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}', max: 19, res: 0.2, lic: 'derive', licName: 'Licence Ouverte Etalab 2.0', attr: 'IGN-F / Géoplateforme, Licence Ouverte Etalab 2.0', bbox: [[-5.5, 41.2, 9.8, 51.2], [-61.9, 15.8, -60.8, 16.6], [-61.3, 14.3, -60.7, 15], [55.1, -21.5, 55.9, -20.8], [-54.7, 2, -51.5, 6], [44.9, -13.1, 45.4, -12.5]] },
+    { id: 'swiss', group: 'National orthophotos', name: 'SWISSIMAGE — Switzerland (10 cm)', url: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg', max: 20, res: 0.1, lic: 'derive', licName: 'swisstopo free geodata (attribution)', attr: '© swisstopo', bbox: [[5.9, 45.8, 10.5, 47.9]] },
+    { id: 'pnoa', group: 'National orthophotos', name: 'PNOA orthophoto — Spain (25 cm)', url: 'https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg', max: 19, res: 0.25, lic: 'derive', licName: 'CC BY 4.0', attr: 'PNOA © Instituto Geográfico Nacional de España, CC BY 4.0', bbox: [[-9.5, 35.8, 4.4, 43.9], [-18.2, 27.6, -13.3, 29.5]] },
+    { id: 'bmat', group: 'National orthophotos', name: 'basemap.at orthophoto — Austria (30 cm)', url: 'https://mapsneu.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg', max: 20, res: 0.3, lic: 'derive', licName: 'CC BY 4.0', attr: 'basemap.at, CC BY 4.0', bbox: [[9.5, 46.3, 17.2, 49.1]] },
     { id: 'gsi', group: 'National orthophotos', name: 'GSI seamless photo — Japan', url: 'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', max: 18, lic: 'derive', licName: 'GSI terms of use (attribution)', attr: 'Geospatial Information Authority of Japan (GSI tiles)', bbox: [[122.9, 24, 146, 45.6]] },
     { id: 'nsw', group: 'National orthophotos', name: 'NSW imagery — Australia, New South Wales', url: 'https://maps.six.nsw.gov.au/arcgis/rest/services/public/NSW_Imagery/MapServer/tile/{z}/{y}/{x}', max: 21, lic: 'derive', licName: 'CC BY 4.0', attr: '© Spatial Services NSW, CC BY 4.0', bbox: [[140.9, -37.6, 153.7, -28.1]] },
     { id: 'esri', group: 'Visual check only', name: 'Esri World Imagery — visual check only', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', max: 19, lic: 'view', licName: 'Esri terms: display only', attr: 'Tiles © Esri — Esri, Maxar, Earthstar Geographics' },
     { id: 'osm', group: 'Visual check only', name: 'OpenStreetMap map (no imagery)', url: 'https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png', max: 19, lic: 'view', licName: 'map tiles: display', attr: '© OpenStreetMap contributors, tiles by HOT / OSM France' }];
   function covers(im, p) { return !im.bbox || !p || im.bbox.some(function (b) { return p[0] >= b[0] && p[0] <= b[2] && p[1] >= b[1] && p[1] <= b[3]; }); }
   function custom() { try { return JSON.parse(localStorage.getItem(CKEY) || 'null'); } catch (e) { return null; } }
-  function imageryList() { var c = custom(); return IMAGERY.concat(c ? [Object.assign({ id: 'custom', group: 'Your own', lic: 'derive', max: 20 }, c)] : []).concat(ORTHO.map(function (o) { return { id: 'ortho-' + o.id, group: 'Your own', name: 'Orthophoto ' + o.name, lic: 'derive', licName: 'your own imagery', attr: 'orthophoto ' + o.name + ' (loaded by the user)', ortho: o }; })); }
+  function imageryList() { var c = custom(); return IMAGERY.concat(c ? [Object.assign({ id: 'custom', group: 'Your own', lic: 'derive', max: 20 }, c)] : []).concat(ORTHO.map(function (o) { return { id: 'ortho-' + o.id, group: 'Your own', name: 'Orthophoto ' + o.name, lic: 'derive', licName: 'your own imagery', attr: 'orthophoto ' + o.name + ' (loaded by the user)', ortho: o, res: o.res }; })).concat(typeof AMDBGEO !== 'undefined' ? AMDBGEO.imagery(V.ad) : []); }
 
   /* ------------------------------------------------- the user's orthophotos */
   var ORTHO = [], oseq = 0;
@@ -79,6 +79,9 @@ var AMDBTRACE = (function () {
     var o = { id: ++oseq, name: file.name, url: url, w: img.naturalWidth, h: img.naturalHeight, W: W, crs: crsOf(prjText, W) };
     if (!o.crs) o.crs = guessCrs(o, arps || ARPS) || { kind: 'geo', label: 'unknown — placed as WGS 84' };
     o.c = corners(o);
+    // the size of a pixel on the ground (metres)
+    var lat = o.c[3][1], px = Math.abs(W.A) || Math.hypot(W.A, W.D);
+    o.res = o.crs.kind === 'geo' ? px * 111320 * Math.cos(lat * D2R) : o.crs.kind === 'merc' ? px * Math.cos(lat * D2R) : px;
     ORTHO.push(o);
     return { w: o.w, h: o.h, crs: o.crs.label };
   }
@@ -87,7 +90,7 @@ var AMDBTRACE = (function () {
     initialize: function (o, opacity) { this._o = o; this._op = opacity; },
     onAdd: function (map) {
       var img = this._img = L.DomUtil.create('img', 'tr-ortho');
-      img.src = this._o.url; img.style.position = 'absolute'; img.style.left = '0'; img.style.top = '0'; img.style.transformOrigin = '0 0'; img.style.pointerEvents = 'none'; img.style.opacity = this._op; img.style.maxWidth = 'none';
+      img.src = this._o.url; if (this._o.blend) img.style.mixBlendMode = 'multiply'; img.style.position = 'absolute'; img.style.left = '0'; img.style.top = '0'; img.style.transformOrigin = '0 0'; img.style.pointerEvents = 'none'; img.style.opacity = this._op; img.style.maxWidth = 'none';
       map.getPanes().tilePane.appendChild(img);
       map.on('zoomend viewreset moveend', this._reset, this); map.on('zoomstart', this._hide, this);
       img.onload = this._reset.bind(this); this._reset();
@@ -107,7 +110,8 @@ var AMDBTRACE = (function () {
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { return {}; } }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(TR)); } catch (e) { /* storage unavailable: kept for this session */ } }
   var TOOLS = { std: ['Stand', 'P', 'ParkingStandLocation'], twy: ['Taxiway centre line', 'L', 'TaxiwayGuidanceLine'], apn: ['Apron', 'A', 'ApronElement'], hold: ['Holding position', 'L', 'TaxiwayHoldingPosition'], bldg: ['Building', 'A', 'VerticalPolygonalStructure'], road: ['Service road', 'L', 'ServiceRoad'] };
-  function srcOf(it) { return ('Digitised by the user on ' + it.imgName + ' (' + it.lic + (it.date ? ', imagery ' + it.date : '') + ') on ' + String(it.when).slice(0, 10) + ': position as seen on the imagery, accuracy unknown — indicative').slice(0, 254); }
+  // the accuracy of what is traced, estimated: the fit of a placed chart, or three pixels of the imagery
+  function srcOf(it) { return ('Digitised by the user on ' + it.imgName + ' (' + it.lic + (it.date ? ', imagery ' + it.date : '') + ') on ' + String(it.when).slice(0, 10) + ': ' + (it.chart ? 'position as drawn on the State\'s chart' : 'position as seen on the imagery') + ', ' + (it.acc ? 'est. accuracy ~' + it.acc + ' m (' + (it.chart ? 'the chart\'s fit' : 'three pixels') + ')' : 'accuracy unknown') + ' — indicative').slice(0, 254); }
   function widen(line, w) { return AMDBX.widen(line, w); }
   // the traced items of an aerodrome as AMXM features
   function features(code) { return [].concat.apply([], (TR[code] || []).map(featuresOf)); }
@@ -153,7 +157,7 @@ var AMDBTRACE = (function () {
   }
 
   /* -------------------------------------------------------------------- UI */
-  var V = { ad: '', img: '', tool: '', nc: false, op: 0.55, name: '', width: 0, height: 0, map: null, view: null };
+  var V = { ad: '', img: '', tool: '', nc: false, op: 0.55, cop: 0.85, name: '', width: 0, height: 0, map: null, view: null };
   function render(host, ctx, list, hooks) {
     var ads = list.filter(function (c, i, a) { return c.arp && a.findIndex(function (x) { return x.code === c.code; }) === i; });
     ARPS = ads.map(function (c) { return c.arp; });
@@ -162,14 +166,19 @@ var AMDBTRACE = (function () {
     if (!ads.some(function (c) { return c.code === V.ad; })) V.ad = ads.slice().sort(function (a, b) { return b.rwys.length - a.rwys.length; })[0].code; // the aerodrome with the most runways
     var c = ads.filter(function (x) { return x.code === V.ad; })[0], imgs = imageryList();
     if (!imgs.some(function (x) { return x.id === V.img; })) V.img = (imgs.filter(function (x) { return x.lic === 'derive' && x.bbox && covers(x, c.arp); })[0] || imgs[0]).id;
+    // what Generate makes now (the preview drawn over the imagery; its stands, thresholds and reference point place a chart)
+    var gen = [];
+    try { gen = AMDBX.generate([c], { markings: false, lights: false, centreline: false, network: false, obstacles: false }).features; } catch (e) { /* the preview is optional */ }
+    var GEO = typeof AMDBGEO !== 'undefined' ? AMDBGEO : null;
     var im = imgs.filter(function (x) { return x.id === V.img; })[0], canTrace = im.lic === 'derive' || (im.lic === 'nc' && V.nc), here = covers(im, c.arp) && (!im.ortho || near(im.ortho, c.arp));
     if (!V.width) V.width = AMDBX.TWYW[AMDBX.codeOf(c).letter] || 23;
     var groups = {}; imgs.forEach(function (x) { (groups[x.group] = groups[x.group] || []).push(x); });
     var h = head + '<div class="card card-pad tr-card"><h3 style="margin-top:0">✏️ Trace on imagery</h3>' +
       '<div class="toolbar tr-bar"><label>Aerodrome <select class="inp" data-trad>' + ads.map(function (x) { return '<option' + (x.code === V.ad ? ' selected' : '') + '>' + esc(x.code) + '</option>'; }).join('') + '</select></label>' +
       '<label>Imagery <select class="inp" data-trimg>' + Object.keys(groups).map(function (g) { return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (x) { return '<option value="' + x.id + '"' + (x.id === V.img ? ' selected' : '') + '>' + esc(x.name) + (covers(x, c.arp) ? '' : ' — not here') + '</option>'; }).join('') + '</optgroup>'; }).join('') + '</select></label>' +
-      '<label title="Opacity of the aerodrome mapping drawn over the imagery">Mapping <input type="range" min="0" max="1" step="0.05" value="' + V.op + '" data-trop aria-label="Opacity of the mapping"></label></div>' +
+      '<label title="Opacity of the aerodrome mapping drawn over the imagery">Mapping <input type="range" min="0" max="1" step="0.05" value="' + V.op + '" data-trop aria-label="Opacity of the mapping"></label>' + (im.chart ? '<label title="Opacity of the chart">Chart <input type="range" min="0.1" max="1" step="0.05" value="' + V.cop + '" data-trcop aria-label="Opacity of the chart"></label>' : '') + '</div>' +
       '<p class="tr-lic" data-lic="' + im.lic + '">' + (im.lic === 'view' ? '👁 <b>Visual check only</b> — ' + esc(im.licName) + ': no data may be derived from it, so tracing is off. Choose imagery that allows it.' : im.lic === 'nc' ? '⚠ <b>' + esc(im.licName) + '</b> — the newest imagery for the whole world, for non-commercial use; what you trace from it is shared alike. <label class="chk"><input type="checkbox" data-trnc' + (V.nc ? ' checked' : '') + '> My use is non-commercial</label>' : '✓ <b>Tracing allowed</b> — ' + esc(im.licName) + '. Attribution: ' + esc(im.attr) + ' (kept in every feature traced).') + (here ? '' : ' <b style="color:#b76e00">This imagery does not cover ' + esc(c.code) + '.</b>') + (im.date ? ' Imagery of ' + esc(im.date) + '.' : '') + (im.res >= 5 ? ' Pixels of about ' + im.res + ' m: aprons, taxiways and large buildings show; stands and markings only roughly — prefer an orthophoto where there is one.' : '') + '</p>' +
+      (GEO ? GEO.panel(c, gen) : '') +
       '<div class="toolbar tr-tools" role="toolbar" aria-label="Trace">' + Object.keys(TOOLS).map(function (k) { return '<button class="btn small' + (V.tool === k ? ' primary' : '') + '" data-trtool="' + k + '"' + (canTrace ? '' : ' disabled') + '>' + esc(TOOLS[k][0]) + '</button>'; }).join('') +
       '<button class="btn small' + (V.tool === 'del' ? ' primary' : '') + '" data-trtool="del">Delete</button>' +
       '<label>Name / number <input class="inp" data-trname value="' + esc(V.name) + '" size="8" placeholder="A1, 204 …"></label><label>Width (m) <input class="inp" type="number" min="3" max="80" step="0.5" data-trwidth value="' + V.width + '" style="width:70px"></label><label>Height (m) <input class="inp" type="number" min="0" max="400" step="0.5" data-trheight value="' + (V.height || '') + '" style="width:70px"></label></div>' +
@@ -180,9 +189,10 @@ var AMDBTRACE = (function () {
       '<details class="tr-custom"><summary>Your own imagery service…</summary><p class="muted">A tile service you hold the right to derive data from (your drone or survey orthophoto, a licensed provider). Your own orthophoto file (JPEG / PNG with its world file) is loaded in 📤 Upload &amp; sources.</p><input class="inp" data-trcurl placeholder="https://…/{z}/{x}/{y}.jpg" value="' + esc((custom() || {}).url || '') + '" style="width:100%"><input class="inp" data-trcname placeholder="Name" value="' + esc((custom() || {}).name || '') + '"><input class="inp" data-trclic placeholder="Licence (e.g. own survey 2026)" value="' + esc((custom() || {}).licName || '') + '"><label class="chk"><input type="checkbox" data-trcok> I hold the right to derive data from this imagery</label> <button class="btn small" data-trcsave>Use it</button></details></div>' +
       '<p class="muted" style="font-size:11.5px">Google imagery is not offered: its terms do not allow deriving data or tracing. Esri imagery is shown for a visual check only.</p></div>';
     host.innerHTML = h;
-    mapUp(host, c, im, canTrace, ctx, list);
+    mapUp(host, c, im, canTrace, gen);
     listUp(host);
     bind(host, ctx, list, hooks);
+    if (GEO) { GEO.setHost(function () { if (host.isConnected) render(host, ctx, list, hooks); }, P.map); GEO.bind(host, { showImagery: function (id) { V.img = id; V.view = null; render(host, ctx, list, hooks); } }); }
   }
   function near(o, p) { var q = o.c[3]; return Math.hypot((q[0] - p[0]) * Math.cos(p[1] * D2R), q[1] - p[1]) * 111.32 < 40; }
   function helpFor(t) {
@@ -192,15 +202,16 @@ var AMDBTRACE = (function () {
           : t === 'bldg' ? 'Click around the building, double-click or press Enter to close it; give its height if you know it.' : t === 'road' ? 'Click along the road centre line, double-click or press Enter to finish.' : 'Click a traced feature (magenta) to delete it.';
   }
   var P = { map: null, base: null, prev: null, trc: null, temp: null, ortho: [], pts: [] };
-  function mapUp(host, c, im, canTrace, ctx, list) {
+  function mapUp(host, c, im, canTrace, gen) {
     var el = host.querySelector('.tr-map');
     if (P.map) { try { P.map.remove(); } catch (e) { /* already gone */ } }
     var map = P.map = L.map(el, { maxZoom: 22, zoomSnap: 0.5, doubleClickZoom: false, preferCanvas: false });
     el._trmap = map;
     if (im.ortho) {
       L.tileLayer('https://tile-{s}.openstreetmap.fr/hot/{z}/{x}/{y}.png', { maxZoom: 22, maxNativeZoom: 19, opacity: 0.35, attribution: '© OpenStreetMap contributors' }).addTo(map);
-      P.ortho = [new Placed(im.ortho, 1).addTo(map)];
+      P.ortho = [new Placed(im.ortho, im.chart ? V.cop : 1).addTo(map)];
       map.attributionControl.addAttribution(esc(im.attr));
+      if (im.chart && typeof AMDBGEO !== 'undefined') AMDBGEO.drawFit(map, im.chart);
     } else {
       P.base = L.tileLayer(im.url, { maxZoom: 22, maxNativeZoom: im.max || 19, attribution: esc(im.attr), subdomains: 'abc', referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(map);
     }
@@ -209,9 +220,8 @@ var AMDBTRACE = (function () {
     P.prev = L.layerGroup().addTo(map); P.trc = L.featureGroup().addTo(map); P.temp = L.layerGroup().addTo(map);
     var b = L.latLngBounds([]);
     try {
-      var g = AMDBX.generate([c], { markings: false, lights: false, centreline: false, network: false, obstacles: false, traced: false });
-      g.features.forEach(function (f) {
-        if (/^Asrn|^AerodromeSurfaceLighting|^RunwayMarking|^RunwayCenterlinePoint/.test(f.t)) return;
+      gen.forEach(function (f) {
+        if (f.traced || /^Asrn|^AerodromeSurfaceLighting|^RunwayMarking|^RunwayCenterlinePoint/.test(f.t)) return;
         var col = /^(Runway|Stopway|RunwayShoulder|RunwayDisplaced)/.test(f.t) ? '#ffd400' : /^Taxiway|GuidanceLine/.test(f.t) ? '#ffe680' : /Stand|Apron/.test(f.t) ? '#7fdcff' : /Vertical/.test(f.t) ? '#ff9f43' : '#ffffff';
         f.g.forEach(function (gg) {
           var l = gg.t === 'P' ? L.circleMarker([gg.c[1], gg.c[0]], { radius: 3, color: col, weight: 1.5, opacity: V.op, fillOpacity: V.op * 0.6, interactive: false })
@@ -230,6 +240,7 @@ var AMDBTRACE = (function () {
     P.pts = [];
     function ll(e) { return snap(e.latlng); }
     map.on('click', function (e) {
+      if (typeof AMDBGEO !== 'undefined' && AMDBGEO.mapClick(e.latlng, map)) return;
       if (!V.tool || V.tool === 'del' || !canTrace) return;
       var p = ll(e);
       if (V.tool === 'std') { add(c.code, 'std', [p], im); return; }
@@ -270,6 +281,7 @@ var AMDBTRACE = (function () {
   }
   function add(code, kind, pts, im) {
     var it = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), kind: kind, c: pts, name: V.name, width: kind === 'twy' || kind === 'road' ? (kind === 'road' ? 6 : +V.width || null) : null, height: kind === 'bldg' && V.height ? +V.height : null, imgName: im.name, lic: im.licName, date: im.date || '', when: new Date().toISOString() };
+    if (im.chart) { it.chart = 1; it.acc = Math.max(1, Math.round(im.fit)); } else if (im.res) it.acc = Math.round(im.res * 3 * 10) / 10;
     (TR[code] = TR[code] || []).push(it); save();
     // stand numbers count up
     if (kind === 'std' && /\d+$/.test(V.name || '')) { V.name = V.name.replace(/(\d+)$/, function (d) { return String(+d + 1).padStart(d.length, '0'); }); var inp = document.querySelector('[data-trname]'); if (inp) inp.value = V.name; }
@@ -309,6 +321,7 @@ var AMDBTRACE = (function () {
       if (t.hasAttribute('data-trname')) V.name = t.value;
       else if (t.hasAttribute('data-trwidth')) V.width = +t.value;
       else if (t.hasAttribute('data-trheight')) V.height = +t.value;
+      else if (t.hasAttribute('data-trcop')) { V.cop = +t.value; P.ortho.forEach(function (l) { if (l._img) l._img.style.opacity = V.cop; }); }
       else if (t.hasAttribute('data-trop')) { V.op = +t.value; P.prev.eachLayer(function (l) { l.setStyle({ opacity: V.op, fillOpacity: l instanceof L.Polygon ? V.op * 0.12 : V.op * 0.6 }); }); }
     };
     host.onclick = function (e) {

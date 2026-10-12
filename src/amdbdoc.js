@@ -50,15 +50,31 @@ var AMDBDOC = (function () {
   }
   async function pdfRead(bytes) {
     var lib = await pdfLib();
-    var doc = await lib.getDocument({ data: bytes.slice(0), isEvalSupported: false, disableFontFace: true, useSystemFonts: false }).promise, lines = [], pieces = 0;
+    var doc = await lib.getDocument({ data: bytes.slice(0), isEvalSupported: false, disableFontFace: true, useSystemFonts: false }).promise, lines = [], pieces = 0, labels = [], pagePt = {};
     for (var i = 1; i <= doc.numPages; i++) {
-      var tc = await (await doc.getPage(i)).getTextContent();
+      var pg = await doc.getPage(i), tc = await pg.getTextContent(), vp = pg.getViewport({ scale: 1 });
       pieces += tc.items.length;
       textLines(tc.items).forEach(function (t) { lines.push({ t: t, p: i }); });
+      pagePt[i] = [vp.width, vp.height];
+      if (tc.items.length < 20000) wordsAt(tc.items, vp).forEach(function (w) { w.p = i; labels.push(w); });
     }
     var pages = doc.numPages;
     await doc.destroy();
-    return { lines: lines, pages: pages, textless: pieces < 5, pieces: pieces };
+    return { lines: lines, pages: pages, textless: pieces < 5, pieces: pieces, labels: labels, pagePt: pagePt };
+  }
+  // the words of a page at their place on it (0 … 1 across and down, the page as shown): what a chart writes beside
+  // what it names (stand numbers, runway designators, taxiway names, coordinates), for placing it on the map
+  function wordsAt(items, vp) {
+    var out = [], r5 = function (x) { return Math.round(x * 1e5) / 1e5; }, big = Math.max(vp.width, vp.height);
+    items.forEach(function (it) {
+      var s = it.str; if (!s || !s.trim() || s.length > 80) return;
+      var m = it.transform, ang = Math.atan2(m[1], m[0]), h = Math.hypot(m[2], m[3]) || 1, w = it.width || s.length * h * 0.5, ux = Math.cos(ang), uy = Math.sin(ang), re = /\S+/g, mm;
+      while ((mm = re.exec(s))) {
+        var mid = (mm.index + mm[0].length / 2) / s.length * w, q = vp.convertToViewportPoint(m[4] + ux * mid - uy * h * 0.35, m[5] + uy * mid + ux * h * 0.35);
+        out.push({ t: mm[0], u: r5(q[0] / vp.width), v: r5(q[1] / vp.height), h: r5(h / big) });
+      }
+    });
+    return out;
   }
   function textLines(items) {
     var groups = {};
@@ -266,7 +282,7 @@ var AMDBDOC = (function () {
         // a number read with a letter doubled or in the wrong case (2wW for 2W): one letter
         if (/[a-z]/.test(rawId) && /^\d{0,4}[A-Za-z]{2,3}$/.test(rawId) && new Set(rawId.replace(/^\d+/, '').toUpperCase()).size === 1) id = (rawId.match(/^\d*/)[0] + rawId.slice(-1)).toUpperCase();
         var rec = { c: [p.lon, p.lat], label: lab || 'point', line: i, des: ds[0] || '' };
-        if (lab === 'stand' || (!lab && id && !ds.length && !/\b(RWY|THR|ARP|VOR|DME)\b/.test(L))) { rec.label = 'stand'; rec.id = id; if (!/^\d{2}[LRC]$/.test(id) || ctx === 'stand') f.stands.push({ id: id, c: rec.c, line: i, raw: rawId }); }
+        if (lab === 'stand' || (!lab && id && !ds.length && !/\b(RWY|THR|ARP|VOR|DME)\b/.test(L))) { rec.label = 'stand'; rec.id = id; if (!/^\d{2}[LRC]$/.test(id) || ctx === 'stand') f.stands.push({ id: id, c: rec.c, line: i, raw: rawId, dec: p.dec }); }
         if (rec.label === 'thr' || rec.label === 'dthr' || rec.label === 'end') { var d1 = ds[0] || (/^\s*(?:RWY\s*)?(\d{2}[LRC]?)\b/.exec(L) || [])[1]; d1 = d1 ? des2(d1) : ''; if (d1) { rec.des = d1; var R = rw(d1); if (rec.label === 'thr' && !R.thr) { R.thr = rec.c; R.thrDec = p.dec; } else if (rec.label === 'dthr' && !R.dthr) R.dthr = rec.c; else if (rec.label === 'end' && !R.end) R.end = rec.c; ev('thrc', i); } }
         if (rec.label === 'arp' && !f.arp) { f.arp = rec.c; ev('arp', i); }
         if (rec.label === 'stand') ev('stdc', i);
@@ -419,7 +435,7 @@ var AMDBDOC = (function () {
     docs.forEach(function (d) {
       var f = d.f;
       if (K.kinds.indexOf(f.kind.id) < 0) K.kinds.push(f.kind.id);
-      f.stands.forEach(function (s) { raw.push({ id: s.id, c: s.c, doc: d.name }); });
+      f.stands.forEach(function (s) { raw.push({ id: s.id, c: s.c, doc: d.name, dec: s.dec }); });
       ['standNames', 'twyNames', 'apronNames', 'hotspots'].forEach(function (k) { f[k].forEach(function (x) { if (K[k].indexOf(x) < 0) K[k].push(x); }); });
       Object.keys(f.rwy).forEach(function (r) { var R = K.rwy[r] = K.rwy[r] || {}; Object.keys(f.rwy[r]).forEach(function (k) { if (R[k] === undefined) { R[k] = f.rwy[r][k]; R[k + 'Doc'] = d.name; } }); });
       K.dims = K.dims.concat(f.dims); K.pcn = K.pcn.concat(f.pcn);
@@ -521,7 +537,7 @@ var AMDBDOC = (function () {
   function fmtC(c) { function f(v, h) { var a = Math.abs(v), d = Math.floor(a), m = Math.floor((a - d) * 60), s2 = ((a - d) * 60 - m) * 60; return (h === 'NS' ? ('0' + d).slice(-2) : ('00' + d).slice(-3)) + '°' + ('0' + m).slice(-2) + '\'' + ('0' + s2.toFixed(2)).slice(-5) + '"' + (v < 0 ? h[1] : h[0]); } return f(c[1], 'NS') + ' ' + f(c[0], 'EW'); }
 
   /* ------------------------------------------------------- the documents */
-  var TXT = /\.(txt|csv|tsv|text)$/i, PDF = /\.pdf$/i;
+  var TXT = /\.(txt|csv|tsv|text)$/i, PDF = /\.pdf$/i, PLACE = { adc: 1, agmc: 1, apdc: 1, alc: 1, other: 1 };
   // a document added: read when it has text, kept and listed when it has none (images, office files)
   async function addFile(file, cands) {
     var d = { id: ++seq, name: file.name, size: file.size, type: PDF.test(file.name) ? 'pdf' : TXT.test(file.name) ? 'text' : /\.(png|jpe?g|webp|gif|tiff?)$/i.test(file.name) ? 'image' : 'other', ad: '', added: new Date().toISOString(), f: null, note: '' };
@@ -530,7 +546,9 @@ var AMDBDOC = (function () {
         var bytes = new Uint8Array(await file.arrayBuffer()), r = await pdfRead(bytes);
         d.pages = r.pages; d.frame = r.lines.map(function (x) { return x.t; }).join('\n'); d.f = read(d.frame, file.name);
         // only a frame of text (title, page number, date) and nothing for mapping: the chart is a picture
-        if (r.textless || (r.pieces / r.pages < 150 && !d.f.coords.length && !d.f.stands.length && !d.f.dims.length && !d.f.twyRows.length)) { d.image = true; d.bytes = bytes; d.note = r.textless ? 'the chart is a picture (a scan, no text): read it with OCR, paste its table, or trace on imagery' : 'the chart is a picture (only its frame is text): read it with OCR'; }
+        if (r.textless || (r.pieces / r.pages < 150 && !d.f.coords.length && !d.f.stands.length && !d.f.dims.length && !d.f.twyRows.length)) { d.image = true; d.note = r.textless ? 'the chart is a picture (a scan, no text): read it with OCR, paste its table, or trace on imagery' : 'the chart is a picture (only its frame is text): read it with OCR'; }
+        // a chart (not AD 2 pages, approach or obstacle charts) is kept to be placed on the map (amdbgeo.js)
+        if (d.image || (PLACE[d.f.kind.id] && bytes.length < 6e7)) { d.bytes = bytes; d.labels = r.labels; d.pagePt = r.pagePt; }
       }
       else if (d.type === 'text') d.f = read(await file.text(), file.name);
       else d.note = d.type === 'image' ? 'kept as a supporting document (an image is not read)' : 'kept as a supporting document';
@@ -545,6 +563,7 @@ var AMDBDOC = (function () {
     await LAZY.run('src-amdbocr');
     var r = await AMDBOCR.readPdf(d.bytes, say || function () {});
     d.ocr = { conf: r.conf, tables: r.tables, cells: r.cells, when: new Date().toISOString(), text: r.lines.join('\n') };
+    d.labels = (d.labels || []).concat(r.labels || []); d.pagePt = Object.assign({}, r.pagePt, d.pagePt);
     d.f = read((d.frame || '') + '\n' + r.lines.join('\n'), d.name); d.f.ocr = true;
     d.ad = assign(d.f, cands) || d.ad;
     d.note = 'read by OCR — ' + r.tables + ' table(s), ' + r.cells + ' cells, confidence ' + r.conf + ' %; the values are checked against the aerodrome, the order of their tables and the AIP data set';
