@@ -74,6 +74,47 @@ NOT FOR NAVIGATION — for study and analysis only.
   - *Compare*: two aerodrome mapping data sets (two cycles, two suppliers, AIXM against AMXM) — added, removed,
     moved (with the distance) and changed (with the attributes), on a map, in PDF / Excel / CSV / JSON reports and
     as an AMXM change file (permanent changes, ended features).
+- **Aerodrome mapping from every source there is** (Digital data → Aerodrome mapping (AMDB)). Each item comes from the
+  best source available, in this order: the AIP data set (A), the State's charts (C), what the user traced on imagery
+  (T), OpenStreetMap (O), then the ICAO Annex 14 minimum (S). Every feature says which; the readiness table shows the
+  letter per item. With OpenStreetMap, the readiness of large aerodromes goes from about 50–70 % to 94–97 %:
+  - **📤 Upload**, one place for everything aerodrome mapping is made from: the AIP data set, AMXM / GIS / CAD files
+    and packages, OpenStreetMap files, the State's charts and AD 2 pages (PDF), stand tables (CSV / text, or pasted),
+    an orthophoto (JPEG / PNG with its world file and .prj), obstacles and terrain; any other file is kept and listed
+    as a supporting document. Each file is recognised and goes where it belongs; nothing leaves the browser;
+  - **the State's charts read**: the text of a chart PDF (PDF.js, loaded only when used, opened without running any
+    of its code) — rotated pages and text split letter by letter included — gives stand coordinate tables, stand,
+    taxiway and apron names, threshold and runway end coordinates, the reference point, runway dimensions (metres or
+    feet), PCN / PCR per runway, taxiway and shoulder widths, approach and runway lighting per runway, magnetic
+    variation, elevation and hot spots; numbers misread in a scan (O for 0, l for 1) are repaired; the document
+    finds its aerodrome by its ICAO code, its coordinates or its name;
+  - **ICAO check of each chart**: its type (Aerodrome / Heliport Chart, Ground Movement Chart, Parking / Docking
+    Chart, obstacle, approach, SID, STAR charts, AD 2 pages) and whether it is titled "— ICAO"; the contents ICAO
+    Annex 4 Chapters 13, 14 and 15 require — found in the text, not found (it may be drawn), only the drawing can
+    show it, or where established; the chart against the AIP data set (reference point, thresholds, width, length,
+    strength, elevation, magnetic variation) and its stands against OpenStreetMap; a PDF report;
+  - **unclear or incomplete charts**: a stand far from every other stand, given twice, or far from the aerodrome is
+    left out with the reason (a misread number); thresholds that contradict the runway length are not used; a State
+    with only an aerodrome chart gets its stands from OpenStreetMap or tracing; "How the gaps are filled" says, per
+    aerodrome, where each missing item comes from; a scanned chart (no text) is noted, and its table can be pasted;
+  - **✏️ Trace on imagery**: stands, taxiway centre lines (the surface from the width), aprons, holding positions,
+    buildings (with their height) and service roads traced over what Generate makes now, with points that snap to
+    each other; the imagery by licence — national orthophotos that allow deriving data (Netherlands PDOK, France IGN,
+    Switzerland swisstopo, Spain PNOA, Austria basemap.at, Japan GSI, New South Wales, USGS for the United States),
+    Sentinel-2 cloudless 2016 (CC BY 4.0) and 2025, the latest yearly mosaic (CC BY-NC-SA 4.0: after confirming a
+    non-commercial use), your own orthophoto (any rotation, WGS 84, Web Mercator or UTM — guessed when there is no
+    .prj) or tile service; Esri imagery for a visual check only (tracing off); Google imagery not offered. Kept in
+    the browser per aerodrome, exported as GeoJSON and loaded back; every traced feature names the imagery, its
+    licence and date, with an unknown accuracy;
+  - **Generate** takes it all: stands, thresholds, runway positions (where the AIP withholds them), widths,
+    shoulders, strength and lighting from the charts; traced features; OpenStreetMap stands only where the chart or
+    the tracing has none (numbers on the chart noted); taxiway widths from the AIP, the chart, else the code letter;
+    taxiways named on the chart but not mapped are listed to trace;
+  - packages record what each source added and its licence: OpenStreetMap data under the ODbL (attribution and
+    share-alike, also in the README of a package for further processing), the State's charts, non-commercial imagery.
+- **Upload in each section of Digital data**: Digital data opens without any data loaded; Obstacles (eTOD), Procedures
+  (IFP) and Terrain each have their own upload area (large when the section is empty, a strip above it otherwise), and
+  the files read there stay in the section (Files works as before).
 - **AIP view without the data-issue lists**: the issues are listed in the Quality tab only; an AIP section with issues
   shows one quiet line (how many, of which severity) whose link opens the Quality tab on just the issues of that
   section (with "show all" and "back to the AIP section"); marking the values in the tables and the ⚠ counts in the
@@ -84,6 +125,7 @@ NOT FOR NAVIGATION — for study and analysis only.
     takes it);
   - AMXM thresholds and stands without a designator are no longer merged into one;
   - the terrain statistics finishing in the background no longer switch the Digital data tab to Terrain.
+  - PDF.js gets its worker directly, so a page opened from a file reads chart PDFs without an error message.
 
 ## 1.26.0 — 2026-10-07 — Aerodrome mapping (AMDB): checks and packages
 

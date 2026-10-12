@@ -249,7 +249,8 @@
     var has = S.datasets.length > 0 || DEM.items().length > 0;
     $('#nav').innerHTML = VIEWS.map(function (v) {
       if (!v) return '<div class="nav-sep"></div>';
-      var dis = (!has && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about' && v[0] !== 'charts') || (v[0] === 'digital' && has && !DDVIEW.has(S.datasets)) || (!S.datasets.length && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about' && v[0] !== 'charts' && v[0] !== 'digital');
+      // Digital data is always open: each of its sections takes its own files
+      var dis = (!has && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about' && v[0] !== 'charts' && v[0] !== 'digital') || (!S.datasets.length && v[0] !== 'files' && v[0] !== 'library' && v[0] !== 'about' && v[0] !== 'charts' && v[0] !== 'digital');
       return '<button data-view="' + v[0] + '" class="' + (S.view === v[0] ? 'active' : '') + '"' + (dis ? ' disabled' : '') + ' title="' + v[1] + '">' + v[2] + '<span>' + v[1] + '</span></button>';
     }).join('') + '<div class="nav-credit" data-about="1" title="' + AUTHOR_LINE + '">© 2026<br>Prasad Selvaraj</div>';
     if (DEVICE.isPhone()) { var act = $('#nav .active'); if (act && act.scrollIntoView) act.scrollIntoView({ inline: 'center', block: 'nearest' }); }
@@ -792,7 +793,8 @@
     if (lim && plan.total > lim && !plan.warn) plan.warn = fmtSize(plan.total) + ' of AIXM data is a lot for a ' + DEVICE.kind() + ': the browser may close the page when it runs out of memory. ' + (plan.lite ? 'Lite memory mode is used; f' : 'F') + 'or files this size a computer works best.';
     return plan;
   }
-  async function extractAll() {
+  // opt.stay: the files were loaded from a section of Digital data, which shows them (no move to the dashboard)
+  async function extractAll(opt) {
     var list = S.files.filter(function (f) { return f.status === 'ready'; });
     var plan = memPlan(list);
     if (plan.warn) toast(plan.warn, 12000);
@@ -833,8 +835,9 @@
       }
     } finally { busyEnd(); }
     renderFileList();
-    if (S.datasets.length) { initSearch(); renderDsSelect(); memGauge(); if (!checkPending()) go('dash'); }
-    else if (DEM.items().length) { renderNav(); go('digital', { sec: 'ter' }); }
+    var stay = opt && opt.stay;
+    if (S.datasets.length) { initSearch(); renderDsSelect(); memGauge(); if (stay) renderNav(); else if (!checkPending()) go('dash'); }
+    else if (DEM.items().length) { renderNav(); if (!stay) go('digital', { sec: 'ter' }); }
   }
   function cancelExtraction(id) {
     var r = running.get(id);
@@ -2326,7 +2329,6 @@
   }
   // Digital data tab (ddview.js): obstacles / eTOD, procedures (IFP), aerodrome mapping, terrain, each in its own way
   function viewDigital(v, opts) {
-    if (!S.datasets.length && !DEM.items().length) { v.innerHTML = emptyState('No data', 'Extract a file first.'); return; }
     DDVIEW.render(v, { datasets: S.datasets, active: dsOf(), sec: opts.sec || null, toast: toast, openDetail: openDetail, openXml: openXml,
       showOnMap: function (ds, r) { go('map', { ds: ds, focus: r }); }, openAip: function (ds, r) { openAipFor(ds, r); },
       mapProcs: function (ds, ad) { go('map', { ds: ds, procs: ad }); } });

@@ -15,9 +15,14 @@
  *   Compare             two aerodrome mapping data sets (two cycles, two suppliers, AIXM against AMXM): features added,
  *                       removed, moved (with the distance) and changed (with the attributes); a report and an AMXM
  *                       change file (permanent changes, interp 3).
+ *   Upload & sources    one place for everything aerodrome mapping is made from: the AIP data set, AMXM and GIS / CAD
+ *                       files, OpenStreetMap, the State's charts and AD 2 pages (read by amdbdoc.js, with their ICAO
+ *                       Annex 4 check), stand tables, orthophotos and supporting documents.
+ *   The generator fills each item from the best source there is: the AIP data set, the State's charts, what the
+ *   user traced on imagery (amdbtrace.js), OpenStreetMap, then the ICAO Annex 14 minimum — each feature says which.
  * Loaded only when one of these tools is used (src/lazy.js).
  * ========================================================================== */
-/* global MODEL, AMDB, AMDBPKG, LAZY, DDMAP, EXPORTS, APP_INFO, AIP */
+/* global MODEL, AMDB, AMDBPKG, AMDBOSM, AMDBDOC, AMDBTRACE, LAZY, DDMAP, EXPORTS, APP_INFO, AIP */
 var AMDBX = (function () {
   'use strict';
   var M = MODEL, s = M.s, D2R = Math.PI / 180;
@@ -73,7 +78,21 @@ var AMDBX = (function () {
         var obs = near('VerticalStructure');
         var navs = [].concat(near('Localizer'), near('Glidepath'), near('DME'), near('VOR'), near('NDB'), near('TACAN'), near('MarkerBeacon'), near('Azimuth'), near('Elevation'));
         var lights = near('AeronauticalGroundLight');
-        out.push({ ds: ds, di: di, ad: ad, code: code, name: s(ad.cur.p.name), arp: arp, magVar: parseFloat(s(ad.cur.p.magneticVariation)), rwys: rwys, stands: stands, by: by, obs: obs, navs: navs, lights: lights, dsOf: dsOf, mapped: mapped, amxm: amxm,
+        // runway directions with an ILS: from the ILS navaids of the aerodrome (their runway direction, or the
+        // designator in their name), and the localizer positions (for the geometry check in generate)
+        var ilsDes = {};
+        others.forEach(function (d) { (d.byType.Navaid || []).forEach(function (nv) {
+          if (nv.cur.gone || !/ILS|LOC|MLS|GLS/.test(s(nv.cur.p.type))) return;
+          var served = d.owner.get(nv) === ad || arr(nv.cur.p.servedAirport).some(function (x) { return M.target(d, x) === ad; });
+          if (!served) return;
+          var rds = arr(nv.cur.p.runwayDirection).map(function (x) { var rd = M.target(d, x); return rd ? s(rd.cur.p.designator) : ''; }).filter(Boolean);
+          if (!rds.length) arr(nv.cur.p.navaidEquipment).forEach(function (q) { var eq = q && M.target(d, q.theNavaidEquipment); var m = eq && /(?:LOC|ILS|RWY)\s*(\d{2}[LRC]?)/i.exec(s(eq.cur.p.name) + ' ' + s(eq.cur.p.designator)); if (m) rds.push(m[1]); });
+          var m2 = /(?:ILS|LOC|RWY)\s*(\d{2}[LRC]?)/i.exec(s(nv.cur.p.name)); if (m2) rds.push(m2[1]);
+          rds.forEach(function (x) { ilsDes[x.toUpperCase()] = 1; });
+        }); });
+        var locs = navs.filter(function (n) { return n.k === 'Localizer'; }).map(function (n) { return M.pointOf(dsOf.get(n) || ds, n); }).filter(Boolean);
+        var twyW = {}; by.Taxiway.forEach(function (x) { var w = meters(x.cur.p.width); if (w && s(x.cur.p.designator)) twyW[s(x.cur.p.designator)] = w; });
+        out.push({ ds: ds, di: di, ad: ad, code: code, name: s(ad.cur.p.name), arp: arp, magVar: parseFloat(s(ad.cur.p.magneticVariation)), rwys: rwys, stands: stands, by: by, obs: obs, navs: navs, lights: lights, dsOf: dsOf, ilsDes: ilsDes, locs: locs, twyW: twyW, mapped: mapped, amxm: amxm,
           cl: rwys.reduce(function (n, r) { return n + r.dirs.reduce(function (m, d) { return m + d.pts.filter(function (p) { return p.c; }).length; }, 0); }, 0),
           thr: rwys.reduce(function (n, r) { return n + r.dirs.filter(function (d) { return d.pts.some(function (p) { return /THR/.test(p.role) && p.c; }); }).length; }, 0) });
       });
@@ -135,7 +154,14 @@ var AMDBX = (function () {
   function tdzPairs(lda) { return lda >= 2400 ? 6 : lda >= 1500 ? 4 : lda >= 1200 ? 3 : lda >= 900 ? 2 : 1; }
   var VS_PNT = { ANTENNA: '3', 'POLE': '6', TREE: '5', WINDSOCK: '4', BEACON: '8', NAVAID: '9', SIGN: '10', LIGHTHOUSE: '8', CHIMNEY: '1', STACK: '1', PYLON: '2', LIGHT: '7' };
   var VS_PLY = { BUILDING: '4', TERMINAL: '1', HANGAR: '2', CONTROL_TOWER: '3', TOWER: '4', TANK: '5', TREE: '6', FOREST: '8', VEGETATION: '7', NAVAID: '10', SIGN: '11' };
-  var DEF = { markings: true, taxiways: true, obstacles: true, centreline: true, lights: true, schematic: false };
+  var DEF = { markings: true, taxiways: true, obstacles: true, centreline: true, lights: true, schematic: false, osm: true, infer: true, network: true, charts: true, traced: true };
+  // aerodrome reference code (ICAO Annex 14 Table 1-1), estimated from the longest and the widest runway
+  function AMDBOSM_des(ref) { return String(ref || '').toUpperCase().split(/[/\-\s.]+/).map(function (x) { var m = /^(\d{1,2})([LRC]?)$/.exec(x.trim()); return m ? ('0' + m[1]).slice(-2) + m[2] : ''; }).filter(Boolean); }
+  function codeOf(c) {
+    var rw = c.rwys.filter(function (r) { return r.type !== 'FATO'; }), L = rw.reduce(function (m, r) { return Math.max(m, r.len || 0); }, 0), W = rw.reduce(function (m, r) { return Math.max(m, r.wid || 0); }, 0);
+    return { num: L >= 1800 ? 4 : L >= 1200 ? 3 : L >= 800 ? 2 : 1, letter: W >= 60 ? 'F' : W >= 45 ? (L >= 2800 ? 'E' : 'D') : W >= 30 ? 'C' : W >= 23 ? 'B' : 'A', maxW: W, maxL: L };
+  }
+  var TWYW = { A: 7.5, B: 10.5, C: 15, D: 18, E: 23, F: 25 }; // taxiway width by code letter (Annex 14 3.9)
   // aerodrome mapping features made from the AIP data of the aerodromes chosen; opt: which derived items
   function generate(list, opt) {
     opt = Object.assign({}, DEF, opt || {});
@@ -144,12 +170,22 @@ var AMDBX = (function () {
       var src = 'Generated from AIP data (' + c.ds.name + '): geometry derived, coarse quality', ds = c.ds;
       var srcStd = 'Generated from AIP data (' + c.ds.name + '): standard layout of ICAO Annex 14 Volume I Chapter 5, not surveyed';
       var srcSch = 'SCHEMATIC from AIP data (' + c.ds.name + '): runway positions withheld; placed at the reference point, indicative only', curSchem = false;
-      function base(t, key, std) { return { t: t, ad: c.code, id: 'amdb-gen-' + c.code + '-' + key, a: { idarpt: { v: c.code }, source: { v: curSchem ? srcSch : std ? srcStd : src } } }; }
+      var osm = opt.osm && typeof AMDBOSM !== 'undefined' ? AMDBOSM.get(c.code) : null, osmRw = osm ? AMDBOSM.runways(osm) : [], usedRw = {}, curOsm = null, curInfer = '';
+      var CODE = codeOf(c), rwInfo = [];
+      var srcInf = 'Inferred from AIP data (' + c.ds.name + '): ICAO Annex 14 minimum, not published in the AIP — indicative';
+      // what the State's charts and documents give (stands, thresholds, widths, strength, lighting as published)
+      var K = opt.charts && typeof AMDBDOC !== 'undefined' ? AMDBDOC.forAd(c.code, c.arp) : null, curChart = '';
+      if (K) { AMDBDOC.matchDims(K, c.rwys); if (!c.arp && K.arp) c = Object.assign({}, c, { arp: K.arp, arpChart: true }); }
+      function srcC(what) { return ('From the State\'s charts (' + K.src + '): ' + what).slice(0, 254); }
+      function kdes(d) { return K && d ? K.rwy[AMDBDOC.des2(d.des)] || null : null; }
+      function srcO(std) { return ('Generated from AIP data (' + c.ds.name + ') and OpenStreetMap (ODbL 1.0, ' + curOsm.id + '): runway centre line from OpenStreetMap, dimensions from the AIP' + (std ? '; Annex 14 standard layout' : '') + ', coarse quality').slice(0, 254); }
+      function base(t, key, std) { return { t: t, ad: c.code, id: 'amdb-gen-' + c.code + '-' + key, a: { idarpt: { v: c.code }, source: { v: curSchem ? srcSch : curInfer ? (srcInf + ': ' + curInfer).slice(0, 254) : curChart ? srcC(curChart) : curOsm ? srcO(std) : std ? srcStd : src } } }; }
       function push(f) { feats.push(f); return f; }
-      if (c.arp) { var f0 = base('AerodromeReferencePoint', 'arp'); f0.g = [{ t: 'P', c: c.arp }]; if (c.name) f0.a.name = { v: c.name.slice(0, 254) }; var el = meters(c.ad.cur.p.fieldElevation); if (el !== null) f0.a.elev = { v: r2(el), u: 'M' }; if (s(c.ad.cur.p.designatorIATA)) f0.a.iata = { v: s(c.ad.cur.p.designatorIATA) }; push(f0); }
+      if (c.arp) { var f0 = base('AerodromeReferencePoint', 'arp'); f0.g = [{ t: 'P', c: c.arp }]; if (c.arpChart) f0.a.source = { v: srcC('reference point as published') }; if (c.name) f0.a.name = { v: c.name.slice(0, 254) }; var el = meters(c.ad.cur.p.fieldElevation); if (el === null && K && K.elev !== null) el = K.elev; if (el !== null) f0.a.elev = { v: r2(el), u: 'M' }; if (s(c.ad.cur.p.designatorIATA)) f0.a.iata = { v: s(c.ad.cur.p.designatorIATA) }; push(f0); }
       var rwyRings = [];
       c.rwys.forEach(function (r) {
-        var d1 = r.dirs[0], d2 = r.dirs[1], heli = r.type === 'FATO'; curSchem = false;
+        var d1 = r.dirs[0], d2 = r.dirs[1], heli = r.type === 'FATO'; curSchem = false; curOsm = null; curInfer = ''; curChart = '';
+        var K1 = kdes(d1), K2 = kdes(d2), fromChart = false, widC = false;
         function pt(d, re) { var x = d && d.pts.filter(function (p) { return re.test(p.role) && p.c; })[0]; return x ? x.c : null; }
         var e1 = pt(d1, /^START/) || pt(d1, /^THR$/) || pt(d2, /^END$/), e2 = pt(d2, /^START/) || pt(d2, /^THR$/) || pt(d1, /^END$/);
         // the runway reaches the furthest point published on its centre line (START, END, points without a role …)
@@ -162,6 +198,26 @@ var AMDBX = (function () {
             if (hi > L2 + 1) e2 = P0.inv([A2[0] * hi / L2, A2[1] * hi / L2]);
           }
         }
+        // no runway positions in the AIP: the threshold and runway end coordinates the State's charts publish
+        if (!e1 && !e2 && ((K1 && K1.thr) || (K2 && K2.thr))) {
+          var ce1 = (K2 && K2.end) || (K1 && K1.thr) || null, ce2 = (K1 && K1.end) || (K2 && K2.thr) || null, Lc = ce1 && ce2 ? Math.hypot.apply(null, plane(ce1).fwd(ce2)) : 0;
+          if (ce1 && ce2 && r.len && (Lc > r.len * 1.05 + 30 || Lc < r.len * 0.5)) notes.push(c.code + ' ' + r.des + ': the runway coordinates read from the chart are ' + Math.round(Lc) + ' m apart for a runway of ' + Math.round(r.len) + ' m — not used (check the chart)');
+          else { e1 = ce1; e2 = ce2; fromChart = true; notes.push(c.code + ' ' + r.des + ': runway positions from the State\'s chart (' + K.src + ') — the AIP data set gives none'); }
+        }
+        // no runway positions in the AIP: the runway centre line mapped in OpenStreetMap, matched by its designators
+        var rdes = AMDBOSM_des(r.des);
+        if (e1 || e2) osmRw.forEach(function (o) { if (o.des.some(function (x) { return rdes.indexOf(x) >= 0; })) usedRw[o.id] = 1; });
+        else if (osmRw.length) {
+          var mr = osmRw.filter(function (o) { return !usedRw[o.id] && o.des.some(function (x) { return rdes.indexOf(x) >= 0; }); })[0] || (c.rwys.length === 1 && osmRw.length === 1 && !usedRw[osmRw[0].id] ? osmRw[0] : null);
+          if (mr) {
+            usedRw[mr.id] = 1;
+            var hd = parseInt((d1 && d1.des) || rdes[0], 10) * 10 + (isNaN(c.magVar) ? 0 : c.magVar), b0 = bearing(mr.ends[0], mr.ends[1]);
+            var flip = !isNaN(hd) && Math.abs(((b0 - hd) % 360 + 540) % 360 - 180) > 90; // direction 1 lands from e1 towards e2
+            e1 = flip ? mr.ends[1] : mr.ends[0]; e2 = flip ? mr.ends[0] : mr.ends[1]; curOsm = mr;
+            if (!r.wid && mr.width) r.wid = mr.width;
+            notes.push(c.code + ' ' + r.des + ': runway centre line from OpenStreetMap (' + mr.id + ') — the AIP gives no runway positions');
+          }
+        }
         // positions withheld in the AIP (some States): a schematic runway at the reference point, only when asked for
         var schem = false;
         if (!e1 && !e2 && opt.schematic && c.arp && c.rwys.length === 1 && r.len && r.wid) {
@@ -171,6 +227,8 @@ var AMDBX = (function () {
         if (e1 && !e2 && d1 && !isNaN(d1.brg) && r.len) e2 = along(e1, d1.brg, r.len);
         if (e2 && !e1 && d2 && !isNaN(d2.brg) && r.len) e1 = along(e2, d2.brg, r.len);
         var idrwy = r.des.split(/[/.]/).map(function (x) { return x.trim(); }).sort(function (a, b) { return parseInt(a, 10) - parseInt(b, 10); }).join('.');
+        if (!r.wid && K) { var kw = (K1 && K1.wid) || (K2 && K2.wid); if (kw) { r.wid = kw; widC = true; notes.push(c.code + ' ' + r.des + ': runway width ' + kw + ' m from the State\'s chart'); } }
+        if (fromChart || widC) curChart = fromChart ? 'runway between the threshold / runway end coordinates as published, width ' + (widC ? 'as published' : 'from the AIP') : 'runway width as published; positions from the AIP';
         if (!(e1 && e2 && r.wid)) { notes.push(c.code + ' ' + r.des + ': runway surface not generated (' + (!r.wid ? 'no width' : 'no runway ends, or no threshold with bearing and length') + ')'); }
         else {
           var ring = rect(e1, e2, r.wid), len = r.len || 0;
@@ -178,10 +236,21 @@ var AMDBX = (function () {
           if (schem) f.a.source = { v: 'SCHEMATIC from AIP data (' + c.ds.name + '): runway positions withheld; placed at the reference point, indicative only' }; f.a.idrwy = { v: idrwy }; f.a.status = { v: '1' }; f.label = idrwy;
           if (!heli) { f.a.width = { v: r2(r.wid), u: 'M' }; f.a.length = { v: r2(len), u: 'M' }; }
           surfAttrs(f.a, r.sp, 'surftype', SURF_RWY);
+          var kp = !f.a.pcn && ((K1 && K1.pcn) || (K2 && K2.pcn)); if (kp) { f.a.pcn = { v: kp.replace(/^PCN\s*/, '').slice(0, 25) }; notes.push(c.code + ' ' + r.des + ': bearing strength ' + kp + ' from the State\'s chart'); }
           rwyRings.push({ ring: ring, id: idrwy, sp: r.sp });
-          if (!heli && r.shoulder && r.shoulder > r.wid) { // AIXM widthShoulder: the overall width with the shoulders
-            var sw2 = (r.shoulder - r.wid) / 2, F = frame(e1, bearing(e1, e2)), L0 = Math.hypot.apply(null, plane(e1).fwd(e2));
+          // shoulders: AIXM widthShoulder (the overall width with the shoulders), or the width the chart publishes
+          var shC = !r.shoulder && K ? (K.shoulder[AMDBDOC.des2(d1 && d1.des)] || K.shoulder[AMDBDOC.des2(d2 && d2.des)] || K.shoulder['*']) : null, shoulder = r.shoulder || (shC ? (shC.total ? shC.w : r.wid + 2 * shC.w) : null);
+          if (!heli && shoulder && shoulder > r.wid) {
+            var sw2 = (shoulder - r.wid) / 2, F = frame(e1, bearing(e1, e2)), L0 = Math.hypot.apply(null, plane(e1).fwd(e2)), was0 = curChart;
+            if (shC) curChart = 'shoulders to an overall width of ' + r2(shoulder) + ' m as published';
             [[-r.wid / 2 - sw2, -r.wid / 2, 'L'], [r.wid / 2, r.wid / 2 + sw2, 'R']].forEach(function (x) { var sh = push(base('RunwayShoulder', 'shd-' + idrwy + '-' + x[2])); sh.g = [{ t: 'A', c: [F.box(0, L0, x[0], x[1])] }]; sh.a.idrwy = { v: idrwy }; sh.a.status = { v: '1' }; surfAttrs(sh.a, r.sp, 'gsurftyp', SURF_GND); delete sh.a.pcn; sh.label = idrwy; });
+            curChart = was0;
+          }
+          else if (!heli && opt.infer && /[DEF]/.test(CODE.letter) && (CODE.letter === 'F' ? 75 : 60) > r.wid) { // Annex 14 3.2: shoulders to an overall width of 60 m (code D, E) or 75 m (F)
+            var ow = CODE.letter === 'F' ? 75 : 60, sw3 = (ow - r.wid) / 2, F6 = frame(e1, bearing(e1, e2)), L6 = Math.hypot.apply(null, plane(e1).fwd(e2));
+            curInfer = 'runway shoulders to an overall width of ' + ow + ' m (Annex 14 3.2, code letter ' + CODE.letter + ')';
+            [[-r.wid / 2 - sw3, -r.wid / 2, 'L'], [r.wid / 2, r.wid / 2 + sw3, 'R']].forEach(function (x) { var sh = push(base('RunwayShoulder', 'shd-' + idrwy + '-' + x[2])); sh.g = [{ t: 'A', c: [F6.box(0, L6, x[0], x[1])] }]; sh.a.idrwy = { v: idrwy }; sh.a.status = { v: '1' }; sh.label = idrwy + ' shoulder (inferred)'; });
+            curInfer = '';
           }
           if (!heli && opt.centreline) { var pc = push(base('PaintedCenterline', 'pcl-' + idrwy, true)); pc.g = [{ t: 'L', c: [e1, e2] }]; pc.a.idrwy = { v: idrwy }; pc.label = idrwy; }
           // per runway end: stopway (ASDA - TORA), displaced threshold area, markings
@@ -217,6 +286,25 @@ var AMDBX = (function () {
           // side stripes along both edges (0.9 m) between the thresholds
           if (!heli && opt.markings) { var F3 = frame(e1, bearing(e1, e2)), L3 = Math.hypot.apply(null, plane(e1).fwd(e2)); [[-r.wid / 2, -r.wid / 2 + 0.9, 'L'], [r.wid / 2 - 0.9, r.wid / 2, 'R']].forEach(function (x) { var m = push(base('RunwayMarking', 'mk-' + idrwy + '-side' + x[2], true)); m.g = [{ t: 'A', c: [F3.box(0, L3, x[0], x[1])] }]; m.a.idrwy = { v: idrwy }; m.a.rwymktyp = { v: '3' }; m.label = idrwy + ' side stripe'; }); }
         }
+        // the directions an ILS serves: from the ILS navaids, or a localizer beyond the far end on the extended centre line
+        var ilsD = {};
+        [d1, d2].forEach(function (d) { if (d && c.ilsDes[String(d.des).toUpperCase()]) ilsD[d.des] = 1; });
+        if (e1 && e2) { var P9 = plane(e1), A9 = P9.fwd(e2), L9 = Math.hypot(A9[0], A9[1]); c.locs.forEach(function (lp) { var v = P9.fwd(lp), sa = (v[0] * A9[0] + v[1] * A9[1]) / L9, off = Math.abs(v[0] * A9[1] - v[1] * A9[0]) / L9; if (off < 250) { if (sa > L9 && d1) ilsD[d1.des] = 1; else if (sa < 0 && d2) ilsD[d2.des] = 1; } }); }
+        if (e1 && e2 && !heli) rwInfo.push({ e1: e1, e2: e2, id: idrwy, des: r.des, wid: r.wid || 45, prec: Object.keys(ilsD).length > 0 });
+        // no lights in the AIP data set: the lighting the State's charts list (positions at the Annex 14 layout)
+        var chartL = {}, LPOS = { EDGE: 'EDGE', CL: 'CL', TDZ: 'TDZ', THR: 'THR', END: 'END' };
+        if (K) [d1, d2].forEach(function (d) { if (d && !d.lights.length) { var l = AMDBDOC.lightsFor(K, AMDBDOC.des2(d.des), c.rwys.length === 1); if (l.length) chartL[d.des] = l; } });
+        Object.keys(chartL).forEach(function (k) { var other = chartL[k].filter(function (l) { return !LPOS[l.kind] && l.kind !== 'ALS'; }).map(function (l) { return AMDBDOC.LNAME[l.kind]; }); notes.push(c.code + ' ' + k + ': lighting from the State\'s chart — ' + chartL[k].map(function (l) { return (l.kind === 'ALS' && l.cls ? l.cls + ' ' : '') + AMDBDOC.LNAME[l.kind]; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join(', ') + (other.length ? ' (' + other.join(', ') + ': listed, no AMXM light type to draw)' : '')); });
+        // no lights declared but an ILS: the Annex 14 minimum for a precision approach runway CAT I (inferred)
+        var inferL = opt.infer && !(d1 && d1.lights.length) && !(d2 && d2.lights.length) && !Object.keys(chartL).length && Object.keys(ilsD).length > 0;
+        function lightsOf(d) {
+          if (!d.lights.length && chartL[d.des]) return chartL[d.des].filter(function (l) { return l.kind === 'ALS' || LPOS[l.kind]; }).map(function (l) { return l.kind === 'ALS' ? { k: 'ApproachLightingSystem', chart: l, cur: { p: { classICAO: l.cls, type: l.cls } } } : { k: 'RunwayDirectionLightSystem', chart: l, cur: { p: { position: LPOS[l.kind], colour: l.kind === 'EDGE' ? 'WHITE' : '' } } }; });
+          if (!inferL) return d.lights;
+          var l = ['EDGE', 'THR', 'END'].map(function (pos) { return { k: 'RunwayDirectionLightSystem', cur: { p: { position: pos, colour: pos === 'EDGE' ? 'WHITE' : '' } } }; });
+          if (ilsD[d.des]) l.push({ k: 'ApproachLightingSystem', cur: { p: { classICAO: 'CAT1', length: { v: '900', u: 'M' } } } });
+          return l;
+        }
+        if (inferL) { curInfer = 'lighting of a precision approach runway CAT I (Annex 14 5.3), an ILS serves RWY ' + Object.keys(ilsD).join(', '); notes.push(c.code + ' ' + r.des + ': no lighting in the AIP; CAT I lighting inferred from the ILS (labelled inferred)'); }
         // lights declared in the AIP (AD 2.14): each light where the AIP gives it, otherwise at the Annex 14 spacing
         if (opt.lights && e1 && e2 && r.wid) {
           var did = {};
@@ -224,8 +312,9 @@ var AMDBX = (function () {
             var d = x[0]; if (!d) return;
             var brg = bearing(x[1], x[2]), Lr = Math.hypot.apply(null, plane(x[1]).fwd(x[2])), thrP = pt(d, /^DISTHR$/) || pt(d, /^THR$/) || x[1], F4 = frame(thrP, brg), Ft = frame(x[1], brg);
             var Ld = Math.hypot.apply(null, plane(thrP).fwd(x[2]));
-            d.lights.forEach(function (ls, li) {
-              var p = ls.cur.p, pos = s(p.position), col = s(p.colour), given = [];
+            lightsOf(d).forEach(function (ls, li) {
+              var p = ls.cur.p, pos = s(p.position), col = s(p.colour), given = [], was1 = curChart;
+              if (ls.chart) curChart = (ls.k === 'ApproachLightingSystem' && ls.chart.cls ? ls.chart.cls + ' ' : '') + AMDBDOC.LNAME[ls.chart.kind] + ' of RWY ' + d.des + ' as published; light positions at the ICAO Annex 14 standard layout';
               arr(p.element).forEach(function (el) { var lc = el && arr(el.location)[0]; if (lc && lc._geo && lc._geo.t === 'P') given.push(lc._geo.c); });
               var use = ls.k === 'ApproachLightingSystem' ? '9' : { EDGE: '2', CL: '3', THR: '4', DTHR: '4', TDZ: '5', END: '8', REIL: '8' }[pos];
               if (!use) return;
@@ -256,9 +345,33 @@ var AMDBX = (function () {
                 var cc = { YELLOW: '0', ORANGE: '1', BLUE: '2', WHITE: '3' }[col]; if (cc) lf.a.color = { v: cc };
                 lf.a.status = { v: '1' }; lf.label = d.des + ' ' + (ls.k === 'ApproachLightingSystem' ? 'approach' : pos) + ' light';
               });
+              curChart = was1;
             });
           });
         }
+        curInfer = ''; curChart = '';
+        // thresholds the State's charts publish where the AIP data set gives none with a position
+        if (K && !heli) [[d1, K1], [d2, K2]].forEach(function (x) {
+          var d = x[0], R = x[1]; if (!d || !R || d.pts.some(function (q) { return /THR$/.test(q.role) && q.c; })) return;
+          [[R.thr, '', '0'], [R.dthr, '-d', '1']].forEach(function (y) {
+            if (!y[0]) return;
+            var dd = d.pts.reduce(function (o, p) { Object.keys(p.dd).forEach(function (k) { o[k] = p.dd[k]; }); return o; }, {});
+            var t = push(base('RunwayThreshold', 'thr-' + d.des + y[1])); t.g = [{ t: 'P', c: y[0] }]; t.label = d.des; t.a.idthr = { v: d.des }; t.a.thrtype = { v: y[2] }; t.a.status = { v: '1' };
+            if (!isNaN(d.brg)) t.a.brngtrue = { v: r2(d.brg) };
+            ['TORA', 'TODA', 'ASDA', 'LDA'].forEach(function (k) { if (dd[k] !== undefined) t.a[k.toLowerCase()] = { v: r2(dd[k]), u: 'M' }; });
+            t.a.source = { v: srcC((y[2] === '1' ? 'displaced ' : '') + 'threshold position as published') }; t.chartThr = 1;
+          });
+        });
+        // runway from OpenStreetMap: a threshold at each end (the AIP gives none with a position)
+        if (curOsm && e1 && e2 && !heli) [[d1, e1, e2], [d2, e2, e1]].forEach(function (x) {
+          var d = x[0]; if (!d || d.pts.some(function (q) { return /THR$/.test(q.role) && q.c; }) || (kdes(d) && kdes(d).thr)) return;
+          var dd = d.pts.reduce(function (o, p) { Object.keys(p.dd).forEach(function (k) { o[k] = p.dd[k]; }); return o; }, {}), el2 = d.pts.filter(function (q) { return q.elev !== null; })[0];
+          var t = push(base('RunwayThreshold', 'thr-' + d.des)); t.g = [{ t: 'P', c: x[1] }]; t.label = d.des; t.a.idthr = { v: d.des }; t.a.thrtype = { v: '0' }; t.a.brngtrue = { v: r2(bearing(x[1], x[2])) }; t.a.status = { v: '1' };
+          t.a.source = { v: (srcO(false) + '; threshold at the runway end').slice(0, 254) };
+          if (el2) t.a.elev = { v: r2(el2.elev), u: 'M' };
+          ['TORA', 'TODA', 'ASDA', 'LDA'].forEach(function (k) { if (dd[k] !== undefined) t.a[k.toLowerCase()] = { v: r2(dd[k]), u: 'M' }; });
+        });
+        curOsm = null;
         // thresholds and every runway centre line point published
         r.dirs.forEach(function (d) {
           var dd = d.pts.reduce(function (o, p) { Object.keys(p.dd).forEach(function (k) { o[k] = p.dd[k]; }); return o; }, {});
@@ -353,7 +466,77 @@ var AMDBX = (function () {
       var noGeo = c.by.Taxiway.filter(function (x) { return !c.by.TaxiwayElement.some(function (e) { return M.target(ds, e.cur.p.associatedTaxiway) === x; }) && !c.by.GuidanceLine.some(function (g) { return M.target(ds, g.cur.p.connectedTaxiway) === x; }); }).map(function (x) { return 'TWY ' + s(x.cur.p.designator); })
         .concat(c.by.Apron.filter(function (x) { return !c.by.ApronElement.some(function (e) { return M.target(ds, e.cur.p.associatedApron) === x; }); }).map(function (x) { return 'apron ' + (s(x.cur.p.name) || s(x.cur.p.designator)); }));
       if (noGeo.length) notes.push(c.code + ': named in AD 2.8 without position or shape (cannot be drawn): ' + noGeo.join(', '));
-      if (!c.by.TaxiwayElement.length && !c.by.GuidanceLine.length) notes.push(c.code + ': the AIP data set has no taxiway, apron or guidance line geometry — add survey, CAD or GIS files for them');
+      // runways mapped in OpenStreetMap that the AIP does not list
+      osmRw.forEach(function (o) {
+        if (usedRw[o.id] || c.rwys.some(function (r) { return AMDBOSM_des(r.des).some(function (x) { return o.des.indexOf(x) >= 0; }); })) return;
+        var w = o.width || CODE.maxW || 45, rg = rect(o.ends[0], o.ends[1], w); if (!rg) return;
+        var f = push(base('RunwayElement', 'rwy-osm-' + o.id.replace(/\W/g, ''))); f.g = [{ t: 'A', c: [rg] }]; f.a.idrwy = { v: (o.des.join('.') || o.ref || 'RWY').slice(0, 16) }; f.a.status = { v: '1' };
+        f.a.source = { v: ('OpenStreetMap contributors (ODbL 1.0), ' + o.id + ': runway traced by volunteers, not listed in the AIP; width ' + (o.width ? 'as tagged' : w + ' m assumed') + ', coarse quality').slice(0, 254) };
+        f.label = f.a.idrwy.v; rwInfo.push({ e1: o.ends[0], e2: o.ends[1], id: f.a.idrwy.v, des: o.ref, wid: w, prec: false });
+      });
+      // stands the State's charts publish (parking / docking chart, AD 2.8 tables), checked: as published
+      var aipStd = c.stands.map(function (x) { return { id: s(x.cur.p.designator).toUpperCase(), c: M.pointOf(c.ds, x) }; });
+      if (K && K.stands.length) {
+        var nC = 0;
+        K.stands.forEach(function (x, k) {
+          if (aipStd.some(function (a) { return (x.id && a.id === x.id) || (a.c && Math.hypot.apply(null, plane(a.c).fwd(x.c)) < 25); })) return;
+          var sf = push(base('ParkingStandLocation', 'stc-' + (x.id || k))); sf.g = [{ t: 'P', c: x.c }]; if (x.id) sf.a.idstd = { v: x.id }; sf.label = x.id; nC++;
+          sf.a.source = { v: srcC('stand position as published') }; sf.chart = 1;
+        });
+        notes.push(c.code + ': ' + nC + ' stand(s) placed as published on the State\'s chart' + (K.standsLeft.length ? '; ' + K.standsLeft.length + ' left out — ' + K.standsLeft.slice(0, 4).map(function (x) { return x.why; }).join('; ') : ''));
+      }
+      // what the user traced on imagery (Trace tab): taxiways, aprons, stands, holding positions, buildings …
+      var traced = opt.traced && typeof AMDBTRACE !== 'undefined' ? AMDBTRACE.features(c.code) : [];
+      traced.forEach(function (x, k) { var tf = push(base(x.t, 'trc-' + k)); tf.g = x.g; Object.keys(x.a).forEach(function (a) { tf.a[a] = x.a[a]; }); tf.a.source = { v: String(x.src).slice(0, 254) }; tf.label = x.label || ''; tf.traced = 1; });
+      if (traced.length) notes.push(c.code + ': ' + traced.length + ' feature(s) traced on imagery');
+      function sameStand(ref, at) { ref = String(ref || '').toUpperCase(); return feats.some(function (f) { return f.ad === c.code && (f.chart || f.traced) && f.t === 'ParkingStandLocation' && ((ref && f.a.idstd && String(f.a.idstd.v).toUpperCase() === ref) || Math.hypot.apply(null, plane(at).fwd(f.g[0].c)) < 25); }) || aipStd.some(function (a) { return (ref && a.id === ref) || (a.c && Math.hypot.apply(null, plane(at).fwd(a.c)) < 25); }); }
+      // OpenStreetMap: what the AIP data set does not give (the AIP is kept wherever it gives a feature type)
+      var taxiLines = [];
+      if (osm) {
+        var KEEP = /^(TaxiwayElement|ApronElement|TaxiwayGuidanceLine|StandGuidanceLine|TaxiwayHoldingPosition|ParkingStandLocation|ParkingStandArea|Stopway|TouchDownLiftOffArea|Blastpad|DeicingArea|ServiceRoad|Water)$/;
+        var have = {}; feats.forEach(function (f) { if (f.ad === c.code && !f.osm && !f.chart && !f.traced && KEEP.test(f.t)) have[f.t] = (have[f.t] || 0) + 1; });
+        var tracedRef = {}; traced.forEach(function (x) { if (x.t === 'TaxiwayGuidanceLine' && x.a.idlin) tracedRef[String(x.a.idlin.v).toUpperCase()] = 1; });
+        var H = { base: function (t2, key) { return base(t2, key); }, plane: plane, widen: widen, along: along, centre: gcentre, have: have, letter: CODE.letter, codeTwyWidth: TWYW[CODE.letter], rwyWidth: CODE.maxW,
+          twyWidth: function (ref) { return ref && c.twyW[ref] ? c.twyW[ref] : K && ((ref && K.twyW[ref]) || K.twyW['*']) || null; },
+          twyWidthFrom: function (ref) { return ref && c.twyW[ref] ? 'the AIP' : 'the State\'s chart'; },
+          dupStand: sameStand, skipTaxi: function (ref) { return !!(ref && tracedRef[String(ref).toUpperCase()]); } };
+        var oc = AMDBOSM.convert(c, osm, H);
+        // an OSM stand whose number the State's chart also gives: confirmed by the chart
+        var named = K ? K.standNames.concat(K.stands.map(function (x) { return x.id; })) : [];
+        oc.features.forEach(function (f) { if (named.length && f.t === 'ParkingStandLocation' && f.a.idstd && named.indexOf(String(f.a.idstd.v).toUpperCase()) >= 0) f.a.source.v = (f.a.source.v + '; number on the State\'s chart').slice(0, 254); push(f); });
+        if (K && K.twyNames.length) { var oref = {}; oc.taxi.forEach(function (t) { String(t.ref || '').toUpperCase().split(/[;,]/).forEach(function (x) { oref[x.trim()] = 1; }); }); var miss = K.twyNames.filter(function (x) { return !oref[x] && !tracedRef[x]; }); if (miss.length) notes.push(c.code + ': named on the State\'s chart but not mapped in OpenStreetMap: TWY ' + miss.slice(0, 20).join(', ') + (miss.length > 20 ? ' …' : '') + ' — trace them on imagery (Trace tab)'); }
+        if (opt.network) AMDBOSM.network(c, osm, H, function (f) { return AMDBOSM.uuid(f.id); }).forEach(push);
+        notes.push(c.code + ': ' + oc.features.length + ' feature(s) from OpenStreetMap (' + osm.src.name + ', ' + AMDBOSM.ATTR + ')');
+      }
+      feats.forEach(function (f) { if (f.ad === c.code && f.t === 'TaxiwayGuidanceLine' && f.g[0] && f.g[0].t === 'L') taxiLines.push({ c: f.g[0].c, ref: f.a.idlin ? f.a.idlin.v : '' }); });
+      // holding positions where a taxiway reaches the runway-holding distance of ICAO Annex 14 Table 3-2 (inferred)
+      if (opt.infer && taxiLines.length && rwInfo.length) {
+        var holds = feats.filter(function (f) { return f.ad === c.code && f.t === 'TaxiwayHoldingPosition'; }).map(function (f) { return gcentre(f.g[0]); }).filter(Boolean), nH = 0;
+        rwInfo.forEach(function (rw) {
+          var Dh = rw.prec ? (CODE.num >= 3 ? 90 : 60) : (CODE.num >= 3 ? 75 : 40), P = plane(rw.e1), A = P.fwd(rw.e2), L = Math.hypot(A[0], A[1]), rb = bearing(rw.e1, rw.e2);
+          taxiLines.forEach(function (tl) {
+            var pts = tl.c.filter(function (q) { return q && typeof q[0] === 'number'; }).map(function (q) { var v = P.fwd(q); return { q: q, s: (v[0] * A[0] + v[1] * A[1]) / L, d: Math.abs(v[0] * A[1] - v[1] * A[0]) / L }; });
+            for (var i = 0; i < pts.length - 1; i++) {
+              var a = pts[i], b = pts[i + 1];
+              if ((a.d - Dh) * (b.d - Dh) > 0 || a.d === b.d) continue;
+              var k = (Dh - a.d) / (b.d - a.d), sA = a.s + (b.s - a.s) * k;
+              if (sA < -60 || sA > L + 60) continue;
+              var at = [a.q[0] + (b.q[0] - a.q[0]) * k, a.q[1] + (b.q[1] - a.q[1]) * k], Pq = plane(at);
+              if (holds.some(function (h) { var v = Pq.fwd(h); return Math.hypot(v[0], v[1]) < 60; })) continue;
+              holds.push(at);
+              var w = (tl.ref && c.twyW[tl.ref]) || TWYW[CODE.letter];
+              curInfer = 'holding position ' + Dh + ' m from the runway centre line (Annex 14 Table 3-2, ' + (rw.prec ? 'precision approach' : 'non-precision / non-instrument') + ', code ' + CODE.num + ')';
+              var f = push(base('TaxiwayHoldingPosition', 'hpi-' + (++nH))); f.g = [{ t: 'L', c: [along(at, rb, w / 2 + 3), along(at, (rb + 180) % 360, w / 2 + 3)] }];
+              f.a.catstop = { v: rw.prec ? '1' : '0' }; f.a.marktype = { v: '0' }; f.a.holddir = { v: '0' }; f.a.status = { v: '1' }; f.a.rwyahtxt = { v: String(rw.des || rw.id).replace('/', '-').slice(0, 254) };
+              if (tl.ref) f.a.idlin = { v: tl.ref };
+              f.label = (tl.ref ? tl.ref + ' ' : '') + 'holding position (inferred)';
+              curInfer = '';
+            }
+          });
+        });
+        if (nH) notes.push(c.code + ': ' + nH + ' holding position(s) inferred where taxiways reach the Annex 14 runway-holding distance');
+      }
+      if (!c.by.TaxiwayElement.length && !c.by.GuidanceLine.length && !osm) notes.push(c.code + ': the AIP data set has no taxiway, apron or guidance line geometry — add survey, CAD or GIS files for them');
     });
     // a shape that could not be derived (two points at the same position …) is left out
     function okGeom(g) { if (!g || !g.c) return false; if (g.t === 'P') return typeof g.c[0] === 'number' && typeof g.c[1] === 'number'; if (g.t === 'L') return g.c.length > 1 && g.c.every(function (q) { return q && typeof q[0] === 'number'; }); if (g.t === 'A') return g.c.length > 0 && g.c.every(function (r) { return r && r.length > 3 && r.every(function (q) { return q && typeof q[0] === 'number' && isFinite(q[0]) && isFinite(q[1]); }); }); return false; }
@@ -557,7 +740,7 @@ var AMDBX = (function () {
 
   /* --------------------------------------------------------------------- UI */
   var NOTICE = 'NOT FOR NAVIGATION — for study and analysis only.';
-  var G = { pick: null, ack: false, out: '' }, CMP = { a: -1, b: -1, ad: '', tol: 0.5, res: null, filter: '' };
+  var G = { pick: null, ack: false, out: '', osmMsg: '', upMsg: '', open: {} }, CMP = { a: -1, b: -1, ad: '', tol: 0.5, res: null, filter: '' };
   // what the AIP data set gives for aerodrome mapping, item by item: available, partly, missing — and what it limits
   var READY = [
     ['arp', 'Aerodrome reference point', 'position of the aerodrome; the frame of everything else', 'AD 2.2 ARP coordinates'],
@@ -576,47 +759,101 @@ var AMDBX = (function () {
     ['lgt', 'Light systems', 'runway, approach and guard lights', 'AD 2.14 / 2.15 lighting (AIXM light systems)'],
     ['nav', 'Navaid positions', 'ILS localizer / glide path, DME, VOR antennas', 'AD 2.19 navaid coordinates'],
     ['obs', 'Obstacles', 'buildings, masts and other obstacles', 'AD 2.10 obstacles or an eTOD area 2/3 data set']];
-  function readiness(c) {
-    var dirs = [], pts = 0, ends = 0;
+  // readiness of an aerodrome for aerodrome mapping: each item available, partly or missing, and from where —
+  // A the AIP data set, C the State's charts and documents, T traced on imagery by the user, O OpenStreetMap (got
+  // or loaded), S inferred from ICAO Annex 14 (each labelled so in the data); the first source that has it counts
+  var RORDER = ['A', 'C', 'T', 'O', 'S'];
+  function readiness(c, opt) {
+    opt = opt || G.opt || DEF;
+    var osmO = opt.osm && typeof AMDBOSM !== 'undefined' ? AMDBOSM.get(c.code) : null, o = osmO ? AMDBOSM.summary(osmO) : null, inf = opt.infer;
+    var K = opt.charts && typeof AMDBDOC !== 'undefined' ? AMDBDOC.forAd(c.code, c.arp) : null;
+    if (K) AMDBDOC.matchDims(K, c.rwys);
+    var T = opt.traced && typeof AMDBTRACE !== 'undefined' ? AMDBTRACE.count(c.code) : {};
+    var dirs = [], pts = 0, ends = 0, rw = c.rwys.filter(function (r) { return r.type !== 'FATO'; }), CODE = codeOf(c);
     c.rwys.forEach(function (r) { r.dirs.forEach(function (d) { dirs.push(d); d.pts.forEach(function (q) { if (q.c) { pts++; if (/^(START|END)/.test(q.role) || !q.role) ends++; } }); }); });
     var thrPos = dirs.filter(function (d) { return d.pts.some(function (q) { return /THR$/.test(q.role) && q.c; }); }).length;
     var any = function (f) { var n = dirs.filter(f).length; return !dirs.length ? 'missing' : n === dirs.length ? 'ok' : n ? 'part' : 'missing'; };
     var anyR = function (f) { var n = c.rwys.filter(f).length; return !c.rwys.length ? 'missing' : n === c.rwys.length ? 'ok' : n ? 'part' : 'missing'; };
-    var lightN = dirs.reduce(function (n, d) { return n + d.lights.length; }, 0);
-    var st = {
-      arp: c.arp ? 'ok' : 'missing',
-      thr: !dirs.length ? 'missing' : thrPos === dirs.length ? 'ok' : thrPos ? 'part' : pts ? 'part' : 'missing',
-      ends: ends >= c.rwys.length * 2 && c.rwys.length ? 'ok' : ends ? 'part' : 'missing',
-      wid: anyR(function (r) { return r.wid; }), shd: anyR(function (r) { return r.shoulder; }),
-      dd: any(function (d) { return d.pts.some(function (q) { return Object.keys(q.dd).length; }); }),
-      elev: any(function (d) { return d.pts.some(function (q) { return q.elev !== null; }); }),
-      brg: any(function (d) { return !isNaN(d.brg); }),
-      surf: anyR(function (r) { return r.sp && (s(r.sp.composition) || s(r.sp.classPCN)); }),
-      twy: c.by.TaxiwayElement.length || c.by.GuidanceLine.length ? (c.by.Taxiway.length && c.by.TaxiwayElement.length + c.by.GuidanceLine.length < c.by.Taxiway.length ? 'part' : 'ok') : 'missing',
-      apn: c.by.ApronElement.length ? 'ok' : 'missing', std: c.stands.length ? 'ok' : 'missing', hold: c.by.TaxiHoldingPosition.length ? 'ok' : 'missing',
-      lgt: lightN ? 'ok' : 'missing', nav: c.navs.length ? 'ok' : 'missing', obs: c.obs.length ? 'ok' : 'missing'
-    };
+    var cov = function (n, of) { return n && n >= of ? 'ok' : n ? 'part' : ''; };
+    var lightN = dirs.reduce(function (n, d) { return n + d.lights.length; }, 0), ils = Object.keys(c.ilsDes || {}).length > 0 || (c.locs || []).length > 0;
+    var oRw = o ? o.runway : 0, taxiAny = c.by.TaxiwayElement.length || c.by.GuidanceLine.length || (o && o.taxiway) || T.twy;
+    // the State's charts: per runway direction, and how much of what they name OpenStreetMap covers
+    var kr = function (d) { return K ? K.rwy[AMDBDOC.des2(d.des)] || null : null; };
+    var kThr = dirs.filter(function (d) { var R = kr(d); return R && R.thr; }).length, kEnd = dirs.filter(function (d) { var R = kr(d); return R && R.end; }).length;
+    var kRw = function (k) { return K ? c.rwys.filter(function (r) { return r.dirs.some(function (d) { var R = kr(d); return R && R[k]; }); }).length : 0; };
+    var kLgt = K ? dirs.filter(function (d) { return AMDBDOC.lightsFor(K, AMDBDOC.des2(d.des), c.rwys.length === 1).some(function (l) { return l.kind === 'EDGE' || l.kind === 'ALS' || l.kind === 'THR'; }); }).length : 0;
+    var oRefs = {}; if (osmO) osmO.els.forEach(function (e) { if (/^(taxiway|taxilane)$/.test(e.tags.aeroway) && e.tags.ref) String(e.tags.ref).toUpperCase().split(/[;,]/).forEach(function (x) { oRefs[x.trim()] = 1; }); });
+    var twyCov = K && K.twyNames.length && o && o.taxiway ? K.twyNames.filter(function (x) { return oRefs[x]; }).length / K.twyNames.length : 1;
+    // stands: all of those the charts name have a position (or nearly), or only part of them
+    var named = K ? K.standNames.concat(K.stands.map(function (x) { return x.id; })).filter(function (x, i, a) { return x && a.indexOf(x) === i; }).length : 0;
+    var stdN = (K ? K.stands.length : 0) + (T.std || 0), stdC = stdN ? (named ? (stdN >= 0.9 * named ? 'ok' : 'part') : K && K.stands.length ? 'ok' : T.std >= 10 ? 'ok' : 'part') : '';
+    // taxiways traced: all of those the charts name, or a few lines only
+    var twyT = T.twy ? (K && K.twyNames.length ? (twyCovT() >= 0.9 ? 'ok' : 'part') : T.twy >= 3 ? 'ok' : 'part') : '';
+    function twyCovT() { var tr = {}; AMDBTRACE.features(c.code).forEach(function (f) { if (f.t === 'TaxiwayGuidanceLine' && f.a.idlin) tr[String(f.a.idlin.v).toUpperCase()] = 1; }); return K.twyNames.filter(function (x) { return oRefs[x] || tr[x]; }).length / K.twyNames.length; }
+    var R = {};
+    // the AIP when it has the item; else the first other source that has all of it; else the first that has part
+    function set(k, stA) {
+      var alts = Array.prototype.slice.call(arguments, 2).filter(function (x) { return x && x[0]; });
+      if (stA === 'ok') { R[k] = ['ok', 'A']; return; }
+      var full = alts.filter(function (x) { return x[0] === 'ok'; })[0];
+      if (full) { R[k] = full; return; }
+      if (stA === 'part') { R[k] = ['part', 'A']; return; }
+      R[k] = alts[0] || ['missing', ''];
+    }
+    set('arp', c.arp ? 'ok' : 'missing', K && K.arp ? ['ok', 'C'] : null);
+    set('thr', !dirs.length ? 'missing' : thrPos === dirs.length ? 'ok' : thrPos || pts ? 'part' : 'missing', [cov(kThr, dirs.length), 'C'], oRw ? [oRw >= rw.length ? 'ok' : 'part', 'O'] : null, opt.schematic && c.rwys.length === 1 && c.arp ? ['part', 'S'] : null);
+    set('ends', ends >= c.rwys.length * 2 && c.rwys.length ? 'ok' : ends ? 'part' : 'missing', [kEnd ? cov(kEnd, dirs.length) : kThr ? 'part' : '', 'C'], oRw ? [oRw >= rw.length ? 'ok' : 'part', 'O'] : null);
+    set('wid', anyR(function (r) { return r.wid; }), [cov(kRw('wid'), c.rwys.length), 'C']);
+    set('shd', anyR(function (r) { return r.shoulder; }), K && Object.keys(K.shoulder).length ? ['ok', 'C'] : null, inf && c.rwys.length ? ['ok', 'S'] : null);
+    set('dd', any(function (d) { return d.pts.some(function (q) { return Object.keys(q.dd).length; }); }));
+    set('elev', any(function (d) { return d.pts.some(function (q) { return q.elev !== null; }); }), inf && meters(c.ad.cur.p.fieldElevation) !== null ? ['part', 'S'] : null);
+    set('brg', any(function (d) { return !isNaN(d.brg); }), pts >= 2 ? ['ok', 'A'] : null, [kThr >= 2 ? 'ok' : '', 'C'], oRw ? ['ok', 'O'] : null);
+    set('surf', anyR(function (r) { return r.sp && (s(r.sp.composition) || s(r.sp.classPCN)); }), [cov(kRw('pcn'), c.rwys.length), 'C'], o && o.surface ? ['part', 'O'] : null);
+    set('twy', c.by.TaxiwayElement.length || c.by.GuidanceLine.length ? (c.by.Taxiway.length && c.by.TaxiwayElement.length + c.by.GuidanceLine.length < c.by.Taxiway.length ? 'part' : 'ok') : 'missing', [twyT, 'T'], o && o.taxiway ? [twyCov >= 0.9 ? 'ok' : 'part', 'O'] : null);
+    set('apn', c.by.ApronElement.length ? 'ok' : 'missing', T.apn ? ['ok', 'T'] : null, o && o.apron ? ['ok', 'O'] : null);
+    set('std', c.stands.length ? 'ok' : 'missing', [stdC, K && K.stands.length ? 'C' : 'T'], o && o.stand ? [o.standRef ? 'ok' : 'part', 'O'] : null);
+    set('hold', c.by.TaxiHoldingPosition.length ? 'ok' : 'missing', T.hold ? [T.hold >= 4 ? 'ok' : 'part', 'T'] : null, o && o.hold ? ['ok', 'O'] : null, inf && taxiAny && c.rwys.length ? ['ok', 'S'] : null);
+    set('lgt', lightN ? 'ok' : 'missing', [cov(kLgt, dirs.length), 'C'], inf && ils ? ['ok', 'S'] : null);
+    set('nav', c.navs.length ? 'ok' : ils ? 'part' : 'missing', o && o.navaid ? ['part', 'O'] : null);
+    set('obs', c.obs.length ? 'ok' : 'missing', o && o.building ? ['ok', 'O'] : null, T.bldg ? ['part', 'T'] : null);
+    var st = {}, srcs = {}, by = { A: 0, C: 0, T: 0, O: 0, S: 0 };
+    Object.keys(R).forEach(function (k) { st[k] = R[k][0]; srcs[k] = R[k][1]; if (R[k][0] !== 'missing' && R[k][1]) by[R[k][1]]++; });
     var score = READY.reduce(function (n, x) { return n + (st[x[0]] === 'ok' ? 1 : st[x[0]] === 'part' ? 0.5 : 0); }, 0);
-    return { st: st, pct: Math.round(score / READY.length * 100), withheld: c.rwys.length && !pts };
+    return { st: st, src: srcs, by: by, pct: Math.round(score / READY.length * 100), withheld: c.rwys.length && !pts && !kThr, osm: o, charts: K, code: CODE };
   }
   var RSYM = { ok: '✓', part: '◐', missing: '✗' }, RCOL = { ok: '#1f7a4d', part: '#b76e00', missing: '#b3261e' };
+  var RSRC = { A: 'the AIP data set', C: 'the State\'s charts and documents', T: 'traced on imagery by the user', O: 'OpenStreetMap', S: 'inferred from ICAO Annex 14' };
+  function bySrc(r) { return RORDER.filter(function (k) { return r.by[k]; }).map(function (k) { return k + r.by[k]; }).join(' '); }
   function readyCsv(list) {
-    var rows = [['aerodrome', 'readiness %'].concat(READY.map(function (x) { return x[1]; }))];
-    list.forEach(function (c) { var r = readiness(c); rows.push([c.code, r.pct].concat(READY.map(function (x) { return r.st[x[0]]; }))); });
+    var rows = [['aerodrome', 'readiness %', 'from the AIP', 'from the State\'s charts', 'traced on imagery', 'from OpenStreetMap', 'inferred'].concat(READY.map(function (x) { return x[1]; }))];
+    list.forEach(function (c) { var r = readiness(c); rows.push([c.code, r.pct, r.by.A, r.by.C, r.by.T, r.by.O, r.by.S].concat(READY.map(function (x) { return r.st[x[0]] + (r.src[x[0]] ? ' (' + RSRC[r.src[x[0]]] + ')' : ''); }))); });
     rows.push([]); rows.push(['item', 'what it gives', 'where it comes from / what to collect']);
     READY.forEach(function (x) { rows.push([x[1], x[2], x[3]]); });
     return '# ' + NOTICE + '\n' + rows.map(function (r) { return r.map(function (v) { v = String(v === undefined ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(','); }).join('\n');
   }
   function readyHtml(list) {
     if (!list.length) return '';
-    var cols = list.slice(0, 14), rs = cols.map(readiness);
-    return '<details class="gen-ready" open><summary>Data readiness — what the AIP gives for aerodrome mapping (' + cols.length + ' aerodrome(s)' + (list.length > cols.length ? ' of ' + list.length + ' chosen' : '') + ')</summary>' +
-      '<div class="tbl-wrap"><table class="mini-table ready-tbl"><thead><tr><th>Item</th>' + cols.map(function (c, i) { return '<th class="num" title="' + esc(c.name) + '">' + esc(c.code) + '<br><small style="color:' + (rs[i].pct >= 70 ? RCOL.ok : rs[i].pct >= 40 ? RCOL.part : RCOL.missing) + '">' + rs[i].pct + '%</small></th>'; }).join('') + '<th>Gives</th><th>Where from / what to collect</th></tr></thead><tbody>' +
-      READY.map(function (x) { return '<tr><td><b>' + esc(x[1]) + '</b></td>' + rs.map(function (r) { var v = r.st[x[0]]; return '<td class="num" style="color:' + RCOL[v] + ';font-weight:700" title="' + v + '">' + RSYM[v] + '</td>'; }).join('') + '<td class="muted">' + esc(x[2]) + '</td><td class="muted">' + esc(x[3]) + '</td></tr>'; }).join('') +
-      '</tbody></table></div>' + (rs.some(function (r) { return r.withheld; }) ? '<p class="muted">⚠ ' + esc(cols.filter(function (c, i) { return rs[i].withheld; }).map(function (c) { return c.code; }).join(', ')) + ': the AIP withholds the runway positions (no coordinates published). Use survey / CAD / GIS data, or the SCHEMATIC option for an indicative picture.</p>' : '') +
-      '<p><span class="muted">✓ available · ◐ partly · ✗ missing</span> <button class="btn small" data-genrep="csv">Readiness report (CSV)</button> <button class="btn small" data-genrep="pdf">Readiness report (PDF)</button></p></details>';
+    var cols = list.slice(0, 14), rs = cols.map(function (c) { return readiness(c); });
+    return '<details class="gen-ready" open><summary>Data readiness — what the sources give for aerodrome mapping (' + cols.length + ' aerodrome(s)' + (list.length > cols.length ? ' of ' + list.length + ' chosen' : '') + ')</summary>' +
+      '<div class="tbl-wrap"><table class="mini-table ready-tbl"><thead><tr><th>Item</th>' + cols.map(function (c, i) { return '<th class="num" title="' + esc(c.name) + '">' + esc(c.code) + '<br><small style="color:' + (rs[i].pct >= 70 ? RCOL.ok : rs[i].pct >= 40 ? RCOL.part : RCOL.missing) + '">' + rs[i].pct + '%</small><br><small class="muted">' + esc(bySrc(rs[i])) + '</small></th>'; }).join('') + '<th>Gives</th><th>Where from / what to collect</th></tr></thead><tbody>' +
+      READY.map(function (x) { return '<tr><td><b>' + esc(x[1]) + '</b></td>' + rs.map(function (r) { var v = r.st[x[0]], so = r.src[x[0]]; return '<td class="num ready-c" data-st="' + v + '" data-src="' + (so || '') + '" style="color:' + RCOL[v] + '" title="' + (v === 'missing' ? 'missing' : (v === 'ok' ? 'available' : 'partly') + ' — from ' + RSRC[so]) + '">' + RSYM[v] + (so ? '<sub class="rs-' + so + '">' + so + '</sub>' : '') + '</td>'; }).join('') + '<td class="muted">' + esc(x[2]) + '</td><td class="muted">' + esc(x[3]) + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' + (rs.some(function (r) { return r.withheld; }) ? '<p class="muted">⚠ ' + esc(cols.filter(function (c, i) { return rs[i].withheld; }).map(function (c) { return c.code; }).join(', ')) + ': the AIP withholds the runway positions (no coordinates published). Load the State\'s aerodrome chart (its threshold coordinates), get OpenStreetMap, use survey / CAD / GIS data, or the SCHEMATIC option for an indicative picture.</p>' : '') +
+      '<p><span class="muted">✓ available · ◐ partly · ✗ missing — from <b class="rs-A">A</b> the AIP · <b class="rs-C">C</b> the State\'s charts · <b class="rs-T">T</b> traced on imagery · <b class="rs-O">O</b> OpenStreetMap · <b class="rs-S">S</b> inferred from ICAO Annex 14 (each labelled so in every feature)</span> <button class="btn small" data-genrep="csv">Readiness report (CSV)</button> <button class="btn small" data-genrep="pdf">Readiness report (PDF)</button></p></details>';
   }
-  var GEN_OPTS = [['markings', 'Runway markings (Annex 14 standard layout: threshold, aiming point, touchdown zone, side stripes)'], ['lights', 'Lights declared in the AIP (AD 2.14 / 2.15: runway, approach, guard lights)'], ['centreline', 'Painted runway centre line'], ['taxiways', 'Taxiway surface along guidance lines (from the taxiway width)'], ['obstacles', 'Obstacles, navaid antennas and aerodrome beacons (AD 2.10, AD 2.19, ENR 4.1 — also from obstacle data sets loaded beside the AIP)'], ['schematic', 'SCHEMATIC runway where the AIP withholds positions (single-runway aerodromes: at the reference point, bearing from the designator) — indicative only']];
+  var GEN_OPTS = [['markings', 'Runway markings (Annex 14 standard layout: threshold, aiming point, touchdown zone, side stripes)'], ['lights', 'Lights declared in the AIP (AD 2.14 / 2.15: runway, approach, guard lights)'], ['centreline', 'Painted runway centre line'], ['taxiways', 'Taxiway surface along guidance lines (from the taxiway width)'], ['obstacles', 'Obstacles, navaid antennas and aerodrome beacons (AD 2.10, AD 2.19, ENR 4.1 — also from obstacle data sets loaded beside the AIP)'], ['osm', 'OpenStreetMap features when got or loaded (taxiways, aprons, stands, holding positions, buildings …; the AIP is kept wherever it gives a feature type)'], ['charts', 'The State\'s charts and documents loaded in Upload (stands, thresholds, widths, strength and lighting as published)'], ['traced', 'Features traced on imagery (Trace on imagery)'], ['network', 'Taxi routing network (AsrnNode / AsrnEdge) from the OpenStreetMap lines'], ['infer', 'Infer what is still missing from ICAO Annex 14 — holding positions, runway shoulders, CAT I lighting where an ILS serves a runway (labelled inferred)'], ['schematic', 'SCHEMATIC runway where the AIP withholds positions (single-runway aerodromes: at the reference point, bearing from the designator) — indicative only']];
+  // what the State's charts, the documents and the tracing give, in a few words
+  function srcSummary(list) {
+    var docs = typeof AMDBDOC !== 'undefined' ? AMDBDOC.list() : [], tr = typeof AMDBTRACE !== 'undefined' ? AMDBTRACE.total() : 0;
+    if (!docs.length && !tr) return 'None loaded yet. The State\'s aerodrome chart, ground movement chart and parking / docking chart give stand coordinates, threshold coordinates, widths, strength and lighting; imagery whose licence allows it lets you trace taxiways, aprons and stands that no source gives.';
+    var by = {}; docs.forEach(function (d) { by[d.ad || '—'] = (by[d.ad || '—'] || 0) + 1; });
+    return esc(docs.length + ' document(s): ' + Object.keys(by).map(function (k) { return k + ' ' + by[k]; }).join(', ') + (tr ? ' · ' + tr + ' feature(s) traced on imagery' : '')) + (list.length && docs.some(function (d) { return !d.ad; }) ? ' · <b>some documents have no aerodrome yet</b> (choose it in Upload &amp; sources)' : '');
+  }
+  function chartCell(c) {
+    var K = typeof AMDBDOC !== 'undefined' ? AMDBDOC.forAd(c.code, c.arp) : null, T = typeof AMDBTRACE !== 'undefined' ? AMDBTRACE.count(c.code) : {}, out = [];
+    if (K) { out.push(K.docs.length + ' doc'); if (K.stands.length) out.push(K.stands.length + ' stand'); var th = Object.keys(K.rwy).filter(function (k) { return K.rwy[k].thr; }).length; if (th) out.push(th + ' thr'); if (K.lights.length) out.push('lights'); }
+    if (T.all) out.push(T.all + ' traced');
+    return out.length ? esc(out.join(' · ')) : '<span class="muted">—</span>';
+  }
   function genView(host, ctx) {
     var list = candidates(ctx.datasets);
     if (!G.pick) { G.pick = {}; list.forEach(function (c, i) { if (!c.mapped && !c.amxm && c.rwys.length) G.pick[i] = true; }); }
@@ -628,9 +865,16 @@ var AMDBX = (function () {
     h += '<div class="card card-pad gen-card"><h3 style="margin-top:0">Generate aerodrome mapping from AIP data</h3><p class="muted">Everything the AIP data set gives for each aerodrome — runways, shoulders, stopways, displaced thresholds, thresholds with elevation and declared distances, every runway centre line point, runway intersections, taxiway and apron elements, guidance lines, holding positions, stands, de-icing and work areas, helicopter areas, lights, navaid antennas and obstacles — written as AMXM 2.0 and opened here: then check it, see it as a chart or in 3D, compare it and build a package.</p>' +
       '<div class="toolbar gen-tools"><input class="inp" type="search" data-genq placeholder="Search aerodromes (ICAO code or name)…" aria-label="Search aerodromes" value="' + esc(G.q || '') + '" style="min-width:260px">' +
       '<button class="btn small" data-gensel="all">Select all</button><button class="btn small" data-gensel="shown">Select shown</button><button class="btn small" data-gensel="none">Deselect all</button><button class="btn small" data-gensel="nomap">Only those without mapping data</button><span class="muted gen-count"></span></div>' +
-      '<div class="tbl-wrap gen-tbl"><table class="mini-table"><thead><tr><th></th><th>Aerodrome</th><th>Data set</th><th class="num" title="Runways (FATO included)">RWY</th><th class="num" title="Thresholds with a position">THR</th><th class="num" title="Runway centre line points with a position">CL pts</th><th class="num" title="Light systems declared (AD 2.14)">Lights</th><th class="num" title="Taxiway / apron elements and guidance lines with geometry">TWY/APN geom.</th><th class="num" title="Holding positions">Hold</th><th class="num">Stands</th><th class="num" title="Navaid antennas within 6 km">Navaids</th><th class="num" title="Obstacles of the aerodrome">Obst.</th><th class="num" title="Data readiness for aerodrome mapping: what the AIP gives">Ready</th><th>Mapping data already</th></tr></thead><tbody>' +
+      '<details class="gen-src" open><summary>More sources — to complete what the AIP does not give</summary>' +
+      '<div class="gen-src-grid"><div><b>🌍 OpenStreetMap</b><p class="muted">Taxiways with their designators, aprons, stands with their numbers, holding positions, terminals, hangars and other buildings, windsocks — traced from imagery by volunteers (coarse quality). Online, only when you click: the ICAO code (or the area) of each chosen aerodrome is sent to a public Overpass API server, nothing else. © OpenStreetMap contributors, ODbL 1.0: attribution and share-alike apply when you publish what you make from it.</p>' +
+      '<button class="btn small primary" data-osmget>Get OpenStreetMap features for the chosen aerodromes</button> <button class="btn small" data-osmfile>Load an OpenStreetMap file…</button><input type="file" class="hidden" data-osmin accept=".osm,.json,.geojson,.xml" aria-label="OpenStreetMap file">' +
+      '<div class="muted osm-st">' + G.osmMsg + '</div></div>' +
+      '<div><b>📄 The State\'s charts · ✏️ imagery · 📎 documents</b><p class="muted">' + srcSummary(list) + '</p>' +
+      '<button class="btn small primary" data-amgoto="upload">📤 Upload charts, documents and files…</button> <button class="btn small" data-amgoto="trace">✏️ Trace on imagery…</button></div></div>' +
+      '<p class="muted" style="font-size:11.5px">Charts of commercial providers (e.g. Jeppesen) are licensed for display: their terms do not allow deriving data from them, so use the State\'s own charts. Google and Esri imagery are shown for a visual check only — tracing uses imagery whose licence allows it.</p></details>' +
+      '<div class="tbl-wrap gen-tbl"><table class="mini-table"><thead><tr><th></th><th>Aerodrome</th><th>Data set</th><th class="num" title="Runways (FATO included)">RWY</th><th class="num" title="Thresholds with a position">THR</th><th class="num" title="Runway centre line points with a position">CL pts</th><th class="num" title="Light systems declared (AD 2.14)">Lights</th><th class="num" title="Taxiway / apron elements and guidance lines with geometry">TWY/APN geom.</th><th class="num" title="Holding positions">Hold</th><th class="num">Stands</th><th class="num" title="Navaid antennas within 6 km">Navaids</th><th class="num" title="Obstacles of the aerodrome">Obst.</th><th title="What OpenStreetMap gives (when got or loaded)">OpenStreetMap</th><th title="What the State&#39;s charts and documents give, and what was traced on imagery">Charts · traced</th><th class="num" title="Data readiness for aerodrome mapping: from the AIP, OpenStreetMap, the State&#39;s charts and inferred">Ready</th><th>Mapping data already</th></tr></thead><tbody>' +
       list.map(function (c, i) {
-        return '<tr data-genrow="' + i + '" data-genkey="' + esc((c.code + ' ' + c.name + ' ' + c.ds.name).toLowerCase()) + '"><td><input type="checkbox" data-gen="' + i + '"' + (G.pick[i] ? ' checked' : '') + (c.rwys.length || c.stands.length || geoN(c) ? '' : ' disabled') + ' aria-label="Generate ' + esc(c.code) + '"></td><td><b>' + esc(c.code) + '</b> ' + esc(c.name) + '</td><td class="muted">' + esc(c.ds.name) + '</td><td class="num">' + c.rwys.length + '</td><td class="num">' + c.thr + '</td><td class="num">' + c.cl + '</td><td class="num">' + lightN(c) + '</td><td class="num">' + geoN(c) + '</td><td class="num">' + c.by.TaxiHoldingPosition.length + '</td><td class="num">' + c.stands.length + '</td><td class="num">' + c.navs.length + '</td><td class="num">' + c.obs.length + '</td><td class="num">' + (function () { var r = readiness(c); return '<b style="color:' + (r.pct >= 70 ? RCOL.ok : r.pct >= 40 ? RCOL.part : RCOL.missing) + '">' + r.pct + '%</b>' + (r.withheld ? ' <span title="runway positions withheld in the AIP">⚠</span>' : ''); })() + '</td><td>' + (c.mapped ? num(c.mapped) + ' AIXM feature(s)' : '') + (c.amxm ? ' AMXM' : '') + (c.mapped || c.amxm ? '' : '<span class="muted">none</span>') + '</td></tr>';
+        return '<tr data-genrow="' + i + '" data-genkey="' + esc((c.code + ' ' + c.name + ' ' + c.ds.name).toLowerCase()) + '"><td><input type="checkbox" data-gen="' + i + '"' + (G.pick[i] ? ' checked' : '') + (c.rwys.length || c.stands.length || geoN(c) ? '' : ' disabled') + ' aria-label="Generate ' + esc(c.code) + '"></td><td><b>' + esc(c.code) + '</b> ' + esc(c.name) + '</td><td class="muted">' + esc(c.ds.name) + '</td><td class="num">' + c.rwys.length + '</td><td class="num">' + c.thr + '</td><td class="num">' + c.cl + '</td><td class="num">' + lightN(c) + '</td><td class="num">' + geoN(c) + '</td><td class="num">' + c.by.TaxiHoldingPosition.length + '</td><td class="num">' + c.stands.length + '</td><td class="num">' + c.navs.length + '</td><td class="num">' + c.obs.length + '</td><td class="gen-osm">' + (function () { var o = typeof AMDBOSM !== 'undefined' && AMDBOSM.get(c.code), L = typeof AMDBOSM !== 'undefined' ? AMDBOSM.links(c) : {}; if (!o) return '<span class="muted">—</span>' + (L.view ? ' <a href="' + L.view + '" target="_blank" rel="noopener" title="Look at it on openstreetmap.org">view</a>' : ''); var n = AMDBOSM.summary(o); return n.taxiway + ' twy · ' + n.apron + ' apron · ' + n.stand + ' stand · ' + n.building + ' bldg' + (L.edit ? ' <a href="' + L.edit + '" target="_blank" rel="noopener" title="Improve the map on openstreetmap.org (your edits help everyone)">improve</a>' : ''); })() + '</td><td class="gen-osm">' + chartCell(c) + '</td><td class="num">' + (function () { var r = readiness(c); return '<b style="color:' + (r.pct >= 70 ? RCOL.ok : r.pct >= 40 ? RCOL.part : RCOL.missing) + '">' + r.pct + '%</b>' + (r.withheld ? ' <span title="runway positions withheld in the AIP">⚠</span>' : ''); })() + '</td><td>' + (c.mapped ? num(c.mapped) + ' AIXM feature(s)' : '') + (c.amxm ? ' AMXM' : '') + (c.mapped || c.amxm ? '' : '<span class="muted">none</span>') + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
       '<div class="gen-readyhost"></div>' +
       '<details class="gen-opts" open><summary>What to derive</summary>' + GEN_OPTS.map(function (o) { return '<label class="chk"><input type="checkbox" data-genopt="' + o[0] + '"' + (G.opt[o[0]] ? ' checked' : '') + '> ' + o[1] + '</label>'; }).join('') + '</details>' +
@@ -646,13 +890,28 @@ var AMDBX = (function () {
     }
     filter();
     host.oninput = function (e) { if (e.target.hasAttribute('data-genq')) { G.q = e.target.value; filter(); } };
-    host.onchange = function (e) {
+    host.onchange = async function (e) {
       var t2 = e.target;
+      if (t2.hasAttribute('data-osmin') && t2.files[0]) {
+        try { var r0 = AMDBOSM.load(await t2.files[0].text(), t2.files[0].name, list); G.osmMsg = '✓ ' + esc(t2.files[0].name) + ': ' + r0.elements + ' element(s)' + (Object.keys(r0.aerodromes).length ? ' — ' + Object.keys(r0.aerodromes).map(function (k) { return k + ' ' + r0.aerodromes[k]; }).join(', ') : ' — none near a loaded aerodrome'); }
+        catch (er) { G.osmMsg = '<span style="color:var(--err)">' + esc(er.message) + '</span>'; }
+        genView(host, ctx); return;
+      }
       if (t2.hasAttribute('data-gen')) { G.pick[+t2.getAttribute('data-gen')] = t2.checked; filter(); }
-      if (t2.hasAttribute('data-genopt')) G.opt[t2.getAttribute('data-genopt')] = t2.checked;
+      if (t2.hasAttribute('data-genopt')) { G.opt[t2.getAttribute('data-genopt')] = t2.checked; filter(); }
       if (t2.hasAttribute('data-genack')) { G.ack = t2.checked; host.querySelector('[data-gengo]').disabled = !t2.checked; }
     };
     host.onclick = async function (e) {
+      if (e.target.closest('[data-osmfile]')) { host.querySelector('[data-osmin]').click(); return; }
+      if (e.target.closest('[data-osmget]')) {
+        var ch0 = list.filter(function (c, i) { return G.pick[i] && c.arp; }), st0 = host.querySelector('.osm-st'), ok0 = [], bad0 = [];
+        if (!ch0.length) { ctx.toast('Choose an aerodrome first.'); return; }
+        for (var q0 = 0; q0 < ch0.length; q0++) {
+          try { var o0 = await AMDBOSM.fetchFor(ch0[q0], function (m) { st0.innerHTML = '<span class="spinner"></span> ' + esc(m); }); ok0.push(ch0[q0].code + ' ' + AMDBOSM.summary(o0).all); } catch (er) { bad0.push(ch0[q0].code + ': ' + er.message); }
+        }
+        G.osmMsg = (ok0.length ? '✓ ' + esc(ok0.join(', ')) + ' element(s) from OpenStreetMap. ' : '') + (bad0.length ? '<span style="color:var(--err)">' + esc(bad0.join(' · ')) + '</span>' : '');
+        genView(host, ctx); return;
+      }
       var sel = e.target.closest('[data-gensel]'), go = e.target.closest('[data-amgoto]'), rep = e.target.closest('[data-genrep]');
       if (rep) {
         var ch = list.filter(function (c, i) { return G.pick[i]; }); if (!ch.length) ch = list;
@@ -660,8 +919,8 @@ var AMDBX = (function () {
         if (rep.getAttribute('data-genrep') === 'csv') { EXPORTS.download(nm + '.csv', new Blob([readyCsv(ch)], { type: 'text/csv' })); return; }
         var Cc = function (v) { return { t: v === undefined || v === null ? '' : String(v) }; };
         EXPORTS.exportPDF({ title: 'Aerodrome mapping — data readiness of the AIP', sub: NOTICE, ds: null, sections: [
-          { title: 'Readiness by aerodrome', blocks: [{ kind: 'table', cols: ['Aerodrome', 'Readiness'].concat(READY.map(function (x) { return x[1]; })), rows: ch.map(function (c) { var r = readiness(c); return [Cc(c.code + ' ' + c.name), Cc(r.pct + '%')].concat(READY.map(function (x) { return Cc(RSYM[r.st[x[0]]]); })); }) }] },
-          { title: 'What each item gives, and where it comes from', blocks: [{ kind: 'table', cols: ['Item', 'Gives', 'Where from / what to collect'], rows: READY.map(function (x) { return [Cc(x[1]), Cc(x[2]), Cc(x[3])]; }) }, { kind: 'note', text: '✓ available · ◐ partly · ✗ missing. Made with ' + APP_INFO.name + ' ' + APP_INFO.version + ' — created by ' + APP_INFO.author + '. ' + NOTICE }] }] });
+          { title: 'Readiness by aerodrome', blocks: [{ kind: 'table', cols: ['Aerodrome', 'Readiness'].concat(READY.map(function (x) { return x[1]; })), rows: ch.map(function (c) { var r = readiness(c); return [Cc(c.code + ' ' + c.name), Cc(r.pct + '% (' + bySrc(r) + ')')].concat(READY.map(function (x) { return Cc(RSYM[r.st[x[0]]] + (r.src[x[0]] ? ' ' + r.src[x[0]] : '')); })); }) }] },
+          { title: 'What each item gives, and where it comes from', blocks: [{ kind: 'table', cols: ['Item', 'Gives', 'Where from / what to collect'], rows: READY.map(function (x) { return [Cc(x[1]), Cc(x[2]), Cc(x[3])]; }) }, { kind: 'note', text: '✓ available · ◐ partly · ✗ missing; A from the AIP data set, C from the State\'s charts and documents, T traced on imagery by the user, O from OpenStreetMap (© OpenStreetMap contributors, ODbL 1.0), S inferred from ICAO Annex 14. Made with ' + APP_INFO.name + ' ' + APP_INFO.version + ' — created by ' + APP_INFO.author + '. ' + NOTICE }] }] });
         return;
       }
       if (go) { if (ctx.amTab) ctx.amTab(go.getAttribute('data-amgoto')); return; }
@@ -694,6 +953,178 @@ var AMDBX = (function () {
       await A.extractAll();
       if (ctx.amTab) ctx.amTab('features', true); else A.go('digital');
     };
+  }
+  /* --------------------------------------------------------- upload & sources */
+  // every file for aerodrome mapping, dropped in one place, goes where it belongs: the State's charts and text to
+  // the document reader, OpenStreetMap files to the OSM store, an image with its world file to the imagery, other
+  // images and office files are kept as supporting documents, and data sets (AIXM, AMXM, GIS, CAD, packages,
+  // obstacles, terrain) go to the normal reader of the tool
+  var WORLD = /\.(jgw|jpgw|pgw|pngw|tfw|tifw|wld|j2w)$/i, IMG = /\.(png|jpe?g|webp|gif)$/i, OFFICE = /\.(docx?|pptx?|odt|odp|rtf|kmz|kml|html?|msg|eml)$/i;
+  function stem(n) { return String(n).replace(/\.[^.]+$/, '').toLowerCase(); }
+  async function routeFiles(files, list, say) {
+    var arr = Array.prototype.slice.call(files || []), toApp = [], got = [], worlds = arr.filter(function (f) { return WORLD.test(f.name); }), prjs = arr.filter(function (f) { return /\.prj$/i.test(f.name); });
+    await LAZY.run('src-amdbdoc');
+    for (var i = 0; i < arr.length; i++) {
+      var f = arr[i], nm = f.name;
+      if (WORLD.test(nm)) continue;
+      say('Reading ' + nm + ' …');
+      try {
+        if (/\.prj$/i.test(nm) && arr.some(function (g) { return IMG.test(g.name) && stem(g.name) === stem(nm); })) continue;
+        if (/\.(pdf|txt|text)$/i.test(nm)) { var d = await AMDBDOC.addFile(f, list); got.push(nm + ': ' + AMDBDOC.KINDS[d.f ? d.f.kind.id : 'other'].name + (d.ad ? ' of ' + d.ad : '')); continue; }
+        if (IMG.test(nm)) {
+          var w = worlds.filter(function (x) { return stem(x.name) === stem(nm); })[0], pj = prjs.filter(function (x) { return stem(x.name) === stem(nm); })[0];
+          if (w) { await LAZY.run('src-amdbtrace'); var o = await AMDBTRACE.addOrtho(f, await w.text(), pj ? await pj.text() : '', list.filter(function (c) { return c.arp; }).map(function (c) { return c.arp; })); got.push(nm + ': orthophoto ' + o.w + ' × ' + o.h + ' px (' + o.crs + ') — shown in Trace on imagery'); continue; }
+          await AMDBDOC.addFile(f, list); got.push(nm + ': kept as a supporting document (an image without a world file is not placed on the map)'); continue;
+        }
+        if (OFFICE.test(nm)) { await AMDBDOC.addFile(f, list); got.push(nm + ': kept as a supporting document'); continue; }
+        if (/\.osm$/i.test(nm) || /\.(json|geojson|xml)$/i.test(nm)) {
+          var head = await f.slice(0, 65536).text();
+          if (/\.osm$/i.test(nm) || /<osm[\s>]/.test(head) || (/\.(json|geojson)$/i.test(nm) && (/"elements"\s*:/.test(head) || /"aeroway"\s*:/.test(head)) && !/"amxm_type"|"feature_type"/.test(head))) {
+            if (typeof AMDBOSM === 'undefined') await LAZY.run('src-amdbosm');
+            var r0 = AMDBOSM.load(await f.text(), nm, list); got.push(nm + ': OpenStreetMap, ' + r0.elements + ' element(s)' + (Object.keys(r0.aerodromes).length ? ' — ' + Object.keys(r0.aerodromes).map(function (k) { return k + ' ' + r0.aerodromes[k]; }).join(', ') : ' — none near a loaded aerodrome'));
+            continue;
+          }
+        }
+        if (/\.csv$/i.test(nm) && f.size < 5e6) {
+          var t = await f.text();
+          if (!isCsv(t)) { var fx = AMDBDOC.read(t, nm); if (fx.stands.length >= 2) { AMDBDOC.addText(t, nm, list); got.push(nm + ': ' + fx.stands.length + ' stand position(s)'); continue; } }
+        }
+        toApp.push(f);
+      } catch (e) { got.push(nm + ': ' + e.message); }
+    }
+    if (toApp.length) {
+      say('Reading ' + toApp.length + ' data file(s) …');
+      var A = window.__AIXM; await A.addFiles(toApp); await A.extractAll({ stay: true });
+      got.push(toApp.length + ' data file(s) read: ' + toApp.map(function (f) { return f.name; }).join(', '));
+    }
+    return { got: got, data: toApp.length };
+  }
+  var ST_ICON = { found: '✓', missing: '✗', drawn: '◌', where: '○' }, ST_COL = { found: '#1f7a4d', missing: '#b3261e', drawn: '#5b6676', where: '#5b6676' }, X_COL = { ok: '#1f7a4d', warn: '#b76e00', bad: '#b3261e', fill: '#1565c0' };
+  function checkHtml(d, list) {
+    var c = list.filter(function (x) { return x.code === d.ad; })[0] || null, chk = AMDBDOC.icaoCheck(d.f, c), K = d.ad ? AMDBDOC.forAd(d.ad, c && c.arp) : null;
+    if (K && c) AMDBDOC.matchDims(K, c.rwys);
+    var osmSt = typeof AMDBOSM !== 'undefined' && d.ad ? (AMDBOSM.get(d.ad) || { els: [] }).els.filter(function (e) { return e.tags.aeroway === 'parking_position'; }).map(function (e) { return { ref: e.tags.ref || '', c: e.g.t === 'P' ? e.g.c : gcentre(e.g) }; }).filter(function (x) { return x.c; }) : [];
+    var x = c ? AMDBDOC.crossCheck(K, c, osmSt) : [], h = '<div class="doc-chk">';
+    h += '<p><b>' + esc(chk.name) + '</b>' + (chk.ch ? ' <span class="muted">(' + esc(chk.ch) + ')</span>' : '') + (chk.items.length ? (chk.icaoTitle ? ' · <span style="color:#1f7a4d">✓ titled "— ICAO"</span>' : ' · <span class="muted">not titled "— ICAO" (a State or provider format)</span>') : '') + '</p>';
+    if (chk.items.length) {
+      var nf = chk.items.filter(function (i) { return i.st === 'found'; }).length, nm = chk.items.filter(function (i) { return i.st === 'missing'; }).length;
+      h += '<p class="muted">ICAO Annex 4 contents, read from the chart\'s text: ' + nf + ' found, ' + nm + ' not found in the text. ✓ found · ✗ not found in the text (the chart may show it only as a drawing or a symbol — look at it) · ◌ only the drawing can show it · ○ where established.</p>' +
+        '<div class="tbl-wrap"><table class="mini-table doc-a4"><thead><tr><th></th><th>Annex 4</th><th>What the chart must show</th><th>Found in the text</th></tr></thead><tbody>' +
+        chk.items.map(function (i) { return '<tr data-a4="' + i.st + '"><td style="color:' + ST_COL[i.st] + '">' + ST_ICON[i.st] + '</td><td class="muted">' + esc(i.ref) + '</td><td>' + esc(i.what) + '</td><td class="muted" style="font-family:var(--mono);font-size:11px">' + esc(i.ev) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    } else h += '<p class="muted">Not one of the charts aerodrome mapping is made from (aerodrome chart, ground movement chart, parking / docking chart, AD 2 pages, stand tables): kept for reference.</p>';
+    if (x.length) h += '<p><b>Against the AIP data set' + (osmSt.length ? ' and OpenStreetMap' : '') + '</b> <span class="muted">— ✓ agrees · ! differs a little · ✗ differs · ➕ the chart fills what the AIP data set lacks</span></p><div class="tbl-wrap"><table class="mini-table doc-x"><thead><tr><th></th><th>Item</th><th>Chart</th><th>AIP data set</th><th>Difference</th></tr></thead><tbody>' +
+      x.map(function (r) { return '<tr data-x="' + r.st + '"><td style="color:' + X_COL[r.st] + '">' + { ok: '✓', warn: '!', bad: '✗', fill: '➕' }[r.st] + '</td><td>' + esc(r.what) + '</td><td>' + esc(r.chart) + '</td><td>' + esc(r.aip) + '</td><td class="muted">' + esc(r.diff) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    else if (!d.ad) h += '<p class="muted">Choose the aerodrome of this document to compare it with the AIP data set.</p>';
+    return h + '</div>';
+  }
+  // what fills each gap of an aerodrome when its charts are incomplete or unclear, in plain words
+  function gapsHtml(c) {
+    var K = AMDBDOC.forAd(c.code, c.arp); if (!K) return '';
+    AMDBDOC.matchDims(K, c.rwys);
+    var o = typeof AMDBOSM !== 'undefined' ? AMDBOSM.get(c.code) : null, oSt = o ? o.els.filter(function (e) { return e.tags.aeroway === 'parking_position'; }) : [], T = typeof AMDBTRACE !== 'undefined' ? AMDBTRACE.count(c.code) : {};
+    var L = [], kinds = K.kinds.map(function (k) { return AMDBDOC.KINDS[k].name; });
+    L.push('Documents: ' + kinds.join(', ') + '.');
+    var noPark = K.kinds.indexOf('apdc') < 0 && K.kinds.indexOf('agmc') < 0;
+    if (K.stands.length) L.push(K.stands.length + ' stand(s) placed as published' + (K.standNames.length > K.stands.length ? '; ' + (K.standNames.length - K.stands.length) + ' more named without coordinates — from OpenStreetMap where it has them' : '') + '.');
+    else if (noPark || !K.standNames.length) {
+      var conf = K.standNames.length ? oSt.filter(function (e) { return e.tags.ref && K.standNames.indexOf(String(e.tags.ref).toUpperCase()) >= 0; }).length : 0;
+      L.push((noPark ? 'No parking / docking chart' : 'No stand coordinates in the charts') + ': stand positions ' + (oSt.length ? 'from OpenStreetMap (' + oSt.length + ' stands' + (K.standNames.length ? ', ' + conf + ' of the ' + K.standNames.length + ' numbers on the chart confirmed' : '') + ')' : T.std ? 'traced on imagery (' + T.std + ')' : 'not available yet — get OpenStreetMap, or trace them on imagery') + '.');
+    }
+    if (K.standsLeft.length) L.push(K.standsLeft.length + ' stand(s) of the chart left out as doubtful (a misread number?): ' + K.standsLeft.slice(0, 3).map(function (x) { return x.why; }).join('; ') + '.');
+    var noThr = c.rwys.some(function (r) { return r.dirs.some(function (d) { return !d.pts.some(function (q) { return /THR$/.test(q.role) && q.c; }); }); });
+    var kThr = Object.keys(K.rwy).filter(function (k) { return K.rwy[k].thr; });
+    if (noThr) L.push(kThr.length ? 'Runway positions the AIP data set lacks: from the chart (threshold ' + kThr.join(', ') + ').' : 'Runway positions the AIP data set lacks are not in the charts\' text either: ' + (o && AMDBOSM.runways(o).length ? 'from OpenStreetMap.' : 'get OpenStreetMap or use the SCHEMATIC option.'));
+    if (!K.lights.length) L.push('No lighting in the charts\' text: ' + (c.ilsDes && Object.keys(c.ilsDes).length || (c.locs || []).length ? 'CAT I lighting is inferred where an ILS serves a runway (ICAO Annex 14).' : 'only what the AIP data set declares.'));
+    if (K.twyNames.length && o) { var refs = {}; o.els.forEach(function (e) { if (e.tags.ref && /taxi/.test(e.tags.aeroway || '')) refs[String(e.tags.ref).toUpperCase()] = 1; }); var miss = K.twyNames.filter(function (x) { return !refs[x]; }); L.push(miss.length ? 'Taxiways on the chart but not in OpenStreetMap: ' + miss.slice(0, 12).join(', ') + (miss.length > 12 ? ' …' : '') + ' — trace them on imagery.' : 'Every taxiway the chart names is mapped in OpenStreetMap.'); }
+    if (!Object.keys(K.twyW).length) L.push('Taxiway width: ' + (Object.keys(c.twyW || {}).length ? 'from the AIP data set.' : 'not published — the ICAO Annex 14 width of the aerodrome code letter ' + codeOf(c).letter + ' is used.'));
+    return '<li><b>' + esc(c.code) + '</b> — ' + L.map(esc).join(' ') + '</li>';
+  }
+  function uploadView(host, ctx) {
+    var list = candidates(ctx.datasets), docs = typeof AMDBDOC !== 'undefined' ? AMDBDOC.list() : [];
+    // documents read before their aerodrome was loaded find it now
+    docs.forEach(function (d) { if (!d.ad && d.f && list.length) d.ad = AMDBDOC.assign(d.f, list); });
+    var ads = list.slice().sort(function (a, b) { return b.rwys.length - a.rwys.length; }).map(function (c) { return c.code; }).filter(function (x, i, a) { return x && a.indexOf(x) === i; });
+    var KIND = [['🗂', 'AIP data set', 'AIXM 4.5 / 5.x (.xml), a cycle (.zip)'], ['🧭', 'Aerodrome mapping', 'AMXM (.xml), a package (.zip), GeoPackage, GeoJSON, CSV with WKT, DXF'], ['🌍', 'OpenStreetMap', '.osm, Overpass JSON, GeoJSON with aeroway tags'],
+      ['📄', 'The State\'s charts', 'aerodrome chart, ground movement chart, parking / docking chart, AD 2 pages (PDF) — read, checked against ICAO Annex 4'], ['📋', 'Stand tables', 'CSV or text: stand, latitude, longitude'], ['🛰', 'Orthophoto', 'JPEG / PNG with its world file (.jgw / .pgw / .wld, and .prj) — for tracing'],
+      ['⛫', 'Obstacles and terrain', 'AIXM obstacle data sets, eTOD Excel / CSV; GeoTIFF, DTED, .hgt, .asc'], ['📎', 'Supporting documents', 'any other file (images, Word, KML …): kept and listed, not read']];
+    var h = '<div class="nfo-box amdb-notice" role="note">⚠ ' + NOTICE + ' Everything stays in this browser: files are read here and sent nowhere. <button class="linkbtn" data-amgoto="guide">How to create AMDB data — step by step</button></div>' +
+      '<div class="card card-pad up-card"><h3 style="margin-top:0">📤 Upload &amp; sources for aerodrome mapping</h3>' +
+      '<div class="up-drop" tabindex="0" role="button" aria-label="Drop files here or choose files"><div class="up-drop-ic" aria-hidden="true">⬆</div><b>Drop files here, or click to choose</b><div class="muted">Each file is recognised and goes where it belongs.</div><input type="file" multiple class="hidden" data-upin aria-label="Files for aerodrome mapping"></div>' +
+      '<div class="up-kinds">' + KIND.map(function (k) { return '<div><span aria-hidden="true">' + k[0] + '</span><b>' + esc(k[1]) + '</b><span class="muted">' + esc(k[2]) + '</span></div>'; }).join('') + '</div>' +
+      '<div class="muted up-st">' + (G.upMsg || '') + '</div></div>';
+    // online sources and pasted text
+    h += '<div class="card card-pad up-card"><div class="gen-src-grid"><div><b>🌍 OpenStreetMap — online, when you click</b><p class="muted">The ICAO code (or the area) of the aerodrome is sent to a public Overpass API server, nothing else. © OpenStreetMap contributors, ODbL 1.0.</p>' +
+      (ads.length ? '<select class="inp" data-uposm aria-label="Aerodrome">' + ads.map(function (k) { return '<option>' + esc(k) + '</option>'; }).join('') + '</select> <button class="btn small primary" data-upget>Get OpenStreetMap</button>' : '<span class="muted">Load an AIP data set first (its aerodromes are listed here).</span>') + '<div class="muted osm-st">' + (G.osmMsg || '') + '</div></div>' +
+      '<div><b>📋 Paste a stand table or AD 2 text</b><p class="muted">From a chart whose PDF has no text (a scan), copy what you can read: one stand per line, its number and its coordinates.</p><textarea class="inp" data-uptext rows="4" placeholder="e.g.  C3   251530.12N 0513612.34E\n      204  25 15 31.07 N  051 36 14.90 E" style="width:100%;font-family:var(--mono)"></textarea><button class="btn small primary" data-upread>Read the text</button></div></div></div>';
+    // the documents
+    h += '<div class="card card-pad up-card"><h3 style="margin-top:0">📄 The State\'s charts and documents (' + docs.length + ')</h3>';
+    if (!docs.length) h += '<p class="muted">None yet. Best: the Aircraft Parking / Docking Chart (stand coordinates), the Aerodrome Chart (threshold coordinates, dimensions, strength, lighting) and the AD 2 pages. When a State has only an aerodrome chart, or a chart is unclear, what it lacks is filled from OpenStreetMap, from tracing on imagery and from ICAO Annex 14 — each labelled. Commercial charts (e.g. Jeppesen) are licensed for display only and are not read.</p>';
+    else {
+      h += '<div class="tbl-wrap"><table class="mini-table up-docs"><thead><tr><th>Document</th><th>Type</th><th>Aerodrome</th><th>What it gives</th><th></th></tr></thead><tbody>' + docs.map(function (d) {
+        var kd = d.f ? AMDBDOC.KINDS[d.f.kind.id] : null;
+        return '<tr data-doc="' + d.id + '"><td><b>' + esc(d.name) + '</b><br><small class="muted">' + num(Math.round(d.size / 1024)) + ' KB' + (d.pages ? ' · ' + d.pages + ' page(s)' : '') + '</small></td><td>' + (kd ? esc(kd.name) + (d.f.kind.icaoTitle ? ' <span title="titled — ICAO" style="color:#1f7a4d">✓</span>' : '') : '<span class="muted">' + esc(d.type === 'image' ? 'image' : 'document') + '</span>') + '</td>' +
+          '<td>' + (d.f ? '<select class="inp small" data-docad="' + d.id + '" aria-label="Aerodrome of ' + esc(d.name) + '"><option value="">—</option>' + ads.map(function (k) { return '<option' + (k === d.ad ? ' selected' : '') + '>' + esc(k) + '</option>'; }).join('') + '</select>' : '') + '</td>' +
+          '<td class="muted">' + esc(AMDBDOC.gave(d)) + (d.note && d.f ? '<br><span style="color:#b76e00">' + esc(d.note) + '</span>' : '') + '</td>' +
+          '<td style="white-space:nowrap">' + (d.f ? '<button class="btn small" data-doccheck="' + d.id + '">' + (G.open[d.id] ? 'Hide check' : 'ICAO check') + '</button> ' : '') + '<button class="btn small" data-docdel="' + d.id + '" aria-label="Remove ' + esc(d.name) + '">✕</button></td></tr>' +
+          (G.open[d.id] && d.f ? '<tr class="doc-chk-row"><td colspan="5">' + checkHtml(d, list) + '</td></tr>' : '');
+      }).join('') + '</tbody></table></div>' +
+        '<p><button class="btn small" data-docrep>Chart check report (PDF)</button></p>';
+      var withK = list.filter(function (c, i, a) { return a.findIndex(function (x) { return x.code === c.code; }) === i && AMDBDOC.forAd(c.code, c.arp); });
+      if (withK.length) h += '<h4>How the gaps are filled</h4><ul class="up-gaps">' + withK.slice(0, 20).map(gapsHtml).join('') + '</ul>';
+    }
+    h += '</div>';
+    // imagery and data loaded
+    var orth = typeof AMDBTRACE !== 'undefined' ? AMDBTRACE.orthos() : [];
+    h += '<div class="card card-pad up-card"><h3 style="margin-top:0">🛰 Imagery and tracing</h3><p class="muted">Trace taxiways, aprons, stands, holding positions and buildings on imagery whose licence allows deriving data (national orthophotos, USGS, Sentinel-2 …) or on your own orthophoto; Google and Esri imagery are for a visual check only.' + (orth.length ? ' Your orthophotos: ' + esc(orth.map(function (o) { return o.name; }).join(', ')) + '.' : '') + '</p><button class="btn small primary" data-amgoto="trace">✏️ Trace on imagery</button></div>';
+    h += '<div class="card card-pad up-card"><h3 style="margin-top:0">🗂 Data loaded</h3>' + (ctx.datasets.length ? '<ul class="muted">' + ctx.datasets.map(function (d) { return '<li>' + esc(d.name) + ' <small>(' + esc(d.family === 'amxm' ? 'aerodrome mapping (AMXM)' : d.family === 'tab' ? 'table' : 'AIXM ' + (d.version || '')) + ')</small></li>'; }).join('') + '</ul>' : '<p class="muted">No data set yet: drop the State\'s AIP data set above (or open it in Files).</p>') +
+      (list.length ? '<button class="btn small" data-amgoto="generate">➡ Generate aerodrome mapping</button>' : '') + '</div>';
+    host.innerHTML = h;
+    var st = host.querySelector('.up-st'), drop = host.querySelector('.up-drop'), inp = host.querySelector('[data-upin]');
+    async function take(files) {
+      if (!files || !files.length) return;
+      st.innerHTML = '<span class="spinner"></span> …';
+      var r;
+      try { r = await routeFiles(files, list, function (m) { st.innerHTML = '<span class="spinner"></span> ' + esc(m); }); }
+      catch (e) { G.upMsg = '<span style="color:var(--err)">' + esc(e.message) + '</span>'; uploadView(host, ctx); return; }
+      G.upMsg = '✓ ' + r.got.map(esc).join('<br>✓ ');
+      if (r.data && ctx.amTab) ctx.amTab('upload', true); else uploadView(host, ctx);
+    }
+    drop.onclick = function () { inp.click(); };
+    drop.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inp.click(); } };
+    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); drop.classList.add('over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); drop.classList.remove('over'); }); });
+    drop.addEventListener('drop', function (e) { take(e.dataTransfer && e.dataTransfer.files); });
+    inp.onchange = function () { var fl = Array.prototype.slice.call(inp.files); inp.value = ''; take(fl); };
+    host.onchange = function (e) { var t = e.target; if (t.hasAttribute('data-docad')) { AMDBDOC.setAd(+t.getAttribute('data-docad'), t.value); uploadView(host, ctx); } };
+    host.onclick = async function (e) {
+      var go = e.target.closest('[data-amgoto]'); if (go) { if (ctx.amTab) ctx.amTab(go.getAttribute('data-amgoto')); return; }
+      var ck = e.target.closest('[data-doccheck]'); if (ck) { var id = +ck.getAttribute('data-doccheck'); G.open[id] = !G.open[id]; uploadView(host, ctx); return; }
+      var dl = e.target.closest('[data-docdel]'); if (dl) { AMDBDOC.remove(+dl.getAttribute('data-docdel')); uploadView(host, ctx); return; }
+      if (e.target.closest('[data-upread]')) { var tx = host.querySelector('[data-uptext]').value; if (!tx.trim()) return; await LAZY.run('src-amdbdoc'); var d = AMDBDOC.addText(tx, 'pasted text ' + new Date().toISOString().slice(11, 19), list); G.upMsg = '✓ pasted text: ' + esc(AMDBDOC.gave(d)) + (d.ad ? ' — ' + esc(d.ad) : ' — choose its aerodrome below'); uploadView(host, ctx); return; }
+      if (e.target.closest('[data-docrep]')) { docReport(list); return; }
+      if (e.target.closest('[data-upget]')) {
+        var code = host.querySelector('[data-uposm]').value, c = list.filter(function (x) { return x.code === code && x.arp; })[0], so = host.querySelector('.osm-st');
+        if (!c) { ctx.toast('This aerodrome has no reference point to look about.'); return; }
+        if (typeof AMDBOSM === 'undefined') await LAZY.run('src-amdbosm');
+        try { var o0 = await AMDBOSM.fetchFor(c, function (m) { so.innerHTML = '<span class="spinner"></span> ' + esc(m); }); G.osmMsg = '✓ ' + esc(code) + ': ' + AMDBOSM.summary(o0).all + ' element(s) from OpenStreetMap.'; }
+        catch (er) { G.osmMsg = '<span style="color:var(--err)">' + esc(code + ': ' + er.message) + '</span>'; }
+        uploadView(host, ctx);
+      }
+    };
+  }
+  // the ICAO Annex 4 check of every chart, and the cross-check with the AIP data set, as a PDF
+  function docReport(list) {
+    var docs = AMDBDOC.list().filter(function (d) { return d.f; }), secs = [];
+    if (!docs.length) return;
+    docs.forEach(function (d) {
+      var c = list.filter(function (x) { return x.code === d.ad; })[0] || null, chk = AMDBDOC.icaoCheck(d.f, c), K = d.ad ? AMDBDOC.forAd(d.ad, c && c.arp) : null, x = c ? AMDBDOC.crossCheck(K, c, []) : [];
+      var blocks = [{ kind: 'note', text: chk.name + (chk.ch ? ' (' + chk.ch + ')' : '') + (d.ad ? ' — ' + d.ad : '') + ' · ' + AMDBDOC.gave(d) }];
+      if (chk.items.length) blocks.push({ kind: 'table', cols: ['', 'Annex 4', 'What the chart must show', 'Found in the text'], rows: chk.items.map(function (i) { return [C(ST_ICON[i.st]), C(i.ref), C(i.what), C(i.ev)]; }) });
+      if (x.length) blocks.push({ kind: 'table', cols: ['', 'Item', 'Chart', 'AIP data set', 'Difference'], rows: x.map(function (r) { return [C({ ok: '✓', warn: '!', bad: '✗', fill: '+' }[r.st]), C(r.what), C(r.chart), C(r.aip), C(r.diff)]; }) });
+      secs.push({ title: d.name, blocks: blocks });
+    });
+    secs.push({ title: 'How to read this report', blocks: [{ kind: 'note', text: 'The chart\'s text is read: ✓ found · ✗ not found in the text (the chart may show it only as a drawing or a symbol) · ◌ only the drawing can show it · ○ where established. ICAO Annex 4 Chapters 13 (Aerodrome / Heliport Chart), 14 (Aerodrome Ground Movement Chart), 15 (Aircraft Parking / Docking Chart). Made with ' + APP_INFO.name + ' ' + APP_INFO.version + ' — created by ' + APP_INFO.author + '. ' + NOTICE }] });
+    EXPORTS.exportPDF({ title: 'The State\'s charts — ICAO Annex 4 check and comparison with the AIP data set', sub: NOTICE, ds: null, sections: secs });
   }
   function cmpSets(ctx) {
     var col = [];
@@ -762,23 +1193,30 @@ var AMDBX = (function () {
     var step = function (n, title, body) { return '<li class="amg-step"><div class="amg-n">' + n + '</div><div><b>' + title + '</b>' + body + '</div></li>'; };
     host.innerHTML = '<div class="nfo-box amdb-notice" role="note">⚠ ' + NOTICE + ' Aerodrome mapping made here is for study, analysis and to prepare data for a certified process — not for operational use.</div>' +
       '<div class="card card-pad amg"><h3 style="margin-top:0">How to create aerodrome mapping (AMDB) data — step by step</h3>' +
-      '<p>There are three ways in, from the quickest to the most accurate. They can be combined: start from the AIP, then replace parts with surveyed data.</p>' +
+      '<p>There are three ways in, from the quickest to the most accurate. They can be combined: start from the AIP, then replace parts with surveyed data. Each item comes from the best source there is, in this order: the AIP data set (A), the State\'s charts (C), what you trace on imagery (T), OpenStreetMap (O), then the ICAO Annex 14 minimum (S) — every feature says which.</p>' +
       '<div class="amg-routes"><div><b>A · AIP data set only</b><span>minutes · coarse</span><p>Runways, shoulders, stopways, thresholds, centre line points, markings and lights as the AIP declares them, navaids, obstacles; taxiways, aprons and stands where the AIP has their geometry.</p></div>' +
       '<div><b>B · Survey, CAD or GIS files</b><span>best accuracy</span><p>Your own surveyed or digitised pavement, guidance lines, holding positions, stands and buildings — AMXM, AIXM, GeoJSON, CSV with WKT, DXF or GeoPackage.</p></div>' +
       '<div><b>C · Both</b><span>recommended</span><p>Generate the frame from the AIP, then load the surveyed files; Compare shows what the survey adds or moves.</p></div></div>' +
       '<ol class="amg-steps">' +
-      step(1, 'Load the data (Files)', '<p>Drop the State\'s AIXM 5.x AIP data set (a .xml or a cycle .zip). Add any survey or GIS files of the aerodrome: <i>AMXM 2.0</i> (.xml), <i>AIXM</i> aerodrome features, <i>GeoJSON</i> with a property <code>amxm_type</code> per feature (e.g. <code>RunwayElement</code>) in WGS 84, <i>CSV</i> with the columns <code>amxm_type</code> and <code>wkt</code> plus attributes (<code>idarpt</code>, <code>idrwy</code>, <code>idlin</code>, <code>idstd</code> …), <i>DXF</i> with layers named after the AMXM types in WGS 84 / UTM (zone in the file name, e.g. <code>EADD_UTM34N.dxf</code>; the aerodrome code first), or a <i>GeoPackage</i> with one table per type. Click <b>Extract</b>.</p>') +
+      step(1, 'Load everything in one place (📤 Upload)', '<p><b>Digital data → Aerodrome mapping → 📤 Upload</b> takes every file and sends it where it belongs (Files works too). Drop the State\'s AIXM 5.x AIP data set (a .xml or a cycle .zip). Add any survey or GIS files of the aerodrome: <i>AMXM 2.0</i> (.xml), <i>AIXM</i> aerodrome features, <i>GeoJSON</i> with a property <code>amxm_type</code> per feature (e.g. <code>RunwayElement</code>) in WGS 84, <i>CSV</i> with the columns <code>amxm_type</code> and <code>wkt</code> plus attributes (<code>idarpt</code>, <code>idrwy</code>, <code>idlin</code>, <code>idstd</code> …), <i>DXF</i> with layers named after the AMXM types in WGS 84 / UTM (zone in the file name, e.g. <code>EADD_UTM34N.dxf</code>; the aerodrome code first), or a <i>GeoPackage</i> with one table per type.</p><p>Add <b>the State\'s charts</b> as PDF — the Aircraft Parking / Docking Chart (stand coordinates), the Aerodrome Chart and the Ground Movement Chart (threshold coordinates, dimensions, strength, lighting) and the AD 2 pages: their text is read, each is checked against ICAO Annex 4 (<b>ICAO check</b>) and against the AIP data set. A State with only an aerodrome chart, or an unclear chart, is fine: what it lacks is filled from OpenStreetMap, tracing and Annex 14, and a stand far from all others (a misread number) is left out with a note. A scanned chart has no text: paste the stand table. Add <b>OpenStreetMap</b> (Get, or an .osm / Overpass file) and your <b>orthophoto</b> (JPEG / PNG with its world file). Charts of commercial providers (e.g. Jeppesen) are not read: their licence is for display only.</p>') +
       step(2, 'Generate the frame from the AIP (route A or C)', '<p><b>Digital data → Aerodrome mapping (AMDB) → Generate from AIP</b>. Search and tick the aerodromes (<i>Select all</i>, <i>Deselect all</i>), choose what to derive (markings, lights, taxiway surfaces, obstacles and navaids), confirm the notice and click <b>Generate and open</b>. The table shows, per aerodrome, what the AIP gives: runways, thresholds, centre line points, light systems, taxiway and apron geometry, holding positions, stands, navaids and obstacles. The notes list what the AIP names but cannot be drawn (for example taxiways without coordinates) — that is what to survey.</p>') +
+      step('2b', 'Trace what no source gives (✏️ Trace on imagery)', '<p>On imagery whose licence allows deriving data — national orthophotos (Netherlands, France, Switzerland, Spain, Austria, Japan, New South Wales, USGS for the United States), Sentinel-2 (2016 for any use; the newest 2025 mosaic for non-commercial use), your own orthophoto or imagery service — trace stands, taxiway centre lines (the surface follows from the width), aprons, holding positions, buildings and service roads over what Generate makes now. Esri imagery is for a visual check only; Google imagery is not offered. Generate again: the traced features are taken in, each saying it was digitised by you, on which imagery, with an unknown accuracy.</p>') +
       step(3, 'Look at it — chart, map and 3D', '<p><b>Features</b> shows every feature type with its AMXM attributes, on a map coloured as an aerodrome chart (switch to colours by type or by source). Choose a base map in the map (offline, street, light grey, satellite, OpenStreetMap…). <b>🗻 3D</b> shows the aerodrome in 3D with its markings, lights (try <i>Night</i>), obstacles and navaids; the Map tab\'s <i>Airport view</i> draws the airport chart.</p>') +
       step(4, 'Check it', '<p><b>AMDB checks</b> runs 36 rules — AMXM schema, PANS-AIM accuracy and integrity, geometry (closed, simple, overlaps, gaps) and functional checks (thresholds on runways, stands on aprons, guidance lines joined). Fix the source data and run it again. The audit report goes out as PDF, Excel, CSV or JSON.</p>') +
       step(5, 'Compare (when you have two versions)', '<p><b>Compare</b>: generated against surveyed, last cycle against this one, or two suppliers — added, removed, moved (by how much) and changed (which attributes), with a map, reports and an AMXM change file.</p>') +
       step(6, 'Record the sources', '<p><b>Sources & quality</b>: for each data set who made it, its licence and date, how it was captured (survey, photogrammetry, CAD, imagery, AIP) and the quality class; tick <i>right of use confirmed</i> only when you have the permission. Generated data is already marked "Derived from AIP / AIXM data", coarse.</p>') +
       step(7, 'Build the package', '<p><b>Build package</b>: custom (aerodromes, feature types, formats) or full — AMXM 2.0 (schema-valid), AIXM 5.1.1, GeoPackage, GeoJSON, KML, Shapefile, CSV, Excel, DXF, ISO 19115 metadata, a report of what is inside and how it was made, guides for GIS and ARINC 816 tools, checksums. <i>For further processing</i> leaves the tool\'s name out and adds a handover record.</p>') +
       step(8, 'Take it further', '<p>Open the package in QGIS or ArcGIS (GeoPackage, Shapefile), in CAD (DXF), or convert the AMXM / GeoPackage with ARINC 816 tools. A package dropped on Files again is verified (✓) and opened.</p>') +
-      '</ol><h4>Good to know</h4><ul class="ab-list"><li>Coordinates must be WGS 84 (latitude / longitude), or WGS 84 / UTM in DXF. Convert local grids first (QGIS, your CAD tool).</li><li>PDF or image charts cannot be read — the tool needs coordinates.</li><li>Generated geometry is indicative: runway shapes come from published ends, width and shoulders; markings and lights without published positions follow the ICAO Annex 14 standard layout; only what the AIP declares is generated.</li><li>Everything stays in your browser; nothing is uploaded.</li></ul>' +
-      '<p><button class="btn primary" data-amgoto="generate">Start: Generate from AIP</button> <button class="btn" data-amgoto="features">Features (chart, map, 3D)</button></p></div>';
+      '</ol><h4>Good to know</h4><ul class="ab-list"><li>Coordinates must be WGS 84 (latitude / longitude), or WGS 84 / UTM in DXF. Convert local grids first (QGIS, your CAD tool).</li><li>Chart PDFs are read for their text (coordinates, names, dimensions, lighting); their drawing is not — a scanned chart (no text) needs its table pasted, or tracing on imagery.</li><li>OpenStreetMap data comes under the ODbL: a package that contains it says so, and must be shared alike.</li><li>Generated geometry is indicative: runway shapes come from published ends, width and shoulders; markings and lights without published positions follow the ICAO Annex 14 standard layout; only what the AIP declares is generated.</li><li>Everything stays in your browser; nothing is uploaded.</li></ul>' +
+      '<p><button class="btn primary" data-amgoto="upload">Start: 📤 Upload</button> <button class="btn" data-amgoto="generate">Generate from AIP</button> <button class="btn" data-amgoto="trace">✏️ Trace on imagery</button> <button class="btn" data-amgoto="features">Features (chart, map, 3D)</button></p></div>';
     host.onclick = function (e) { var b = e.target.closest('[data-amgoto]'); if (b && ctx.amTab) ctx.amTab(b.getAttribute('data-amgoto')); };
   }
-  function render(tab, host, ctx) { if (tab === 'generate') genView(host, ctx); else if (tab === 'guide') guideView(host, ctx); else cmpView(host, ctx); }
-  return { render: render, readiness: readiness, READY: READY, candidates: candidates, generate: generate, fromGeoJSON: fromGeoJSON, fromCsv: fromCsv, fromDxf: fromDxf, isCsv: isCsv, importFile: importFile, compare: compare, changeFile: changeFile, utmInv: utmInv, parseWkt: parseWkt };
+  async function render(tab, host, ctx) {
+    if (tab === 'generate') genView(host, ctx);
+    else if (tab === 'guide') guideView(host, ctx);
+    else if (tab === 'upload') uploadView(host, ctx);
+    else if (tab === 'trace') { await LAZY.run('src-amdbtrace'); AMDBTRACE.render(host, ctx, candidates(ctx.datasets), { generated: function () { return G.last; } }); }
+    else cmpView(host, ctx);
+  }
+  return { render: render, readiness: readiness, READY: READY, routeFiles: routeFiles, codeOf: codeOf, TWYW: TWYW, widen: widen, along: along, plane: plane, candidates: candidates, generate: generate, fromGeoJSON: fromGeoJSON, fromCsv: fromCsv, fromDxf: fromDxf, isCsv: isCsv, importFile: importFile, compare: compare, changeFile: changeFile, utmInv: utmInv, parseWkt: parseWkt };
 })();

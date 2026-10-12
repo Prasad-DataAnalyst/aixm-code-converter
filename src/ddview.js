@@ -12,9 +12,10 @@
  *   Aerodrome mapping      AMXM 2.0 data by aerodrome and feature type, every AMXM attribute, checks, reports;
  *                          the AMDB tools (checks, package, sources: amdb.js, amdbui.js, amdbpkg.js, loaded when opened)
  *   Terrain                terrain files, flight path and aerodrome terrain studies (terview.js)
- * The AIP, map and export views are not changed; this tab only reads the data.
+ * Each section takes its own files too (an upload area in the section, before or after any data is loaded); the
+ * Files view stays as it is. The AIP, map and export views are not changed; this tab only reads the data.
  * ========================================================================== */
-/* global MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW, TERVIEW, DEM, IFP, DDX, CONVERT, STUDY, LAZY, AMDBUI, AMDBX */
+/* global MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW, TERVIEW, DEM, IFP, DDX, CONVERT, STUDY, LAZY, AMDBUI, AMDBX, AMDBOSM, AMDBDOC, AMDBTRACE */
 var DDVIEW = (function () {
   'use strict';
   var M = MODEL, s = M.s;
@@ -53,18 +54,52 @@ var DDVIEW = (function () {
 
   function render(host, ctx) {
     var secs = sections(ctx.datasets);
-    if (!V.sec || !secs.some(function (x) { return x.id === V.sec && (x.n || x.id === 'ter'); })) V.sec = ctx.sec || (secs.filter(function (x) { return x.n; })[0] || secs[0]).id;
+    if (ctx.sec) V.sec = ctx.sec;
+    else if (!V.sec || !secs.some(function (x) { return x.id === V.sec; })) V.sec = (secs.filter(function (x) { return x.n; })[0] || secs.filter(function (x) { return x.id === 'amxm'; })[0]).id;
     ctx.sec = null;
     host.innerHTML = '<div class="dd-head"><h1 class="view-title">Digital data</h1><p class="view-sub">The digital data sets besides the AIP data set — obstacles (eTOD), instrument flight procedures, aerodrome mapping and terrain — each with its own overview, lists, checks and reports, on all the data loaded.</p>' +
       '<div class="dd-secs" role="tablist">' + secs.map(function (x) {
-        return '<button role="tab" class="dd-sec' + (V.sec === x.id ? ' on' : '') + '" data-ddsec="' + x.id + '"' + (!x.n && x.id !== 'ter' ? ' disabled' : '') + '><span class="dd-ic" aria-hidden="true">' + x.icon + '</span><b>' + x.title + '</b><span>' + (x.id === 'ter' && !x.n ? 'flight paths, aerodromes, files' : x.n ? num(x.n) + ' ' + x.what : 'none loaded') + '</span></button>';
+        return '<button role="tab" class="dd-sec' + (V.sec === x.id ? ' on' : '') + '" data-ddsec="' + x.id + '"><span class="dd-ic" aria-hidden="true">' + x.icon + '</span><b>' + x.title + '</b><span>' + (x.id === 'ter' && !x.n ? 'flight paths, aerodromes, files' : x.n ? num(x.n) + ' ' + x.what : 'none loaded — upload here') + '</span></button>';
       }).join('') + '</div></div><div class="dd-body"></div>';
     var body = host.querySelector('.dd-body');
     host.querySelector('.dd-secs').onclick = function (e) { var b = e.target.closest('[data-ddsec]'); if (b && !b.disabled) { V.sec = b.getAttribute('data-ddsec'); render(host, ctx); } };
-    if (V.sec === 'obs') { OBSTVIEW.render(body, ctx); var t = body.querySelector('.view-title'); if (t) t.outerHTML = ''; var sub = body.querySelector('.view-sub'); if (sub) sub.outerHTML = ''; }
-    else if (V.sec === 'ifp') ifpRender(body, ctx);
-    else if (V.sec === 'amxm') { var am = secs.filter(function (x) { return x.id === 'amxm'; })[0]; if (am.gen && V.am.tab === 'features' && !V.am.picked) V.am.tab = 'generate'; amRender(body, ctx); }
-    else TERVIEW.render(body, ctx);
+    var cur = secs.filter(function (x) { return x.id === V.sec; })[0];
+    if (V.sec === 'amxm') { if (!cur.n && !V.am.picked) V.am.tab = 'upload'; else if (cur.gen && V.am.tab === 'features' && !V.am.picked) V.am.tab = 'generate'; amRender(body, ctx); return; }
+    // obstacles, procedures, terrain: their own upload area, then the section (when there is data, or for terrain always)
+    body.innerHTML = upPanel(V.sec, !cur.n && V.sec !== 'ter') + '<div class="dd-main"></div>';
+    upBind(body.querySelector('.dd-up'), V.sec, ctx);
+    var main = body.querySelector('.dd-main');
+    if (!cur.n && V.sec !== 'ter') return;
+    if (V.sec === 'obs') { OBSTVIEW.render(main, ctx); var t = main.querySelector('.view-title'); if (t) t.outerHTML = ''; var sub = main.querySelector('.view-sub'); if (sub) sub.outerHTML = ''; }
+    else if (V.sec === 'ifp') ifpRender(main, ctx);
+    else TERVIEW.render(main, ctx);
+  }
+  /* ------------------------------------------------- upload in each section */
+  var UP = {
+    obs: ['obstacle data', '.xml,.zip,.xlsx,.xlsm,.xls,.ods,.csv', 'AIXM obstacle data sets (eTOD areas 1 to 4, AD 2.10), a cycle (.zip), eTOD tables (Excel or CSV)'],
+    ifp: ['procedure data (IFP)', '.xml,.zip', 'AIXM 5.1 / 5.2 instrument flight procedure data sets (SID, STAR, approaches), or an AIP data set with its procedures, a cycle (.zip)'],
+    ter: ['terrain data', '.tif,.tiff,.dt0,.dt1,.dt2,.hgt,.asc,.prj,.zip', 'GeoTIFF / BigTIFF, DTED (.dt0 / .dt1 / .dt2), SRTM (.hgt), ESRI ASCII grid (.asc) with its .prj — read block by block, any size']
+  };
+  function upPanel(kind, full) {
+    var u = UP[kind];
+    return '<div class="dd-up' + (full ? ' full' : '') + '" data-ddup="' + kind + '"><div class="dd-up-drop" tabindex="0" role="button" aria-label="Load ' + esc(u[0]) + '"><span class="dd-up-ic" aria-hidden="true">⬆</span><span><b>' + (full ? 'Load ' : 'Add ') + esc(u[0]) + '</b> — drop files here or click to choose<br><span class="muted">' + esc(u[2]) + '</span></span><input type="file" multiple class="hidden" accept="' + u[1] + '"></div>' +
+      (full ? '<p class="muted">The files are read in this browser and sent nowhere. They also show in Files, like any file loaded.</p>' : '') + '<div class="muted dd-up-st"></div></div>';
+  }
+  function upBind(el, kind, ctx) {
+    if (!el) return;
+    var drop = el.querySelector('.dd-up-drop'), inp = el.querySelector('input'), st = el.querySelector('.dd-up-st');
+    async function take(files) {
+      var list = Array.prototype.slice.call(files || []); if (!list.length) return;
+      st.innerHTML = '<span class="spinner"></span> Reading ' + esc(list.map(function (f) { return f.name; }).join(', ')) + ' …';
+      try { var A = window.__AIXM; await A.addFiles(list); await A.extractAll({ stay: true }); A.go('digital', { sec: kind }); }
+      catch (e) { st.innerHTML = '<span style="color:var(--err)">' + esc(e.message) + '</span>'; }
+    }
+    drop.onclick = function () { inp.click(); };
+    drop.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inp.click(); } };
+    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); drop.classList.add('over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); drop.classList.remove('over'); }); });
+    drop.addEventListener('drop', function (e) { take(e.dataTransfer && e.dataTransfer.files); });
+    inp.onchange = function () { var f = Array.prototype.slice.call(inp.files); inp.value = ''; take(f); };
   }
 
   /* ------------------------------------------------------- procedures (IFP) */
@@ -255,7 +290,7 @@ var DDVIEW = (function () {
     });
   }
   // Aerodrome mapping: the features (AMXM) and the AMDB tools - checks, package, sources (loaded when opened)
-  var AM_TABS = [['features', 'Features'], ['checks', 'AMDB checks'], ['package', 'Build package'], ['sources', 'Sources & quality'], ['generate', 'Generate from AIP'], ['compare', 'Compare'], ['guide', '📘 How to create AMDB']];
+  var AM_TABS = [['upload', '📤 Upload'], ['features', 'Features'], ['checks', 'AMDB checks'], ['package', 'Build package'], ['sources', 'Sources & quality'], ['generate', 'Generate from AIP'], ['trace', '✏️ Trace on imagery'], ['compare', 'Compare'], ['guide', '📘 How to create AMDB']];
   function amRender(host, ctx) {
     var F = V.am;
     host.innerHTML = '<div class="pill-tabs am-tabs" role="tablist" aria-label="Aerodrome mapping tools">' + AM_TABS.map(function (t) { return '<button role="tab" class="' + (F.tab === t[0] ? 'active' : '') + '" data-amtab="' + t[0] + '">' + t[1] + '</button>'; }).join('') +
@@ -269,12 +304,14 @@ var DDVIEW = (function () {
     body.innerHTML = '<div class="card card-pad"><span class="spinner"></span> Loading the aerodrome mapping tools…</div>';
     try {
       await LAZY.run('src-amdb'); await LAZY.run('src-amdbui');
-      var x = tab === 'generate' || tab === 'compare' || tab === 'guide';
+      var x = /^(generate|compare|guide|upload|trace)$/.test(tab);
       if (x && typeof AMDBX === 'undefined') { await LAZY.run('src-amdbpkg'); await LAZY.run('src-amdbx'); }
+      // the sources of generation: OpenStreetMap, the State's charts and documents, what was traced on imagery
+      if (/^(generate|upload|trace)$/.test(tab)) { if (typeof AMDBOSM === 'undefined') await LAZY.run('src-amdbosm'); if (typeof AMDBDOC === 'undefined') await LAZY.run('src-amdbdoc'); if (typeof AMDBTRACE === 'undefined') await LAZY.run('src-amdbtrace'); }
       if (V.am.tab !== tab || !body.isConnected) return;
       var host = body.parentNode && body.parentNode.closest ? body.closest('.dd-body') : null;
       var c2 = Object.assign({}, ctx, { amTab: function (t2, reload) { V.am.tab = t2; V.am.picked = true; if (reload || !host) window.__AIXM.go('digital'); else amRender(host, ctx); } });
-      if (x) AMDBX.render(tab, body, c2); else await AMDBUI.render(tab, body, c2);
+      if (x) await AMDBX.render(tab, body, c2); else await AMDBUI.render(tab, body, c2);
     } catch (e) { body.innerHTML = '<div class="card card-pad">The aerodrome mapping tools could not start: ' + esc(e.message) + '</div>'; }
   }
   // the aerodrome mapping of the aerodrome chosen (or all shown) in the 3D view, over the Map tab

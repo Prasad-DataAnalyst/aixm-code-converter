@@ -1097,3 +1097,30 @@ pre, .xml, .notam-text { text-align: left; }
 .q-link { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0 0 10px; padding: 5px 10px; font-size: 12.5px; color: var(--muted); border-left: 3px solid var(--warn); background: var(--surface-2); border-radius: 4px; }
 .q-link b { color: var(--text); font-weight: 600; } .q-link-ic { color: var(--warn); } .q-link-mark { margin: 0 0 0 auto; font-size: 12px; }
 .q-focus { margin: 8px 0; }
+
+/* Generate from AIP: more sources (OpenStreetMap, the State's charts) and the sources of the readiness */
+.gen-src { margin: 10px 0; } .gen-src summary { cursor: pointer; font-weight: 600; }
+.gen-src-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; margin-top: 6px; }
+.gen-src-grid > div { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); }
+.gen-src-grid p { margin: 4px 0 8px; font-size: 12.5px; } .gen-osm { font-size: 12px; white-space: nowrap; }
+.ready-c { font-weight: 700; } .ready-c sub, .rs-A, .rs-O, .rs-S { font-size: 10px; font-weight: 700; margin-left: 1px; }
+.rs-A { color: #1d4e89; } .rs-O { color: #2e7d32; } .rs-S { color: #8e24aa; } .rs-C { color: #b45309; } .rs-T { color: #c2187a; }
+.ready-c sub.rs-C, .ready-c sub.rs-T { font-size: 10px; font-weight: 700; }
+/* upload & sources of aerodrome mapping, and the upload area of each Digital data section */
+.up-card { margin-top: 10px; } .up-card h4 { margin: 14px 0 4px; }
+.up-drop, .dd-up-drop { border: 2px dashed var(--border); border-radius: 12px; padding: 18px; text-align: center; cursor: pointer; background: var(--surface-2); transition: border-color .15s, background .15s; }
+.up-drop:hover, .up-drop.over, .up-drop:focus-visible, .dd-up-drop:hover, .dd-up-drop.over, .dd-up-drop:focus-visible { border-color: var(--info); background: color-mix(in srgb, var(--info) 8%, var(--surface-2)); outline: none; }
+.up-drop-ic { font-size: 26px; line-height: 1; margin-bottom: 4px; color: var(--info); }
+.up-kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 6px 12px; margin: 10px 0 4px; font-size: 12.5px; }
+.up-kinds > div { display: grid; grid-template-columns: 22px 1fr; column-gap: 4px; } .up-kinds > div > .muted { grid-column: 2; }
+.up-st { margin-top: 8px; font-size: 12.5px; } .up-docs td { vertical-align: top; } .up-gaps li { margin: 4px 0; font-size: 12.5px; }
+.doc-chk { padding: 6px 4px 10px; } .doc-chk p { margin: 6px 0; } .doc-a4 td:first-child, .doc-x td:first-child { font-weight: 700; text-align: center; width: 22px; }
+.dd-up { margin: 0 0 10px; } .dd-up-drop { display: flex; gap: 12px; align-items: center; text-align: left; padding: 10px 14px; }
+.dd-up.full .dd-up-drop { padding: 28px 18px; justify-content: center; } .dd-up-ic { font-size: 22px; color: var(--info); } .dd-up-st { margin-top: 6px; }
+/* trace on imagery */
+.tr-bar label, .tr-tools label { display: inline-flex; gap: 6px; align-items: center; font-size: 12.5px; }
+.tr-lic { font-size: 12.5px; padding: 6px 10px; border-radius: 8px; background: var(--surface-2); border-left: 3px solid #1f7a4d; }
+.tr-lic[data-lic="nc"] { border-left-color: #b76e00; } .tr-lic[data-lic="view"] { border-left-color: #b3261e; }
+.tr-map { height: 62vh; min-height: 380px; border-radius: 10px; border: 1px solid var(--border); background: #1b1f24; }
+.tr-help { font-size: 12.5px; margin: 6px 0; } .tr-custom { margin-left: auto; font-size: 12.5px; } .tr-custom input { margin: 3px 0; }
+@media (max-width: 700px) { .tr-map { height: 55vh; min-height: 300px; } .up-kinds { grid-template-columns: 1fr; } }

@@ -512,7 +512,7 @@ A white-label export removes only our branding.
 
 ---
 
-## 10. Implementation status (1.27.0)
+## 10. Implementation status (1.27.0, with the later local additions)
 
 | Stage | Built | Where |
 |---|---|---|
@@ -520,6 +520,7 @@ A white-label export removes only our branding.
 | 1 — AMDB checks | 36 rules with their sources (generic, quality, geometry, functional, completeness), AIXM features as their AMXM counterparts, background worker with JSTS, findings by rule / on a map / with the feature, audit report, Quality summary | `src/amdb.js`, `src/amdbui.js`, Digital data → Aerodrome mapping (AMDB) → AMDB checks |
 | 2 — aerodrome mapping package | Sources & quality; custom / full export; AMXM 2.0 (schema-valid), AIXM 5.1.1, GeoPackage, GeoJSON, KML, Shapefile, CSV, Excel, DXF; ISO 19115, DPS, report, guides, checksums; standard / for further processing with handover record; package verification and GeoPackage reading on Files | `src/amdbpkg.js`, Build package, Sources & quality, Files |
 | 3 — more tools | Generate from AIP (Tier D: runway elements, shoulders, stopways, displaced areas, intersections, thresholds, centre line points, taxiway / apron elements, guidance lines, holding positions, stands, de-icing / work / TLOF areas, declared lights at Annex 14 spacing incl. approach lighting by class, navaid antennas, obstacles, Annex 14 standard markings — coarse, labelled); aerodrome chart styling and 3D; step-by-step guide; GeoJSON / CSV (WKT) / DXF read as AMXM (Tier C); compare two data sets (added, removed, moved, changed) with an AMXM change file; AIXM 5.1.1 output validated against the AIXM 5.1.1 schema | `src/amdbx.js`, Generate from AIP, Compare, Files |
+| 3b — every source | 📤 Upload (one place for every file, routed by kind); OpenStreetMap (Overpass or files; taxiways, aprons, stands, holding positions, buildings, routing network; ODbL recorded); the State's charts (PDF text: stands, thresholds, dimensions, PCN / PCR, widths, lighting, hot spots; ICAO Annex 4 Chapter 13 / 14 / 15 check; cross-check with the AIP and OpenStreetMap; doubtful values left out); ✏️ tracing on imagery by licence (national orthophotos, USGS, Sentinel-2 2016 / 2025, own orthophoto with world file, own tile service; Esri view only); Annex 14 inference (holding positions, shoulders, CAT I lighting from the ILS); readiness by source A / C / T / O / S | `src/amdbosm.js`, `src/amdbdoc.js`, `src/amdbtrace.js`, Upload, Trace on imagery, Generate |
 | 4 — 4D (opt-in) | Map → 4D time: timesheet evaluation (days, holidays, dates, times, sunrise / sunset, local time, daylight saving, excluded, H24 / NOTAM, AIXM 4.5 hours), airspace activation and availability of routes, aerodromes, navaids, units, services at a time, temporary changes, validity; AIRAC steps; procedure flown at a ground speed with ETO; 3D at that time; KML (time spans, gx:Track), CZML, GeoJSON, PDF, Excel | `src/fourd.js`, Map |
 
 Verified by the tests:
@@ -527,9 +528,11 @@ Verified by the tests:
 - the AMXM written validates against the AMXM 2.0.2 XML schema with GML 3.2.1 and ISO 19139 (libxml2, offline, `tools/tests/_xsd.js`), also from source data with invalid values;
 - checksums, reopening, tamper detection, GeoPackage round trip, white-label cleanliness, the package's AIXM 5.1.1 file against the AIXM 5.1.1 schema (`tools/tests/amdb_package.js`);
 - generation, GeoJSON / CSV / DXF round trip and comparison (`tools/tests/amdb_tools.js`);
+- the chart reader (coordinates in every notation, scans repaired, chart types, facts, rotated PDF text, doubtful stands, Annex 4 contents, the chart against the AIP) (`tools/tests/unit/amdbdoc.test.js`);
+- Upload, a chart PDF and a scanned one, an OpenStreetMap file, an orthophoto, tracing by licence, readiness of 95 % and more, the generated AMXM valid, the ODbL recorded, the uploads of each section (`tools/tests/amdb_sources.js`);
 - timesheets, sun, daylight saving, AIRAC and 4D on the map, in 3D and in the exports (`tools/tests/unit/fourd.test.js`, `tools/tests/fourd.js`).
 
-Not built: imagery digitising (Tier E — needs imagery licensed for it and a survey-grade process) and ARINC 816 encoding (the specification is sold by SAE ITC; the AMXM, GeoPackage and mapping table of a package are the way into ARINC 816 tools).
+Built since: imagery digitising (Tier E) as indicative tracing on imagery whose licence allows it — not a survey-grade process (no ground control); every traced feature says so. Not built: ARINC 816 encoding (the specification is sold by SAE ITC; the AMXM, GeoPackage and mapping table of a package are the way into ARINC 816 tools).
 
 ---
 

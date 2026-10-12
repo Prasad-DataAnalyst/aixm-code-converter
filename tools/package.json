@@ -19,6 +19,7 @@
     "jspdf-autotable": "^5.0.8",
     "jsts": "^2.12.1",
     "leaflet": "^1.9.4",
+    "pdfjs-dist": "^3.11.174",
     "sql.js": "^1.14.2",
     "three": "^0.147.0",
     "topojson-client": "^3.1.0",

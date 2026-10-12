@@ -113,10 +113,15 @@ var AMDBPKG = (function () {
     if (s) return s;
     var cnt = {};
     feats.forEach(function (f) { var v = f.a.source && f.a.source.v; if (v) cnt[v] = (cnt[v] || 0) + 1; });
-    var best = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; })[0];
-    var gen = /^Generated from AIP/.test(best || '');
-    return { orig: gen ? '' : best || ds.state || '', lic: '', date: typeof ds.effective === 'number' ? new Date(ds.effective).toISOString().slice(0, 10) : '', method: ds.family === 'amxm' && !gen ? 'Unknown' : 'Derived from AIP / AIXM data', q: gen ? 'coarse' : 'unknown', note: gen ? best : '', rights: false };
+    var best = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; })[0], all = Object.keys(cnt).join('\n');
+    var gen = /^(Generated from AIP|Inferred from AIP|SCHEMATIC from AIP|From the State's charts|OpenStreetMap contributors|Digitised by the user)/.test(best || '');
+    // generated data: what each source added, and the licences that come with it (OpenStreetMap: ODbL share-alike)
+    var osm = /OpenStreetMap/.test(all), chart = /From the State's charts/.test(all), traced = /Digitised by the user/.test(all), nc = /NC-SA|non-commercial/.test(all);
+    var lic = [osm ? ODBL : '', chart ? 'the State\'s charts: as the State\'s AIP terms allow' : '', nc ? 'traced on imagery under CC BY-NC-SA 4.0: non-commercial use, share-alike' : ''].filter(Boolean).join('; ');
+    var method = 'Derived from AIP / AIXM data' + (chart ? ', the State\'s charts' : '') + (osm ? ', OpenStreetMap' : '') + (traced ? ', traced on imagery by the user' : '') + (/Inferred/.test(all) ? ', ICAO Annex 14 inference' : '');
+    return { orig: gen ? '' : best || ds.state || '', lic: lic, date: typeof ds.effective === 'number' ? new Date(ds.effective).toISOString().slice(0, 10) : '', method: ds.family === 'amxm' && !gen ? 'Unknown' : method, q: gen ? 'coarse' : 'unknown', note: gen ? best : '', rights: false, osm: osm };
   }
+  var ODBL = 'contains OpenStreetMap data © OpenStreetMap contributors, Open Database Licence 1.0 (attribution; share-alike: the package and what is made from it are shared under the ODbL)';
   function sources(ctx) {
     var col = API.features(ctx.datasets);
     return col.sets.map(function (s) { var ds = ctx.datasets[s.i]; return { set: s, ds: ds, info: srcOf(ds, col.features.filter(function (f) { return f.ref[0] === s.i; })) }; });
@@ -138,6 +143,9 @@ var AMDBPKG = (function () {
       [['Your own data (survey, CAD, GIS, AIXM, AMXM)', '✓', 'you hold the rights; the quality is the quality it was made to'],
         ['State AIP / AIXM data you load', 'as its terms allow', 'rights stay with the State or provider; the package names it'],
         ['Copernicus Sentinel-2 imagery (10 m)', '✓ free, also commercially', '"Contains modified Copernicus Sentinel data [year]"; coarse quality only'],
+        ['Sentinel-2 cloudless mosaics of EOX', '2016: ✓ CC BY 4.0; 2018 to 2025: non-commercial only', 'CC BY-NC-SA 4.0 for 2018 and later (EOX sells a commercial licence)'],
+        ['The State\'s charts (aerodrome, ground movement, parking / docking) and AD 2 pages', 'as the State\'s terms allow', 'the AIP copyright stays with the State; the features name the chart'],
+        ['Charts of commercial providers (e.g. Jeppesen)', '✗', 'licensed for display only: no data may be derived from them'],
         ['National open aerial photos (e.g. IGN France, PDOK, LINZ, swisstopo, USGS NAIP)', '✓ under their open licences', 'attribution of each; medium quality at best without ground control'],
         ['Copernicus DEM, SRTM, the built-in terrain', '✓', 'their attribution notices'],
         ['OpenStreetMap', 'only if the package is shared under ODbL', 'share-alike: never mixed with closed data'],
@@ -687,6 +695,8 @@ var AMDBPKG = (function () {
     lines.push('Aerodromes: ' + W.ads.join(', '), 'Features: ' + list.length, 'Package: ' + W.pid, 'Created: ' + W.now.toISOString().slice(0, 19) + 'Z', '');
     lines.push('Sources (they keep their own copyright and licences, and the attributions they require):');
     W.srcs.forEach(function (s) { lines.push(' - ' + s.ds.name + ' (' + s.set.kind + '): originator ' + (s.info.orig || 'not stated') + '; licence ' + (s.info.lic || 'not stated') + '; ' + s.info.method + '; quality ' + s.info.q); });
+    // OpenStreetMap: its attribution and share-alike stay with the data, whatever the branding
+    if (W.srcs.some(function (x) { return x.info.osm; })) lines.push('', 'OpenStreetMap: this package contains data from OpenStreetMap, © OpenStreetMap contributors, available under the Open Database Licence 1.0 (https://opendatacommons.org/licenses/odbl/1-0/). Each feature from OpenStreetMap names its way or node. The package, and any database made from it, must be shared under the ODbL (share-alike).');
     lines.push('', 'Folders:', ' data/      AMXM 2.0 XML (ISO 19115 metadata inside), AIXM 5.1.1 XML, identifier map', ' gis/       GeoPackage, GeoJSON, KML, Shapefile', ' tables/    CSV and Excel', ' cad/       DXF (WGS 84 / UTM metres)', ' metadata/  ISO 19115 metadata, data product specification', ' reports/   package report (what is inside, how it was made, sources, checks), check results', ' guides/    how to use the package (GIS, ArcGIS, CAD, AIXM, ARINC 816), feature catalogue mapping', '', 'Checksums: SHA256SUMS.txt and PACKAGE.json.', '');
     if (!W.plain) lines.push('AMXM is a schema of RTCA and EUROCAE, used under its licence; RTCA and EUROCAE do not endorse this product. Not affiliated with EUROCONTROL, the FAA, ICAO, EASA, RTCA, EUROCAE or SAE / ARINC.', '');
     return lines.join('\n');

@@ -18,7 +18,8 @@ const PACKAGES = [
   ['topojson-client', 'TopoJSON client — offline world map', 'ISC'],
   ['world-atlas', 'world-atlas — offline world map (from Natural Earth)', 'ISC'],
   ['jsts', 'JSTS — geometry engine of the aerodrome mapping checks (stored unopened, loaded when used)', 'EDL-1.0 (or EPL-1.0)'],
-  ['sql.js', 'sql.js — SQLite for GeoPackage files (stored unopened, loaded when used)', 'MIT']
+  ['sql.js', 'sql.js — SQLite for GeoPackage files (stored unopened, loaded when used)', 'MIT'],
+  ['pdfjs-dist', 'PDF.js (Mozilla) — reads the text of State chart PDFs, e.g. stand coordinates (stored unopened, loaded when used; opened with isEvalSupported: false)', 'Apache-2.0']
 ];
 
 function licenceText(dir) {

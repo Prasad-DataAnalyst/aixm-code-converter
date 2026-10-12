@@ -44,7 +44,7 @@ const { validateAmxm } = require('./_xsd');
     await page.waitForSelector(sel, { timeout: 30000 });
   }
   // the aerodrome mapping features of each AMXM data set, as the AMDB tools see them
-  const amxmFeatures = () => page.evaluate(async () => { await LAZY.run('src-amdb'); return window.__AIXM.S.datasets.filter((d) => d.family === 'amxm').map((d) => { const f = AMDB.collect([d], MODEL).features; return { name: d.name, n: f.length, types: Array.from(new Set(f.map((x) => x.t))).sort(), gen: f.every((x) => /^(Generated from AIP data .*(coarse quality|Annex 14)|From .*as published)/.test(x.a.source && x.a.source.v)) }; }); });
+  const amxmFeatures = () => page.evaluate(async () => { await LAZY.run('src-amdb'); return window.__AIXM.S.datasets.filter((d) => d.family === 'amxm').map((d) => { const f = AMDB.collect([d], MODEL).features; return { name: d.name, n: f.length, types: Array.from(new Set(f.map((x) => x.t))).sort(), gen: f.every((x) => /^(Generated from AIP data .*(coarse quality|Annex 14)|Inferred from AIP data .*indicative|From .*as published)/.test(x.a.source && x.a.source.v)) }; }); });
 
   /* ---------------------------------------------------------- generate from AIP */
   await load([T + 'EA_AIP_DS_FULL_20170701.xml']);
@@ -100,7 +100,7 @@ const { validateAmxm } = require('./_xsd');
   await page.click('[data-gensel="all"]');
   if (await page.$$eval('[data-gen]', (c) => c.some((x) => !x.checked && !x.disabled))) fails.push('Select all');
   // data readiness: what the AIP gives, item by item, and the report
-  const rd = await page.evaluate(() => ({ rows: document.querySelectorAll('.ready-tbl tbody tr').length, ok: document.querySelectorAll('.ready-tbl td[title="ok"]').length, miss: document.querySelectorAll('.ready-tbl td[title="missing"]').length, pct: (document.querySelector('[data-genrow] td:nth-last-child(2)') || {}).textContent }));
+  const rd = await page.evaluate(() => ({ rows: document.querySelectorAll('.ready-tbl tbody tr').length, ok: document.querySelectorAll('.ready-tbl td[data-st="ok"]').length, miss: document.querySelectorAll('.ready-tbl td[data-st="missing"]').length, pct: (document.querySelector('[data-genrow] td:nth-last-child(2)') || {}).textContent }));
   if (rd.rows < 16 || !rd.ok || !rd.miss || !/%/.test(rd.pct || '')) fails.push('data readiness: ' + JSON.stringify(rd));
   const [rdl] = await Promise.all([page.waitForEvent('download'), page.click('[data-genrep="csv"]')]);
   const rcsv = fs.readFileSync(await rdl.path(), 'utf8');

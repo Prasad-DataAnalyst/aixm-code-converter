@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 // The Digital data tab: obstacles (eTOD), procedures (IFP) and aerodrome mapping (AMXM), each with its overview,
 // list, map, checks and reports, on the Donlon test data (AIP, obstacle data set Areas 2/3/4, IFP, AMXM):
-// - the tab is offered only when such data is loaded; the Export page and the Dashboard point to it;
+// - the tab is always offered (each section takes its own files); the Export page and the Dashboard point to it;
 // - obstacles: eTOD area of each obstacle from the obstacle area polygons, PANS-AIM accuracy checks, distance and
 //   bearing from the ARP, the map shows what the list shows (filter applied) and selects rows both ways;
 // - procedures with their legs and paths on the map; AMXM features by type with their attributes;
@@ -32,9 +32,14 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
     return require('fs').statSync(p).size;
   }
 
-  // no digital data: the tab is not offered
+  // no digital data: the tab is still offered, each section with its own upload area
   await load([T + 'chicago_airspace_crs84_51.xml']);
-  if (!(await page.$eval('#nav [data-view="digital"]', (b) => b.disabled))) fails.push('tab offered without digital data');
+  if (await page.$eval('#nav [data-view="digital"]', (b) => b.disabled)) fails.push('Digital data not offered without digital data (its sections take their own files)');
+  else {
+    await page.evaluate(() => window.__AIXM.go('digital', { sec: 'obs' }));
+    const up = await page.evaluate(() => !!document.querySelector('.dd-up.full .dd-up-drop'));
+    if (!up) fails.push('the Obstacles section without data has no upload area');
+  }
   // AIXM runway elements (aerodrome mapping features): the tab is offered for the aerodrome mapping (AMDB) tools
   await load([T + 'chicago_runways_51.xml']);
   if (await page.$eval('#nav [data-view="digital"]', (b) => b.disabled)) fails.push('tab not offered for AIXM aerodrome mapping features');
