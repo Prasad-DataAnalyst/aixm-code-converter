@@ -125,6 +125,13 @@ NOT FOR NAVIGATION — for study and analysis only.
     taxiways named on the chart but not mapped are listed to trace;
   - packages record what each source added and its licence: OpenStreetMap data under the ODbL (attribution and
     share-alike, also in the README of a package for further processing), the State's charts, non-commercial imagery.
+- **Aerodrome mapping, step by step**: the section asks what you want to do — **👁 View AMDB data** (Load → Look →
+  Check → Fit for use → Compare (optional) → Export) or **🛠 Create AMDB data** (Sources → Fill the gaps (optional) →
+  Generate → Look → Check → Fit for use → Package) — and goes step by step: a bar of numbered steps (✓ done, the next
+  one marked, a step waiting for an earlier one says which), what to do now, Back and Next (Skip on an optional step).
+  The path follows what is loaded (aerodrome mapping files: view; an AIP data set: create) until one is chosen, and the
+  choice is kept. In View, Upload shows the kinds of aerodrome mapping file and folds the sources of creating.
+  **⚙ All tools** shows every tool as a tab, as before.
 - **The State's charts placed on the map** (Trace on imagery → 📄 The State's charts on the map): a chart is placed by
   what it shows that the data already knows — stand numbers, runway designators, "ARP", coordinates written beside a
   point (read from the PDF's text, or by OCR from a picture, also the words written along the runways) and, on an

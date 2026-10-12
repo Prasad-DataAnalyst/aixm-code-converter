@@ -64,7 +64,7 @@ var DDVIEW = (function () {
     var body = host.querySelector('.dd-body');
     host.querySelector('.dd-secs').onclick = function (e) { var b = e.target.closest('[data-ddsec]'); if (b && !b.disabled) { V.sec = b.getAttribute('data-ddsec'); render(host, ctx); } };
     var cur = secs.filter(function (x) { return x.id === V.sec; })[0];
-    if (V.sec === 'amxm') { if (!cur.n && !V.am.picked) V.am.tab = 'upload'; else if (cur.gen && V.am.tab === 'features' && !V.am.picked) V.am.tab = 'generate'; amRender(body, ctx); return; }
+    if (V.sec === 'amxm') { amRender(body, ctx); return; }
     // obstacles, procedures, terrain: their own upload area, then the section (when there is data, or for terrain always)
     body.innerHTML = upPanel(V.sec, !cur.n && V.sec !== 'ter') + '<div class="dd-main"></div>';
     upBind(body.querySelector('.dd-up'), V.sec, ctx);
@@ -291,14 +291,84 @@ var DDVIEW = (function () {
   }
   // Aerodrome mapping: the features (AMXM) and the AMDB tools - checks, package, sources (loaded when opened)
   var AM_TABS = [['upload', '📤 Upload'], ['features', 'Features'], ['checks', 'AMDB checks'], ['package', 'Build package'], ['sources', 'Sources & quality'], ['generate', 'Generate from AIP'], ['trace', '✏️ Trace on imagery'], ['fit', '📏 Fit for use'], ['compare', 'Compare'], ['guide', '📘 How to create AMDB']];
+  // two paths, step by step: viewing aerodrome mapping data, or creating it (from the AIP data set, the State's charts,
+  // OpenStreetMap and imagery); "All tools" shows every tool as a tab. [tab, step, what to do now, optional]
+  var AM_FLOW = {
+    view: { name: 'View AMDB data', steps: [
+      ['upload', 'Load', 'Drop your aerodrome mapping data: AMXM 2.0 (.xml), AIXM 5.x aerodrome features, a package (.zip), GeoPackage, GeoJSON, CSV with WKT or DXF.'],
+      ['features', 'Look', 'The features on a map drawn as an aerodrome chart, by aerodrome and type, with their attributes. 🗻 3D opens the aerodrome in 3D.'],
+      ['checks', 'Check', 'Run the 36 AMDB rules — schema, accuracy and integrity, geometry, functions. Each finding is on the map with its feature; the audit report goes out as PDF or Excel.'],
+      ['fit', 'Fit for use', 'Is each feature accurate enough for its use (ICAO PANS-AIM)? Load a survey or a supplier\'s data beside it to measure the real accuracy.'],
+      ['compare', 'Compare', 'Two versions — two cycles, two suppliers: what was added, removed, moved or changed, with a change file.', true],
+      ['package', 'Export', 'Write the data as a package — AMXM 2.0, AIXM 5.1.1, GeoPackage, GIS and CAD formats — with its report and checksums.']] },
+    create: { name: 'Create AMDB data', steps: [
+      ['upload', 'Sources', 'Load the AIP data set of the aerodrome, then add what you have: the State\'s charts (PDF), OpenStreetMap (Get), your orthophoto. Below: what each source gives and what is still missing.'],
+      ['trace', 'Fill the gaps', 'Place the State\'s charts on the map, and trace what no source gives (stands, taxiways, aprons) on licensed imagery or on a placed chart. Skip it if nothing is missing.', true],
+      ['generate', 'Generate', 'Choose the aerodrome, see its readiness item by item, and generate everything the sources give, in AMXM 2.0.'],
+      ['features', 'Look', 'The generated features on the aerodrome chart map, each saying where it comes from. 🗻 3D opens it in 3D.'],
+      ['checks', 'Check', 'Run the 36 AMDB rules on what was generated; fix a source and generate again if needed.'],
+      ['fit', 'Fit for use', 'How accurate each feature is from its source, against ICAO PANS-AIM — and what still needs a survey.'],
+      ['package', 'Package', 'Write the package — AMXM 2.0, AIXM 5.1.1, GeoPackage, GIS, CAD — with its report; the licences of the sources are in Sources & quality.']] }
+  };
+  var AM_MKEY = 'aixm-amdb-mode';
+  function amSaved() { try { return localStorage.getItem(AM_MKEY) || ''; } catch (e) { return ''; } }
+  function amSetMode(m) { V.am.mode = m; try { localStorage.setItem(AM_MKEY, m); } catch (e) { /* kept for this session */ } }
+  // what is loaded: aerodrome mapping data (AMXM, AIXM aerodrome features), an AIP data set with runways, generated data
+  function amState(ctx) {
+    var am = amxmOf(ctx.datasets), gen = am.filter(function (d) { return /_generated_from_AIP/i.test(d.name); }).length;
+    var ax = ctx.datasets.some(function (d) { return d.family !== 'amxm' && d.byType && AM_AIXM.some(function (k) { return (d.byType[k] || []).length; }); });
+    var aip = ctx.datasets.some(function (d) { return d.family !== 'amxm' && d.family !== 'tab' && d.byType && (d.byType.Runway || []).length; });
+    return { data: am.length > gen || ax, amxm: am.length > gen, gen: gen > 0, aip: aip };
+  }
+  // done | todo | opt (optional) | wait (an earlier step first)
+  function amStep(mode, id, S) {
+    var seen = (V.am.seen || {})[mode] || {}, has = S.data || S.gen;
+    if (mode === 'view') { if (id === 'upload') return has ? 'done' : 'todo'; if (!has) return 'wait'; return seen[id] ? 'done' : id === 'compare' ? 'opt' : 'todo'; }
+    if (id === 'upload') return S.aip ? 'done' : 'todo';
+    if (id === 'trace') return !S.aip ? 'wait' : seen.trace ? 'done' : 'opt';
+    if (id === 'generate') return S.gen ? 'done' : S.aip ? 'todo' : 'wait';
+    return !S.gen ? 'wait' : seen[id] ? 'done' : 'todo';
+  }
   function amRender(host, ctx) {
-    var F = V.am;
-    host.innerHTML = '<div class="pill-tabs am-tabs" role="tablist" aria-label="Aerodrome mapping tools">' + AM_TABS.map(function (t) { return '<button role="tab" class="' + (F.tab === t[0] ? 'active' : '') + '" data-amtab="' + t[0] + '">' + t[1] + '</button>'; }).join('') +
-      '</div><div class="am-body"></div>';
-    host.querySelector('.am-tabs').onclick = function (e) { var b = e.target.closest('[data-amtab]'); if (b) { F.tab = b.getAttribute('data-amtab'); F.picked = true; amRender(host, ctx); } };
+    var F = V.am, S = amState(ctx);
+    F.seen = F.seen || {};
+    if (F.mode === undefined) F.mode = amSaved();
+    // without a choice yet: what is loaded decides (aerodrome mapping files to view; an AIP data set to create from)
+    var mode = F.mode || (S.amxm ? 'view' : S.aip || S.gen ? 'create' : S.data ? 'view' : '');
+    var flow = AM_FLOW[mode], steps = flow ? flow.steps : null;
+    var first = steps ? (steps.filter(function (x) { return amStep(mode, x[0], S) === 'todo'; })[0] || steps[steps.length - 1])[0] : 'upload';
+    var sec = sections(ctx.datasets).filter(function (x) { return x.id === 'amxm'; })[0];
+    if (!F.picked) F.tab = steps ? first : mode === 'all' ? (!sec.n ? 'upload' : sec.gen ? 'generate' : 'features') : 'upload';
+    var modes = '<div class="am-modes" role="group" aria-label="What would you like to do?">' + [['view', '👁', 'View AMDB data', 'I have aerodrome mapping data'], ['create', '🛠', 'Create AMDB data', 'from the AIP, the State\'s charts, OpenStreetMap, imagery'], ['all', '⚙', 'All tools', 'every tool, as tabs']].map(function (m) {
+      return '<button class="am-mode' + (mode === m[0] ? ' on' : '') + '" data-ammode="' + m[0] + '" aria-pressed="' + (mode === m[0]) + '"><span class="am-mode-ic" aria-hidden="true">' + m[1] + '</span><b>' + m[2] + '</b><span>' + esc(m[3]) + '</span></button>';
+    }).join('') + '</div>';
+    var h = '<div class="am-flow">' + modes;
+    if (!mode) h += '<div class="am-choose"><p><b>What would you like to do?</b> Choose a path above — each goes step by step — or drop your files below: the tool sees what they are and picks the path.</p></div>';
+    else if (mode === 'all') h += '<div class="pill-tabs am-tabs" role="tablist" aria-label="Aerodrome mapping tools">' + AM_TABS.map(function (t) { return '<button role="tab" class="' + (F.tab === t[0] ? 'active' : '') + '" data-amtab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
+    else {
+      var at = steps.map(function (x) { return x[0]; }).indexOf(F.tab), cur = steps[at];
+      h += '<ol class="am-steps" aria-label="' + esc(flow.name) + ', step by step">' + steps.map(function (x, i) {
+        var st = amStep(mode, x[0], S);
+        return '<li><button class="am-step st-' + st + (i === at ? ' on' : '') + (x[0] === first && st === 'todo' && i !== at ? ' next' : '') + '" data-amtab="' + x[0] + '"' + (i === at ? ' aria-current="step"' : '') + '><span class="am-step-n">' + (st === 'done' ? '✓' : i + 1) + '</span><span class="am-step-t">' + esc(x[1]) + (x[3] ? ' <i>optional</i>' : '') + '</span></button></li>';
+      }).join('') + '</ol>';
+      if (cur) {
+        var st0 = amStep(mode, cur[0], S), need = steps.filter(function (x, i) { return i < at && amStep(mode, x[0], S) === 'todo'; })[0];
+        h += '<div class="am-now" role="status"><div><span class="am-now-n">Step ' + (at + 1) + ' of ' + steps.length + (cur[3] ? ' · optional' : '') + '</span> <b>' + esc(cur[1]) + '</b> — ' + esc(cur[2]) +
+          (st0 === 'wait' && need ? '<br><span class="am-wait">⚠ First: <button class="linkbtn" data-amtab="' + need[0] + '">step ' + (steps.indexOf(need) + 1) + ' · ' + esc(need[1]) + '</button></span>' : '') + '</div>' +
+          '<div class="am-now-btns">' + (at > 0 ? '<button class="btn small" data-amtab="' + steps[at - 1][0] + '">← ' + esc(steps[at - 1][1]) + '</button>' : '') + (at < steps.length - 1 ? ' <button class="btn small primary" data-amtab="' + steps[at + 1][0] + '">' + (cur[3] ? 'Skip to ' : 'Next: ') + esc(steps[at + 1][1]) + ' →</button>' : '') + '</div></div>';
+      } else h += '<div class="am-now" role="status"><div><b>' + esc((AM_TABS.filter(function (t) { return t[0] === F.tab; })[0] || ['', ''])[1]) + '</b> — an extra tool, beside the steps.</div><div class="am-now-btns"><button class="btn small" data-amtab="' + first + '">← Back to the steps</button></div></div>';
+    }
+    h += '<div class="am-extra">' + (mode && mode !== 'all' ? '<button class="linkbtn" data-amtab="guide">📘 How to create AMDB</button>' + (mode === 'create' ? ' · <button class="linkbtn" data-amtab="sources">Sources &amp; quality</button> · <button class="linkbtn" data-amtab="compare">Compare</button>' : ' · <button class="linkbtn" data-amtab="sources">Sources &amp; quality</button>') : '') + '</div></div><div class="am-body"></div>';
+    host.innerHTML = h;
+    host.querySelector('.am-flow').onclick = function (e) {
+      var m = e.target.closest('[data-ammode]'); if (m) { amSetMode(m.getAttribute('data-ammode')); F.picked = false; amRender(host, ctx); return; }
+      var b = e.target.closest('[data-amtab]'); if (b) { F.tab = b.getAttribute('data-amtab'); F.picked = true; amRender(host, ctx); var fl = host.querySelector('.am-flow'); if (fl && fl.getBoundingClientRect().top < 0) fl.scrollIntoView({ block: 'start' }); }
+    };
     var body = host.querySelector('.am-body');
-    if (F.tab === 'features') { amFeatures(body, ctx); return; }
-    amdbTools(F.tab, body, ctx);
+    if (mode) (F.seen[mode] = F.seen[mode] || {})[F.tab] = true;
+    var c2 = Object.assign({}, ctx, { amMode: mode });
+    if (F.tab === 'features') { amFeatures(body, c2); return; }
+    amdbTools(F.tab, body, c2);
   }
   async function amdbTools(tab, body, ctx) {
     body.innerHTML = '<div class="card card-pad"><span class="spinner"></span> Loading the aerodrome mapping tools…</div>';

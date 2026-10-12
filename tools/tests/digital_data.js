@@ -20,7 +20,7 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('dialog', (d) => d.accept());
   async function load(files) {
-    await page.goto(URL); await page.waitForSelector('#drop');
+    await page.goto(URL); await page.waitForSelector('#drop'); await page.evaluate(() => localStorage.setItem('aixm-amdb-mode', 'all')); // every tool as a tab (the steps: amdb_flow.js)
     await page.setInputFiles('#file-input', files);
     await page.waitForFunction((n) => !window.__AIXM.S.adding && window.__AIXM.S.files.length >= n && window.__AIXM.S.files.every((f) => f.status !== 'checking'), files.length, { timeout: 30000 });
     await page.evaluate(() => document.querySelector('#extract-btn').click());

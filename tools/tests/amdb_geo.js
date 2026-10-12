@@ -37,7 +37,7 @@ function plane(o) {
     await page.setInputFiles('[data-upin]', files);
     await page.waitForFunction((b) => { const s = (document.querySelector('.up-st') || {}).textContent || ''; return s && s !== b && !document.querySelector('.up-st .spinner'); }, before, { timeout: 90000 });
   }
-  await page.goto(URL); await page.waitForSelector('#drop');
+  await page.goto(URL); await page.waitForSelector('#drop'); await page.evaluate(() => localStorage.setItem('aixm-amdb-mode', 'all')); // every tool as a tab (the steps: amdb_flow.js)
   const idle = await page.evaluate(() => [typeof window.AMDBGEO, typeof window.AMDBQ, document.getElementById('src-amdbgeo').type, document.getElementById('src-amdbq').type]);
   if (idle.join() !== 'undefined,undefined,text/plain,text/plain') fails.push('the new modules ran before they were needed: ' + idle);
   await page.evaluate(() => window.__AIXM.go('digital')); await page.waitForSelector('.up-drop', { timeout: 30000 });

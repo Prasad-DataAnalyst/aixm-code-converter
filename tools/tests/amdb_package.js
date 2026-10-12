@@ -25,7 +25,7 @@ const { validateAmxm, validateAixm511 } = require('./_xsd');
   const errors = [], fails = [];
   page.on('pageerror', (e) => errors.push(e.message));
   async function load(files) {
-    await page.goto(URL); await page.waitForSelector('#drop');
+    await page.goto(URL); await page.waitForSelector('#drop'); await page.evaluate(() => localStorage.setItem('aixm-amdb-mode', 'all')); // every tool as a tab (the steps: amdb_flow.js)
     await page.setInputFiles('#file-input', files);
     await page.waitForFunction((n) => !window.__AIXM.S.adding && window.__AIXM.S.files.length >= n && window.__AIXM.S.files.every((f) => f.status !== 'checking'), files.length, { timeout: 30000 });
     await page.evaluate(() => document.querySelector('#extract-btn').click());
@@ -111,7 +111,7 @@ const { validateAmxm, validateAixm511 } = require('./_xsd');
   if (!man.producer || man.producer.author !== 'Prasad Selvaraj' || !/NOT FOR NAVIGATION/.test(man.notice)) fails.push('manifest producer / notice');
 
   // the package opened again: verified, its AMXM file read with the same features
-  await page.goto(URL); await page.waitForSelector('#drop');
+  await page.goto(URL); await page.waitForSelector('#drop'); await page.evaluate(() => localStorage.setItem('aixm-amdb-mode', 'all')); // every tool as a tab (the steps: amdb_flow.js)
   await page.setInputFiles('#file-input', [zipPath]);
   await page.waitForFunction(() => !window.__AIXM.S.adding && (window.__AIXM.S.packages || []).length, null, { timeout: 30000 });
   const reopened = await page.evaluate(() => ({ p: window.__AIXM.S.packages[0].res.ok, files: window.__AIXM.S.files.map((f) => f.name), card: (document.querySelector('.pkg-card') || {}).textContent || '' }));
@@ -122,7 +122,7 @@ const { validateAmxm, validateAixm511 } = require('./_xsd');
   if (back !== man.features) fails.push('AMXM read back: ' + back + ' features vs ' + man.features);
   // the GeoPackage of the package opened on its own: read as AMXM with the same features
   const gpkgPath = OUT + '/package.gpkg'; fs.writeFileSync(gpkgPath, get(/\.gpkg$/));
-  await page.goto(URL); await page.waitForSelector('#drop');
+  await page.goto(URL); await page.waitForSelector('#drop'); await page.evaluate(() => localStorage.setItem('aixm-amdb-mode', 'all')); // every tool as a tab (the steps: amdb_flow.js)
   await page.setInputFiles('#file-input', [gpkgPath]);
   await page.waitForFunction(() => !window.__AIXM.S.adding && window.__AIXM.S.files.length && window.__AIXM.S.files.every((f) => f.status !== 'checking'), null, { timeout: 30000 });
   await page.evaluate(() => document.querySelector('#extract-btn').click());
@@ -133,7 +133,7 @@ const { validateAmxm, validateAixm511 } = require('./_xsd');
   const tam = {}; names.forEach((n) => { tam[n] = z[n]; });
   const geo = names.find((n) => /\.geojson$/.test(n)); tam[geo] = new TextEncoder().encode(Buffer.from(z[geo]).toString().replace('FeatureCollection', 'FeatureCollection '));
   const tamPath = OUT + '/tampered_package.zip'; fs.writeFileSync(tamPath, fflate.zipSync(tam));
-  await page.goto(URL); await page.waitForSelector('#drop');
+  await page.goto(URL); await page.waitForSelector('#drop'); await page.evaluate(() => localStorage.setItem('aixm-amdb-mode', 'all')); // every tool as a tab (the steps: amdb_flow.js)
   await page.setInputFiles('#file-input', [tamPath]);
   await page.waitForFunction(() => !window.__AIXM.S.adding && (window.__AIXM.S.packages || []).length, null, { timeout: 30000 });
   const tampered = await page.evaluate(() => window.__AIXM.S.packages[0].res);

@@ -530,6 +530,7 @@ Verified by the tests:
 - checksums, reopening, tamper detection, GeoPackage round trip, white-label cleanliness, the package's AIXM 5.1.1 file against the AIXM 5.1.1 schema (`tools/tests/amdb_package.js`);
 - generation, GeoJSON / CSV / DXF round trip and comparison (`tools/tests/amdb_tools.js`);
 - the chart reader (coordinates in every notation, scans repaired, chart types, facts, rotated PDF text, doubtful stands, Annex 4 contents, the chart against the AIP) (`tools/tests/unit/amdbdoc.test.js`);
+- aerodrome mapping step by step: the choice, the paths View and Create, their steps and states, the path kept, all tools, a phone (`tools/tests/amdb_flow.js`);
 - Upload, a chart PDF and a scanned one, an OpenStreetMap file, an orthophoto, tracing by licence, readiness of 95 % and more, the generated AMXM valid, the ODbL recorded, the uploads of each section (`tools/tests/amdb_sources.js`);
 - OCR of a chart that is a picture (a parking / docking chart made as an image: its stand, threshold and taxiway tables read, stands within 1 m, the readiness from the chart, the generated AMXM valid, the engine downloaded once and kept) (`tools/tests/amdb_ocr.js`);
 - the State's charts placed on the map (a chart drawn at a known scale and rotation: the scale, rotation and stands within metres; a point by hand; traced on; taxiway names and a hot spot from it), fit for use and accuracy measured against a reference (`tools/tests/amdb_geo.js`); the fit, the runway bars, fit for use and measuring (`tools/tests/unit/amdbgeo.test.js`);

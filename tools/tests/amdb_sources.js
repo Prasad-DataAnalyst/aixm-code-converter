@@ -38,7 +38,7 @@ function dms(v, lat) { const h = lat ? (v < 0 ? 'S' : 'N') : (v < 0 ? 'W' : 'E')
   }
 
   /* ------------------------------------------------- Digital data, no data yet */
-  await page.goto(URL); await page.waitForSelector('#drop');
+  await page.goto(URL); await page.waitForSelector('#drop'); await page.evaluate(() => localStorage.setItem('aixm-amdb-mode', 'all')); // every tool as a tab (the steps: amdb_flow.js)
   const idle = await page.evaluate(() => ['src-amdbdoc', 'src-amdbtrace'].map((k) => [typeof window[k === 'src-amdbdoc' ? 'AMDBDOC' : 'AMDBTRACE'], (document.getElementById(k) || {}).type]));
   if (idle.some((x) => x[0] !== 'undefined' || x[1] !== 'text/plain')) fails.push('the new modules ran before they were needed: ' + JSON.stringify(idle));
   const nav = await page.evaluate(() => !document.querySelector('[data-view="digital"]').disabled);

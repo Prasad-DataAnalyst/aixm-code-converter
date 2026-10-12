@@ -1134,3 +1134,24 @@ pre, .xml, .notam-text { text-align: left; }
 .geo-pt.hand { border-color: #00b8d4; } .geo-pt.pend { border-color: #d500f9; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-width: 3px; }
 .geo-pts { max-height: 220px; } .geo-step { margin: 6px 0; }
 .fit-card h4 { margin: 14px 0 4px; } .fit-tbl td input { padding: 2px 4px; } .fit-map { height: 380px; margin-top: 8px; }
+/* aerodrome mapping, step by step: the path (view / create / all tools), its steps, what to do now */
+.am-flow { margin-bottom: 10px; }
+.am-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.am-mode { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; text-align: left; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: inherit; cursor: pointer; font: inherit; }
+.am-mode .am-mode-ic { grid-row: span 2; font-size: 22px; } .am-mode b { font-size: 14px; } .am-mode span:last-child { font-size: 12px; color: var(--muted); }
+.am-mode:hover { border-color: var(--brand-2); } .am-mode.on { border-color: var(--brand-2); background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand-2); }
+.am-mode[data-ammode="all"] { opacity: 0.85; } .am-mode[data-ammode="all"].on { opacity: 1; }
+.am-choose { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); font-size: 13.5px; } .am-choose p { margin: 0; }
+.am-steps { list-style: none; display: flex; gap: 6px; padding: 0; margin: 12px 0 0; overflow-x: auto; }
+.am-steps li { flex: 1 1 0; min-width: 110px; }
+.am-step { width: 100%; display: flex; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: inherit; font: inherit; font-size: 13px; cursor: pointer; text-align: left; }
+.am-step-n { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; background: var(--surface-3); }
+.am-step-t i { font-style: normal; font-size: 11px; color: var(--muted); display: block; }
+.am-step.st-done .am-step-n { background: var(--ok); color: #fff; }
+.am-step.st-wait { opacity: 0.55; } .am-step.next { border-color: var(--brand-3); }
+.am-step.on { border-color: var(--brand-2); background: var(--brand-soft); box-shadow: inset 0 0 0 1px var(--brand-2); font-weight: 700; } .am-step.on .am-step-n { background: var(--brand-2); color: var(--brand-ink); }
+.am-now { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border-left: 4px solid var(--brand-2); font-size: 13.5px; }
+.am-now-n { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); } .am-now-btns { flex: 0 0 auto; white-space: nowrap; } .am-wait { color: var(--warn); }
+.am-extra { margin-top: 6px; font-size: 12.5px; text-align: right; } .am-extra:empty { display: none; }
+.up-create > summary { cursor: pointer; }
+@media (max-width: 760px) { .am-modes { grid-template-columns: 1fr; } .am-now { flex-direction: column; align-items: flex-start; } .am-steps li { min-width: 92px; } }

@@ -37,7 +37,7 @@ function dms(v, lat) { const h = lat ? (v < 0 ? 'S' : 'N') : (v < 0 ? 'W' : 'E')
   const status = () => page.evaluate(() => (document.querySelector('.up-st') || {}).textContent || '');
   async function drop(files) { const b = await status(); await page.setInputFiles('[data-upin]', files); await page.waitForFunction((b) => { const s = document.querySelector('.up-st'); return s && s.textContent !== b && !s.querySelector('.spinner'); }, b, { timeout: 90000 }); }
 
-  await page.goto(URL); await page.waitForSelector('#drop');
+  await page.goto(URL); await page.waitForSelector('#drop'); await page.evaluate(() => localStorage.setItem('aixm-amdb-mode', 'all')); // every tool as a tab (the steps: amdb_flow.js)
   if (await page.evaluate(() => typeof window.AMDBOCR !== 'undefined' || typeof window.Tesseract !== 'undefined')) fails.push('the OCR module ran before it was needed');
   await page.evaluate(() => window.__AIXM.go('digital')); await page.waitForSelector('[data-upin]', { state: 'attached' });
   await drop([T + 'EA_AIP_DS_FULL_20170701.xml']);
