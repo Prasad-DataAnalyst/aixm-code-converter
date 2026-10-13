@@ -184,7 +184,13 @@ NOT FOR NAVIGATION — for study and analysis only.
   shows one quiet line (how many, of which severity) whose link opens the Quality tab on just the issues of that
   section (with "show all" and "back to the AIP section"); marking the values in the tables and the ⚠ counts in the
   section list are an option, off unless switched on.
+- **Custom data export — Select all** (Export → Custom data export, step 2): a *Select all* box beside Aerodrome
+  data, Airspace by type, En-route and General chooses the whole group, a second click none of it; it is half ticked
+  when part of the group is chosen, and the group does not fold when it is clicked.
 - **Fixes**:
+  - **the Map tab froze the whole tool** for a data set with a minimum sector altitude whose sector is the whole
+    circle coded anticlockwise (from 0° to 360° or 360° to 0°, CCA), as IFP data in AIXM 5.1.1 and 5.2 can have:
+    the outline was drawn with a step of zero, for ever. Such a sector is drawn as the whole circle (*all sectors*);
   - the AIXM 5.1.1 file of an aerodrome mapping package is valid against the AIXM 5.1.1 schema (upper-case names,
     AIXM units of measure, invalid source values written as nil with a reason, geometry only where the property
     takes it);

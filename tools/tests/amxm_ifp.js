@@ -7,7 +7,8 @@
 // - an instrument flight procedure (IFP) data set (fictitious procedures for the Donlon aerodrome EADD,
 //   testdata/ifp_test_EADD.xml) delivered beside the AIP data set (…_AIP_DS_… / …_IFP_DS_…): both files are read as
 //   one data set, so the procedures find their waypoints, navaids and runways; AD 2.22 lists the procedures, legs,
-//   minima, the terminal holding and the minimum sector altitude; the map draws the holding and the MSA sectors.
+//   minima, the terminal holding and the minimum sector altitude; the map draws the holding and the MSA sectors (a
+//   whole circle coded anticlockwise too, without freezing the map).
 // Also: the AMXM attributes of a feature (every attribute of its type, code values with their meaning, given /
 // unknown / not in the file), the Completeness view, procedure details for PANS-OPS (design criteria, PBN, FAS data
 // block), IFP checks, and two data sets that name each other's features offered to be read together.
@@ -90,6 +91,21 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   // IFP checks: all legs are located and linked; the STAR has no design standard (IFP coding checks, ifp.js)
   const q = await page.evaluate(async () => (await ANALYSIS.quality(window.__AIXM.S.datasets[0])).filter((i) => /^IFP/.test(i.rule)).map((i) => i.rule + ': ' + i.msg));
   if (q.some((x) => /^IFP:/.test(x)) || !q.some((x) => /IFP coding: STAR KOD1A: design standard not coded/.test(x))) fails.push('IFP checks: ' + q.join(' | '));
+
+  // a whole circle coded anticlockwise (0 to 360 magnetic, 360 to 0 true): drawn as the whole circle; it used to
+  // freeze the map (and so the whole tool) as soon as the Map tab was opened
+  fs.writeFileSync(ifp, fs.readFileSync(ROOT + '/testdata/ifp_test_EADD.xml', 'utf8')
+    .replace('<aixm:arcDirection>CWA</aixm:arcDirection><aixm:fromAngle>0</aixm:fromAngle><aixm:toAngle>180</aixm:toAngle><aixm:angleType>MAG</aixm:angleType>', '<aixm:arcDirection>CCA</aixm:arcDirection><aixm:fromAngle>360</aixm:fromAngle><aixm:toAngle>0</aixm:toAngle><aixm:angleType>TRUE</aixm:angleType>')
+    .replace('<aixm:arcDirection>CWA</aixm:arcDirection><aixm:fromAngle>180</aixm:fromAngle><aixm:toAngle>360</aixm:toAngle>', '<aixm:arcDirection>CCA</aixm:arcDirection><aixm:fromAngle>0</aixm:fromAngle><aixm:toAngle>360</aixm:toAngle>'));
+  await load([aip, ifp]);
+  const alive = (fn) => Promise.race([page.evaluate(fn).then(() => true), new Promise((res) => setTimeout(() => res(false), 20000))]);
+  if (!(await alive(() => window.__AIXM.go('map'))) || !(await alive(() => { const ds = window.__AIXM.S.datasets[0]; MAPVIEW.showProcs(ds, ds.byType.AirportHeliport.find((a) => a.cur.p.locationIndicatorICAO === 'EADD')); }))) {
+    console.log('FAIL:\n  a whole-circle MSA sector coded anticlockwise freezes the map');
+    await Promise.race([browser.close(), new Promise((res) => setTimeout(res, 5000))]); process.exit(1);
+  }
+  await page.waitForTimeout(800);
+  const msa2 = await page.evaluate(() => [...document.querySelectorAll('.msa-alt')].map((x) => x.textContent).sort());
+  if (msa2.join() !== '3100 FT,4300 FT') fails.push('whole-circle MSA sectors coded anticlockwise on the map: ' + msa2.join());
 
   // two data sets that name each other's features, read apart (names that do not pair): offered to read together
   await load([ROOT + '/testdata/Donlon_ALL_Baseline_2025.xml', ROOT + '/testdata/ifp_test_EADD.xml']);

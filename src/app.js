@@ -3159,14 +3159,14 @@
         return '<label class="chk" data-q="' + esc((a.code + ' ' + a.name).toLowerCase()) + '"><input type="checkbox" data-ad="' + a.key + '" data-code="' + esc(a.code) + '" data-hp="' + (a.heli ? 1 : 0) + '"' + (X.adCodes.has(a.code) ? ' checked' : '') + '> <b>' + esc(a.code) + '</b> ' + esc(a.name) + (a.heli ? ' <span class="chip">HP</span>' : '') + (list.length > 1 ? ' <span class="muted">' + esc(a.ds.state) + '</span>' : '') + '</label>';
       }).join('') : '<div class="muted">No aerodromes in this data set.</div>') + '</div></div>';
     h += '<div class="xp-col"><h4>2 · Data</h4><div class="xp-quick"><span class="muted">Quick picks:</span> ' + cat.quick.map(function (q, i) { return '<button class="btn small xp-qp" data-qp="' + i + '">' + esc(q.label) + '</button>'; }).join('') + '</div>';
-    h += '<details class="xp-grp" open><summary>Aerodrome data (AD 2 / AD 3) <span class="muted" data-cnt="ad"></span></summary><div class="xp-secs">' + cat.ad.map(function (sct) {
+    h += '<div class="xp-grpw"><details class="xp-grp" open><summary>Aerodrome data (AD 2 / AD 3) <span class="muted" data-cnt="ad"></span></summary><div class="xp-secs">' + cat.ad.map(function (sct) {
       return '<div class="xp-sec">' + ck(sct.key, '<b>' + sct.no + '</b> ' + esc(sct.title)) +
         (sct.rows.length > 1 ? '<button class="btn small ghost xp-more" type="button">items ▾</button><div class="xp-rows hidden">' + sct.rows.map(function (r) { return ck(r.key, (r.no ? r.no + ' · ' : '') + esc(r.label)); }).join('') + '</div>' : '') + '</div>';
-    }).join('') + '</div></details>';
-    h += '<details class="xp-grp"' + (Array.from(X.keys).some(function (k) { return k.indexOf('as:') === 0; }) ? ' open' : '') + '><summary>Airspace by type <span class="muted" data-cnt="as"></span></summary><div class="xp-cols">' +
-      (cat.airspace.length ? cat.airspace.map(function (a) { return ck(a.key, esc(a.label), '(' + a.n + ')'); }).join('') : '<div class="muted">No airspace in this data set.</div>') + '</div></details>';
-    h += '<details class="xp-grp"' + (Array.from(X.keys).some(function (k) { return /^sec:ENR/.test(k); }) ? ' open' : '') + '><summary>En-route (ENR) sections <span class="muted" data-cnt="enr"></span></summary><div class="xp-cols">' + cat.enr.map(function (x) { return ck(x.key, '<b>' + esc(x.no) + '</b> ' + esc(x.title)); }).join('') + '</div></details>';
-    h += '<details class="xp-grp"' + (Array.from(X.keys).some(function (k) { return /^sec:GEN/.test(k); }) ? ' open' : '') + '><summary>General (GEN) sections <span class="muted" data-cnt="gen"></span></summary><div class="xp-cols">' + cat.gen.map(function (x) { return ck(x.key, '<b>' + esc(x.no) + '</b> ' + esc(x.title)); }).join('') + '</div></details></div></div>';
+    }).join('') + '</div></details><label class="chk xp-all" title="Select all / deselect all"><input type="checkbox" data-xall="ad" aria-label="Select all aerodrome data"> Select all</label></div>';
+    h += '<div class="xp-grpw"><details class="xp-grp"' + (Array.from(X.keys).some(function (k) { return k.indexOf('as:') === 0; }) ? ' open' : '') + '><summary>Airspace by type <span class="muted" data-cnt="as"></span></summary><div class="xp-cols">' +
+      (cat.airspace.length ? cat.airspace.map(function (a) { return ck(a.key, esc(a.label), '(' + a.n + ')'); }).join('') : '<div class="muted">No airspace in this data set.</div>') + '</div></details><label class="chk xp-all" title="Select all / deselect all"><input type="checkbox" data-xall="as" aria-label="Select all airspace types"> Select all</label></div>';
+    h += '<div class="xp-grpw"><details class="xp-grp"' + (Array.from(X.keys).some(function (k) { return /^sec:ENR/.test(k); }) ? ' open' : '') + '><summary>En-route (ENR) sections <span class="muted" data-cnt="enr"></span></summary><div class="xp-cols">' + cat.enr.map(function (x) { return ck(x.key, '<b>' + esc(x.no) + '</b> ' + esc(x.title)); }).join('') + '</div></details><label class="chk xp-all" title="Select all / deselect all"><input type="checkbox" data-xall="enr" aria-label="Select all en-route sections"> Select all</label></div>';
+    h += '<div class="xp-grpw"><details class="xp-grp"' + (Array.from(X.keys).some(function (k) { return /^sec:GEN/.test(k); }) ? ' open' : '') + '><summary>General (GEN) sections <span class="muted" data-cnt="gen"></span></summary><div class="xp-cols">' + cat.gen.map(function (x) { return ck(x.key, '<b>' + esc(x.no) + '</b> ' + esc(x.title)); }).join('') + '</div></details><label class="chk xp-all" title="Select all / deselect all"><input type="checkbox" data-xall="gen" aria-label="Select all general sections"> Select all</label></div></div></div>';
     h += '<div class="row wrap xp-opts"><b>3 · Layout</b><label class="chk"><input type="radio" name="xp-layout" value="table"' + (X.layout !== 'aip' ? ' checked' : '') + '> One table per data item, aerodromes as rows <span class="muted">(Excel, CSV)</span></label>' +
       '<label class="chk"><input type="radio" name="xp-layout" value="aip"' + (X.layout === 'aip' ? ' checked' : '') + '> AIP pages per aerodrome</label>' +
       '<label class="chk"><input type="checkbox" id="xp-raw"' + (X.raw ? ' checked' : '') + '> Add all AIXM properties of the selected features <span class="muted">(Excel, JSON)</span></label></div>';
@@ -3216,7 +3216,21 @@
       var warn = nAd && !ads.length ? ' <span class="chip warn">choose at least one aerodrome</span>' : '';
       $('#xp-sum', host).innerHTML = (parts.length ? 'Selected: ' + esc(parts.join(' · ')) : '<span class="muted">Nothing selected yet</span>') + warn;
       $$('.xp-qp', host).forEach(function (b) { var q = cat.quick[+b.getAttribute('data-qp')]; b.classList.toggle('primary', q.keys.every(function (k) { return X.keys.has(k) || (/^ad:\d+#/.test(k) && X.keys.has(k.split('#')[0])); })); });
+      // "Select all" of each group: ticked when all of it is chosen, half when part of it
+      $$('[data-xall]', host).forEach(function (cb) {
+        var ks = groupKeys(cb.getAttribute('data-xall')), all = ks.filter(function (k) { return X.keys.has(k); }).length;
+        var part = ks.some(function (k) { return X.keys.has(k) || keys.some(function (x) { return x.indexOf(k + '#') === 0; }); });
+        cb.checked = ks.length > 0 && all === ks.length; cb.indeterminate = !cb.checked && part;
+      });
       xselSave();
+    }
+    // the data items of a group of step 2 (a whole AD section stands for its items)
+    function groupKeys(g) { return (g === 'ad' ? cat.ad : g === 'as' ? cat.airspace : g === 'enr' ? cat.enr : cat.gen).map(function (x) { return x.key; }); }
+    // "Select all" chooses the whole group (from none or part of it), or none of it when all of it was chosen
+    function selectGroup(g, on) {
+      groupKeys(g).forEach(function (k) { if (on) setKey(k, true); else { X.keys.delete(k); Array.from(X.keys).forEach(function (x) { if (x.indexOf(k + '#') === 0) X.keys.delete(x); }); } });
+      $$('[data-k]', host).forEach(function (c) { c.checked = X.keys.has(c.getAttribute('data-k')); });
+      refresh();
     }
     function setKey(k, on) {
       if (on) {
@@ -3230,6 +3244,7 @@
     host.addEventListener('change', function (e) {
       var t = e.target;
       if (t.hasAttribute('data-k')) setKey(t.getAttribute('data-k'), t.checked);
+      else if (t.hasAttribute('data-xall')) selectGroup(t.getAttribute('data-xall'), t.checked);
       else if (t.hasAttribute('data-ad')) { if (t.checked) X.adCodes.add(t.getAttribute('data-code')); else X.adCodes.delete(t.getAttribute('data-code')); refresh(); }
       else if (t.hasAttribute('data-xds')) {
         X.dss = new Set($$('[data-xds]:checked', host).map(function (c) { return +c.getAttribute('data-xds'); }));

@@ -1257,14 +1257,18 @@ var MAPVIEW = (function () {
       var cs = sc && arr(sc.sectorDefinition)[0];
       if (!cs) return;
       var R = M.fq(cs.outerDistance) ? AX.toNM(+s(arr(cs.outerDistance)[0].v), s(arr(cs.outerDistance)[0].u)) : 25;
-      var f = parseFloat(s(cs.fromAngle)), to = parseFloat(s(cs.toAngle)), full = isNaN(f) || isNaN(to) || f === to;
+      if (!(R > 0) || !isFinite(R)) return;
+      // from an angle round to the same angle (none given, 0 to 360, 360 to 0, either way round) is the whole circle
+      var f = parseFloat(s(cs.fromAngle)), to = parseFloat(s(cs.toAngle)), span = ((to - f) % 360 + 360) % 360;
+      var full = isNaN(f) || isNaN(to) || span < 1e-6 || span > 360 - 1e-6;
       var rev = s(cs.angleDirectionReference) === 'TO' ? 180 : 0, mag = s(cs.angleType) !== 'TRUE';
       var tf = full ? 0 : (mag ? magToTrue(ad, f) : f) + rev, tt = full ? 360 : (mag ? magToTrue(ad, to) : to) + rev;
-      var sweep = full ? 360 : ((tt - tf) % 360 + 360) % 360 || 360;
       var ccw = s(cs.arcDirection) === 'CCA';
-      if (ccw && !full) { sweep = 360 - sweep; }
-      var pts = full ? [] : [c], step = sweep / Math.max(8, Math.round(sweep / 6));
-      for (var x = 0; x <= sweep + 1e-6; x += step) pts.push(AX.dest(c[0], c[1], (tf + (ccw ? -x : x) + 720) % 360, R));
+      var sweep = full ? 360 : ((ccw ? tf - tt : tt - tf) % 360 + 360) % 360;
+      if (!(sweep > 1e-6)) { full = true; sweep = 360; }
+      // a fixed number of points (a whole circle coded anticlockwise gave a step of zero: the map froze)
+      var pts = full ? [] : [c], nseg = Math.max(8, Math.round(sweep / 6));
+      for (var i = 0; i <= nseg; i++) { var x = sweep * i / nseg; pts.push(AX.dest(c[0], c[1], (tf + (ccw ? -x : x) + 720) % 360, R)); }
       if (!full) pts.push(c);
       var alt = M.fLimit(cs.lowerLimit, cs.lowerLimitReference).replace(/ AMSL$/, '');
       var mid = AX.dest(c[0], c[1], (tf + (ccw ? -1 : 1) * sweep / 2 + 720) % 360, R * 0.62);

@@ -1,7 +1,7 @@
 // AIXM Code Converter - Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com>
 // SPDX-License-Identifier: Apache-2.0 (see LICENSE and NOTICE)
 // Custom data export (Export page): choose aerodromes and data items (quick picks, single AD 2 items, airspace by type,
-// ENR sections), preview, and download Excel, CSV, JSON, PDF, GeoJSON, KML and Shapefile; two data sets at once;
+// ENR sections; "Select all" / deselect all of each group), preview, and download Excel, CSV, JSON, PDF, GeoJSON, KML and Shapefile; two data sets at once;
 // the selection is remembered after a reload.
 const fs = require('fs');
 const path = require('path');
@@ -40,6 +40,27 @@ const XLSX = require(path.join(ROOT, 'tools/node_modules/xlsx'));
   console.log('summary:', sum);
   if (!/4 aerodrome items × 2 aerodromes/.test(sum) || !/1 airspace type/.test(sum) || !/1 section/.test(sum)) fails.push('summary: ' + sum);
   await page.screenshot({ path: OUT + '/picker.png', fullPage: false });
+
+  // "Select all" beside each group of step 2: half ticked when part of it is chosen; a click chooses the whole group
+  // (the group stays open), a second click none of it
+  const xall = (g) => page.evaluate((g) => { const cb = document.querySelector('[data-xall="' + g + '"]'), sec = cb.closest('.xp-grpw').querySelector('.xp-grp'), ks = [...sec.querySelectorAll('.xp-secs > .xp-sec > label [data-k], .xp-cols > label [data-k]')];
+    return { on: cb.checked, half: cb.indeterminate, open: sec.open, n: ks.length, ticked: ks.filter((c) => c.checked).length, sum: document.querySelector('#xp-sum').textContent }; }, g);
+  const clickAll = async (g) => { await page.click('.xp-all:has([data-xall="' + g + '"])'); await page.waitForTimeout(200); };
+  const a0 = await xall('ad');
+  if (a0.on || !a0.half) fails.push('select all, part of the aerodrome data chosen: ' + JSON.stringify(a0));
+  await clickAll('ad');
+  const a1 = await xall('ad');
+  if (!a1.on || a1.half || !a1.open || a1.ticked !== a1.n || a1.n < 20 || !new RegExp(a1.n + ' aerodrome items × 2 aerodromes').test(a1.sum)) fails.push('select all aerodrome data: ' + JSON.stringify(a1));
+  await clickAll('ad');
+  const a2 = await xall('ad');
+  if (a2.on || a2.half || !a2.open || a2.ticked || /aerodrome item/.test(a2.sum)) fails.push('deselect all aerodrome data: ' + JSON.stringify(a2));
+  await clickAll('as');
+  const s1 = await xall('as');
+  if (!s1.on || s1.ticked !== s1.n || !new RegExp(s1.n + ' airspace types?').test(s1.sum)) fails.push('select all airspace: ' + JSON.stringify(s1));
+  await clickAll('as'); await page.check('[data-k="as:D"]');
+  // the choice as before
+  await qp('Magnetic variation'); await qp('Declared distances'); await qp('Runway characteristics'); await page.check('[data-k="ad:3#1"]');
+  if ((await page.textContent('#xp-sum')) !== sum) fails.push('choice after select all / none: ' + (await page.textContent('#xp-sum')));
 
   // preview
   await page.click('#xp-preview');
