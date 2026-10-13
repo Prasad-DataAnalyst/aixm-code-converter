@@ -9,7 +9,7 @@
  * ========================================================================== */
 var APP_INFO = Object.freeze({
   name: 'AIXM Code Converter',
-  version: '1.27.0',
+  version: '1.28.0',
   year: '2026',
   author: 'Prasad Selvaraj',
   email: 'prasad2t@gmail.com',
@@ -38,6 +38,7 @@ var APP_SETTINGS = Object.freeze({
   threadMem: 160 * 1024 * 1024,           // memory one parser thread uses while it reads (measured: about 150 MB)
   parserVersion: 2,                       // saved copies made by an older parser are read again from the file
   zipMaxBytes: 4 * 1024 * 1024 * 1024,   // unpacking a .zip stops above this size (protects against "zip bombs")
+  dofMaxObstacles: 150000,               // FAA DOF larger than this (DOF.DAT: ~650 000): the obstacles around the aerodromes loaded, else the first this many
   pdfMaxRows: 5000,                       // rows per table in PDF exports (Excel/JSON keep everything)
   airacPublishDays: 42                    // AIRAC amendments are published this many days before the effective date
 });

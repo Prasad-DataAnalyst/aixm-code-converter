@@ -15,7 +15,7 @@
  * Each section takes its own files too (an upload area in the section, before or after any data is loaded); the
  * Files view stays as it is. The AIP, map and export views are not changed; this tab only reads the data.
  * ========================================================================== */
-/* global MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW, TERVIEW, DEM, IFP, DDX, CONVERT, STUDY, LAZY, AMDBUI, AMDBX, AMDBOSM, AMDBDOC, AMDBTRACE, AMDBGEO, AMDBQ */
+/* global MODEL, AIP, EXPORTS, OBSTVIEW, DDMAP, MAPVIEW, TERVIEW, DEM, IFP, DDX, CONVERT, STUDY, LAZY, AMDBUI, AMDBX, AMDBOSM, AMDBDOC, AMDBTRACE, AMDBGEO, AMDBQ, FLTVIEW */
 var DDVIEW = (function () {
   'use strict';
   var M = MODEL, s = M.s;
@@ -46,7 +46,9 @@ var DDVIEW = (function () {
       { id: 'obs', title: 'Obstacles (eTOD)', n: nObs, what: 'obstacles', icon: '⛫' },
       { id: 'ifp', title: 'Procedures (IFP)', n: nProc, what: 'procedures', icon: '✈' },
       { id: 'amxm', title: 'Aerodrome mapping (AMDB)', n: nAm || nAx || nRwy, what: nAm ? 'AMXM features' : !nRwe && nRwy ? (nAx ? 'AIXM features · runways to generate from AIP' : 'runways — generate from AIP') : 'aerodrome features (AIXM)', gen: !nAm && !nRwe && nRwy > 0, icon: '▦' },
-      { id: 'ter', title: 'Terrain', n: typeof DEM !== 'undefined' ? DEM.items().length : 0, what: 'terrain file(s)', icon: '⛰' }
+      { id: 'ter', title: 'Terrain', n: typeof DEM !== 'undefined' ? DEM.items().length : 0, what: 'terrain file(s)', icon: '⛰' },
+      // flight & obstacle analysis (fltview.js, loaded when opened): take-off, approach, runway, eTOD areas, route, NOTAM
+      { id: 'flt', title: 'Flight & obstacle analysis', n: nObs + datasets.reduce(function (n, d) { return n + ((d.byType && d.byType.Runway) || []).length; }, 0), what: 'take-off · approach · eTOD · route · NOTAM', icon: '⟁', always: true }
     ];
   }
   // the Terrain section also studies flight paths and aerodromes with online / built-in terrain, without a file
@@ -59,12 +61,13 @@ var DDVIEW = (function () {
     ctx.sec = null;
     host.innerHTML = '<div class="dd-head"><h1 class="view-title">Digital data</h1><p class="view-sub">The digital data sets besides the AIP data set — obstacles (eTOD), instrument flight procedures, aerodrome mapping and terrain — each with its own overview, lists, checks and reports, on all the data loaded.</p>' +
       '<div class="dd-secs" role="tablist">' + secs.map(function (x) {
-        return '<button role="tab" class="dd-sec' + (V.sec === x.id ? ' on' : '') + '" data-ddsec="' + x.id + '"><span class="dd-ic" aria-hidden="true">' + x.icon + '</span><b>' + x.title + '</b><span>' + (x.id === 'ter' && !x.n ? 'flight paths, aerodromes, files' : x.n ? num(x.n) + ' ' + x.what : 'none loaded — upload here') + '</span></button>';
+        return '<button role="tab" class="dd-sec' + (V.sec === x.id ? ' on' : '') + '" data-ddsec="' + x.id + '"><span class="dd-ic" aria-hidden="true">' + x.icon + '</span><b>' + x.title + '</b><span>' + (x.id === 'ter' && !x.n ? 'flight paths, aerodromes, files' : x.always ? x.what : x.n ? num(x.n) + ' ' + x.what : 'none loaded — upload here') + '</span></button>';
       }).join('') + '</div></div><div class="dd-body"></div>';
     var body = host.querySelector('.dd-body');
     host.querySelector('.dd-secs').onclick = function (e) { var b = e.target.closest('[data-ddsec]'); if (b && !b.disabled) { V.sec = b.getAttribute('data-ddsec'); render(host, ctx); } };
     var cur = secs.filter(function (x) { return x.id === V.sec; })[0];
     if (V.sec === 'amxm') { amRender(body, ctx); return; }
+    if (V.sec === 'flt') { fltRender(body, ctx); return; }
     // obstacles, procedures, terrain: their own upload area, then the section (when there is data, or for terrain always)
     body.innerHTML = upPanel(V.sec, !cur.n && V.sec !== 'ter') + '<div class="dd-main"></div>';
     upBind(body.querySelector('.dd-up'), V.sec, ctx);
@@ -73,6 +76,15 @@ var DDVIEW = (function () {
     if (V.sec === 'obs') { OBSTVIEW.render(main, ctx); var t = main.querySelector('.view-title'); if (t) t.outerHTML = ''; var sub = main.querySelector('.view-sub'); if (sub) sub.outerHTML = ''; }
     else if (V.sec === 'ifp') ifpRender(main, ctx);
     else TERVIEW.render(main, ctx);
+  }
+  // Flight & obstacle analysis: its code is loaded the first time the section is opened
+  async function fltRender(body, ctx) {
+    body.innerHTML = '<div class="muted" style="padding:14px"><span class="spinner"></span> Loading the flight & obstacle analysis…</div>';
+    try {
+      var ids = ['src-notamtxt', 'src-fltcalc', 'src-fltscene', 'src-fltview'];
+      for (var i = 0; i < ids.length; i++) await LAZY.run(ids[i]);
+      FLTVIEW.render(body, ctx);
+    } catch (e) { body.innerHTML = '<div class="card card-pad" style="color:var(--err)">The analysis could not start: ' + esc(e.message) + '</div>'; }
   }
   /* ------------------------------------------------- upload in each section */
   var UP = {

@@ -51,6 +51,9 @@ var AX = (function () {
   function parseXml(s, nsHook) {
     var root = { n: '#root', q: '#root', a: null, c: null, t: '' };
     var st = [root], top = root, i = 0, L = s.length;
+    // default namespace in scope (xmlns="…" redeclared on elements, as in the FAA SAA AIXM 5.0 files): unprefixed
+    // elements are marked g = 1 (GML) or g = 2 (another namespace); unknown (null) -> the prefixes of the file decide
+    var dns = null, dgml = false;
     while (i < L) {
       var lt = s.indexOf('<', i);
       if (lt === -1) lt = L;
@@ -59,7 +62,7 @@ var AX = (function () {
       var c = s.charCodeAt(lt + 1), e;
       if (c === 47) { // </
         e = s.indexOf('>', lt + 2);
-        if (st.length > 1) { st.pop(); top = st[st.length - 1]; }
+        if (st.length > 1) { var cl = st.pop(); top = st[st.length - 1]; if (cl.dd) { dns = cl.pd; dgml = dns !== null && GML_NS_RE.test(dns); } }
         i = e < 0 ? L : e + 1; continue;
       }
       if (c === 33) { // <! comment, CDATA, doctype
@@ -97,8 +100,12 @@ var AX = (function () {
         if (nsHook && an.charCodeAt(0) === 120 && an.startsWith('xmlns')) nsHook(an, av);
         j = ve + 1;
       }
+      var decl = !!(node.a && node.a.xmlns !== undefined), pd = dns;
+      if (decl) { dns = node.a.xmlns; dgml = GML_NS_RE.test(dns); }
+      if (colon < 0 && dns !== null) node.g = dgml ? 1 : 2;
       (top.c || (top.c = [])).push(node);
-      if (!selfClose) { st.push(node); top = node; }
+      if (!selfClose) { st.push(node); top = node; if (decl) { node.dd = 1; node.pd = pd; } }
+      else if (decl) { dns = pd; dgml = dns !== null && GML_NS_RE.test(dns); }
       i = j;
     }
     return root;
@@ -275,7 +282,8 @@ var AX = (function () {
   /* ------------------------------------------------------------- AIXM 5 GML */
   var GEOM_KIND = { Point: 'P', ElevatedPoint: 'P', Curve: 'L', ElevatedCurve: 'L', LineString: 'L', OrientableCurve: 'L', CompositeCurve: 'L',
     Surface: 'A', ElevatedSurface: 'A', Polygon: 'A', MultiSurface: 'A', MultiCurve: 'L', MultiPoint: 'P' };
-  function isLonLatSrs(srs) { return !!srs && /CRS:?84|OGC:1\.3:CRS84|OGC::CRS84/i.test(srs); }
+  // OGC CRS84 (WGS 84), CRS83 (NAD83, e.g. FAA NASR urn:ogc:def:crs:OGC:1.3:CRS83) and CRS27 (NAD27) give longitude first
+  function isLonLatSrs(srs) { return !!srs && /CRS:?(?:84|83|27)(?!\d)/i.test(srs); }
   function numList(t) {
     var a = t.trim().split(/[\s,]+/), out = new Array(a.length);
     for (var i = 0; i < a.length; i++) out[i] = parseFloat(a[i]);
@@ -457,6 +465,7 @@ var AX = (function () {
 
   /* ------------------------------------------------------ AIXM 5 conversion */
   function isGml(node, ctx) {
+    if (node.g) return node.g === 1; // unprefixed, under a default namespace declared in the fragment
     var c = node.q.indexOf(':');
     var p = c < 0 ? '' : node.q.slice(0, c);
     return ctx.gmlP[p] === true;
@@ -465,6 +474,13 @@ var AX = (function () {
     if (!h) return h;
     var m = /([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/.exec(h);
     if (m) return m[1].toLowerCase();
+    // XPath / XPointer links to a gml:id (FAA NASR: #/faa:SubscriberFile/faa:Member/aixm:Navaid%5B@gml:id ='NAVAID_1'%5D,
+    // #xpointer(//aixm:Runway[@gml:id='RWY_1'])) -> the same "#gml:id" as a plain local link
+    if (h.charAt(0) === '#' && h.indexOf('id') > 0 && (h.charAt(1) === '/' || /^#xpointer\(/i.test(h))) {
+      var dx = h; try { dx = decodeURIComponent(h); } catch (e) { dx = h.replace(/%5B/gi, '[').replace(/%5D/gi, ']').replace(/%27/g, "'").replace(/%22/g, '"').replace(/%20/g, ' ').replace(/%3D/gi, '='); }
+      var xp = /@(?:[\w-]+:)?id\s*=\s*['"]([^'"]+)['"]\s*\]\)?\s*$/.exec(dx);
+      if (xp) return '#' + xp[1];
+    }
     if (h.charAt(0) === '#') return h;
     // identifiers that are not hexadecimal UUIDs (some States derive equipment IDs from the navaid's UUID,
     // e.g. …47299bac9ndb): "urn:uuid:" + the identifier, matched like the feature's gml:identifier
@@ -568,7 +584,19 @@ var AX = (function () {
       else if (ch.n === 'timeSlice') { if (ch.c) for (var j = 0; j < ch.c.length; j++) rec.ts.push(convTS(ch.c[j], ctx)); }
     }
     if (!rec.id) rec.id = gid ? '#' + gid : null;
+    if (rec.k === 'Airspace') for (var t = 0; t < rec.ts.length; t++) saaType(rec.ts[t].p);
     return rec;
+  }
+  // FAA special use airspace (SAA AIXM 5.0 messages): the kind is an FAA extension (suaType) and AIXM type is not given:
+  // the AIXM type from it (RA restricted, PA prohibited, WA warning, AA alert, MOA, NSA national security area); kept as given too
+  var SUA_TYPE = { RA: 'R', PA: 'P', WA: 'W', AA: 'A', MOA: 'MOA', NSA: 'OTHER:NSA', CFA: 'OTHER:CFA', ATCAA: 'OTHER:ATCAA' };
+  function saaType(p) {
+    if (!p || p.type !== undefined || !p.extension) return;
+    var ex = Array.isArray(p.extension) ? p.extension : [p.extension];
+    for (var i = 0; i < ex.length; i++) {
+      var k = ex[i] && (ex[i].suaType || ex[i].saaType === 'ATCAA' && 'ATCAA');
+      if (typeof k === 'string' && SUA_TYPE[k.trim()]) { p.type = SUA_TYPE[k.trim()]; p._typeFrom = 'FAA ' + (ex[i].suaType ? 'suaType ' : 'saaType ') + k.trim(); return; }
+    }
   }
 
   /* ---------------------------------------------- AMXM (aerodrome mapping) */

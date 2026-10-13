@@ -69,9 +69,11 @@ function elev(lon, lat) { return Math.round(40 + 300 * Math.exp(-((lon + 32.0) *
   async function check(f) { reread.push(f); }
 
   await load([T + 'Donlon_ALL_Baseline_2025.xml', T + 'EA_EADD_OBS_DS_AREA_2_3_4_FULL_20191205.xml', T + 'ifp_test_EADD.xml', T + 'ifp52_test_EADD.xml', T + 'amxm_test_EAXM.xml', csv, tif]);
+  // the terrain statistics are made in the background: wait for them, then open the tab (no re-render under the click)
+  await page.waitForFunction(() => window.__AIXM.S.files.every((f) => !/statistics( \d+ %|…)/.test(f.detail || '')), null, { timeout: 60000 });
   await page.evaluate(() => window.__AIXM.go('digital'));
   // obstacles: the AIXM 5.1 obstacle data set
-  await page.click('[data-ddsec="obs"]'); await page.waitForSelector('.ov-sets');
+  await page.waitForSelector('[data-ddsec="obs"]'); await page.click('[data-ddsec="obs"]'); await page.waitForSelector('.ov-sets');
   const obsIdx = await page.evaluate(() => window.__AIXM.S.datasets.findIndex((x) => /OBS_DS/.test(x.name)));
   await page.click('[data-ovset="' + obsIdx + '"]'); await page.click('[data-ovtab="report"]');
   const o1 = await panel('obs', { scope: 'all', ver: 'orig', rel: ['areas', 'aerodrome', 'procs'], nm: 1 });

@@ -13,6 +13,9 @@
  * kept as a remark, so nothing delivered is lost. Each row becomes an AIXM 5.1 VerticalStructure, so the obstacle
  * pages, the map, 3D, the obstacle limitation surfaces and the checks work as for AIXM obstacle data sets.
  * Formats: .csv / .tsv / .txt (comma, semicolon, tab or bar separated; decimal comma), .xlsx / .xlsm / .xls / .ods.
+ * FAA Digital Obstacle File (DOF.DAT, the State / area files such as 06-CA.Dat, the change list CHG.DAT): the fixed-
+ * column ASCII file of the FAA (verified / unverified, lighting, marking, accuracy codes, FAA study number, action and
+ * date), read with the meaning of each code; a very large file can be limited to the area of the aerodromes loaded.
  * ========================================================================== */
 /* global XLSX */
 var OBSTAB = (function () {
@@ -316,6 +319,108 @@ var OBSTAB = (function () {
     return { recs: recs, src: src, columns: columns, ignored: ignored, problems: problems, lines: line + 1 };
   }
 
-  return { EXT: EXT, isTable: function (name) { return EXT.test(name || ''); }, sniffFile: sniffFile, read: read, fieldOf: fieldOf, coordOf: coordOf, typeOf: typeOf, parseCsv: parseCsv, wktOf: wktOf };
+
+  /* ------------------------------------------------- FAA Digital Obstacle File (DOF) */
+  // FAA AIS "OAS Digital Obstacle File" (DOF_README): one obstacle per line, fixed columns, heights in feet, WGS 84.
+  // The change list (CHG.DAT) has the same columns after a 10-character action (DISMANTLE, OLD, NEW, ADD, REMOVE).
+  var DOF_EXT = /\.dat$/i;
+  var DOF_TYPE = { 'TOWER': 'TOWER', 'T-L TWR': 'TOWER', 'POLE': 'POLE', 'UTILITY POLE': 'POLE', 'WINDMILL': 'WINDMILL', 'BLDG': 'BUILDING', 'BLDG-TWR': 'BUILDING', 'HANGAR': 'BUILDING',
+    'FENCE': 'FENCE', 'SIGN': 'SIGN', 'TANK': 'STORAGE_TANK', 'SILO': 'STORAGE_TANK', 'CATENARY': 'CATENARY', 'STACK': 'STACK', 'NAVAID': 'NAVAID', 'GEN UTIL': 'GENERAL_UTILITY',
+    'ELEVATOR': 'ELEVATOR', 'ELEC SYS': 'ELECTRICAL_SYSTEM', 'BRIDGE': 'BRIDGE', 'CRANE': 'CRANE', 'CTRL TWR': 'CONTROL_TOWER', 'ANTENNA': 'ANTENNA', 'SPIRE': 'SPIRE',
+    'PLANT': 'INDUSTRIAL_SYSTEM', 'RIG': 'RIG', 'REFINERY': 'REFINERY', 'AG EQUIP': 'AG_EQUIP', 'MONUMENT': 'MONUMENT', 'DAM': 'DAM', 'POWER PLANT': 'POWER_PLANT', 'STADIUM': 'STADIUM',
+    'COOL TWR': 'COOLING_TOWER', 'DOME': 'DOME', 'GRAIN ELEVATOR': 'GRAIN_ELEVATOR', 'WALL': 'WALL', 'TRAMWAY': 'TRAMWAY', 'BALLOON': 'TETHERED_BALLOON', 'LGTHOUSE': 'LIGHTHOUSE',
+    'NATURAL GAS SYSTEM': 'NATURAL_GAS_SYSTEM', 'ARCH': 'ARCH', 'HEAT COOL SYSTEM': 'HEAT_COOL_SYSTEM', 'GATE': 'GATE' };
+  // lighting code -> [description, colour, intensity]
+  var DOF_LIGHT = { R: ['red', 'RED', ''], D: ['medium intensity white strobe and red', '', 'MIL'], H: ['high intensity white strobe and red', '', 'HIL'], M: ['medium intensity white strobe', 'WHITE', 'MIL'],
+    S: ['high intensity white strobe', 'WHITE', 'HIL'], F: ['flood', '', ''], C: ['dual medium catenary', '', 'MIL'], W: ['synchronized red', 'RED', ''], L: ['lighted (type unknown)', '', ''] };
+  var DOF_MARK = { P: ['orange or orange and white paint', 'ORANGE', 'WHITE'], W: ['white paint only', 'WHITE', ''], M: ['marked', '', ''], F: ['flag marker', '', ''], S: ['spherical marker', '', ''] };
+  var DOF_HACC = { 1: [20, 'FT'], 2: [50, 'FT'], 3: [100, 'FT'], 4: [250, 'FT'], 5: [500, 'FT'], 6: [1000, 'FT'], 7: [0.5, 'NM'], 8: [1, 'NM'] };
+  var DOF_VACC = { A: 3, B: 10, C: 20, D: 50, E: 125, F: 250, G: 500, H: 1000 };
+  var DOF_ACT = { A: 'add', C: 'change', D: 'dismantle', R: 'remove' };
+  function isDofHead(t) { return /CURRENCY DATE\s*=/.test(t) && /OAS#/.test(t) || /^\s*ACTION\s+OAS#/m.test(t) || /^[\w ]{0,10}[A-Z0-9]{2}-\d{6} [OU ] [A-Z ]{2} [A-Z ]{2} .{16} \d{2} \d{2} \d{2}\.\d{2}[NS] \d{3} \d{2} \d{2}\.\d{2}[EW] /m.test(t); }
+  // YYYYDDD -> YYYY-MM-DD
+  function julian(t) { var m = /^(\d{4})(\d{3})$/.exec(t || ''); if (!m || +m[2] < 1 || +m[2] > 366) return ''; return new Date(Date.UTC(+m[1], 0, +m[2])).toISOString().slice(0, 10); }
+  // one obstacle line -> fields, or null (headers, rules, blank lines)
+  function dofLine(l) {
+    var m = /([A-Z0-9]{2}-\d{6}) /.exec(l);
+    if (!m || m.index > 12 || l.length < m.index + 100) return null;
+    var p = m.index, c = function (a, b) { return l.slice(p + a, p + b).trim(); };
+    var lat = +c(35, 37) + +c(38, 40) / 60 + parseFloat(c(41, 46)) / 3600, lon = +c(48, 51) + +c(52, 54) / 60 + parseFloat(c(55, 60)) / 3600;
+    if (l.charAt(p + 46) === 'S') lat = -lat;
+    if (l.charAt(p + 60) === 'W') lon = -lon;
+    if (!isFinite(lat) || !isFinite(lon)) return null;
+    var tail = /\s([ACDR])\s?(\d{7})\s*$/.exec(l) || /\s([ACDR])\s*$/.exec(l);
+    return { chg: p ? l.slice(0, p).trim() : '', oas: m[1], ver: l.charAt(p + 10), ctry: c(12, 14), st: c(15, 17), city: c(18, 34), lat: lat, lon: lon, type: c(62, 80), qty: parseInt(c(81, 82), 10) || 1,
+      agl: parseInt(c(83, 88), 10), amsl: parseInt(c(89, 94), 10), lt: l.charAt(p + 95), ha: l.charAt(p + 97), va: l.charAt(p + 99), mk: l.charAt(p + 101), study: c(103, 117),
+      act: tail ? tail[1] : '', date: tail && tail[2] ? julian(tail[2]) : '' };
+  }
+  function dofType(t) { var u = String(t || '').toUpperCase().trim(); return DOF_TYPE[u] || (u ? typeOf(u) : ''); }
+  async function dofSniff(file) {
+    var head = await file.slice(0, 8192).text();
+    if (!isDofHead(head)) return { family: null, notes: ['Not an FAA Digital Obstacle File (no DOF heading or obstacle lines)'] };
+    var cur = /CURRENCY DATE\s*=\s*(\d{2})\/(\d{2})\/(\d{2})/.exec(head), chg = /^\s*ACTION\s+OAS#/m.test(head);
+    var lines = head.split(/\r?\n/), first = lines.filter(dofLine)[0] || '';
+    var rows = Math.max(0, Math.round((file.size - head.indexOf(first)) / ((first.length || 127) + 1)));
+    return { family: 'tab', version: 'FAA DOF', versionLabel: chg ? 'Obstacles (FAA DOF change list)' : 'Obstacles (FAA DOF)', notes: [], header: {}, aixmPrefixes: [], gmlPrefixes: [], rows: rows, dof: true, change: chg,
+      currency: cur ? '20' + cur[3] + '-' + cur[1] + '-' + cur[2] : '', title: 'FAA Digital Obstacle File' + (chg ? ' change list' : '') + (cur ? ' (currency date 20' + cur[3] + '-' + cur[1] + '-' + cur[2] + ')' : '') };
+  }
+  // opt: {near: [{c: [lon, lat], nm}], max} - keep the obstacles within nm of a point / the first max obstacles (a very large file)
+  async function dofRead(file, fileIdx, opt) {
+    opt = opt || {};
+    var text = await file.text(), recs = [], problems = [], base = 'dof-' + norm(file.name.replace(/\.[^.]+$/, '')).slice(0, 30), pos = 0, ln = 0, kept = 0, outside = 0, over = 0, bad = 0;
+    var near = (opt.near || []).filter(function (x) { return x && x.c && isFinite(x.c[0]) && isFinite(x.c[1]); }).map(function (x) { return { lon: x.c[0], lat: x.c[1], nm: x.nm || 60, k: Math.cos(x.c[1] * Math.PI / 180) }; });
+    var cur = /CURRENCY DATE\s*=\s*(\d{2})\/(\d{2})\/(\d{2})/.exec(text.slice(0, 400)), curTxt = cur ? '20' + cur[3] + '-' + cur[1] + '-' + cur[2] : '';
+    var pool = {};
+    function shared(k, make) { return pool[k] || (pool[k] = make()); }
+    function inside(d) {
+      if (!near.length) return true;
+      for (var i = 0; i < near.length; i++) { var n = near[i], dy = (d.lat - n.lat) * 60, dx = (d.lon - n.lon) * 60 * n.k; if (dx * dx + dy * dy <= n.nm * n.nm) return true; }
+      return false;
+    }
+    while (pos < text.length) {
+      var e = text.indexOf('\n', pos); if (e < 0) e = text.length;
+      var l = text.slice(pos, e).replace(/\r$/, ''), at = pos; ln++; pos = e + 1;
+      if (!l.trim()) continue;
+      var d = dofLine(l);
+      if (!d) { if (ln > 4 && /\d{2} \d{2} \d{2}\.\d{2}[NS]/.test(l)) bad++; continue; }
+      if (!inside(d)) { outside++; continue; }
+      if (opt.max && kept >= opt.max) { over++; continue; }
+      kept++;
+      var hp = { _t: 'ElevatedPoint', _geo: { t: 'P', c: [+d.lon.toFixed(8), +d.lat.toFixed(8)] } };
+      if (isFinite(d.amsl)) hp.elevation = { v: String(d.amsl), u: 'FT' };
+      // the coded values are shared by the obstacles that have them (a State file: tens of thousands of obstacles)
+      if (DOF_HACC[d.ha]) hp.horizontalAccuracy = shared('h' + d.ha, function () { return { v: String(DOF_HACC[d.ha][0]), u: DOF_HACC[d.ha][1] }; });
+      if (DOF_VACC[d.va]) hp.verticalAccuracy = shared('v' + d.va, function () { return { v: String(DOF_VACC[d.va]), u: 'FT' }; });
+      var ty = dofType(d.type), part = { _t: 'VerticalStructurePart', horizontalProjection_location: hp };
+      if (isFinite(d.agl)) part.verticalExtent = { v: String(d.agl), u: 'FT' };
+      if (ty) part.type = ty;
+      var p = { _tab: true, designator: d.oas, name: d.city + (d.st ? ', ' + d.st : '') + (d.ctry && d.ctry !== 'US' ? ' (' + d.ctry + ')' : ''), part: part };
+      if (ty) p.type = ty;
+      var li = DOF_LIGHT[d.lt];
+      if (li) { p.lighted = 'YES'; part.lighting = shared('l' + d.lt, function () { var o = { _t: 'LightElement', _descr: li[0] }; if (li[1]) o.colour = li[1]; if (li[2]) o.intensityLevel = li[2]; return o; }); }
+      else if (d.lt === 'N') p.lighted = 'NO';
+      var mk = DOF_MARK[d.mk];
+      if (mk) { p.markingICAOStandard = 'YES'; if (mk[1]) part.markingFirstColour = mk[1]; if (mk[2]) part.markingSecondColour = mk[2]; if (d.mk === 'F' || d.mk === 'S') part.markingPattern = d.mk === 'F' ? 'OTHER:FLAG_MARKER' : 'OTHER:SPHERICAL_MARKER'; }
+      else if (d.mk === 'N') p.markingICAOStandard = 'NO';
+      if (d.qty > 1) p.group = 'YES';
+      if (d.act === 'D' || d.act === 'R' || /^(DISMANTLE|REMOVE)/.test(d.chg)) part.constructionStatus = 'OTHER:' + (d.act === 'R' || /^REMOVE/.test(d.chg) ? 'REMOVED' : 'DISMANTLED');
+      // one remark with what AIXM has no property for (nothing of the line is lost: the line itself is the source)
+      var note = 'FAA DOF: ' + (d.ver === 'O' ? 'verified' : d.ver === 'U' ? 'UNVERIFIED (position and height not verified by the FAA)' : 'verification not given') +
+        ' · ' + [d.city, d.st, d.ctry].filter(Boolean).join(', ') + ' · type ' + d.type + (d.qty > 1 ? ' · quantity ' + d.qty : '') +
+        (li ? ' · lighting ' + li[0] : d.lt === 'U' ? ' · lighting unknown' : '') + (mk ? ' · marking ' + mk[0] : d.mk === 'U' ? ' · marking unknown' : '') +
+        (d.ha === '9' ? ' · horizontal accuracy unknown' : '') + (d.va === 'I' ? ' · vertical accuracy unknown' : '') +
+        (d.study ? ' · FAA study ' + d.study : '') + (d.chg ? ' · change list: ' + d.chg : '') + (d.act ? ' · action ' + (DOF_ACT[d.act] || d.act) + (d.date ? ' on ' + d.date : '') : '');
+      p.annotation = { _t: 'Note', purpose: 'REMARK', translatedNote: { _t: 'LinguisticNote', note: note } };
+      // o / n: the line in the file (its source, read back from the file like an XML fragment)
+      recs.push({ k: 'VerticalStructure', id: base + '-' + d.oas.toLowerCase() + (d.chg ? '-' + d.chg.toLowerCase() + '-' + ln : ''), ts: [{ i: 'BASELINE', s: 1, c: 0, b: null, e: null, p: p }], o: at, n: l.length, l: ln - 1, w: 0, f: fileIdx || undefined });
+    }
+    if (outside) problems.push(outside + ' obstacle(s) farther than ' + near.map(function (n) { return n.nm; })[0] + ' NM from the aerodromes loaded were left out (load the file alone, or a State file such as 06-CA.Dat, to read them)');
+    if (over) problems.push(over + ' obstacle(s) after the first ' + opt.max + ' were left out (a very large file: load a State or area file, e.g. 06-CA.Dat, or load the aerodrome data first to keep the obstacles around it)');
+    if (bad) problems.push(bad + ' line(s) not understood');
+    if (curTxt) problems.unshift('Currency date of the file: ' + curTxt + ' (FAA DOF, WGS 84 positions, heights in feet)');
+    return { recs: recs, src: null, columns: ['FAA Digital Obstacle File (fixed columns, DOF_README)'], ignored: [], problems: problems, lines: ln, dof: true };
+  }
+
+  return { EXT: EXT, isTable: function (name) { return EXT.test(name || ''); }, isDof: function (name) { return DOF_EXT.test(name || ''); }, sniffFile: sniffFile, read: read, dofSniff: dofSniff, dofRead: dofRead, dofLine: dofLine, isDofHead: isDofHead, fieldOf: fieldOf, coordOf: coordOf, typeOf: typeOf, parseCsv: parseCsv, wktOf: wktOf };
 })();
 if (typeof module !== 'undefined') module.exports = OBSTAB;

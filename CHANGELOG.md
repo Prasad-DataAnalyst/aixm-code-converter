@@ -7,6 +7,44 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG (the *Digital charts* tab shows the plan).
 
+## 1.28.0 — 2026-10-13 — Flight & obstacle analysis, NOTAM, FAA data
+
+NOT FOR NAVIGATION OR AIRCRAFT PERFORMANCE — indicative study figures.
+
+- **Flight & obstacle analysis** (Digital data → Flight & obstacle analysis; loaded only when opened):
+  - *Take-off*: ICAO Annex 4 Type A take-off flight path area (180 m at the end of TODA, + 0.25 D, 1 800 m, 10 km /
+    12 km) and its 1.2 % (1.0 %) surface with the shadow rule; the one-engine-inoperative net flight path — the net
+    gradient each obstacle needs, the clearance of the gradient set, the limiting obstacle, lateral 90 m + 0.125 D up
+    to ±300 / 600 / 900 m; PANS-OPS 2.5 % surface, procedure design gradient and close-in obstacles; straight out or
+    along a SID; terrain points from a terrain file or online terrain;
+  - *Approach*: Annex 14 approach surface by code and approach type, glide path clearance (ILS angle or 3°, threshold
+    crossing height), elevation angle, visual segment surface (indicative), threshold displacement;
+  - *Runway impact*: every runway direction for departure and arrival, Annex 14 penetrations, the TODA reduction of
+    the take-off climb surface, NOTAM closures, declared distances, works and lights;
+  - *eTOD areas*: ICAO Areas 1, 2a, 2b, 2c, 2d (45 km or the TMA), 3 and 4 (Annex 15 / PANS-AIM) with their
+    collection surfaces; for each obstacle its area, the surface over it, whether it must be in the data set and
+    whether its accuracy meets Table A1-6;
+  - *Route & airspace*: a route of aerodromes, points, navaids, coordinates and ATS routes with levels; obstacles and
+    terrain in the corridor, minimum safe altitude per leg; prohibited, restricted, danger, reserved, military,
+    warning and alert areas crossed (AIXM, NOTAM, AIP text) with entry, exit, vertical overlap and activity at the time;
+  - *NOTAM & areas*: NOTAM text (ICAO format, FAA domestic and FDC; Q-codes of ICAO Doc 8126 decoded) and AIP area
+    lists (ENR 5.1: polygons, arcs, circles, limits) read from pasted text, .txt or .pdf into obstacles, areas,
+    activations and runway items; *Add to the data loaded* writes them as an obstacle table and AIXM 5.1 airspace;
+  - one result card, then Map (obstacles as icons of their kind, NOTAM obstacles badged), Profile (SVG), 3D and
+    Hologram (layers on / off, layers apart, measure between obstacles, models of the obstacle kinds), each in its own
+    window when wished; details on request; one Report menu: PDF, print, copy for e-mail, e-mail draft (.eml with the
+    pictures), Excel, CSV, KML, GeoJSON, DXF (3D CAD), PNG.
+- **FAA data**:
+  - the FAA Digital Obstacle File (DOF.DAT, State / area files, CHG.DAT, the DOF zip) as obstacles with the meaning of
+    every code; a very large file limited to the area of the aerodromes loaded (setting `dofMaxObstacles`);
+  - NASR AIXM 5.1: `CRS83` positions read longitude first (they were read latitude first); XPath / XPointer links to a
+    gml:id resolve (they did not);
+  - SAA AIXM 5.0: default namespaces declared on each element are followed (the properties were empty); the airspace
+    type from the FAA `suaType` extension.
+- **Fixes**: opening the Digital data tab while terrain statistics finish no longer jumps to the Terrain section.
+- **Developer**: the architecture guide lists every module; unit tests for the FAA readers, the DOF, NOTAM text,
+  the assessment calculations; a browser test of the new section.
+
 ## 1.27.0 — 2026-10-07 — 4D and more aerodrome mapping tools
 
 NOT FOR NAVIGATION — for study and analysis only.

@@ -464,6 +464,12 @@
       if (/\.prj$/i.test(f.name)) { S.prjs[f.name.replace(/\.prj$/i, '').toLowerCase()] = await f.text(); S.files = S.files.filter(function (x) { return x !== item; }); renderFileList(); return null; }
       var tk = DEMF.sniff(f.name, new Uint8Array(await f.slice(0, Math.min(f.size, 65536)).arrayBuffer()), f.size);
       if (tk) { item.sniff = { family: 'dem', kind: tk, version: 'DEM', versionLabel: 'Terrain (' + { tiff: 'GeoTIFF', dted: 'DTED', hgt: 'SRTM .hgt', asc: 'ESRI ASCII grid' }[tk] + ')' }; item.status = 'ready'; return item; }
+      // the FAA Digital Obstacle File (DOF.DAT, State files such as 06-CA.Dat, CHG.DAT): fixed columns, read by OBSTAB
+      if (OBSTAB.isDof(f.name) || (/\.txt$/i.test(f.name) && OBSTAB.isDofHead(await f.slice(0, 8192).text()))) {
+        var dof = await OBSTAB.dofSniff(f);
+        if (dof.family) { item.sniff = dof; item.status = 'ready'; return item; }
+        if (OBSTAB.isDof(f.name)) { item.sniff = { family: null, notes: dof.notes }; item.status = 'invalid'; item.error = dof.notes.join('; '); return item; }
+      }
       // obstacle data sets in tables (eTOD obstacles as Excel or CSV)
       var tab = OBSTAB.isTable(f.name) ? await OBSTAB.sniffFile(f) : null;
       if (tab && tab.family) { item.sniff = tab; item.status = 'ready'; return item; }
@@ -577,11 +583,20 @@
   function unzip(file) {
     return new Promise(function (resolve, reject) {
       var out = [], pending = 0, ended = false, total = 0, stopped = false;
+      // from an FAA DOF zip only DOF.DAT is opened: its State / area files and change list repeat its obstacles
+      function done() {
+        var dofs = out.filter(function (x) { return OBSTAB.isDof(x.name); });
+        if (dofs.some(function (x) { return /^DOF\.DAT$/i.test(x.name); }) && dofs.length > 1) {
+          out = out.filter(function (x) { return !OBSTAB.isDof(x.name) || /^DOF\.DAT$/i.test(x.name); });
+          toast('FAA Digital Obstacle File: DOF.DAT opened; its ' + (dofs.length - 1) + ' State / area files and change list (the same obstacles) were left in the zip — open one of them on its own if wished.', 9000);
+        }
+        resolve(out);
+      }
       function stop(err) { if (stopped) return; stopped = true; try { reader.cancel(); } catch (e) { /* already closed */ } reject(err); }
       var uz = new fflate.Unzip();
       uz.register(fflate.UnzipInflate);
       uz.onfile = function (f) {
-        if (!/\.(xml|aixm|gml|tif|tiff|dt0|dt1|dt2|hgt|asc|prj)$/i.test(f.name) && !OBSTAB.isTable(f.name) || /__MACOSX/.test(f.name)) return;
+        if (!/\.(xml|aixm|gml|tif|tiff|dt0|dt1|dt2|hgt|asc|prj)$/i.test(f.name) && !OBSTAB.isTable(f.name) && !OBSTAB.isDof(f.name) || /__MACOSX/.test(f.name)) return;
         var chunks = [];
         pending++;
         f.ondata = function (err, dat, final) {
@@ -592,7 +607,7 @@
           if (total > cap) { chunks.length = 0; stop(new Error('its contents are larger than ' + fmtSize(cap) + ' — unpack it and open the XML files directly')); return; }
           chunks.push(dat);
           // the zip's date: the same zip opened again gives the same saved-copy key
-          if (final) { out.push(new File(chunks, f.name.split('/').pop(), { type: OBSTAB.isTable(f.name) ? '' : 'text/xml', lastModified: file.lastModified })); pending--; if (ended && !pending) resolve(out); }
+          if (final) { out.push(new File(chunks, f.name.split('/').pop(), { type: OBSTAB.isTable(f.name) || OBSTAB.isDof(f.name) ? '' : 'text/xml', lastModified: file.lastModified })); pending--; if (ended && !pending) done(); }
         };
         f.start();
       };
@@ -601,7 +616,7 @@
         if (stopped) return;
         reader.read().then(function (r) {
           if (stopped) return;
-          if (r.done) { uz.push(new Uint8Array(0), true); ended = true; if (!pending) resolve(out); return; }
+          if (r.done) { uz.push(new Uint8Array(0), true); ended = true; if (!pending) done(); return; }
           try { uz.push(r.value); } catch (e) { stop(e); return; }
           pump();
         }).catch(stop);
@@ -892,7 +907,8 @@
       item.detail = item.detail.replace(/ · statistics.*$/, '') + (st ? ' · ' + Math.round(st.min) + ' … ' + Math.round(st.max) + ' m' + (st.voids ? ' · ' + (Math.round(1000 * st.voids / st.posts) / 10) + ' % voids' : '') : '');
       updateFileItem(item);
       // the statistics refresh the Terrain section when it is shown; another section the user is working in stays
-      if (S.view === 'digital' && (DDVIEW.current() === 'ter' || !DDVIEW.current())) go('digital', { sec: 'ter' });
+      // (only when the Terrain section is the one shown: opening the tab at that moment must not jump to Terrain)
+      if (S.view === 'digital' && DDVIEW.current() === 'ter') go('digital', { sec: 'ter' });
     }).catch(function (e) { console.warn('terrain statistics', e); });
     return it;
   }
@@ -901,7 +917,14 @@
     var t0 = performance.now();
     item.status = 'parsing'; item.progress = 0; item.detail = 'reading the table…'; renderFileList();
     try {
-      var res = await OBSTAB.read(item.file);
+      var res;
+      if (item.sniff.dof) {
+        // a very large DOF (the whole file: about 650 000 obstacles): the obstacles around the aerodromes loaded, else the first n
+        var cap = APP_SETTINGS.dofMaxObstacles || 150000, big = item.sniff.rows > cap, near = [];
+        if (big) S.datasets.forEach(function (d) { if (d.family !== 'tab' && d.byType) (d.byType.AirportHeliport || []).forEach(function (ad) { var c = M.pointOf(d, ad); if (c) near.push({ c: c, nm: 60 }); }); });
+        item.detail = big ? (near.length ? 'reading the obstacles within 60 NM of the ' + num(near.length) + ' aerodrome(s) loaded…' : 'reading the first ' + num(cap) + ' obstacles…') : 'reading the obstacle file…'; renderFileList();
+        res = await OBSTAB.dofRead(item.file, undefined, big ? (near.length ? { near: near.slice(0, 5000), max: cap } : { max: cap }) : {});
+      } else res = await OBSTAB.read(item.file);
       var ds = { id: item.id, name: item.name, file: item.file, size: item.size, sniff: item.sniff, family: 'tab', version: item.sniff.version, recs: res.recs, partLines: [res.lines], viewDate: S.asOf,
         tab: { src: res.src, columns: res.columns, kept: res.ignored, problems: res.problems } };
       item.status = 'indexing'; item.detail = 'building the obstacle data set…'; renderFileList();
@@ -2084,7 +2107,7 @@
   function srcFile(ds, fi) { return ds.files ? ds.files[fi || 0] : ds.file; }
   function srcName(ds, fi) { var f = srcFile(ds, fi); return ds.files && f ? f.name : ds.name; }
   async function readFragment(ds, occ) {
-    if (ds.tab) return ds.tab.src[occ.o] || ''; // a table row: its cells, one "column: value" per line
+    if (ds.tab && ds.tab.src) return ds.tab.src[occ.o] || ''; // a table row: its cells, one "column: value" per line (a DOF line: read from the file)
     var buf = await srcFile(ds, occ.f).slice(occ.o, occ.o + occ.n).arrayBuffer();
     return new TextDecoder('utf-8').decode(buf);
   }
