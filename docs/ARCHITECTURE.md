@@ -66,7 +66,8 @@ them, so they cost nothing at start):
 | `obstab.js` | `OBSTAB` | at start | obstacle tables (Excel / CSV, any column layout) and the FAA Digital Obstacle File (DOF.DAT, State files, CHG.DAT) as AIXM 5.1 VerticalStructure records |
 | `demfile.js` | `DEMF` | at start | terrain file readers: GeoTIFF / BigTIFF, DTED, SRTM .hgt, ESRI ASCII grid (headers, blocks, GeoKeys) |
 | `dem.js` | `DEM` | at start | terrain files loaded by the user: block cache with a memory budget, sampling, grids, statistics |
-| `ddmap.js` | `DDMAP` | at start | the map of the Digital data tab (obstacles, lines, areas; the Map tab is a separate map) |
+| `obsicon.js` | `OBSICON` | at start (and in the analysis window) | obstacle kinds from type and name; their 3D models (SVG and canvas sprites) and line badges, shared by the obstacle map and the analysis |
+| `ddmap.js` | `DDMAP` | at start | the map of the Digital data tab (obstacles as 3D models of their kind, lines, areas; the Map tab is a separate map) |
 | `obstview.js` | `OBSTVIEW` | at start | Obstacles (eTOD) workspace: overview, list, PANS-AIM compliance, statistics, reports, analysis |
 | `study.js` | `STUDY` | at start | obstacle and terrain studies: procedure legs and MOC, one obstacle in depth, terrain along legs, map pictures |
 | `terview.js` | `TERVIEW` | at start | Terrain section: files, flight paths and aerodromes against the terrain, checks, exports |
@@ -77,14 +78,14 @@ them, so they cost nothing at start):
 | `fourd.js` | `FOURD` | lazy | 4D: the data at a chosen time (timesheets, activation, temporary changes, playback, exports) |
 | `notamtxt.js` | `NOTAMTXT` | lazy | NOTAM text (ICAO format, FAA domestic / FDC) and AIP area lists (ENR 5.1) read into obstacles, areas, activations, runway items; writers (obstacle table, AIXM 5.1 Airspace) |
 | `fltcalc.js` | `FLTCALC` | lazy | flight and obstacle assessment, pure functions: Annex 4 Type A / net take-off flight path / PANS-OPS departure, Annex 14 approach, runway impact, ICAO eTOD areas and collection surfaces, route corridor and airspace crossings, 3D vectors |
-| `fltscene.js` | `FLTSCENE` | lazy (and in its own window) | the pictures of a scene: map with obstacle icons by kind, 3D (Hologram / CAD / Solid, layers, layers apart, measure), SVG profile, separate window (`data-fltwin` scripts) |
+| `fltscene.js` | `FLTSCENE` | lazy (and in its own window) | the pictures of a scene: map with obstacle 3D models by kind (OBSICON), 3D (Hologram / CAD / Solid, layers, layers apart, measure), SVG profile, separate window (`data-fltwin` scripts) |
 | `fltview.js` | `FLTVIEW` | lazy | Digital data → Flight & obstacle analysis: the data gathered, the six analyses, result card, views, details, reports (PDF, print, e-mail, Excel, CSV, KML, GeoJSON, DXF) |
 
-**A module in its own window.** Scripts marked `data-fltwin` (Leaflet, three.js, OrbitControls) and the text of
+**A module in its own window.** Scripts marked `data-fltwin` (Leaflet, three.js, OrbitControls, the obstacle models) and the text of
 `src-fltscene` are copied into a new same-origin window by `FLTSCENE.popout`; the scene it draws is plain data, so the
 window needs no other module.
 
-**Pure calculation modules.** `fltcalc.js`, `notamtxt.js` and `obstab.js` use no page or data model: they are unit
+**Pure calculation modules.** `fltcalc.js`, `notamtxt.js`, `obstab.js` and `obsicon.js` (its kinds and model parts) use no page or data model: they are unit
 tested in Node (`tools/tests/unit/*.test.js`) and should stay that way.
 
 Rule of thumb: **lower modules never call higher ones** (core ← model ← aip/analysis ← review/rules/exports/convert ← app).

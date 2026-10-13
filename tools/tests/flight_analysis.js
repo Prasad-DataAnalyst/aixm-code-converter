@@ -8,7 +8,7 @@
 // - NOTAM text: an obstacle on the departure path becomes the limiting obstacle; a restricted area by NOTAM and a
 //   runway closure are read; "Add to the data loaded" makes them files of the data;
 // - every report: PDF, Excel, CSV, KML, GeoJSON, DXF, e-mail draft, copy for e-mail.
-/* global FLTVIEW, FLTCALC, AX */
+/* global FLTVIEW, FLTCALC, FLTSCENE, AX */
 const env = require('./_env');
 const fs = require('fs');
 const ROOT = env.ROOT, OUT = env.out('flight_analysis'), T = ROOT + '/testdata/';
@@ -133,6 +133,22 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   if (added.length !== 2) fails.push('added to the data: ' + JSON.stringify(added));
   const asp = await page.evaluate(() => { const d = window.__AIXM.S.datasets.find((x) => /Areas_from/.test(x.name)); return d ? (d.byType.Airspace || []).map((a) => a.cur.p.type) : []; });
   if (asp.indexOf('R') < 0) fails.push('restricted area as AIXM: ' + JSON.stringify(asp));
+
+  // a map replaced while it still settles (its stage resized, a zoom in flight, calls after) gives no error and is removed
+  const gone = await page.evaluate(async () => {
+    const out = [];
+    for (const step of ['resize', 'zoom', 'calls']) {
+      const el = document.createElement('div'); el.style.cssText = 'position:fixed;left:0;top:0;width:700px;height:420px'; document.body.appendChild(el);
+      const h = FLTSCENE.map(el, { bbox: [-8.5, 52.2, -8.0, 52.5], layers: [{ id: 'o', kind: 'obstacles', items: [{ id: 'a', c: [-8.3, 52.3], label: 'Crane', hgt: 50, sev: 'error' }] }] }, {});
+      if (step === 'resize') { h.destroy(); el.style.width = '500px'; }
+      if (step === 'zoom') { h.map.setZoom(h.map.getZoom() + 1); await new Promise((r) => setTimeout(r, 80)); h.destroy(); }
+      if (step === 'calls') { h.destroy(); h.resize(); h.select('a'); h.setLayer('o', false); }
+      await new Promise((r) => setTimeout(r, 700));
+      out.push(!h.map._mapPane); el.remove();
+    }
+    return out;
+  });
+  if (gone.indexOf(false) >= 0) fails.push('a map replaced is not removed: ' + JSON.stringify(gone));
 
   if (errors.length) fails.push('page errors: ' + errors.slice(0, 5).join(' | '));
   await browser.close();

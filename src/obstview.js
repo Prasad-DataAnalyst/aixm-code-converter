@@ -23,7 +23,7 @@
  *                indicative MOC of the leg is flagged (list column and filter, compliance check)
  * Nothing here changes the data or the AIXM views.
  * ========================================================================== */
-/* global AX, MODEL, EXPORTS, CONVERT, OLS, DDMAP, STUDY, DDX */
+/* global AX, MODEL, EXPORTS, CONVERT, OLS, DDMAP, STUDY, DDX, OBSICON */
 var OBSTVIEW = (function () {
   'use strict';
   var M = MODEL, arr = AX.arr, s = M.s;
@@ -576,10 +576,11 @@ var OBSTVIEW = (function () {
     var paths = STUDY.near(x.c, segs, R * 1.8).map(function (n) { return { coords: n.seg.coords, color: KC[n.seg.kind], dashed: n.seg.dashed }; });
     var S = a.st && a.st.ols && a.st.ols.surfaces, ad = a.st && a.st.ad;
     var others = rows.filter(function (y) { return y !== x && y.c && Math.abs(y.c[1] - x.c[1]) < R / 60 && AX.distNM(x.c, y.c) < R * 1.3; }).slice(0, 400);
-    var pts = others.map(function (y) { return { c: y.c, color: '#7a8590', r: 3 }; });
+    // the obstacles as 3D models of their kind, drawn from north to south (the nearer in front)
+    var pts = others.slice().sort(function (p, q) { return q.c[1] - p.c[1]; }).map(function (y) { return { c: y.c, color: '#7a8590', r: 3, kind: OBSICON.kindOf(y.type, y.name), lit: y.lighted === 'YES' }; });
     if (ad && ad.c && AX.distNM(ad.c, x.c) < R * 1.4) pts.push({ c: ad.c, color: '#0b2a4a', r: 6, label: 'ARP ' + ad.icao });
     if (near && near.at) pts.push({ c: near.at, color: SEVC[near.sev] || '#5b6676', r: 4, label: near.clr !== null ? 'path: clearance ' + num(near.clr, 0) + ' m' : '' });
-    pts.push({ c: x.c, color: SEVC[a.worst] || '#1d4e89', r: 7, ring: true, label: (x.id || x.name) + ' · ' + num(x.elev, 1) + ' m AMSL' });
+    pts.push({ c: x.c, color: SEVC[a.worst] || '#1d4e89', r: 7, ring: true, kind: OBSICON.kindOf(x.type, x.name), lit: x.lighted === 'YES', label: (x.id || x.name) + ' · ' + num(x.elev, 1) + ' m AMSL' });
     return STUDY.picture({ center: x.c, radiusNM: R, w: 1100, h: 640, jpeg: true, title: (x.id || x.name) + ' — ' + (typeTxt(x.type) || 'obstacle'), sub: 'top ' + m1(x.elev) + ' AMSL · height ' + m1(x.hgt) + (near ? ' · nearest flight path ' + num(near.d, 2) + ' NM' : ''),
       paths: paths, points: pts, rings: [{ c: x.c, nm: 1 }], runways: S ? S.runways.map(function (r) { return [r.rm.a, r.rm.b]; }) : [] });
   }
@@ -591,7 +592,8 @@ var OBSTVIEW = (function () {
     var pad = 1.2 / 60, k = Math.cos((b[1] + b[3]) / 2 * Math.PI / 180);
     var bb = [b[0] - pad / k, b[1] - pad, b[2] + pad / k, b[3] + pad];
     var mid = [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2], R = Math.max(AX.distNM(mid, [bb[2], bb[3]]), 1);
-    var pts = list.map(function (x, i) { return x.c ? { c: x.c, color: SEVC[x.fp ? x.fp.sev : x.pen ? 'error' : 'info'], r: 5, label: '#' + (i + 1) + ' ' + (x.id || x.name) } : null; }).filter(Boolean);
+    var pts = list.map(function (x, i) { return x.c ? { c: x.c, color: SEVC[x.fp ? x.fp.sev : x.pen ? 'error' : 'info'], r: 5, kind: OBSICON.kindOf(x.type, x.name), lit: x.lighted === 'YES', label: '#' + (i + 1) + ' ' + (x.id || x.name) } : null; }).filter(Boolean)
+      .sort(function (p, q) { return q.c[1] - p.c[1]; });
     if (ad) pts.unshift({ c: ad.c, color: '#0b2a4a', r: 6, label: 'ARP ' + ad.icao });
     return STUDY.picture({ bbox: bb, w: 1100, h: 620, jpeg: true, title: 'Obstacles analysed', sub: list.length + ' obstacle(s)',
       paths: STUDY.near(mid, segs, R * 1.5).map(function (n) { return { coords: n.seg.coords, color: KC[n.seg.kind], dashed: n.seg.dashed }; }), points: pts });

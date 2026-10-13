@@ -1009,6 +1009,10 @@ pre, .xml, .notam-text { text-align: left; }
 .ddm-leg { background: rgba(255,255,255,.92); color: #14202e; padding: 6px 8px; border-radius: 8px; font: 11.5px var(--sans); display: flex; flex-direction: column; gap: 3px; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
 .ddm-leg i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; border: 1px solid #fff; }
 .ddm-leg .muted { color: #5b6676; }
+.ddm-kinds { display: grid; grid-template-columns: repeat(2, auto); gap: 3px 12px; margin-top: 3px; padding-top: 5px; border-top: 1px solid #d5dbe2; }
+.ddm-k { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.ddm-k svg { flex: none; }
+.ddm-k small { color: #5b6676; }
 :root[data-device="phone"] .ov-split { grid-template-columns: 1fr; }
 :root[data-device="phone"] .ov-split .ov-map { position: static; height: 46vh; }
 .ov-lay { margin: 0; } .ov-lay button { padding: 4px 10px; }

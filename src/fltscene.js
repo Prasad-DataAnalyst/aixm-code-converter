@@ -6,8 +6,8 @@
  * AIXM Code Converter - the pictures of the flight and obstacle assessment (FLTSCENE)
  * NOT FOR NAVIGATION - indicative visualisation.
  * Draws one "scene" (plain data: layers of obstacles, areas, surfaces, paths, vectors, arcs, airspace, terrain) as
- *   map        Leaflet: obstacles as icons of their kind (building, tower, mast, crane, wind turbine, tree, chimney,
- *              pylon, tank, …; a NOTAM obstacle with a warning badge), coloured by the result, areas, surfaces,
+ *   map        Leaflet: obstacles as 3D models of their kind (building, tower, mast, crane, wind turbine, tree, chimney,
+ *              pylon, tank, …; a NOTAM obstacle with a warning badge) on a pad coloured by the result, areas, surfaces,
  *              paths, distance vectors with their figures, distance arcs, the base map of the Map tab
  *   3D         three.js, three styles: Hologram (dark, glowing wireframe), CAD (white, dimension lines) and Solid
  *              (shaded terrain): terrain mesh, elevation contours, runways, obstacles as models of their kind (wind
@@ -16,9 +16,9 @@
  *              pulled apart in height ("exploded") to read one from the other; measuring between two points
  *   profile    SVG: distance along the path against height: terrain, obstacles, surfaces, flight paths
  *   window     any of them in a separate window (second screen), with print and PNG
- * Needs only Leaflet and three.js (and this file), so it runs the same in a separate window.
+ * Needs only Leaflet, three.js and the obstacle icons (OBSICON), so it runs the same in a separate window.
  * ========================================================================== */
-/* global L, THREE */
+/* global L, THREE, OBSICON */
 var FLTSCENE = (function () {
   'use strict';
   var D2R = Math.PI / 180, RE = 6371008.8, FT = 0.3048;
@@ -26,53 +26,9 @@ var FLTSCENE = (function () {
   var SEV = { error: '#e53935', warning: '#fb8c00', caution: '#fdd835', ok: '#43a047', info: '#90a4ae', none: '#90a4ae' };
   var HOLO = { error: '#ff4d6d', warning: '#ffb020', caution: '#ffe066', ok: '#38f9b0', info: '#4dd0ff', none: '#4dd0ff' };
 
-  /* ------------------------------------------------------------ obstacle kinds and icons */
-  var KIND_NAME = { building: 'Building', tower: 'Tower', antenna: 'Antenna / mast', crane: 'Crane', windmill: 'Wind turbine', tree: 'Tree / vegetation', stack: 'Chimney / stack',
-    pole: 'Pole', pylon: 'Pylon / power line', tank: 'Tank / silo', dome: 'Dome', spire: 'Spire / minaret', rig: 'Rig / platform', bridge: 'Bridge / arch', balloon: 'Tethered balloon',
-    lighthouse: 'Lighthouse', peak: 'Terrain / high point', sign: 'Sign', monument: 'Monument', other: 'Other obstacle' };
-  function kindOf(type, name) {
-    var t = String(type || '').toUpperCase().replace(/^OTHER:/, '') + ' ' + String(name || '').toUpperCase();
-    var R = [[/WIND ?(MILL|TURBINE|FARM)|WTG/, 'windmill'], [/CRANE/, 'crane'], [/TREE|VEGETATION|FOREST|PALM/, 'tree'], [/STACK|CHIMNEY|FLARE/, 'stack'], [/TRANSMISSION|CATENARY|CABLE|PYLON|T-L TWR|POWER ?LINE/, 'pylon'],
-      [/ANTENNA|NAVAID|MAST|AERIAL|TELECOM|RADAR/, 'antenna'], [/LIGHTHOUSE|LGTHOUSE/, 'lighthouse'], [/COOLING|WATER_TOWER|STORAGE_TANK|TANK|SILO|GRAIN|ELEVATOR/, 'tank'], [/DOME/, 'dome'],
-      [/SPIRE|MINARET|STEEPLE/, 'spire'], [/RIG|PLATFORM|DERRICK|REFINERY/, 'rig'], [/BRIDGE|ARCH/, 'bridge'], [/BALLOON|KITE/, 'balloon'], [/NATURAL|HIGHPOINT|TERRAIN|PEAK|HILL/, 'peak'],
-      [/SIGN/, 'sign'], [/MONUMENT|STATUE|OBELISK/, 'monument'], [/POLE|LAMP|ELECTRICAL_EXIT/, 'pole'], [/TOWER|TWR/, 'tower'],
-      [/BUILDING|BLDG|HANGAR|STADIUM|URBAN|INDUSTRIAL|POWER_PLANT|NUCLEAR|TERMINAL|HOTEL|HOUSE|WALL|FENCE|GATE/, 'building']];
-    for (var i = 0; i < R.length; i++) if (R[i][0].test(t)) return R[i][1];
-    return 'other';
-  }
-  var ICON = {
-    building: '<rect x="5" y="6" width="14" height="15" rx="1"/><path d="M8.5 9.5h2M13.5 9.5h2M8.5 13h2M13.5 13h2M8.5 16.5h2M13.5 16.5h2"/>',
-    tower: '<path d="M12 2L7 22M12 2l5 20M8.7 15h6.6M9.9 10h4.2M7.6 20L16 14.5M16.4 20L8 14.5"/>',
-    antenna: '<path d="M12 7v15M9 22h6M12 7l-3.5 13M12 7l3.5 13"/><circle cx="12" cy="5.5" r="1.4"/><path d="M7.5 3.2a6 6 0 0 0 0 4.6M16.5 3.2a6 6 0 0 1 0 4.6"/>',
-    crane: '<path d="M7 22V5M3.5 5H21M7 5l3.6-3L21 5M18.5 5v6M17 11h3M5 22h4M7 9l3.5-4M7 13l3-3"/>',
-    windmill: '<path d="M12 10.5V22M10 22h4"/><circle cx="12" cy="9" r="1.3"/><path d="M12 7.7V1.8M13.2 9.6l5.2 3M10.8 9.6l-5.2 3"/>',
-    tree: '<path d="M12 2.5L5.5 13.5h3.8L6 18.5h12l-3.3-5h3.8z"/><path d="M12 18.5V22"/>',
-    stack: '<path d="M9.2 22l1-17h3.6l1 17zM9.8 10h4.4M9.5 15.5h5"/><path d="M12.8 3.6c1.4-1.8 3.4-1.8 4.6-.6"/>',
-    pole: '<path d="M12 3v19M8.5 6.5h7M10 22h4"/>',
-    pylon: '<path d="M12 2L6.5 22M12 2l5.5 20M4.5 7h15M6.5 12h11M8.2 16l7.6 5M15.8 16l-7.6 5"/>',
-    tank: '<ellipse cx="12" cy="7" rx="7" ry="2.6"/><path d="M5 7v11a7 2.6 0 0 0 14 0V7"/>',
-    dome: '<path d="M3 20h18M5 20a7 7 0 0 1 14 0M12 13V9"/>',
-    spire: '<path d="M12 2l-4 11h8zM8 13v9h8v-9"/>',
-    rig: '<path d="M3 16h18M5.5 16v6M18.5 16v6M12 2l-4 14M12 2l4 14M9.2 11h5.6M10.2 7h3.6"/>',
-    bridge: '<path d="M2 13h20M3 13q9-9 18 0M6.5 13v8M17.5 13v8M12 8.5V13"/>',
-    balloon: '<ellipse cx="12" cy="8" rx="5" ry="6"/><path d="M12 14v8M10.5 22h3"/>',
-    lighthouse: '<path d="M9.3 22l1-14h3.4l1 14zM10 8h4V4.5h-4zM8.5 5.5L4.5 3.5M15.5 5.5l4-2M9.8 14h4.4"/>',
-    peak: '<path d="M2 21L9 8l4 6 3-4 6 11z"/>',
-    sign: '<rect x="5" y="4" width="14" height="8" rx="1"/><path d="M12 12v10M9 22h6"/>',
-    monument: '<path d="M10 22l1-17 1-2.5L13 5l1 17zM8 22h8"/>',
-    other: '<path d="M12 5v16M8 21h8"/><circle cx="12" cy="4.2" r="1.8"/>'
-  };
-  // an obstacle icon (SVG): the kind drawn in a disc ringed with the colour of the result; a NOTAM obstacle gets a warning badge
-  function iconSvg(kind, o) {
-    o = o || {};
-    var s = o.size || 26, ring = o.ring || '#455a64', bg = o.bg || '#ffffff', fg = o.fg || '#263238';
-    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="' + s + '" height="' + s + '"><circle cx="12" cy="12" r="10.8" fill="' + bg + '" stroke="' + ring + '" stroke-width="2.4"/>' +
-      '<g transform="translate(4.2 4.2) scale(.65)" fill="none" stroke="' + fg + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (ICON[kind] || ICON.other) + '</g>' +
-      (o.notam ? '<path d="M18.2 1.2l5 8.6h-10z" fill="#ffb300" stroke="#5d4037" stroke-width=".8"/><path d="M18.2 4.2v2.8M18.2 8.1v.1" stroke="#3e2723" stroke-width="1.2" stroke-linecap="round"/>' : '') + '</svg>';
-  }
-  function legendHtml(kinds) {
-    return kinds.map(function (k) { return '<span class="fs-lg">' + iconSvg(k, { size: 18 }) + esc(KIND_NAME[k] || k) + '</span>'; }).join('');
-  }
+  /* ------------------------------------------------------------ obstacle kinds and icons (OBSICON, shared with the obstacle map) */
+  var KIND_NAME = OBSICON.KIND_NAME, kindOf = OBSICON.kindOf, iconSvg = OBSICON.svg;
+  function legendHtml(kinds) { return OBSICON.legendHtml(kinds, { d3: true, size: 24, fill: '#b0bec5' }); }
 
   /* ------------------------------------------------------------ helpers */
   function frame(o) { var k = Math.cos(o[1] * D2R), m = RE * D2R; return { xy: function (c) { return [(c[0] - o[0]) * k * m, (c[1] - o[1]) * m]; } }; }
@@ -118,6 +74,9 @@ var FLTSCENE = (function () {
     el.innerHTML = '<div class="fs-map" style="position:absolute;inset:0"></div>';
     el.style.position = el.style.position || 'relative';
     var map = L.map(el.firstChild, { zoomControl: true, preferCanvas: true, attributionControl: true, worldCopyJump: true }), rend = L.canvas({ padding: 0.3 }), groups = {}, base = null, picks = {};
+    // Leaflet keeps its resize and zoom-animation timers after remove(), and they then reach panes that are gone:
+    // once destroyed the map is left alone, and removed only when an animation in flight has ended (the view is replaced at once)
+    var dead = false;
     function setBase(k) {
       if (base) { map.removeLayer(base); base = null; }
       var d = spec.bases && spec.bases.list && spec.bases.list[k];
@@ -142,8 +101,9 @@ var FLTSCENE = (function () {
         order.forEach(function (o, i) {
           var col = SEV[o.sev] || '#546e7a', m;
           if (!many || i < (spec.iconMax || 1500)) {
-            var s = Math.round(Math.max(20, Math.min(34, 18 + Math.sqrt(Math.max(0, o.hgt || 0)) * 1.4)));
-            m = L.marker(ll(o.c), { icon: L.divIcon({ className: 'fs-ic', html: iconSvg(o.kind || kindOf(o.type, o.label), { size: s, ring: col, notam: o.notam }), iconSize: [s, s], iconAnchor: [s / 2, s / 2] }), riseOnHover: true, zIndexOffset: { error: 900, warning: 600, caution: 300 }[o.sev] || 0 });
+            // the 3D model of its kind standing on the position, on a pad in the colour of the result
+            var s = Math.round(Math.max(28, Math.min(46, 24 + Math.sqrt(Math.max(0, o.hgt || 0)) * 1.8))), w = Math.round(s * 0.8);
+            m = L.marker(ll(o.c), { icon: L.divIcon({ className: 'fs-ic', html: OBSICON.svg3d(o.kind || kindOf(o.type, o.label), { h: s, fill: col, notam: o.notam, lit: o.lit }), iconSize: [w, s], iconAnchor: [w / 2, s * 0.9], tooltipAnchor: [w * 0.35, -s * 0.45] }), riseOnHover: true, zIndexOffset: { error: 900, warning: 600, caution: 300 }[o.sev] || 0 });
           } else m = L.circleMarker(ll(o.c), { renderer: rend, radius: 3, color: col, weight: 1, fillColor: col, fillOpacity: 0.8 });
           m.bindTooltip(tip([o.label].concat(o.sub || [])), { direction: 'top', className: 'fs-tip' });
           if (o.tag && tags++ < (spec.mapTags || 3)) m.bindTooltip(esc(o.tag), { permanent: true, direction: 'right', className: 'fs-tag', offset: [12, 0] });
@@ -185,17 +145,21 @@ var FLTSCENE = (function () {
     if (bb) map.fitBounds([[bb[1], bb[0]], [bb[3], bb[2]]], { padding: [24, 24] }); else map.setView([20, 0], 2);
     if (spec.focus && spec.bbox) { // a button back to the whole picture
       var all = doc.createElement('button'); all.className = 'fs-all'; all.textContent = '⤢ Whole area'; all.title = 'Show the whole area of the analysis';
-      all.onclick = function () { map.fitBounds([[spec.bbox[1], spec.bbox[0]], [spec.bbox[3], spec.bbox[2]]], { padding: [16, 16] }); };
+      all.onclick = function () { if (!dead) map.fitBounds([[spec.bbox[1], spec.bbox[0]], [spec.bbox[3], spec.bbox[2]]], { padding: [16, 16] }); };
       L.DomEvent.disableClickPropagation(all); el.appendChild(all);
     }
     var api = {
       map: map,
-      setLayer: function (id, on) { var g = groups[id]; if (!g) return; if (on) g.addTo(map); else map.removeLayer(g); },
-      select: function (id) { var m = picks[id]; if (m) { map.setView(m.getLatLng(), Math.max(map.getZoom(), 14)); m.openTooltip(); } },
-      resize: function () { map.invalidateSize(); },
-      destroy: function () { try { map.remove(); } catch (e) { /* gone */ } }
+      setLayer: function (id, on) { var g = groups[id]; if (!g || dead) return; if (on) g.addTo(map); else map.removeLayer(g); },
+      select: function (id) { var m = picks[id]; if (m && !dead) { map.setView(m.getLatLng(), Math.max(map.getZoom(), 14)); m.openTooltip(); } },
+      resize: function () { if (!dead) map.invalidateSize(); },
+      destroy: function () {
+        if (dead) return;
+        dead = true;
+        setTimeout(function () { try { map.remove(); } catch (e) { /* gone */ } }, 400);
+      }
     };
-    setTimeout(function () { map.invalidateSize(); }, 60);
+    setTimeout(function () { if (!dead) map.invalidateSize(); }, 60);
     return api;
   }
   function dst(c, brg, m) {

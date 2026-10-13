@@ -4,7 +4,8 @@
 // list, map, checks and reports, on the Donlon test data (AIP, obstacle data set Areas 2/3/4, IFP, AMXM):
 // - the tab is always offered (each section takes its own files); the Export page and the Dashboard point to it;
 // - obstacles: eTOD area of each obstacle from the obstacle area polygons, PANS-AIM accuracy checks, distance and
-//   bearing from the ARP, the map shows what the list shows (filter applied) and selects rows both ways;
+//   bearing from the ARP, the map shows what the list shows (filter applied) as icons of their kind and selects rows
+//   both ways;
 // - procedures with their legs and paths on the map; AMXM features by type with their attributes;
 // - every report (PDF, Excel, CSV, GeoJSON / KML) is produced.
 /* global OBSTVIEW */
@@ -71,6 +72,9 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   if (!poly['1']) fails.push('AIP obstacles in the Area 1 polygon: ' + JSON.stringify(poly));
   await page.evaluate((i) => { const b = document.querySelector('[data-ovset="' + i + '"]'); if (b) b.click(); }, obsIdx);
   await page.waitForSelector('.ov-map .leaflet-container, .ov-map.leaflet-container');
+  // obstacles drawn as the icon of their kind, the kinds in the legend
+  const icons = await page.evaluate(() => { const mm = document.querySelector('.ov-map')._ddmap, k = {}; mm.items.forEach((m) => { k[m.options.kind] = 1; }); return { n: mm.items.length, glyph: mm.items.filter((m) => m._glyph && m._glyph()).length, kinds: Object.keys(k), legend: document.querySelectorAll('.ddm-kinds .ddm-k svg').length }; });
+  if (!icons.n || icons.glyph !== icons.n || icons.kinds.length < 3 || !icons.legend) fails.push('obstacle icons by kind: ' + JSON.stringify(icons));
   const marks = async () => page.evaluate(() => { const m = document.querySelector('.ov-map'); return m ? document.querySelectorAll('.ov-tbl tbody tr').length : -1; });
   const before = await marks();
   await page.fill('[data-ovf="minH"]', '30'); await page.waitForTimeout(600);

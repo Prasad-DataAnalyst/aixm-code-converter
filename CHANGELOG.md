@@ -30,10 +30,17 @@ NOT FOR NAVIGATION OR AIRCRAFT PERFORMANCE — indicative study figures.
   - *NOTAM & areas*: NOTAM text (ICAO format, FAA domestic and FDC; Q-codes of ICAO Doc 8126 decoded) and AIP area
     lists (ENR 5.1: polygons, arcs, circles, limits) read from pasted text, .txt or .pdf into obstacles, areas,
     activations and runway items; *Add to the data loaded* writes them as an obstacle table and AIXM 5.1 airspace;
-  - one result card, then Map (obstacles as icons of their kind, NOTAM obstacles badged), Profile (SVG), 3D and
+  - one result card, then Map (obstacles as 3D models of their kind, NOTAM obstacles badged), Profile (SVG), 3D and
     Hologram (layers on / off, layers apart, measure between obstacles, models of the obstacle kinds), each in its own
     window when wished; details on request; one Report menu: PDF, print, copy for e-mail, e-mail draft (.eml with the
     pictures), Excel, CSV, KML, GeoJSON, DXF (3D CAD), PNG.
+- **Obstacles as 3D models of their kind** on the obstacle map of the Digital data tab and on the map of the analysis:
+  building with its windows, lattice tower, guyed mast, tower crane (jib, counter-jib, hook), wind turbine, tree,
+  red and white chimney with smoke, pole, pylon with its lines, tank, dome, minaret, rig, arch bridge, tethered
+  balloon, lighthouse, mountain, sign, monument; the kind read from the type and name (AIXM, eTOD tables, FAA DOF,
+  NOTAM); on a pad in the colour of the result, a red obstruction light on the lighted ones, sized by height, larger
+  when zoomed in; drawn once and stamped on the canvas, so 100 000 and more obstacles stay fast (plain dots when
+  zoomed far out on a very large set); the kinds shown, with their numbers, in the legend.
 - **FAA data**:
   - the FAA Digital Obstacle File (DOF.DAT, State / area files, CHG.DAT, the DOF zip) as obstacles with the meaning of
     every code; a very large file limited to the area of the aerodromes loaded (setting `dofMaxObstacles`);
@@ -41,9 +48,10 @@ NOT FOR NAVIGATION OR AIRCRAFT PERFORMANCE — indicative study figures.
     gml:id resolve (they did not);
   - SAA AIXM 5.0: default namespaces declared on each element are followed (the properties were empty); the airspace
     type from the FAA `suaType` extension.
-- **Fixes**: opening the Digital data tab while terrain statistics finish no longer jumps to the Terrain section.
+- **Fixes**: opening the Digital data tab while terrain statistics finish no longer jumps to the Terrain section; the
+  analysis map replaced while it still settles (a quick change of mode or view) no longer raises a Leaflet error.
 - **Developer**: the architecture guide lists every module; unit tests for the FAA readers, the DOF, NOTAM text,
-  the assessment calculations; a browser test of the new section.
+  the assessment calculations and the obstacle models; a browser test of the new section.
 
 ## 1.27.0 — 2026-10-07 — 4D and more aerodrome mapping tools
 

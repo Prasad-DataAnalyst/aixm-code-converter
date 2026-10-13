@@ -209,7 +209,7 @@ var FLTVIEW = (function () {
     return { pts: pts, color: col, label: label, curtain: curtain };
   }
   function profTerrain(T, R, len) { var smp = FLTSCENE.sampler(T), out = []; for (var d = 0; d <= len; d += Math.max(50, len / 200)) { var c = C.along(R.path, R.frame, d, 0), z = smp(c[0], c[1]); if (z !== null) out.push([d, z]); } return out; }
-  function obItem(ob, sev, tag, sub) { return { id: ob.id, c: ob.c, top: ob.elev, hgt: ob.hgt, type: ob.type, kind: ob.kind, sev: sev, label: ob.label, sub: [FLTSCENE.KIND_NAME[ob.kind] + (ob.src ? ' · ' + ob.src : '')].concat(sub || []).filter(Boolean), tag: tag || '', notam: ob.notam }; }
+  function obItem(ob, sev, tag, sub) { return { id: ob.id, c: ob.c, top: ob.elev, hgt: ob.hgt, type: ob.type, kind: ob.kind, sev: sev, label: ob.label, sub: [FLTSCENE.KIND_NAME[ob.kind] + (ob.src ? ' · ' + ob.src : '')].concat(sub || []).filter(Boolean), tag: tag || '', notam: ob.notam, lit: ob.lit === 'YES' }; }
   function baseLayers(T, A) {
     var L = [];
     // terrain from a file or online tiles is shown; the coarse built-in model can be switched on in the layer list
@@ -724,7 +724,8 @@ var FLTVIEW = (function () {
       var sp = R.spec, ly = function (id) { return (sp.layers || []).filter(function (l) { return l.id === id || l.kind === id; }); };
       if (sp) {
         var areas = [].concat.apply([], ly('polygon').map(function (l) { return l.items.map(function (p) { return p.ring; }); })).concat([].concat.apply([], ly('volume').map(function (l) { return l.items.map(function (p) { return p.ring; }); }))).slice(0, 60);
-        var points = [].concat.apply([], ly('obstacles').map(function (l) { return l.items.slice(0, 400).map(function (o) { return { c: o.c, color: FLTSCENE.SEV[o.sev] || '#546e7a', r: o.sev === 'error' ? 6 : 4, label: o.tag ? o.tag.split('\n')[0] : '', ring: o.sev === 'error' }; }); }));
+        var points = [].concat.apply([], ly('obstacles').map(function (l) { return l.items.slice(0, 400).map(function (o) { return { c: o.c, color: FLTSCENE.SEV[o.sev] || '#546e7a', r: o.sev === 'error' ? 6 : 4, kind: o.kind || FLTSCENE.kindOf(o.type, o.label), lit: o.lit, label: o.tag ? o.tag.split('\n')[0] : '', ring: o.sev === 'error' }; }); }))
+          .sort(function (p, q) { return q.c[1] - p.c[1]; });
         var paths = [].concat.apply([], ly('path').map(function (l) { return l.items.map(function (p) { return { coords: p.pts, color: p.color }; }); }));
         var rw = [].concat.apply([], ly('runway').map(function (l) { return l.items.map(function (r) { return [r.ring[0], r.ring[1]]; }); }));
         var pic = await STUDY.picture({ bbox: sp.bbox, w: 1300, h: 820, areas: areas, points: points, paths: paths, runways: rw, title: R.title });

@@ -7,12 +7,15 @@
  * A map made for working through one kind of digital data, beside its list: it shows what the list shows (the
  * filter applies), a click on the map selects the row and a row selects its feature on the map. The Map tab is a
  * separate map and is not changed.
- *   obstacles   sized by height, coloured by what matters (penetrates an Annex 14 surface, has an error, lighted,
- *               other); the obstacle area boundary; the aerodrome reference point with 2 / 5 / 10 NM rings
+ *   obstacles   a 3D model of their kind (building, tower, crane, wind turbine, chimney, tree, … - OBSICON) sized by
+ *               height, on a pad coloured by what matters (penetrates an Annex 14 surface, has an error, lighted,
+ *               other), a red light on the lighted ones; drawn on a canvas so that very large sets stay fast (plain
+ *               dots when zoomed far out); the obstacle area
+ *               boundary; the aerodrome reference point with 2 / 5 / 10 NM rings
  *   lines       procedure paths and aerodrome mapping geometry (points, lines, areas)
  * Base: the built-in offline world map, or the free online maps of the Map tab (Esri, OpenStreetMap, OpenTopoMap, NASA).
  * ========================================================================== */
-/* global L, topojson, MODEL, MAPVIEW */
+/* global L, topojson, MODEL, MAPVIEW, OBSICON */
 var DDMAP = (function () {
   'use strict';
   var M = MODEL, world = null;
@@ -102,6 +105,36 @@ var DDMAP = (function () {
 
   /* -------------------------------------------------------------- obstacles */
   var OCOL = { pen: '#c62828', err: '#ef6c00', lit: '#e0a800', other: '#1d4e89' };
+  // an obstacle on the canvas: the 3D model of its kind standing on its position, on a pad in its colour, size
+  // options.sc (radius = the pad, for the rings of a selection); zoomed out below options.glyphZoom a plain dot
+  // (radius options.dot), as the models would only cover each other there
+  var IconMark = L.CircleMarker.extend({
+    _glyph: function () { var z = this._map ? this._map.getZoom() : 0; return z >= (this.options.glyphZoom || 0); },
+    // larger when zoomed in close
+    _sc: function () { var z = this._map ? this._map.getZoom() : 0; return Math.round(this.options.sc * (z >= 17 ? 1.6 : z >= 15.5 ? 1.35 : z >= 14 ? 1.15 : 1) * 10) / 10; },
+    _updateBounds: function () {
+      if (!this._glyph()) { L.CircleMarker.prototype._updateBounds.call(this); return; }
+      var s = this._sc(), t = this._clickTolerance();
+      this._pxBounds = new L.Bounds(this._point.subtract([17 * s + t, 37 * s + t]), this._point.add([17 * s + t, 5 * s + t]));
+    },
+    _updatePath: function () {
+      var rd = this._renderer;
+      if (!rd || !rd._ctx) { L.CircleMarker.prototype._updatePath.call(this); return; }
+      if (!rd._drawing || this._empty()) return;
+      var c = rd._ctx, p = this._point, o = this.options;
+      if (this._glyph()) { OBSICON.draw3d(c, o.kind, p.x, p.y, this._sc(), { fill: o.fillColor, lit: o.lit }); return; }
+      c.beginPath(); c.arc(p.x, p.y, o.dot || this._radius, 0, Math.PI * 2);
+      c.globalAlpha = 0.9; c.fillStyle = o.fillColor; c.fill();
+      c.globalAlpha = 1; c.lineWidth = 1; c.strokeStyle = '#fff'; c.stroke();
+    },
+    // the model (from its pad to near its top), or the dot
+    _containsPoint: function (p) {
+      var q = this._point, t = this._clickTolerance();
+      if (!this._glyph()) return p.distanceTo(q) <= (this.options.dot || this._radius) + t;
+      var s = this._sc();
+      return Math.abs(p.x - q.x) <= 11 * s + t && p.y >= q.y - 30 * s - t && p.y <= q.y + 4.5 * s + t;
+    }
+  });
   // rows: obstacle rows (obstview.js); opt: {bad: Set of rows with errors, areas: [rings], arp: [lon, lat], unit, onPick(row),
   //   picked: Set of records chosen for a report, onToggle(row) (Ctrl / Shift + click, or always when pickMode() is true),
   //   paths: [{coords, color, dashed, label}] flight paths}
@@ -122,14 +155,19 @@ var DDMAP = (function () {
       L.circleMarker(ll(opt.arp), { renderer: mm.rend, radius: 6, color: '#0b2a4a', weight: 2, fillColor: '#fff', fillOpacity: 1 }).bindTooltip(esc(opt.arpLabel || 'ARP'), { permanent: false }).addTo(mm.layers);
     }
     var maxH = Math.max.apply(null, rows.map(function (x) { return x.hgt || 0; }).concat([1]));
-    rows.forEach(function (x) {
+    // icons from the zoom where they can be told apart: later for a large set
+    var glyphZoom = rows.length > 20000 ? 12 : rows.length > 3000 ? 11 : rows.length > 500 ? 9 : 0, kinds = {};
+    // drawn from north to south, so that the nearer models stand in front of the ones behind them
+    rows.filter(function (x) { return x.c; }).sort(function (a, b) { return b.c[1] - a.c[1]; }).forEach(function (x) {
       if (!x.c) return;
       var kind = x.pen ? 'pen' : opt.bad && opt.bad.has(x) ? 'err' : x.lighted === 'YES' ? 'lit' : 'other';
-      var rad = 3 + 9 * Math.sqrt(Math.max(0, x.hgt || 0) / maxH);
-      var m = L.circleMarker(ll(x.c), { renderer: mm.rend, radius: rad, color: '#fff', weight: 1, fillColor: OCOL[kind], fillOpacity: 0.9 });
+      var sh = Math.sqrt(Math.max(0, x.hgt || 0) / maxH), ok = OBSICON.kindOf(x.type, x.name);
+      kinds[ok] = (kinds[ok] || 0) + 1;
+      var sc = Math.round((0.55 + 0.5 * sh) * 10) / 10;
+      var m = new IconMark(ll(x.c), { renderer: mm.rend, radius: 11 * sc, sc: sc, dot: 3 + 9 * sh, kind: ok, lit: x.lighted === 'YES', glyphZoom: glyphZoom, color: '#fff', weight: 1, fillColor: OCOL[kind], fillOpacity: 0.9 });
       var hTxt = x.hgt === null ? '' : opt.unit === 'FT' ? Math.round(x.hgt / 0.3048) + ' ft' : (Math.round(x.hgt * 10) / 10) + ' m';
       var eTxt = x.elev === null ? '' : opt.unit === 'FT' ? Math.round(x.elev / 0.3048) + ' ft' : (Math.round(x.elev * 10) / 10) + ' m';
-      m.bindTooltip('<b>' + esc(x.id || x.name) + '</b> ' + esc(String(x.type || '').replace(/^OTHER:/, '')) + '<br>height ' + esc(hTxt) + ' · top ' + esc(eTxt) + ' AMSL' + (x.pen ? '<br><b style="color:#c62828">penetrates ' + esc(x.pen.surface) + ' by ' + (Math.round(x.pen.m * 10) / 10) + ' m</b>' : ''), { sticky: true, opacity: 0.95 });
+      m.bindTooltip('<b>' + esc(x.id || x.name) + '</b> ' + esc(String(x.type || '').replace(/^OTHER:/, '') || (OBSICON.KIND_NAME[ok] || '')) + '<br>height ' + esc(hTxt) + ' · top ' + esc(eTxt) + ' AMSL' + (x.pen ? '<br><b style="color:#c62828">penetrates ' + esc(x.pen.surface) + ' by ' + (Math.round(x.pen.m * 10) / 10) + ' m</b>' : ''), { sticky: true, opacity: 0.95 });
       m.on('click', function (e) {
         var oe = e.originalEvent || {};
         if (opt.onToggle && (oe.ctrlKey || oe.metaKey || oe.shiftKey || (opt.pickMode && opt.pickMode()))) { opt.onToggle(x); picks(mm, opt.picked); return; }
@@ -140,7 +178,13 @@ var DDMAP = (function () {
     });
     var lg = [['pen', 'penetrates Annex 14 surface'], ['err', 'has an error'], ['lit', 'lighted'], ['other', 'other']].filter(function (k) { return k[0] !== 'pen' || rows.some(function (x) { return x.pen; }); }).map(function (k) { return [OCOL[k[0]], k[1]]; });
     if (opt.onToggle) lg.push([PICK, 'chosen for the analysis report']);
-    legend(mm, lg, 'size: height' + (opt.onToggle ? ' · Ctrl+click: choose' : ''));
+    // the kinds shown, the most frequent first
+    var ks = Object.keys(kinds).sort(function (a, b) { return kinds[b] - kinds[a]; }), kHtml = '';
+    if (ks.length) {
+      kHtml = '<div class="ddm-kinds">' + OBSICON.legendHtml(ks.slice(0, 8).map(function (k) { return [k, kinds[k].toLocaleString('en')]; }), { cls: 'ddm-k', d3: true, size: 24, fill: '#b0bec5' }) +
+        (ks.length > 8 ? '<span class="ddm-k muted">+ ' + (ks.length - 8) + ' more kinds</span>' : '') + '</div>';
+    }
+    legend(mm, lg, 'model: kind · size: height · red light: lighted' + (opt.onToggle ? ' · Ctrl+click: choose' : ''), kHtml);
     picks(mm, opt.picked);
     fit(mm, b);
   }
@@ -163,12 +207,12 @@ var DDMAP = (function () {
     L.circleMarker(c, { renderer: mm.rend, radius: (m.options.radius || 6) + 6, color: '#b0186e', weight: 3, fill: false, interactive: false }).addTo(mm.sel);
     if (!mm.map.getBounds().pad(-0.1).contains(c)) mm.map.panTo(c);
   }
-  function legend(mm, items, note) {
+  function legend(mm, items, note, html) {
     if (mm.leg) mm.map.removeControl(mm.leg);
     var lg = L.control({ position: 'bottomleft' });
     lg.onAdd = function () {
       var d = L.DomUtil.create('div', 'ddm-leg');
-      d.innerHTML = items.map(function (i) { return '<span><i style="background:' + i[0] + (/^#f[a-f0-9]{5}$/i.test(i[0]) ? ';box-shadow:0 0 0 1px #8a939e inset' : '') + '"></i>' + esc(i[1]) + '</span>'; }).join('') + (note ? '<span class="muted">' + esc(note) + '</span>' : '');
+      d.innerHTML = items.map(function (i) { return '<span><i style="background:' + i[0] + (/^#f[a-f0-9]{5}$/i.test(i[0]) ? ';box-shadow:0 0 0 1px #8a939e inset' : '') + '"></i>' + esc(i[1]) + '</span>'; }).join('') + (note ? '<span class="muted">' + esc(note) + '</span>' : '') + (html || '');
       return d;
     };
     lg.addTo(mm.map); mm.leg = lg;

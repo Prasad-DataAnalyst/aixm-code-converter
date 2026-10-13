@@ -18,7 +18,7 @@
  *   picture        a map picture for the report: terrain shading, runways, flight paths, obstacles, rings, scale
  * Indicative only: not a procedure design or aerodrome safeguarding assessment (see the disclaimer).
  * ========================================================================== */
-/* global AX, MODEL, MAPVIEW, OLS, DEM, TERRAIN, OBSTVIEW, IFP */
+/* global AX, MODEL, MAPVIEW, OLS, DEM, TERRAIN, OBSTVIEW, IFP, OBSICON */
 var STUDY = (function () {
   'use strict';
   var M = MODEL, s = M.s;
@@ -238,7 +238,8 @@ var STUDY = (function () {
     return st[st.length - 1][1];
   }
   // opt: {bbox [w,s,e,n] | center + radiusNM, w, h, title, sub, paths [{coords, color, dashed, label}], points [{c, color, r, label, ring}],
-  //       rings [{c, nm}], runways [[a, b]], areas [ring], jpeg} -> Promise<dataURL>
+  //       rings [{c, nm}], runways [[a, b]], areas [ring], jpeg} -> Promise<dataURL>; a point with a kind (OBSICON: building,
+//       crane, …) is drawn as the 3D model of its kind on a pad of its colour (lit: the red obstruction light)
   async function picture(opt) {
     var W = opt.w || 1200, H = opt.h || 760, bb = opt.bbox;
     if (!bb) { var dl = opt.radiusNM / 60, dn = dl / Math.cos(opt.center[1] * Math.PI / 180) * (W / H) * 0.75; bb = [opt.center[0] - dn, opt.center[1] - dl, opt.center[0] + dn, opt.center[1] + dl]; }
@@ -284,12 +285,19 @@ var STUDY = (function () {
     });
     var placed = [];
     (opt.points || []).forEach(function (pt) {
-      var q = P(pt.c), r = pt.r || 5;
-      if (pt.ring) { ctx.beginPath(); ctx.arc(q[0], q[1], r + 7, 0, 2 * Math.PI); ctx.strokeStyle = '#b0186e'; ctx.lineWidth = 3; ctx.stroke(); }
-      ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, 2 * Math.PI); ctx.fillStyle = pt.color || '#1d4e89'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+      var q = P(pt.c), r = pt.r || 5, up = r;
+      if (pt.kind && typeof OBSICON !== 'undefined') {
+        var s3 = Math.round(Math.max(0.7, Math.min(1.6, r / 4.2)) * 10) / 10;
+        if (pt.ring) { ctx.beginPath(); ctx.ellipse(q[0], q[1], 15 * s3, 6.5 * s3, 0, 0, 2 * Math.PI); ctx.strokeStyle = '#b0186e'; ctx.lineWidth = 3; ctx.stroke(); }
+        OBSICON.draw3d(ctx, pt.kind, q[0], q[1], s3, { fill: pt.color || '#1d4e89', lit: pt.lit });
+        r = 11 * s3; up = 22 * s3;
+      } else {
+        if (pt.ring) { ctx.beginPath(); ctx.arc(q[0], q[1], r + 7, 0, 2 * Math.PI); ctx.strokeStyle = '#b0186e'; ctx.lineWidth = 3; ctx.stroke(); }
+        ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, 2 * Math.PI); ctx.fillStyle = pt.color || '#1d4e89'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+      }
       if (pt.label) {
         ctx.font = (pt.ring ? '700 14px' : '600 11.5px') + ' Segoe UI, Arial, sans-serif';
-        var tw = ctx.measureText(pt.label).width, lx = q[0] + r + 5, ly = q[1] - r - 3;
+        var tw = ctx.measureText(pt.label).width, lx = q[0] + r + 5, ly = q[1] - up - 3;
         if (!placed.some(function (b) { return lx < b[2] && lx + tw > b[0] && ly - 13 < b[3] && ly + 3 > b[1]; }) || pt.ring) {
           ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.strokeText(pt.label, lx, ly); ctx.fillStyle = '#14202e'; ctx.fillText(pt.label, lx, ly);
           placed.push([lx, ly - 13, lx + tw, ly + 3]);
