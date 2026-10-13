@@ -43,6 +43,10 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   if (!/gradient|obstacle|Clear|CLEAR/.test(c.txt) || c.kpi < 4) fails.push('take-off card: ' + JSON.stringify(c));
   const icons = await page.evaluate(() => document.querySelectorAll('.flt-stage .fs-ic svg').length);
   if (!icons) fails.push('no obstacle icons on the map');
+  await page.click('.flt-stage .obs-style [data-os="dots"]');
+  const flatDots = await page.evaluate(() => document.querySelectorAll('.flt-stage .fs-ic svg').length);
+  await page.click('.flt-stage .obs-style [data-os="models"]');
+  if (flatDots !== 0 || !(await page.evaluate(() => document.querySelectorAll('.flt-stage .fs-ic svg').length))) fails.push('analysis map: Models / Dots switch');
   // aviation units: distances in nautical miles, heights in feet
   const units = await page.evaluate(() => ({ cell: (document.querySelector('.flt-t tbody tr td:nth-child(4)') || {}).textContent || '', top: (document.querySelector('.flt-t tbody tr td:nth-child(6)') || {}).textContent || '', scale: [...document.querySelectorAll('.flt-stage .leaflet-control-scale-line')].map((x) => x.textContent).join(' / '), arcs: [...document.querySelectorAll('.flt-stage .fs-arc')].map((x) => x.textContent).join(' ') }));
   if (!/NM$/.test(units.cell) || !/ft$/.test(units.top) || !/NM/.test(units.scale) || /km/.test(units.arcs + units.cell) || !/NM/.test(units.arcs)) fails.push('units (NM, ft): ' + JSON.stringify(units));

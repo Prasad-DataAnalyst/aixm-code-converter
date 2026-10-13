@@ -109,9 +109,9 @@ var DDMAP = (function () {
   // options.sc (radius = the pad, for the rings of a selection); zoomed out below options.glyphZoom a plain dot
   // (radius options.dot), as the models would only cover each other there
   var IconMark = L.CircleMarker.extend({
-    _glyph: function () { var z = this._map ? this._map.getZoom() : 0; return z >= (this.options.glyphZoom || 0); },
+    _glyph: function () { var z = this._map ? this._map.getZoom() : 0; return OBSICON.mapStyle() !== 'dots' && z >= (this.options.glyphZoom || 0); },
     // larger when zoomed in close
-    _sc: function () { var z = this._map ? this._map.getZoom() : 0; return Math.round(this.options.sc * (z >= 17 ? 1.6 : z >= 15.5 ? 1.35 : z >= 14 ? 1.15 : 1) * 10) / 10; },
+    _sc: function () { var z = this._map ? this._map.getZoom() : 0; return Math.round(this.options.sc * (z >= 17 ? 1.4 : z >= 15.5 ? 1.2 : z >= 14 ? 1.08 : 1) * 10) / 10; },
     _updateBounds: function () {
       if (!this._glyph()) { L.CircleMarker.prototype._updateBounds.call(this); return; }
       var s = this._sc(), t = this._clickTolerance();
@@ -163,7 +163,7 @@ var DDMAP = (function () {
       var kind = x.pen ? 'pen' : opt.bad && opt.bad.has(x) ? 'err' : x.lighted === 'YES' ? 'lit' : 'other';
       var sh = Math.sqrt(Math.max(0, x.hgt || 0) / maxH), ok = OBSICON.kindOf(x.type, x.name);
       kinds[ok] = (kinds[ok] || 0) + 1;
-      var sc = Math.round((0.55 + 0.5 * sh) * 10) / 10;
+      var sc = Math.round((0.42 + 0.38 * sh) * 10) / 10;
       var m = new IconMark(ll(x.c), { renderer: mm.rend, radius: 11 * sc, sc: sc, dot: 3 + 9 * sh, kind: ok, lit: x.lighted === 'YES', glyphZoom: glyphZoom, color: '#fff', weight: 1, fillColor: OCOL[kind], fillOpacity: 0.9 });
       var hTxt = x.hgt === null ? '' : opt.unit === 'FT' ? Math.round(x.hgt / 0.3048) + ' ft' : (Math.round(x.hgt * 10) / 10) + ' m';
       var eTxt = x.elev === null ? '' : opt.unit === 'FT' ? Math.round(x.elev / 0.3048) + ' ft' : (Math.round(x.elev * 10) / 10) + ' m';
@@ -181,10 +181,16 @@ var DDMAP = (function () {
     // the kinds shown, the most frequent first
     var ks = Object.keys(kinds).sort(function (a, b) { return kinds[b] - kinds[a]; }), kHtml = '';
     if (ks.length) {
-      kHtml = '<div class="ddm-kinds">' + OBSICON.legendHtml(ks.slice(0, 8).map(function (k) { return [k, kinds[k].toLocaleString('en')]; }), { cls: 'ddm-k', d3: true, size: 24, fill: '#b0bec5' }) +
+      kHtml = '<div class="ddm-kinds">' + OBSICON.legendHtml(ks.slice(0, 8).map(function (k) { return [k, kinds[k].toLocaleString('en')]; }), { cls: 'ddm-k', d3: true, size: 20, fill: '#b0bec5' }) +
         (ks.length > 8 ? '<span class="ddm-k muted">+ ' + (ks.length - 8) + ' more kinds</span>' : '') + '</div>';
     }
-    legend(mm, lg, 'model: kind · size: height · red light: lighted' + (opt.onToggle ? ' · Ctrl+click: choose' : ''), kHtml);
+    legend(mm, lg, (OBSICON.mapStyle() === 'dots' ? 'size: height' : 'model: kind · size: height · red light: lighted') + (opt.onToggle ? ' · Ctrl+click: choose' : ''), OBSICON.mapStyle() === 'dots' ? '' : kHtml);
+    // models or plain dots, for every obstacle map (kept in the browser)
+    if (mm.os) mm.map.removeControl(mm.os);
+    mm.os = OBSICON.styleControl(L, mm.map, function () {
+      mm.items.forEach(function (m) { m.redraw(); });
+      legend(mm, lg, (OBSICON.mapStyle() === 'dots' ? 'size: height' : 'model: kind · size: height · red light: lighted') + (opt.onToggle ? ' · Ctrl+click: choose' : ''), OBSICON.mapStyle() === 'dots' ? '' : kHtml);
+    });
     picks(mm, opt.picked);
     fit(mm, b);
   }
@@ -207,12 +213,18 @@ var DDMAP = (function () {
     L.circleMarker(c, { renderer: mm.rend, radius: (m.options.radius || 6) + 6, color: '#b0186e', weight: 3, fill: false, interactive: false }).addTo(mm.sel);
     if (!mm.map.getBounds().pad(-0.1).contains(c)) mm.map.panTo(c);
   }
+  // the legend: a small button in the corner that opens it, so that it does not cover the map (open or closed is kept)
+  function legOpen(v) { try { if (v !== undefined) localStorage.setItem('aixm-ddmap-leg', v ? '1' : '0'); return localStorage.getItem('aixm-ddmap-leg') === '1'; } catch (e) { return !!v; } }
   function legend(mm, items, note, html) {
     if (mm.leg) mm.map.removeControl(mm.leg);
-    var lg = L.control({ position: 'bottomleft' });
+    var lg = L.control({ position: 'bottomright' });
     lg.onAdd = function () {
-      var d = L.DomUtil.create('div', 'ddm-leg');
-      d.innerHTML = items.map(function (i) { return '<span><i style="background:' + i[0] + (/^#f[a-f0-9]{5}$/i.test(i[0]) ? ';box-shadow:0 0 0 1px #8a939e inset' : '') + '"></i>' + esc(i[1]) + '</span>'; }).join('') + (note ? '<span class="muted">' + esc(note) + '</span>' : '') + (html || '');
+      var d = L.DomUtil.create('div', 'ddm-leg' + (legOpen() ? ' open' : '')), body;
+      d.innerHTML = '<button type="button" class="ddm-leg-btn" aria-expanded="' + legOpen() + '" title="Show or hide the legend">Legend</button><div class="ddm-leg-body"></div>';
+      body = d.lastChild;
+      L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d);
+      d.firstChild.onclick = function () { var o = !d.classList.contains('open'); d.classList.toggle('open', o); this.setAttribute('aria-expanded', o); legOpen(o); };
+      body.innerHTML = items.map(function (i) { return '<span><i style="background:' + i[0] + (/^#f[a-f0-9]{5}$/i.test(i[0]) ? ';box-shadow:0 0 0 1px #8a939e inset' : '') + '"></i>' + esc(i[1]) + '</span>'; }).join('') + (note ? '<span class="muted">' + esc(note) + '</span>' : '') + (html || '');
       return d;
     };
     lg.addTo(mm.map); mm.leg = lg;

@@ -43,6 +43,13 @@ NOT FOR NAVIGATION OR AIRCRAFT PERFORMANCE — indicative study figures.
   3D grid), heights and altitudes in feet (metres on request), threshold crossing height entered in feet; ICAO
   definitions keep their metres and kilometres with the NM beside them; the obstacle maps have a scale in NM (and feet
   when zoomed in).
+- **Airport obstacles and a Models / Dots switch**: models for the airport environment — aerodrome sign (mandatory and
+  direction parts), light mast / street light, wind cone, approach and runway light bars, ILS localizer and glide path,
+  VOR / DVOR, radar, control tower, hangar — and for electric poles (crossarm, insulators, lines), cooling and water
+  towers, plants, stadiums and walls / fences (34 kinds); the kind read from whole words, the type before the name, the
+  name only making a general type more precise (an electric pole named after its street is no longer a tree, ASPIRE
+  TOWER no longer a minaret), every AIXM obstacle type mapped; smaller models; a Models / Dots switch on every obstacle
+  map (kept in the browser, followed by the report pictures); the map legend folded into a button in the corner.
 - **Obstacles as 3D models of their kind** on the obstacle map of the Digital data tab and on the map of the analysis:
   building with its windows, lattice tower, guyed mast, tower crane (jib, counter-jib, hook), wind turbine, tree,
   red and white chimney with smoke, pole, pylon with its lines, tank, dome, minaret, rig, arch bridge, tethered

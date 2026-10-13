@@ -99,16 +99,16 @@ var FLTSCENE = (function () {
     function tip(lines) { return lines.filter(Boolean).map(function (l, i) { return i ? esc(l) : '<b>' + esc(l) + '</b>'; }).join('<br>'); }
     var draw = {
       obstacles: function (g, ly) {
-        var many = ly.items.length > (spec.iconMax || 1500), tags = 0;
+        var dots = OBSICON.mapStyle() === 'dots', many = ly.items.length > (spec.iconMax || 1500), tags = 0;
         // the most relevant first (worst result, then highest): icons for those, small dots for the rest of a very large set
         var order = ly.items.slice().sort(function (a, b) { var r = { error: 0, warning: 1, caution: 2, ok: 3, info: 4 }; return (r[a.sev] === undefined ? 5 : r[a.sev]) - (r[b.sev] === undefined ? 5 : r[b.sev]) || (b.hgt || 0) - (a.hgt || 0); });
         order.forEach(function (o, i) {
           var col = SEV[o.sev] || '#546e7a', m;
-          if (!many || i < (spec.iconMax || 1500)) {
+          if (!dots && (!many || i < (spec.iconMax || 1500))) {
             // the 3D model of its kind standing on the position, on a pad in the colour of the result
-            var s = Math.round(Math.max(28, Math.min(46, 24 + Math.sqrt(Math.max(0, o.hgt || 0)) * 1.8))), w = Math.round(s * 0.8);
+            var s = Math.round(Math.max(22, Math.min(36, 20 + Math.sqrt(Math.max(0, o.hgt || 0)) * 1.4))), w = Math.round(s * 0.8);
             m = L.marker(ll(o.c), { icon: L.divIcon({ className: 'fs-ic', html: OBSICON.svg3d(o.kind || kindOf(o.type, o.label), { h: s, fill: col, notam: o.notam, lit: o.lit }), iconSize: [w, s], iconAnchor: [w / 2, s * 0.9], tooltipAnchor: [w * 0.35, -s * 0.45] }), riseOnHover: true, zIndexOffset: { error: 900, warning: 600, caution: 300 }[o.sev] || 0 });
-          } else m = L.circleMarker(ll(o.c), { renderer: rend, radius: 3, color: col, weight: 1, fillColor: col, fillOpacity: 0.8 });
+          } else m = L.circleMarker(ll(o.c), { renderer: rend, radius: dots ? Math.max(3.5, Math.min(8, 3 + Math.sqrt(Math.max(0, o.hgt || 0)) * 0.45)) : 3, color: dots ? '#fff' : col, weight: 1, fillColor: col, fillOpacity: 0.9 });
           m.bindTooltip(tip([o.label].concat(o.sub || [])), { direction: 'top', className: 'fs-tip' });
           if (o.tag && tags++ < (spec.mapTags || 3)) m.bindTooltip(esc(o.tag), { permanent: true, direction: 'right', className: 'fs-tag', offset: [12, 0] });
           else if (o.tag) m.bindTooltip(tip([o.label].concat(o.sub || [])), { direction: 'top', className: 'fs-tip' });
@@ -146,6 +146,11 @@ var FLTSCENE = (function () {
       if (ly.on !== false && ly.map !== false) g.addTo(map);
     });
     OBSICON.scaleNM(L, map);
+    // models or plain dots (the same choice on every obstacle map)
+    if ((spec.layers || []).some(function (ly) { return ly.kind === 'obstacles'; })) OBSICON.styleControl(L, map, function () {
+      if (dead) return;
+      (spec.layers || []).forEach(function (ly) { var g = groups[ly.id]; if (ly.kind !== 'obstacles' || !g) return; g.clearLayers(); try { draw.obstacles(g, ly); } catch (e) { /* left out */ } });
+    });
     var bb = spec.focus || spec.bbox;
     if (bb) map.fitBounds([[bb[1], bb[0]], [bb[3], bb[2]]], { padding: [24, 24] }); else map.setView([20, 0], 2);
     if (spec.focus && spec.bbox) { // a button back to the whole picture
@@ -232,7 +237,7 @@ var FLTSCENE = (function () {
       }
       case 'tree': cyl(W * 0.05, W * 0.07, H * 0.3, 0, 6, st.glow ? col : '#6d4c41'); cone(W * 0.32, H * 0.75, H * 0.25, 9); break;
       case 'stack': { cyl(W * 0.1, W * 0.14, H, 0, 14); if (!st.glow) for (var k = 0; k < 3; k++) cyl(W * 0.105, W * 0.11, H * 0.06, H * (0.72 + k * 0.1), 14, k % 2 ? '#fafafa' : '#e53935'); break; }
-      case 'pole': cyl(W * 0.025, W * 0.035, H, 0, 6); box(W * 0.25, H * 0.01, W * 0.02, H * 0.92); break;
+      case 'pole': cyl(W * 0.03, W * 0.04, H, 0, 6, st.glow ? col : '#8d6e63'); box(W * 0.5, H * 0.03, W * 0.04, H * 0.88, 0, 0, st.glow ? col : '#6d4c41'); break;
       case 'pylon': cyl(W * 0.04, W * 0.3, H, 0, 4); box(W * 0.9, H * 0.015, W * 0.04, H * 0.86); box(W * 0.65, H * 0.015, W * 0.04, H * 0.7); break;
       case 'tank': cyl(W * 0.42, W * 0.42, H * 0.85, 0, 18); { var d = new THREE.Mesh(new THREE.SphereGeometry(W * 0.42, 18, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat(st, body)); d.scale.y = (H * 0.15) / (W * 0.42); d.position.y = H * 0.85; withEdges(g, d, st, col); } break;
       case 'dome': { var dm = new THREE.Mesh(new THREE.SphereGeometry(W * 0.5, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat(st, body)); dm.scale.y = H / (W * 0.5); withEdges(g, dm, st, col); break; }
@@ -242,7 +247,33 @@ var FLTSCENE = (function () {
       case 'balloon': { var ln = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, H * 0.8, 0)]), lineMat(st, col)); g.add(ln); var bb = ball(W * 0.25, H * 0.88, st.glow ? col : '#eceff1'); bb.scale.y = 1.4; break; }
       case 'lighthouse': cyl(W * 0.12, W * 0.2, H * 0.85, 0, 14, st.glow ? col : '#eceff1'); cyl(W * 0.14, W * 0.14, H * 0.1, H * 0.85, 10, st.glow ? col : '#ffee58'); cone(W * 0.16, H * 0.05, H * 0.95, 10, top); break;
       case 'peak': cone(W * 0.9, H, 0, 7); break;
-      case 'sign': cyl(W * 0.03, W * 0.03, H * 0.6, 0, 6); box(W * 0.7, H * 0.4, W * 0.04, H * 0.6); break;
+      case 'sign': box(W * 0.04, H * 0.3, W * 0.04, 0, -W * 0.3); box(W * 0.04, H * 0.3, W * 0.04, 0, W * 0.3); box(W * 0.9, H * 0.7, W * 0.1, H * 0.3, 0, 0, st.glow ? col : '#ffd600'); if (!st.glow) box(W * 0.35, H * 0.62, W * 0.11, H * 0.34, -W * 0.25, 0, '#d50000'); break;
+      case 'lamp': cyl(W * 0.025, W * 0.035, H, 0, 6); box(W * 0.45, H * 0.06, W * 0.1, H * 0.94, 0, 0, st.glow ? col : '#fff59d'); break;
+      case 'windsock': {
+        cyl(W * 0.025, W * 0.03, H, 0, 6);
+        var sock = new THREE.Mesh(new THREE.ConeGeometry(W * 0.1, W * 0.55, 12, 1, true), mat(st, st.glow ? col : '#ff6d00')); sock.rotation.z = Math.PI / 2; sock.position.set(W * 0.3, H * 0.95, 0); withEdges(g, sock, st, col); break;
+      }
+      case 'als': cyl(W * 0.03, W * 0.03, H * 0.9, 0, 6, st.glow ? col : '#ef6c00'); box(W * 0.9, H * 0.08, W * 0.05, H * 0.9); ball(W * 0.05, H, st.glow ? col : '#fffde7'); break;
+      case 'loc': { box(W * 1.5, H * 0.25, W * 0.06, H * 0.25); for (var a1 = 0; a1 < 6; a1++) box(W * 0.05, H * 0.5, W * 0.08, H * 0.5, -W * 0.65 + a1 * W * 0.26, 0); break; }
+      case 'gp': cyl(W * 0.04, W * 0.06, H, 0, 6); for (var a2 = 0; a2 < 3; a2++) box(W * 0.18, H * 0.06, W * 0.08, H * (0.45 + a2 * 0.2), -W * 0.1, 0, st.glow ? col : '#eceff1'); box(W * 0.4, H * 0.18, W * 0.3, 0, W * 0.3, 0); break;
+      case 'vor': box(W * 0.4, H * 0.45, W * 0.4, 0); cyl(W * 0.75, W * 0.75, H * 0.06, H * 0.45, 24); cone(W * 0.12, H * 0.49, H * 0.51, 8, st.glow ? col : '#eceff1'); break;
+      case 'radar': {
+        cyl(W * 0.12, W * 0.18, H * 0.8, 0, 8);
+        var rot = new THREE.Group(); rot.position.y = H * 0.88;
+        var dish = new THREE.Mesh(new THREE.BoxGeometry(W * 0.9, H * 0.12, W * 0.05), mat(st, st.glow ? col : '#eceff1')); withEdges(rot, dish, st, col);
+        g.add(rot); g.userData.slew = rot; break;
+      }
+      case 'ctower': cyl(W * 0.12, W * 0.15, H * 0.75, 0, 8); cyl(W * 0.32, W * 0.26, H * 0.18, H * 0.75, 8, st.glow ? col : '#4fc3f7'); cyl(W * 0.34, W * 0.34, H * 0.05, H * 0.93, 8); break;
+      case 'hangar': {
+        box(W * 1.4, H * 0.6, W, 0);
+        var roof = new THREE.Mesh(new THREE.CylinderGeometry(W * 0.5, W * 0.5, W * 1.4, 16, 1, false, 0, Math.PI), mat(st, body)); roof.rotation.z = Math.PI / 2; roof.rotation.y = Math.PI / 2;
+        roof.scale.set(1, 1, (H * 0.4) / (W * 0.5)); roof.position.y = H * 0.6; withEdges(g, roof, st, col); break;
+      }
+      case 'cooling': cyl(W * 0.36, W * 0.5, H, 0, 20); break;
+      case 'watertower': cyl(W * 0.06, W * 0.08, H * 0.7, 0, 8); cyl(W * 0.35, W * 0.35, H * 0.25, H * 0.7, 16); cone(W * 0.37, H * 0.05, H * 0.95, 16); break;
+      case 'utility': box(W * 1.2, H * 0.4, W * 0.9, 0); cyl(W * 0.08, W * 0.1, H, 0, 10, st.glow ? col : '#e53935', W * 0.4); break;
+      case 'stadium': { cyl(W * 0.95, W * 1, H * 0.3, 0, 28); for (var a3 = 0; a3 < 4; a3++) { var mx = (a3 < 2 ? -1 : 1) * W * 0.85, mz = (a3 % 2 ? -1 : 1) * W * 0.5, mm = new THREE.Mesh(new THREE.CylinderGeometry(W * 0.02, W * 0.03, H, 6), mat(st, body)); mm.position.set(mx, H / 2, mz); withEdges(g, mm, st, col); } break; }
+      case 'wall': box(W * 2.2, H, W * 0.08, 0); break;
       case 'monument': { var ob = new THREE.Mesh(new THREE.CylinderGeometry(W * 0.06, W * 0.14, H, 4), mat(st, body)); ob.position.y = H / 2; ob.rotation.y = Math.PI / 4; withEdges(g, ob, st, col); break; }
       default: cyl(W * 0.08, W * 0.08, H, 0, 10); ball(W * 0.1, H, top);
     }

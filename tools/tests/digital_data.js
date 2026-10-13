@@ -75,6 +75,14 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   // obstacles drawn as the icon of their kind, the kinds in the legend
   const icons = await page.evaluate(() => { const mm = document.querySelector('.ov-map')._ddmap, k = {}; mm.items.forEach((m) => { k[m.options.kind] = 1; }); return { n: mm.items.length, glyph: mm.items.filter((m) => m._glyph && m._glyph()).length, kinds: Object.keys(k), legend: document.querySelectorAll('.ddm-kinds .ddm-k svg').length }; });
   if (!icons.n || icons.glyph !== icons.n || icons.kinds.length < 3 || !icons.legend) fails.push('obstacle icons by kind: ' + JSON.stringify(icons));
+  // the Models / Dots switch: dots for every obstacle, then models again; the legend opens from its button
+  await page.click('.ov-map .obs-style [data-os="dots"]');
+  const dotsDrawn = await page.evaluate(() => document.querySelector('.ov-map')._ddmap.items.filter((m) => m._glyph()).length);
+  await page.click('.ov-map .obs-style [data-os="models"]');
+  await page.click('.ov-map .ddm-leg-btn');
+  const legOpen = await page.evaluate(() => document.querySelector('.ov-map .ddm-leg').classList.contains('open'));
+  await page.click('.ov-map .ddm-leg-btn');
+  if (dotsDrawn !== 0 || !legOpen) fails.push('dots switch / legend button: ' + JSON.stringify({ dotsDrawn, legOpen }));
   const marks = async () => page.evaluate(() => { const m = document.querySelector('.ov-map'); return m ? document.querySelectorAll('.ov-tbl tbody tr').length : -1; });
   const before = await marks();
   await page.fill('[data-ovf="minH"]', '30'); await page.waitForTimeout(600);

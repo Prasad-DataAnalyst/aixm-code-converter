@@ -286,7 +286,7 @@ var STUDY = (function () {
     var placed = [];
     (opt.points || []).forEach(function (pt) {
       var q = P(pt.c), r = pt.r || 5, up = r;
-      if (pt.kind && typeof OBSICON !== 'undefined') {
+      if (pt.kind && typeof OBSICON !== 'undefined' && OBSICON.mapStyle() !== 'dots') {
         var s3 = Math.round(Math.max(0.7, Math.min(1.6, r / 4.2)) * 10) / 10;
         if (pt.ring) { ctx.beginPath(); ctx.ellipse(q[0], q[1], 15 * s3, 6.5 * s3, 0, 0, 2 * Math.PI); ctx.strokeStyle = '#b0186e'; ctx.lineWidth = 3; ctx.stroke(); }
         OBSICON.draw3d(ctx, pt.kind, q[0], q[1], s3, { fill: pt.color || '#1d4e89', lit: pt.lit });

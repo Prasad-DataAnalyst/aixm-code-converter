@@ -22,18 +22,69 @@ var OBSICON = (function () {
   'use strict';
   function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   var KIND_NAME = { building: 'Building', tower: 'Tower', antenna: 'Antenna / mast', crane: 'Crane', windmill: 'Wind turbine', tree: 'Tree / vegetation', stack: 'Chimney / stack',
-    pole: 'Pole', pylon: 'Pylon / power line', tank: 'Tank / silo', dome: 'Dome', spire: 'Spire / minaret', rig: 'Rig / platform', bridge: 'Bridge / arch', balloon: 'Tethered balloon',
-    lighthouse: 'Lighthouse', peak: 'Terrain / high point', sign: 'Sign', monument: 'Monument', other: 'Other obstacle' };
-  // the kind of an obstacle from its type (AIXM CodeVerticalStructureType, OTHER:…, DOF types) and its name
-  var RULES = [[/WIND ?(MILL|TURBINE|FARM)|WTG/, 'windmill'], [/CRANE/, 'crane'], [/TREE|VEGETATION|FOREST|PALM/, 'tree'], [/STACK|CHIMNEY|FLARE/, 'stack'], [/TRANSMISSION|CATENARY|CABLE|PYLON|T-L TWR|POWER ?LINE/, 'pylon'],
-    [/ANTENNA|NAVAID|MAST|AERIAL|TELECOM|RADAR/, 'antenna'], [/LIGHTHOUSE|LGTHOUSE/, 'lighthouse'], [/COOLING|WATER_TOWER|STORAGE_TANK|TANK|SILO|GRAIN|ELEVATOR/, 'tank'], [/DOME/, 'dome'],
-    [/SPIRE|MINARET|STEEPLE/, 'spire'], [/RIG|PLATFORM|DERRICK|REFINERY/, 'rig'], [/BRIDGE|ARCH/, 'bridge'], [/BALLOON|KITE/, 'balloon'], [/NATURAL|HIGHPOINT|TERRAIN|PEAK|HILL/, 'peak'],
-    [/SIGN/, 'sign'], [/MONUMENT|STATUE|OBELISK/, 'monument'], [/POLE|LAMP|ELECTRICAL_EXIT/, 'pole'], [/TOWER|TWR/, 'tower'],
-    [/BUILDING|BLDG|HANGAR|STADIUM|URBAN|INDUSTRIAL|POWER_PLANT|NUCLEAR|TERMINAL|HOTEL|HOUSE|WALL|FENCE|GATE/, 'building']];
+    pole: 'Electric / utility pole', pylon: 'Pylon / power line', tank: 'Tank / silo', dome: 'Dome', spire: 'Spire / minaret', rig: 'Rig / platform', bridge: 'Bridge / arch', balloon: 'Tethered balloon',
+    lighthouse: 'Lighthouse', peak: 'Terrain / high point', sign: 'Aerodrome sign / board', monument: 'Monument',
+    lamp: 'Light mast / street light', windsock: 'Wind cone (windsock)', als: 'Approach / runway lights', loc: 'ILS localizer', gp: 'ILS glide path', vor: 'VOR / DVOR', radar: 'Radar',
+    ctower: 'Control tower', hangar: 'Hangar', cooling: 'Cooling tower', watertower: 'Water tower', utility: 'Plant / utility', stadium: 'Stadium', wall: 'Wall / fence',
+    other: 'Other obstacle' };
+  // The kind of an obstacle, from its type (AIXM CodeVerticalStructureType, OTHER:…, FAA DOF, eTOD tables) and its name.
+  // Whole words only (STREET is not a TREE, ASPIRE not a SPIRE, RIGHT not a RIG); the type first, the name after it:
+  // the name may make a general type more precise (a POLE named LIGHT POLE is a light mast, a NAVAID named LOCALIZER the
+  // localizer), never change it to something else (a BUILDING named BUILDING SPIRE stays a building).
+  var TYPE = { AG_EQUIP: 'other', ANTENNA: 'antenna', ARCH: 'bridge', BRIDGE: 'bridge', BUILDING: 'building', CABLE_CAR: 'pylon', CATENARY: 'pylon', COMPRESSED_AIR_SYSTEM: 'utility',
+    CONTROL_MONITORING: 'antenna', CONTROL_TOWER: 'ctower', COOLING_TOWER: 'cooling', DAM: 'wall', DOME: 'dome', ELECTRICAL_EXIT_LIGHT: 'lamp', ELECTRICAL_SYSTEM: 'pole', ELEVATOR: 'tank',
+    FENCE: 'wall', FUEL_SYSTEM: 'tank', GATE: 'wall', GENERAL_UTILITY: 'utility', GRAIN_ELEVATOR: 'tank', HEAT_COOL_SYSTEM: 'utility', INDUSTRIAL_SYSTEM: 'utility', LIGHTHOUSE: 'lighthouse',
+    MONUMENT: 'monument', NATURAL_GAS_SYSTEM: 'tank', NATURAL_HIGHPOINT: 'peak', NAVAID: 'antenna', NUCLEAR_REACTOR: 'cooling', POLE: 'pole', POWER_PLANT: 'utility', REFINERY: 'utility',
+    RIG: 'rig', SALTWATER_SYSTEM: 'utility', SIGN: 'sign', SPIRE: 'spire', STACK: 'stack', STADIUM: 'stadium', STORAGE_TANK: 'tank', TANK: 'tank', TETHERED_BALLOON: 'balloon', TOWER: 'tower',
+    TRAMWAY: 'pylon', TRANSMISSION_LINE: 'pylon', TREE: 'tree', URBAN: 'building', VEGETATION: 'tree', WALL: 'wall', WASTEWATER_SYSTEM: 'utility', WATER_SYSTEM: 'utility',
+    WATER_TOWER: 'watertower', WINDMILL: 'windmill', WINDMILL_FARMS: 'windmill' };
+  // words and phrases, the most precise first
+  var WORDS = [
+    ['ctower', 'CONTROL TOWER|CTRL TWR|ATC TOWER|ATC TWR|ATC|AIRPORT TOWER|TOWER CAB|CONTROL TWR'],
+    ['cooling', 'COOLING TOWER|COOLING TOWERS|COOL TWR|COOLING TWR|NUCLEAR REACTOR'],
+    ['watertower', 'WATER TOWER|WATER TWR|WATERTOWER|ELEVATED TANK|ELEVATED WATER TANK'],
+    ['windsock', 'WINDSOCK|WIND SOCK|WIND CONE|WINDCONE|WIND DIRECTION INDICATOR|WDI|WIND TEE|WIND T|WIND INDICATOR|WIND SLEEVE'],
+    ['als', 'APPROACH LIGHT|APPROACH LIGHTS|APPROACH LIGHTING|APPROACH LIGHTING SYSTEM|APP LIGHT|APP LGT|APCH LGT|APCH LIGHT|ALS|ALSF|ALSF1|ALSF2|MALS|MALSF|MALSR|SALS|SSALR|ODALS|REIL|PAPI|APAPI|VASI|VASIS|LIGHT BAR|BARRETTE|CROSSBAR|LIGHTING STRUCTURE|RUNWAY LIGHT|RUNWAY LIGHTS|THRESHOLD LIGHT|THRESHOLD LIGHTS|RWY LIGHT|LGT BAR|LIGHT FRAME'],
+    ['lamp', 'LIGHT POLE|LIGHT POLES|LIGHTING POLE|LAMP POST|LAMPPOST|LAMP|LAMPS|STREET LIGHT|STREET LIGHTS|STREETLIGHT|STREET LAMP|FLOODLIGHT|FLOOD LIGHT|FLOODLIGHTS|FLOOD LIGHTS|LIGHT MAST|LIGHTING MAST|HIGH MAST|HIGHMAST|HIGH MAST LIGHT|APRON LIGHT|APRON LIGHTS|APRON FLOODLIGHT|ELECTRICAL EXIT LIGHT|TRAFFIC LIGHT|TRAFFIC LIGHTS|LIGHT TOWER'],
+    ['pylon', 'TRANSMISSION LINE|TRANSMISSION LINES|TRANSMISSION TOWER|POWER LINE|POWER LINES|POWERLINE|POWERLINES|HT LINE|HV LINE|HIGH TENSION|HIGH VOLTAGE|OHL|OVERHEAD LINE|OVERHEAD LINES|CATENARY|CABLE CAR|CABLEWAY|TRAMWAY|CABLE|CABLES|WIRE|WIRES|PYLON|PYLONS|T L TWR|TL TWR|ELECTRIC TOWER|ELECTRICITY TOWER|ELECTRICAL TOWER|POWER TOWER'],
+    ['windmill', 'WIND TURBINE|WIND TURBINES|WINDMILL|WINDMILLS|WIND MILL|WIND FARM|WINDMILL FARMS|WIND GENERATOR|WTG'],
+    ['crane', 'CRANE|CRANES|TOWER CRANE|MOBILE CRANE|DOCK CRANE|GANTRY CRANE|CRAWLER CRANE|HOIST'],
+    ['pole', 'ELECTRICAL POLE|ELECTRIC POLE|ELECTRICITY POLE|UTILITY POLE|POWER POLE|TELEPHONE POLE|TELEGRAPH POLE|WOODEN POLE|CONCRETE POLE|STEEL POLE|FLAG POLE|FLAGPOLE|FLAG|POLE|POLES|ELECTRICAL SYSTEM|ELEC SYS'],
+    ['loc', 'LOCALIZER|LOCALISER|LLZ|LOC ANTENNA|ILS LOC|ILS LLZ|LOC ARRAY|LOCALIZER ANTENNA|LOCALISER ANTENNA'],
+    ['gp', 'GLIDE PATH|GLIDEPATH|GLIDE SLOPE|GLIDESLOPE|GP|GP ANTENNA|ILS GP|GS ANTENNA|ILS GS'],
+    ['vor', 'VOR|DVOR|CVOR|VORTAC|VOR DME|DVOR DME|VOR TACAN'],
+    ['radar', 'RADAR|RADARS|ASR|SSR|PSR|MSSR|ASDE|SMR|SURFACE MOVEMENT RADAR|WEATHER RADAR|RADAR TOWER|RADAR ANTENNA'],
+    ['tree', 'TREE|TREES|PALM|PALMS|PALM TREE|PALM TREES|VEGETATION|FOREST|WOOD|WOODS|WOODLAND|BUSH|BUSHES|SHRUB|SHRUBS|HEDGE|ORCHARD|PLANTATION|GROVE'],
+    ['stack', 'STACK|STACKS|CHIMNEY|CHIMNEYS|SMOKESTACK|FLARE|FLARE STACK|FLARESTACK|EXHAUST STACK|VENT STACK'],
+    ['lighthouse', 'LIGHTHOUSE|LGTHOUSE|LIGHT HOUSE'],
+    ['spire', 'MINARET|MINARETS|SPIRE|SPIRES|STEEPLE|BELL TOWER|CHURCH TOWER|CAMPANILE'],
+    ['dome', 'DOME|DOMES|RADOME|MOSQUE|PLANETARIUM|OBSERVATORY'],
+    ['rig', 'RIG|RIGS|OIL RIG|DRILLING RIG|PLATFORM|OFFSHORE PLATFORM|OIL PLATFORM|DERRICK|JACKUP|JACK UP'],
+    ['utility', 'REFINERY|POWER PLANT|POWER STATION|PLANT|FACTORY|INDUSTRIAL|INDUSTRY|SUBSTATION|SUB STATION|UTILITY|UTILITIES|GEN UTIL|DESALINATION|PUMP STATION|PUMPING STATION|TREATMENT PLANT|WATER SYSTEM|GAS PLANT|COMPRESSOR STATION|GENERATOR'],
+    ['tank', 'TANK|TANKS|STORAGE TANK|FUEL TANK|OIL TANK|GAS TANK|SILO|SILOS|GRAIN ELEVATOR|ELEVATOR|GASHOLDER|GAS HOLDER|RESERVOIR|FUEL FARM|TANK FARM'],
+    ['bridge', 'BRIDGE|BRIDGES|ARCH|ARCHES|FLYOVER|OVERPASS|VIADUCT|FOOTBRIDGE|SKYBRIDGE|SKY BRIDGE|JET BRIDGE|AEROBRIDGE|BOARDING BRIDGE'],
+    ['balloon', 'BALLOON|TETHERED BALLOON|AEROSTAT|KITE|BLIMP'],
+    ['peak', 'NATURAL HIGHPOINT|HIGHPOINT|HIGH POINT|PEAK|SUMMIT|HILL|HILLS|MOUNTAIN|MOUNT|TERRAIN|SPOT HEIGHT|DUNE|DUNES|ROCK|CLIFF|RIDGE|MOUND'],
+    ['sign', 'SIGN|SIGNS|SIGNAGE|SIGNBOARD|SIGN BOARD|GUIDANCE SIGN|MANDATORY SIGN|INFORMATION SIGN|LOCATION SIGN|DIRECTION SIGN|TAXI SIGN|TAXIWAY SIGN|RUNWAY SIGN|DISTANCE REMAINING|DRS|BILLBOARD|BILLBOARDS|HOARDING|HOARDINGS|ADVERTISING|ADVERTISEMENT|DISPLAY BOARD|LED SCREEN|BOARD'],
+    ['monument', 'MONUMENT|STATUE|OBELISK|MEMORIAL|SCULPTURE|CLOCK TOWER|LANDMARK'],
+    ['stadium', 'STADIUM|ARENA|GRANDSTAND|SPORTS COMPLEX'],
+    ['wall', 'WALL|WALLS|FENCE|FENCES|GATE|GATES|DAM|BARRIER|BLAST FENCE|BLAST WALL|BLAST DEFLECTOR|JET BLAST DEFLECTOR|NOISE BARRIER|BERM|EMBANKMENT|LEVEE|PERIMETER FENCE|SECURITY FENCE'],
+    ['hangar', 'HANGAR|HANGARS|HANGER|MAINTENANCE HANGAR'],
+    ['tower', 'TELECOM TOWER|TELECOMMUNICATION TOWER|COMMUNICATION TOWER|COMMUNICATIONS TOWER|COMMS TOWER|MOBILE TOWER|CELL TOWER|GSM TOWER|RADIO TOWER|TV TOWER|TELEVISION TOWER|MICROWAVE TOWER|LATTICE TOWER|OBSERVATION TOWER|STEEL TOWER'],
+    ['antenna', 'ANTENNA|ANTENNAS|AERIAL|AERIALS|MAST|MASTS|COMMS MAST|RADIO MAST|NAVAID|NAVAIDS|TELECOM|TELECOMMUNICATION|COMMUNICATION|COMMUNICATIONS|COMMS|GSM|MICROWAVE|DME|NDB|TACAN|OUTER MARKER|MIDDLE MARKER|INNER MARKER|MARKER BEACON|ILS|ANEMOMETER|MET MAST|CONTROL MONITORING'],
+    ['tower', 'TOWER|TOWERS|TWR'],
+    ['building', 'BUILDING|BUILDINGS|BLDG|BLDGS|TERMINAL|HOTEL|HOUSE|HOUSES|VILLA|APARTMENT|APARTMENTS|RESIDENTIAL|OFFICE|OFFICES|MALL|SCHOOL|HOSPITAL|WAREHOUSE|SHED|STRUCTURE|URBAN|CONSTRUCTION|ROOF|ROOFTOP|PENTHOUSE|STAIRCASE|HOUSING|COMPLEX|SKYSCRAPER|HIGH RISE|HIGHRISE']
+  ].map(function (w) { return [w[0], new RegExp('(?:^| )(?:' + w[1] + ')(?= |$)')]; });
+  // a general kind may be made more precise by the name
+  var REFINE = { pole: ['lamp', 'windsock', 'als', 'sign'], tower: ['ctower', 'cooling', 'watertower', 'pylon', 'lamp', 'radar', 'lighthouse', 'monument', 'gp'],
+    building: ['hangar', 'ctower', 'stadium', 'utility', 'dome'], antenna: ['loc', 'gp', 'vor', 'radar', 'windsock', 'lamp'], sign: [], other: null };
+  function norm(t) { return ' ' + String(t || '').toUpperCase().replace(/^OTHER:/, '').replace(/[^A-Z0-9]+/g, ' ').trim() + ' '; }
+  function words(t) { t = t.trim(); if (!t) return ''; for (var i = 0; i < WORDS.length; i++) if (WORDS[i][1].test(t)) return WORDS[i][0]; return ''; }
   function kindOf(type, name) {
-    var t = String(type || '').toUpperCase().replace(/^OTHER:/, '') + ' ' + String(name || '').toUpperCase();
-    for (var i = 0; i < RULES.length; i++) if (RULES[i][0].test(t)) return RULES[i][1];
-    return 'other';
+    var t = norm(type).trim(), k = TYPE[t.replace(/ /g, '_')] || words(t), n = words(norm(name));
+    if (!k || k === 'other') return n || 'other';
+    if (n && REFINE[k] && REFINE[k].indexOf(n) >= 0) return n;
+    return k;
   }
   // the drawings, on a 24 x 24 grid, lines only
   var ICON = {
@@ -56,6 +107,20 @@ var OBSICON = (function () {
     peak: '<path d="M2 21L9 8l4 6 3-4 6 11z"/>',
     sign: '<rect x="5" y="4" width="14" height="8" rx="1"/><path d="M12 12v10M9 22h6"/>',
     monument: '<path d="M10 22l1-17 1-2.5L13 5l1 17zM8 22h8"/>',
+    lamp: '<path d="M12 7v15M9 22h6M7 3h10v4H7z"/>',
+    windsock: '<path d="M6 3v19M4 22h4M6 5l13 2.5v3.5L6 13zM10.5 5.9v6.3M15 6.8v4.6"/>',
+    als: '<path d="M12 11v11M9 22h6M3 8h18v3H3zM6.5 8v3M10 8v3M14 8v3M17.5 8v3"/>',
+    loc: '<path d="M2 15h20M4 15V8M8 15V8M12 15V8M16 15V8M20 15V8M6 15v7M18 15v7"/>',
+    gp: '<path d="M8 22V3M5 22h6M8 6h6M8 11h6M8 16h6M14 5v2M14 10v2M14 15v2"/>',
+    vor: '<path d="M2 12h20M12 12l-2.5-7h5zM5 12v10M19 12v10M9 12v10M15 12v10"/>',
+    radar: '<path d="M12 13v9M8 22h8M3 6q9 8 18 0M12 10v3"/>',
+    ctower: '<path d="M10 22V12h4v10M6.5 7h11l-1.5 5h-8zM12 7V2M7 22h10"/>',
+    hangar: '<path d="M2 21v-8q10-10 20 0v8zM7 21v-6h10v6"/>',
+    cooling: '<path d="M5 21q4.5-8 1.5-17h11q-3 9 1.5 17zM4 21h16"/>',
+    watertower: '<path d="M12 13v9M9 22h6M6 7h12v6H6zM6 7l6-4 6 4"/>',
+    utility: '<path d="M2 21h20M3 21v-8h9v8M14 21v-6h6v6M6 13V4h2v9"/>',
+    stadium: '<ellipse cx="12" cy="15" rx="10" ry="5"/><ellipse cx="12" cy="15" rx="5" ry="2.2"/><path d="M3 15V5M21 15V5"/>',
+    wall: '<path d="M2 20h20M2 12h20v8M6 12v8M10 12v8M14 12v8M18 12v8"/>',
     other: '<path d="M12 5v16M8 21h8"/><circle cx="12" cy="4.2" r="1.8"/>'
   };
   // an icon as SVG: the kind drawn in a disc (bg) ringed with a colour (the result); a NOTAM obstacle gets a warning badge
@@ -217,9 +282,10 @@ var OBSICON = (function () {
       return { p: p, top: [t[0], t[1] - 0.8] };
     },
     pole: function () {
-      var p = cyl(0, 0, 0.9, 22, 0, C.steel);
-      p.push(S(line([pt(0, 0, 21.5), pt(5, 0, 22.5)]), '#78909c', 1));
-      return { p: p.concat(box(5.6, 0, 2.6, 1.6, 1.1, 21.6, ['#eceff1', '#b0bec5', '#ffffff'])), top: pt(0, 0, 22.4) };
+      var wood = ['#8d6e63', '#6d4c41', '#a1887f'], p = cyl(0, 0, 0.8, 22, 0, wood).concat(box(0, 0, 10, 0.9, 0.9, 19.4, wood));
+      [-4, 0, 4].forEach(function (x) { p = p.concat(cyl(x, -0.2, 0.4, 1.3, 20.3, ['#cfd8dc', '#90a4ae', '#eceff1'])); });
+      [-4, 0, 4].forEach(function (x) { var q = pt(x, -0.2, 21.6); p.push(S('M0 ' + r2(q[1] + 3) + 'Q' + r2(q[0] / 2) + ' ' + r2(q[1] + 4.5) + ' ' + r2(q[0]) + ' ' + r2(q[1]) + 'Q' + r2((q[0] + 32) / 2) + ' ' + r2(q[1] + 4.5) + ' 32 ' + r2(q[1] + 3), '#37474f', 0.45)); });
+      return { p: p, top: pt(0, 0, 22) };
     },
     pylon: function () {
       var p = [], L = function (a, b, c, w) { p.push(S(line([a, b]), c, w)); };
@@ -290,14 +356,127 @@ var OBSICON = (function () {
         F(poly([[9.4, 17.2], [12, 11], [15.6, 18.4], [13.4, 17.4], [11.6, 18.8]]), '#ffffff')], top: [12, 11] };
     },
     sign: function () {
-      var p = [S(line([pt(-5, 0, 0), pt(-5, 0, 9)]), '#78909c', 1.1), S(line([pt(5, 0, 0), pt(5, 0, 9)]), '#78909c', 1.1)].concat(box(0, 0, 16, 1.4, 8, 8.5, C.green));
-      p.push(S(line([pt(-6, -0.7, 13.6), pt(6, -0.7, 13.6)]), '#e8f5e9', 0.9), S(line([pt(-6, -0.7, 11), pt(3, -0.7, 11)]), '#e8f5e9', 0.9));
-      return { p: p, top: pt(0, 0, 16.5) };
+      var p = [S(line([pt(-5, 0, 0), pt(-5, 0, 3.2)]), '#78909c', 1.1), S(line([pt(5, 0, 0), pt(5, 0, 3.2)]), '#78909c', 1.1)].concat(box(0, 0, 17, 2, 7, 3, ['#ffd600', '#b89a00', '#fff176']));
+      p.push(F(poly([pt(-8.5, -1, 3), pt(-1.8, -1, 3), pt(-1.8, -1, 10), pt(-8.5, -1, 10)]), '#d50000', true));
+      p.push(S(line([pt(-7.4, -1, 8.3), pt(-7.4, -1, 4.7)]), '#ffffff', 1), S(line([pt(-6, -1, 8.3), pt(-6, -1, 4.7), pt(-4.4, -1, 4.7)]), '#ffffff', 1), S(line([pt(-3.3, -1, 8.3), pt(-3.3, -1, 4.7)]), '#ffffff', 1));
+      p.push(S(line([pt(0, -1, 6.5), pt(6.4, -1, 6.5)]), '#111111', 1.3), S(line([pt(4.2, -1, 8.4), pt(6.4, -1, 6.5), pt(4.2, -1, 4.6)]), '#111111', 1.3));
+      return { p: p, top: pt(0, 0, 10) };
     },
     monument: function () {
       var p = box(0, 0, 9, 6, 2.5, 0, C.stone).concat(frustum(0, 0, 4, 4, 2.4, 2.4, 20, 2.5, C.stone));
       p.push(F(poly([pt(-1.2, -1.2, 22.5), pt(1.2, -1.2, 22.5), pt(0, 0, 26.5)]), '#efe7de'), F(poly([pt(1.2, -1.2, 22.5), pt(1.2, 1.2, 22.5), pt(0, 0, 26.5)]), '#b3a395'));
       return { p: p, top: pt(0, 0, 26.5) };
+    },
+    // an apron floodlight mast / street light: the mast, the head of lamps and the light it throws on the ground
+    lamp: function () {
+      var p = [F(poly([pt(-3.4, -1.2, 24.2), pt(3.4, -1.2, 24.2), [29, 37], [3, 37]]), 'rgba(255,241,118,.22)', true)].concat(cyl(0, 0, 0.75, 24, 0, C.steel), box(0, -0.4, 7.4, 1.4, 2.6, 23.6, ['#b0bec5', '#78909c', '#cfd8dc']));
+      for (var x = -2.6; x <= 2.7; x += 1.75) { var q = pt(x, -1.2, 24.9); p.push(F(ell(q[0], q[1], 0.8, 0.8), '#fff59d', true)); }
+      return { p: p, top: pt(0, 0, 26.4) };
+    },
+    // the wind direction indicator (Annex 14): a mast, the ring and the striped cone
+    windsock: function () {
+      var p = box(0, 0, 3, 3, 0.8, 0, C.steel).concat(cyl(0, 0, 0.55, 20, 0.8, C.white));
+      var r = pt(0.6, 0, 19.4), L = 12;
+      for (var i = 0; i < 5; i++) {
+        var a = i / 5, b = (i + 1) / 5, ra = 2.3 - 1.3 * a, rb = 2.3 - 1.3 * b, xa = r[0] + L * a, xb = r[0] + L * b, ya = r[1] + 2.2 * a * a, yb = r[1] + 2.2 * b * b;
+        p.push(F(poly([[xa, ya - ra], [xb, yb - rb], [xb, yb + rb], [xa, ya + ra]]), i % 2 ? '#ffffff' : '#ff6d00'));
+      }
+      p.push(F(ell(r[0] + L, r[1] + 2.2, 0.45, 1), '#bf360c', true), S(ell(r[0], r[1], 0.7, 2.4), '#455a64', 0.9));
+      return { p: p, top: pt(0, 0, 21) };
+    },
+    // approach / runway light structure: a frangible mast with a bar of lights
+    als: function () {
+      var p = cyl(0, 0, 0.6, 9, 0, C.orange).concat(box(0, 0, 14, 1, 0.9, 9, C.steel));
+      p.push(S(line([pt(-4, 0, 9), pt(0, 0, 5.5), pt(4, 0, 9)]), '#78909c', 0.6));
+      for (var x = -6; x <= 6.1; x += 3) { var q = pt(x, -0.6, 10.5); p.push(F(ell(q[0], q[1], 1.7, 1.7), 'rgba(255,255,255,.4)', true), F(ell(q[0], q[1], 0.8, 0.8), '#fffde7', true)); }
+      return { p: p, top: pt(0, 0, 11) };
+    },
+    // the ILS localizer: a row of antennas on a low frame beyond the runway end
+    loc: function () {
+      var p = [];
+      [-10, 0, 10].forEach(function (x) { p = p.concat(cyl(x, 0, 0.4, 3, 0, C.steel)); });
+      p = p.concat(box(0, 0, 23, 1.6, 1, 3, C.steel));
+      for (var i = 0; i < 8; i++) p = p.concat(box(-9.5 + i * 2.7, 0, 0.9, 1.2, 3.6, 4, C.white));
+      return { p: p, top: pt(0, 0, 7.6) };
+    },
+    // the ILS glide path: its mast with the antennas on one side and the shelter at its foot
+    gp: function () {
+      var p = box(4, 1, 6, 4, 3.4, 0, C.con).concat(frustum(0, 0, 1.6, 1.6, 1, 1, 22, 0, C.steel));
+      [9, 14.5, 20].forEach(function (z) { p = p.concat(box(-2.4, -0.4, 2.4, 1.2, 1.8, z, C.white)); p.push(S(line([pt(-1.2, -0.4, z + 0.9), pt(-0.4, 0, z + 0.9)]), '#78909c', 0.7)); });
+      return { p: p, top: pt(0, 0, 22.5) };
+    },
+    // VOR / DVOR: the shelter, the wide counterpoise on its legs, the ring of antennas and the central antenna
+    vor: function () {
+      var p = [];
+      [[-7, 3], [7, 3], [-7, -3], [7, -3]].forEach(function (q) { p = p.concat(cyl(q[0], q[1], 0.4, 5, 0, C.steel)); });
+      p = p.concat(box(0, 0, 5, 5, 4.6, 0, C.con), cyl(0, 0, 11, 0.7, 5, ['#cfd8dc', '#90a4ae', '#eceff1']));
+      for (var i = 0; i < 16; i++) { var a = i / 16 * 2 * Math.PI, q = pt(10 * Math.cos(a), 10 * Math.sin(a), 5.7); p.push(S(line([q, [q[0], q[1] - 2.2]]), '#546e7a', 0.6)); }
+      p.push(F(poly([pt(-1.8, 0, 5.7), pt(1.8, 0, 5.7), pt(0, 0, 11)]), '#eceff1'), F(poly([pt(0, 0, 5.7), pt(1.8, 0, 5.7), pt(0, 0, 11)]), '#b0bec5', true));
+      return { p: p, top: pt(0, 0, 11) };
+    },
+    // radar: the tower, its equipment room and the turning antenna
+    radar: function () {
+      var p = frustum(0, 0, 5, 5, 3.2, 3.2, 15, 0, C.steel).concat(box(0, 0, 4.4, 4.4, 2.4, 15, C.white));
+      var c = pt(0, 0, 21.5);
+      p.push(S(line([pt(0, 0, 17.4), pt(0, 0, 20)]), '#546e7a', 1.2));
+      p.push(F('M' + r2(c[0] - 8.5) + ' ' + r2(c[1] - 1) + 'Q' + r2(c[0]) + ' ' + r2(c[1] + 2.6) + ' ' + r2(c[0] + 8.5) + ' ' + r2(c[1] - 1) + 'L' + r2(c[0] + 8.5) + ' ' + r2(c[1] - 4.2) + 'Q' + r2(c[0]) + ' ' + r2(c[1] - 1.4) + ' ' + r2(c[0] - 8.5) + ' ' + r2(c[1] - 4.2) + 'Z', '#eceff1'));
+      return { p: p, top: [c[0], c[1] - 4.2] };
+    },
+    // the control tower: base building, shaft, the glass cab and its roof antenna
+    ctower: function () {
+      var p = box(0, 0, 10, 7, 3, 0, C.con).concat(frustum(0, 0, 4, 4, 3.4, 3.4, 17, 3, C.con), frustum(0, 0, 4.4, 4.4, 7.8, 7.8, 1.6, 20, C.con),
+        frustum(0, 0, 7.8, 7.8, 6.8, 6.8, 4, 21.6, ['#4fc3f7', '#0277bd', '#b3e5fc']), box(0, 0, 8.2, 8.2, 0.9, 25.6, C.white));
+      [-2, 0, 2].forEach(function (x) { p.push(S(line([pt(x * 1.7, -3.9, 21.6), pt(x * 1.5, -3.4, 25.6)]), '#01579b', 0.5)); });
+      p.push(S(line([pt(0, 0, 26.5), pt(0, 0, 31)]), '#546e7a', 0.8));
+      return { p: p, top: pt(0, 0, 31) };
+    },
+    // a hangar: walls, the arched roof and the doors
+    hangar: function () {
+      var p = box(0, 0, 21, 12, 6, 0, ['#cfd8dc', '#90a4ae', '#eceff1']);
+      var a = pt(-10.5, -6, 6), b = pt(10.5, -6, 6), a2 = pt(-10.5, 6, 6), b2 = pt(10.5, 6, 6), up = 8;
+      p.push(F('M' + r2(a[0]) + ' ' + r2(a[1]) + 'Q' + r2((a[0] + b[0]) / 2) + ' ' + r2(a[1] - up) + ' ' + r2(b[0]) + ' ' + r2(b[1]) + 'L' + r2(b2[0]) + ' ' + r2(b2[1]) + 'Q' + r2((a2[0] + b2[0]) / 2) + ' ' + r2(a2[1] - up) + ' ' + r2(a2[0]) + ' ' + r2(a2[1]) + 'Z', '#b0bec5'));
+      p.push(F('M' + r2(a[0]) + ' ' + r2(a[1]) + 'Q' + r2((a[0] + b[0]) / 2) + ' ' + r2(a[1] - up) + ' ' + r2(b[0]) + ' ' + r2(b[1]) + 'Z', '#e3e8ec'));
+      p.push(F(poly([pt(-7.5, -6, 0), pt(7.5, -6, 0), pt(7.5, -6, 6.5), pt(-7.5, -6, 6.5)]), '#78909c', true));
+      for (var x = -5; x <= 5; x += 2.5) p.push(S(line([pt(x, -6, 0), pt(x, -6, 6.5)]), '#546e7a', 0.4));
+      return { p: p, top: [(a[0] + b[0]) / 2, a[1] - up / 2] };
+    },
+    // a cooling tower: the curved shell, its open top and the steam
+    cooling: function () {
+      var b = pt(0, 0, 0), t = pt(0, 0, 20), w0 = 8.5, wm = 5, w1 = 6, ry = w0 * 0.4, mid = (b[1] + t[1]) / 2;
+      var shell = 'M' + r2(b[0] - w0) + ' ' + r2(b[1]) + 'Q' + r2(b[0] - wm * 0.7) + ' ' + r2(mid) + ' ' + r2(t[0] - w1) + ' ' + r2(t[1]) + 'L' + r2(t[0] + w1) + ' ' + r2(t[1]) + 'Q' + r2(b[0] + wm * 0.7) + ' ' + r2(mid) + ' ' + r2(b[0] + w0) + ' ' + r2(b[1]) + 'A' + r2(w0) + ' ' + r2(ry) + ' 0 0 1 ' + r2(b[0] - w0) + ' ' + r2(b[1]) + 'Z';
+      var shade = 'M' + r2(b[0] + 0.3 * w0) + ' ' + r2(b[1] + ry * 0.95) + 'Q' + r2(b[0] + 0.3 * wm * 0.7) + ' ' + r2(mid) + ' ' + r2(t[0] + 0.3 * w1) + ' ' + r2(t[1]) + 'L' + r2(t[0] + w1) + ' ' + r2(t[1]) + 'Q' + r2(b[0] + wm * 0.7) + ' ' + r2(mid) + ' ' + r2(b[0] + w0) + ' ' + r2(b[1]) + 'A' + r2(w0) + ' ' + r2(ry) + ' 0 0 1 ' + r2(b[0] + 0.3 * w0) + ' ' + r2(b[1] + ry * 0.95) + 'Z';
+      return { p: [F(shell, '#d7dde2'), F(shade, '#a7b4be', true), F(ell(t[0], t[1], w1, w1 * 0.4), '#90a4ae'), F(ell(t[0], t[1], w1 * 0.8, w1 * 0.3), '#455a64', true),
+        F(ell(t[0] + 1, t[1] - 4, 4, 3), 'rgba(236,239,241,.85)', true), F(ell(t[0] + 4, t[1] - 8.5, 4.5, 3.2), 'rgba(236,239,241,.6)', true)], top: [t[0], t[1] - 1] };
+    },
+    // a water tower: the column and the tank on it
+    watertower: function () {
+      var p = cyl(0, 0, 1.4, 16, 0, C.con).concat(cyl(0, 0, 6.5, 5.5, 16, ['#e3f2fd', '#90caf9', '#ffffff'])), t = pt(0, 0, 21.5);
+      p.push(F(poly([[t[0] - 6.5, t[1]], [t[0] + 6.5, t[1]], [t[0], t[1] - 3.2]]), '#bbdefb'));
+      return { p: p, top: [t[0], t[1] - 3.2] };
+    },
+    // a plant: the hall, its chimney with smoke, a tank and pipes
+    utility: function () {
+      var p = box(-3, 1.5, 15, 9, 7, 0, ['#d7ccc8', '#a1887f', '#efebe9']).concat(cyl(-6.5, 2.5, 1.1, 5, 7, C.red), cyl(-6.5, 2.5, 1.05, 5, 12, C.white), cyl(-6.5, 2.5, 1, 4, 17, C.red));
+      var t = pt(-6.5, 2.5, 21);
+      p.push(F(ell(t[0] + 2.2, t[1] - 2.8, 2.2, 1.8), 'rgba(176,190,197,.75)', true), F(ell(t[0] + 5, t[1] - 5.2, 2.8, 2.1), 'rgba(207,216,220,.6)', true));
+      p = p.concat(cyl(8, -2.5, 3.2, 7, 0, C.con));
+      p.push(S(line([pt(4.5, -3, 4.5), pt(6, -3, 4.5)]), '#78909c', 1.1), S(line([pt(4.5, -3, 2.5), pt(6, -3, 2.5)]), '#78909c', 1.1));
+      return { p: p, top: [t[0], t[1] - 1] };
+    },
+    // a stadium: the bowl of stands, the pitch and four floodlight masts
+    stadium: function () {
+      var p = [], mast = function (x, y) { var a = pt(x, y, 0), b = pt(x, y, 15); p.push(S(line([a, b]), '#90a4ae', 0.8), F(poly([[b[0] - 1.6, b[1] - 1.4], [b[0] + 1.6, b[1] - 1.4], [b[0] + 1.6, b[1] + 0.4], [b[0] - 1.6, b[1] + 0.4]]), '#fff59d')); };
+      mast(-11, 5); mast(11, 5);
+      p = p.concat(cyl(0, 0, 13, 5, 0, ['#cfd8dc', '#90a4ae', '#b0bec5']));
+      var t = pt(0, 0, 5); p.push(F(ell(t[0], t[1] + 0.4, 10, 3.8), '#78909c', true), F(ell(t[0], t[1] + 0.9, 7.5, 2.6), '#43a047', true));
+      mast(-11, -5); mast(11, -5);
+      return { p: p, top: pt(11, -5, 15) };
+    },
+    // a wall or fence (blast fence, perimeter fence, dam)
+    wall: function () {
+      var p = box(0, 0, 24, 1.2, 5, 0, ['#bdbdbd', '#8d8d8d', '#e0e0e0']);
+      for (var x = -11; x < 11; x += 2) p.push(S(line([pt(x, -0.6, 0.3), pt(x + 2, -0.6, 4.7)]), '#9e9e9e', 0.4), S(line([pt(x + 2, -0.6, 0.3), pt(x, -0.6, 4.7)]), '#9e9e9e', 0.4));
+      return { p: p, top: pt(0, 0, 5) };
     },
     other: function () {
       var p = [];
@@ -375,7 +554,31 @@ var OBSICON = (function () {
     };
     return ctl.addTo(map);
   }
+  /* ------------------------------------------------------------ models or dots */
+  // how the obstacle maps draw obstacles: 'models' (the 3D model of the kind) or 'dots' (plain dots, the colour of the
+  // result); one choice for every map, kept in the browser
+  var KEY = 'aixm-obs-style', cur = null;
+  function mapStyle(v) {
+    if (cur === null) { try { cur = localStorage.getItem(KEY) === 'dots' ? 'dots' : 'models'; } catch (e) { cur = 'models'; } }
+    if (v === 'models' || v === 'dots') { cur = v; try { localStorage.setItem(KEY, v); } catch (e) { /* storage unavailable */ } }
+    return cur;
+  }
+  // the switch on a Leaflet map (Ll: Leaflet of its window): Models | Dots; onChange(style) redraws the obstacles
+  function styleControl(Ll, map, onChange, position) {
+    var ctl = Ll.control({ position: position || 'topleft' });
+    ctl.onAdd = function () {
+      var d = Ll.DomUtil.create('div', 'obs-style');
+      d.setAttribute('role', 'group'); d.setAttribute('aria-label', 'Obstacles drawn as');
+      d.innerHTML = '<button type="button" data-os="models" title="Obstacles as 3D models of their kind">Models</button><button type="button" data-os="dots" title="Obstacles as plain dots">Dots</button>';
+      function mark() { d.querySelectorAll('button').forEach(function (b) { var on = b.getAttribute('data-os') === mapStyle(); b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); }
+      mark();
+      Ll.DomEvent.disableClickPropagation(d);
+      d.addEventListener('click', function (e) { var b = e.target.closest('[data-os]'); if (!b || b.getAttribute('data-os') === mapStyle()) return; mapStyle(b.getAttribute('data-os')); mark(); onChange(mapStyle()); });
+      return d;
+    };
+    return ctl.addTo(map);
+  }
   return { KIND_NAME: KIND_NAME, kindOf: kindOf, ICON: ICON, svg: svg, legendHtml: legendHtml, draw: draw, pathOf: pathOf, light: light,
-    svg3d: svg3d, parts3d: parts3d, paint3d: paint3d, draw3d: draw3d, scaleNM: scaleNM };
+    svg3d: svg3d, parts3d: parts3d, paint3d: paint3d, draw3d: draw3d, scaleNM: scaleNM, mapStyle: mapStyle, styleControl: styleControl };
 })();
 if (typeof module !== 'undefined') module.exports = OBSICON;

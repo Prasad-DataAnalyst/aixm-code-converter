@@ -13,6 +13,31 @@ test('kind of an obstacle from its type and name (AIXM, eTOD tables, FAA DOF, NO
   cases.forEach(([t, n, k]) => assert.equal(I.kindOf(t, n), k, t + ' / ' + n));
 });
 
+test('kind: whole words, the type first, the name only making a general type more precise; airport kinds', () => {
+  const cases = [
+    // words inside other words are not read (STREET is no TREE, ASPIRE no SPIRE, RIGHT no RIG, DOMESTIC no DOME)
+    ['', 'ELECTRICAL POLE STREET 5', 'pole'], ['POLE', 'STREET 12', 'pole'], ['TOWER', 'ASPIRE TOWER', 'tower'], ['', 'RIGHT OF WAY', 'other'], ['BUILDING', 'DOMESTIC TERMINAL', 'building'],
+    // the type comes first; the name refines it, never replaces it
+    ['BUILDING', 'BUILDING SPIRE LIT', 'building'], ['BUILDING', 'BUILDING_HOIST', 'building'], ['BUILDING', 'HANGAR 3', 'hangar'], ['POLE', 'STREET LIGHT POLE', 'lamp'], ['POLE', 'WIND SOCK 27', 'windsock'],
+    ['TOWER', 'CONTROL TOWER', 'ctower'], ['TOWER', 'WATER TOWER', 'watertower'], ['STACK', 'FLARE_STACK', 'stack'], ['OTHER:CRANE', 'DOCK CRANE', 'crane'], ['ANTENNA', 'COMMS MAST LIT', 'antenna'],
+    // airport obstacles
+    ['', 'TAXIWAY GUIDANCE SIGN', 'sign'], ['SIGN', '', 'sign'], ['', 'APRON FLOODLIGHT MAST', 'lamp'], ['', 'APPROACH LIGHT STRUCTURE', 'als'], ['', 'PAPI 09L', 'als'], ['', 'WINDSOCK', 'windsock'],
+    ['NAVAID', 'LOCALIZER 27R', 'loc'], ['NAVAID', 'GLIDE PATH 09L', 'gp'], ['NAVAID', 'DVOR/DME', 'vor'], ['ANTENNA', 'RADAR SSR', 'radar'], ['NAVAID', 'NDB', 'antenna'], ['', 'ATC TOWER', 'ctower'],
+    // AIXM types
+    ['CONTROL_TOWER', '', 'ctower'], ['COOLING_TOWER', '', 'cooling'], ['WATER_TOWER', '', 'watertower'], ['ELECTRICAL_SYSTEM', '', 'pole'], ['ELECTRICAL_EXIT_LIGHT', '', 'lamp'], ['FENCE', '', 'wall'],
+    ['STADIUM', '', 'stadium'], ['POWER_PLANT', '', 'utility'], ['TRANSMISSION_LINE', '', 'pylon'], ['NAVAID', '', 'antenna'], ['', 'PALM TREE', 'tree'], ['', 'STREET', 'other']];
+  cases.forEach(([t, n, k]) => assert.equal(I.kindOf(t, n), k, t + ' / ' + n));
+});
+
+test('models or dots: one choice, kept', () => {
+  global.localStorage = { v: {}, getItem(k) { return this.v[k] || null; }, setItem(k, v) { this.v[k] = v; } };
+  try {
+    assert.equal(I.mapStyle(), 'models');
+    assert.equal(I.mapStyle('dots'), 'dots'); assert.equal(I.mapStyle(), 'dots'); assert.equal(global.localStorage.v['aixm-obs-style'], 'dots');
+    assert.equal(I.mapStyle('nonsense'), 'dots'); assert.equal(I.mapStyle('models'), 'models');
+  } finally { delete global.localStorage; }
+});
+
 test('every kind has a name, an SVG icon and one path for the canvas', () => {
   Object.keys(I.KIND_NAME).forEach((k) => {
     assert.ok(I.ICON[k], 'drawing of ' + k);
