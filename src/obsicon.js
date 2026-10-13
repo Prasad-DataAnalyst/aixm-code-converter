@@ -15,6 +15,7 @@
  *              svg3d (SVG: the map of the flight and obstacle analysis, legends) and draw3d (canvas: the obstacle map
  *              of the Digital data tab, which may show 100 000 and more obstacles; each model is drawn once and stamped)
  *   badge      the kind as a line drawing in a disc (svg, draw)
+ * and the scale bar of the obstacle maps in nautical miles (and feet when zoomed in): scaleNM.
  * Plain functions and data only, so it also runs in a separate window.
  * ========================================================================== */
 var OBSICON = (function () {
@@ -353,7 +354,28 @@ var OBSICON = (function () {
     if (typeof Path2D !== 'function' || typeof document === 'undefined') { draw(ctx, kind, x, y - 12 * sc, 11 * sc, o); return; }
     ctx.drawImage(sprite(kind, o, sc), x - 17 * sc, y - 37 * sc, 34 * sc, 42 * sc);
   }
+  /* ------------------------------------------------------------ scale */
+  // the scale bar of the obstacle maps in nautical miles (aviation use), with a line in feet when zoomed in below 1 NM;
+  // Ll: Leaflet (of the window the map is in)
+  function scaleNM(Ll, map, position) {
+    var ctl = Ll.control({ position: position || 'bottomleft' });
+    ctl.onAdd = function () {
+      var d = Ll.DomUtil.create('div', 'leaflet-control-scale'), nm = Ll.DomUtil.create('div', 'leaflet-control-scale-line', d), ft = Ll.DomUtil.create('div', 'leaflet-control-scale-line', d);
+      var round = function (v) { var p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p; return (n >= 5 ? 5 : n >= 2 ? 2 : 1) * p; };
+      function update() {
+        var y = map.getSize().y / 2, maxPx = 110, m = map.distance(map.containerPointToLatLng([0, y]), map.containerPointToLatLng([maxPx, y]));
+        if (!(m > 0)) return;
+        var n = round(m / 1852);
+        nm.style.width = Math.round(maxPx * n * 1852 / m) + 'px'; nm.textContent = +n.toFixed(3) + ' NM';
+        var f = round(m / 0.3048);
+        ft.style.display = m < 1852 ? '' : 'none'; ft.style.width = Math.round(maxPx * f * 0.3048 / m) + 'px'; ft.textContent = f.toLocaleString('en-US') + ' ft';
+      }
+      map.on('move zoom resize', update); map.whenReady(update);
+      return d;
+    };
+    return ctl.addTo(map);
+  }
   return { KIND_NAME: KIND_NAME, kindOf: kindOf, ICON: ICON, svg: svg, legendHtml: legendHtml, draw: draw, pathOf: pathOf, light: light,
-    svg3d: svg3d, parts3d: parts3d, paint3d: paint3d, draw3d: draw3d };
+    svg3d: svg3d, parts3d: parts3d, paint3d: paint3d, draw3d: draw3d, scaleNM: scaleNM };
 })();
 if (typeof module !== 'undefined') module.exports = OBSICON;

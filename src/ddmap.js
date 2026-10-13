@@ -63,7 +63,7 @@ var DDMAP = (function () {
       return d;
     };
     ctl.addTo(map);
-    L.control.scale({ imperial: false }).addTo(map);
+    OBSICON.scaleNM(L, map); // nautical miles (feet when zoomed in), as in aviation
     map.on('moveend', function () { views[key] = { c: map.getCenter(), z: map.getZoom() }; });
     return mm;
   }

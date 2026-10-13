@@ -8,7 +8,7 @@
 // - NOTAM text: an obstacle on the departure path becomes the limiting obstacle; a restricted area by NOTAM and a
 //   runway closure are read; "Add to the data loaded" makes them files of the data;
 // - every report: PDF, Excel, CSV, KML, GeoJSON, DXF, e-mail draft, copy for e-mail.
-/* global FLTVIEW, FLTCALC, FLTSCENE, AX */
+/* global FLTVIEW, FLTCALC, FLTSCENE, AX, THREE */
 const env = require('./_env');
 const fs = require('fs');
 const ROOT = env.ROOT, OUT = env.out('flight_analysis'), T = ROOT + '/testdata/';
@@ -43,6 +43,9 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   if (!/gradient|obstacle|Clear|CLEAR/.test(c.txt) || c.kpi < 4) fails.push('take-off card: ' + JSON.stringify(c));
   const icons = await page.evaluate(() => document.querySelectorAll('.flt-stage .fs-ic svg').length);
   if (!icons) fails.push('no obstacle icons on the map');
+  // aviation units: distances in nautical miles, heights in feet
+  const units = await page.evaluate(() => ({ cell: (document.querySelector('.flt-t tbody tr td:nth-child(4)') || {}).textContent || '', top: (document.querySelector('.flt-t tbody tr td:nth-child(6)') || {}).textContent || '', scale: [...document.querySelectorAll('.flt-stage .leaflet-control-scale-line')].map((x) => x.textContent).join(' / '), arcs: [...document.querySelectorAll('.flt-stage .fs-arc')].map((x) => x.textContent).join(' ') }));
+  if (!/NM$/.test(units.cell) || !/ft$/.test(units.top) || !/NM/.test(units.scale) || /km/.test(units.arcs + units.cell) || !/NM/.test(units.arcs)) fails.push('units (NM, ft): ' + JSON.stringify(units));
   await view('profile');
   if (!(await page.$('.flt-stage svg polyline'))) fails.push('profile: no lines');
   await view('3d');
@@ -55,6 +58,15 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   await page.click('[data-fs="layers"]');
   const nLayers = await page.evaluate(() => document.querySelectorAll('.fs-pop [data-ly]').length);
   if (nLayers < 6) fails.push('3D layers listed: ' + nLayers);
+  // layers apart in the order of their heights: the plates go up, the flight path still comes down to the runway
+  const apart = await page.evaluate(() => {
+    const V = FLTVIEW.state.handle.state, box = (id) => { const g = V.groups[id]; g.updateMatrixWorld(true); return new THREE.Box3().setFromObject(g); };
+    let low = Infinity;
+    V.groups.net.traverse((o) => { if (o.isLine) { const a = o.geometry.getAttribute('position'); for (let i = 0; i < a.count; i++) low = Math.min(low, a.getY(i) + o.matrixWorld.elements[13]); } });
+    const rw = box('rwy'), net = box('net'), ys = V.lay.plates.map((p) => p.y);
+    return { up: ys.every((y, i) => !i || y > ys[i - 1]), last: (V.lay.plates[V.lay.plates.length - 1] || { names: [] }).names.join(), touch: (low - rw.min.y) / (net.max.y - rw.min.y) };
+  });
+  if (!apart.up || !/flight path/i.test(apart.last) || !(apart.touch < 0.15)) fails.push('layers apart by height: ' + JSON.stringify(apart));
   await page.screenshot({ path: OUT + '/takeoff_hologram.png' });
   // a view in its own window
   const [pop] = await Promise.all([ctx.waitForEvent('page', { timeout: 15000 }), page.click('[data-fl="pop"]')]);

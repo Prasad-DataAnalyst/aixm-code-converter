@@ -13,7 +13,9 @@
  *              (shaded terrain): terrain mesh, elevation contours, runways, obstacles as models of their kind (wind
  *              turbine rotors turn, NOTAM obstacles pulse), surfaces, flight paths with curtains, distance vectors
  *              (ground distance, height difference, slant), arcs, airspace volumes; each layer on / off; the layers
- *              pulled apart in height ("exploded") to read one from the other; measuring between two points
+ *              pulled apart in height ("exploded") in the order of their heights (terrain, elevation, areas, runway,
+ *              then obstacles, surfaces, flight paths, airspace), a flight path still coming down from its top to
+ *              the runway; measuring between two points
  *   profile    SVG: distance along the path against height: terrain, obstacles, surfaces, flight paths
  *   window     any of them in a separate window (second screen), with print and PNG
  * Needs only Leaflet, three.js and the obstacle icons (OBSICON), so it runs the same in a separate window.
@@ -21,7 +23,9 @@
 /* global L, THREE, OBSICON */
 var FLTSCENE = (function () {
   'use strict';
-  var D2R = Math.PI / 180, RE = 6371008.8, FT = 0.3048;
+  var D2R = Math.PI / 180, RE = 6371008.8, FT = 0.3048, NM = 1852;
+  // a distance in nautical miles (aviation use)
+  function nmTxt(m) { var n = Math.abs(m) / NM; return (m / NM).toFixed(n < 0.1 ? 3 : n < 10 ? 2 : 1) + ' NM'; }
   function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   var SEV = { error: '#e53935', warning: '#fb8c00', caution: '#fdd835', ok: '#43a047', info: '#90a4ae', none: '#90a4ae' };
   var HOLO = { error: '#ff4d6d', warning: '#ffb020', caution: '#ffe066', ok: '#38f9b0', info: '#4dd0ff', none: '#4dd0ff' };
@@ -141,6 +145,7 @@ var FLTSCENE = (function () {
       groups[ly.id] = g;
       if (ly.on !== false && ly.map !== false) g.addTo(map);
     });
+    OBSICON.scaleNM(L, map);
     var bb = spec.focus || spec.bbox;
     if (bb) map.fitBounds([[bb[1], bb[0]], [bb[3], bb[2]]], { padding: [24, 24] }); else map.setView([20, 0], 2);
     if (spec.focus && spec.bbox) { // a button back to the whole picture
@@ -268,8 +273,90 @@ var FLTSCENE = (function () {
     var W0 = Math.max(8, Math.min(size / 120, fsize / 40)); // visual width of a model (obstacles are shown larger than life to be seen)
     function P(c, h) { var q = F.xy(c); return new THREE.Vector3(q[0], ((h === undefined || h === null ? (ground(c[0], c[1]) || ref) : h) - ref) * V.ex, -q[1]); }
     function gz(c) { var g = ground(c[0], c[1]); return g === null ? ref : g; }
-    var LEVEL = { terrain: 0, contours: 1, area: 2, runway: 3, obstacles: 4, surface: 5, path: 6, vector: 7, arc: 7, volume: 8, point: 6 };
-    function layerLevel(ly) { return ly.level !== undefined ? ly.level : LEVEL[ly.kind] !== undefined ? LEVEL[ly.kind] : 4; }
+    // Layers apart, in the order of their heights. The ground layers one above the other (terrain, elevation contours,
+    // areas, runways); then the layers above the ground (obstacles, surfaces, flight paths, airspace), each on its own
+    // plate in the order of their heights, lifted by a smooth function of the height that starts at the runway: a
+    // flight path still comes down from its top to its touchdown (or lift-off) on the runway, a surface still starts
+    // at its threshold, a distance vector still joins its obstacle and its path.
+    var GROUND = { terrain: 0, contours: 1, polygon: 2, area: 2, arc: 2, runway: 3 }, ABOVE = { obstacles: 1, surface: 1, path: 1, line: 1, volume: 1 };
+    var GNAME = ['Terrain', 'Elevation', 'Areas', 'Runways'];
+    // the height of a layer above the ground, in the scene (the middle of its obstacles, surfaces or airspace; the top of a path)
+    function repHeight(ly) {
+      var v = [], cap = spec.cap || 6000;
+      if (ly.kind === 'obstacles') ly.items.forEach(function (o) { if (o.top !== null && o.top !== undefined) v.push(o.top); });
+      else if (ly.kind === 'surface') ly.items.forEach(function (x) { x.pts.forEach(function (q) { if (q[2] !== undefined && q[2] !== null) v.push(q[2]); }); });
+      else if (ly.kind === 'path' || ly.kind === 'line') { var mx = -Infinity; ly.items.forEach(function (x) { x.pts.forEach(function (q) { if (q[2] !== undefined && q[2] !== null) mx = Math.max(mx, q[2]); }); }); if (isFinite(mx)) v.push(mx); }
+      else if (ly.kind === 'volume') ly.items.forEach(function (x) { var lo = Math.max(x.lo || 0, 0), up = Math.min(x.up === undefined || x.up === null || !isFinite(x.up) ? cap : x.up, cap); if (up > lo) v.push((lo + up) / 2); });
+      if (!v.length) return null;
+      v.sort(function (p, q) { return p - q; });
+      return (v[Math.floor(v.length / 2)] - ref) * V.ex;
+    }
+    function layout() {
+      var on = (spec.layers || []).filter(function (ly) { return V.on[ly.id] && ly.d3 !== false; });
+      var gk = [];
+      on.forEach(function (ly) { var k = GROUND[ly.kind]; if (k !== undefined && gk.indexOf(k) < 0) gk.push(k); });
+      gk.sort(function (p, q) { return p - q; });
+      var gl = {}; gk.forEach(function (k, i) { gl[k] = i; });
+      var base = gk.length ? gk.length - 1 : 0, rw = on.filter(function (ly) { return ly.kind === 'runway' && ly.items.length; })[0];
+      var yb = rw ? ((rw.items[0].z !== undefined ? rw.items[0].z : gz(rw.items[0].ring[0])) - ref) * V.ex : 0;
+      var above = on.filter(function (ly) { return ABOVE[ly.kind]; }).map(function (ly) { return { ly: ly, y: repHeight(ly) }; }).filter(function (x) { return x.y !== null; }).sort(function (p, q) { return p.y - q.y; });
+      // what is within about 20 m of the runway (threshold crossing height, screen height, the foot of an obstacle) stays
+      // on the runway plate: the flight path comes down onto the runway
+      var top = above.length ? above[above.length - 1].y : yb, gap = Math.max(5 * V.ex, (top - yb) * 0.05), dz = Math.max(20 * V.ex, (top - yb) * 0.02);
+      var knots = [[yb, base], [yb + dz, base]], plates = [];
+      above.forEach(function (x) {
+        var k = knots[knots.length - 1];
+        if (plates.length && x.y - plates[plates.length - 1].raw < gap * 0.5) { plates[plates.length - 1].names.push(x.ly.name); return; } // about the same height: one plate
+        var y = Math.max(x.y, k[0] + gap);
+        knots.push([y, k[1] + 1]); plates.push({ y: y, raw: x.y, names: [x.ly.name] });
+      });
+      V.lay = { gl: gl, gk: gk, knots: knots, plates: plates };
+    }
+    // the lift (in plates) of a point at height y of the scene, for the layers above the ground
+    function liftAt(y) {
+      var K = V.lay.knots;
+      if (y <= K[0][0]) return K[0][1];
+      for (var i = 1; i < K.length; i++) if (y <= K[i][0]) return K[i - 1][1] + (K[i][1] - K[i - 1][1]) * (y - K[i - 1][0]) / (K[i][0] - K[i - 1][0]);
+      return K[K.length - 1][1];
+    }
+    // lift one object of a layer above the ground: lines, surfaces and volumes point by point (they keep joining what they
+    // join); models, labels and markers as a whole, a model stretched so that its top meets what is drawn to its top
+    function warp(o, s) {
+      var u = o.userData;
+      if (o.isSprite || o.isGroup || o.children.length || o.rotation.x || o.rotation.y || o.rotation.z || !o.geometry) {
+        if (u.py0 === undefined) u.py0 = o.position.y;
+        var y1 = u.py0 + s * liftAt(u.py0);
+        o.position.y = y1;
+        if (u.h) { var t = u.py0 + u.h; o.scale.y = Math.max(0.05, (t + s * liftAt(t) - y1) / u.h); }
+        return;
+      }
+      var a = o.geometry.getAttribute('position'); if (!a) return;
+      var i;
+      if (!u.y0) { u.y0 = new Float32Array(a.count); for (i = 0; i < a.count; i++) u.y0[i] = a.getY(i); }
+      for (i = 0; i < a.count; i++) a.setY(i, u.y0[i] + s * liftAt(u.y0[i] + o.position.y));
+      a.needsUpdate = true; o.geometry.computeBoundingSphere();
+      if (o.isLine && o.material && o.material.isLineDashedMaterial) o.computeLineDistances();
+    }
+    // the plates of the exploded view, with the names of their layers, from the lowest to the highest
+    function makePlates(st) {
+      if (V.plates) world.remove(V.plates);
+      var plates = new THREE.Group(); plates.userData.plates = true; world.add(plates); V.plates = plates;
+      function plate(names, ud) {
+        var pg = new THREE.Group(); pg.userData = ud;
+        pg.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(function (p) { return new THREE.Vector3(p[0] * size * 0.55, 0, p[1] * size * 0.55); })), lineMat(st, st.line, { opacity: 0.45 })));
+        var lab = sprite(doc, [names.join(' · ')], st.line, st, 0.026); lab.position.set(-size * 0.55, 0, size * 0.55); pg.add(lab);
+        plates.add(pg);
+      }
+      V.lay.gk.forEach(function (k, i) {
+        var names = (spec.layers || []).filter(function (ly) { return V.on[ly.id] && ly.d3 !== false && GROUND[ly.kind] === k; }).map(function (ly) { return ly.name; });
+        plate(names.length ? names : [GNAME[k]], { ground: i });
+      });
+      V.lay.plates.forEach(function (p) { plate(p.names, { y: p.y }); });
+    }
+    // the plate of a ground layer (null for a layer above the ground)
+    function layerLevel(ly) { return GROUND[ly.kind] !== undefined ? (V.lay && V.lay.gl[GROUND[ly.kind]]) || 0 : null; }
+    // a layer switched on or off: the order and the plates follow
+    function relayout() { layout(); makePlates(STYLES[V.style]); applyExplode(); }
     function build() {
       while (world.children.length) world.remove(world.children[0]);
       V.picks = []; V.anim = []; V.groups = {};
@@ -277,30 +364,30 @@ var FLTSCENE = (function () {
       renderer.setClearColor(st.bg, 1);
       el.setAttribute('data-style', V.style);
       scene.fog = st.glow ? new THREE.FogExp2(st.bg, 0.25 / size) : null;
-      // reference grid (the ground plane of the scene), 1 km squares
-      var gstep = size > 40000 ? 10000 : size > 8000 ? 1000 : 250, half = Math.ceil(size / gstep) * gstep;
+      // reference grid (the ground plane of the scene): squares of 5, 1 or 0.25 NM
+      var gstep = size > 40 * NM ? 5 * NM : size > 4 * NM ? NM : NM / 4, half = Math.ceil(size / gstep) * gstep;
       var grid = new THREE.GridHelper(half * 2, Math.round(half * 2 / gstep), st.grid, st.grid); grid.material.transparent = true; grid.material.opacity = st.glow ? 0.35 : 0.5; grid.position.y = -2; world.add(grid);
       (spec.layers || []).forEach(function (ly) {
-        var g = new THREE.Group(); g.userData.level = layerLevel(ly); V.groups[ly.id] = g; g.visible = !!V.on[ly.id];
+        var g = new THREE.Group(); g.userData.layer = ly; V.groups[ly.id] = g; g.visible = !!V.on[ly.id];
         try { (BUILD[ly.kind] || function () {})(g, ly, st); } catch (e) { /* a layer that cannot be built is left out */ }
         world.add(g);
       });
-      // the plates of the exploded view: one per layer level used, with its name
-      var plates = new THREE.Group(); plates.userData.plates = true; world.add(plates); V.plates = plates;
-      var lv = {};
-      (spec.layers || []).forEach(function (ly) { if (V.on[ly.id]) { var k = layerLevel(ly); (lv[k] = lv[k] || []).push(ly.name); } });
-      Object.keys(lv).forEach(function (k) {
-        var y = 0, pg = new THREE.Group(); pg.userData.level = +k;
-        var sq = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[-1, -1], [1, -1], [1, 1], [-1, 1]].map(function (p) { return new THREE.Vector3(p[0] * size * 0.55, y, p[1] * size * 0.55); })), lineMat(st, st.line, { opacity: 0.45 }));
-        pg.add(sq);
-        var lab = sprite(doc, [lv[k].join(' · ')], st.line, st, 0.026); lab.position.set(-size * 0.55, y, size * 0.55); pg.add(lab);
-        plates.add(pg);
-      });
+      V.plates = null; layout(); makePlates(st);
       applyExplode();
     }
     function applyExplode() {
-      world.children.forEach(function (g) { if (g.userData.level !== undefined) g.position.y = V.explode * g.userData.level * sep; });
-      if (V.plates) { V.plates.visible = V.explode > 0.02; V.plates.children.forEach(function (p) { p.position.y = V.explode * p.userData.level * sep - 1; }); }
+      if (!V.lay) layout();
+      var s = V.explode * sep;
+      world.children.forEach(function (g) {
+        var ly = g.userData.layer; if (!ly) return;
+        var lv = layerLevel(ly);
+        if (lv !== null) { g.position.y = s * lv; return; }
+        g.children.forEach(function (o) { warp(o, s); });
+      });
+      if (V.plates) {
+        V.plates.visible = V.explode > 0.02;
+        V.plates.children.forEach(function (p) { p.position.y = p.userData.ground !== undefined ? s * p.userData.ground - 1 : p.userData.y + s * liftAt(p.userData.y); });
+      }
     }
     var BUILD = {
       terrain: function (g, ly, st) {
@@ -337,7 +424,7 @@ var FLTSCENE = (function () {
           if (top === null || top === undefined) return;
           var H = Math.max(2, (top - base) * V.ex), col = (st.glow ? HOLO : SEV)[o.sev] || st.line, k = o.kind || kindOf(o.type, o.label);
           var m = model(k, H, W0 * (k === 'building' ? 1.6 : k === 'peak' ? 2 : 1), st, col), p = P(o.c, base);
-          m.position.copy(p); g.add(m);
+          m.position.copy(p); m.userData.h = H; g.add(m);
           m.traverse(function (x) { if (x.isMesh) { x.userData.item = o; V.picks.push(x); } });
           if (m.userData.rotor) V.anim.push({ k: 'rotor', o: m.userData.rotor });
           if (m.userData.slew) V.anim.push({ k: 'slew', o: m.userData.slew, ph: Math.random() * 6 });
@@ -472,7 +559,7 @@ var FLTSCENE = (function () {
     var measG = new THREE.Group(); scene.add(measG);
     function addMeasure(a, b) {
       var d = distM(a.c, b.c), dh = b.top - a.top, slant = Math.hypot(d, dh), brg = bearing(a.c, b.c);
-      var lines = [(d >= 1000 ? (d / 1000).toFixed(2) + ' km' : Math.round(d) + ' m') + ' · ' + (d / 1852).toFixed(2) + ' NM · ' + ('00' + Math.round(brg) % 360).slice(-3) + '°T', 'Δh ' + (dh >= 0 ? '+' : '') + dh.toFixed(1) + ' m (' + Math.round(dh / FT) + ' ft) · ' + (d ? (dh / d * 100).toFixed(2) + ' %' : ''), 'slant ' + (slant >= 1000 ? (slant / 1000).toFixed(2) + ' km' : Math.round(slant) + ' m') + ' · ' + (Math.atan2(dh, d) / D2R).toFixed(2) + '°'];
+      var lines = [nmTxt(d) + ' · ' + ('00' + Math.round(brg) % 360).slice(-3) + '°T', 'Δh ' + (dh >= 0 ? '+' : '') + Math.round(dh / FT) + ' ft · ' + (d ? (dh / d * 100).toFixed(2) + ' %' : ''), 'slant ' + nmTxt(slant) + ' · ' + (Math.atan2(dh, d) / D2R).toFixed(2) + '°'];
       while (measG.children.length) measG.remove(measG.children[0]);
       vectorTo(measG, { a: [a.c[0], a.c[1], a.top], b: [b.c[0], b.c[1], b.top], label: lines, color: '#ff6ec7' }, STYLES[V.style]);
       setNote((a.label || '') + ' → ' + (b.label || '') + ': ' + lines.join(' · '));
@@ -495,10 +582,12 @@ var FLTSCENE = (function () {
     function setNote(t) { note.textContent = t || ''; note.style.display = t ? 'block' : 'none'; }
     var pop = doc.createElement('div'); pop.className = 'fs-pop'; pop.style.display = 'none'; el.appendChild(pop);
     function layersPop() {
-      pop.innerHTML = '<b>Layers</b>' + (spec.layers || []).filter(function (l) { return l.d3 !== false; }).map(function (l) { return '<label><input type="checkbox" data-ly="' + esc(l.id) + '"' + (V.on[l.id] ? ' checked' : '') + '> ' + esc(l.name) + (l.items && l.items.length ? ' <span>' + l.items.length + '</span>' : '') + '</label>'; }).join('');
+      // in the order of the layers apart, the highest first (distance vectors and reference points last)
+      var key = function (l) { return GROUND[l.kind] !== undefined ? GROUND[l.kind] - 1e9 : ABOVE[l.kind] ? (repHeight(l) === null ? 0 : repHeight(l)) : -2e9; };
+      pop.innerHTML = '<b>Layers</b> <small>highest first</small>' + (spec.layers || []).filter(function (l) { return l.d3 !== false; }).sort(function (p, q) { return key(q) - key(p); }).map(function (l) { return '<label><input type="checkbox" data-ly="' + esc(l.id) + '"' + (V.on[l.id] ? ' checked' : '') + '> ' + esc(l.name) + (l.items && l.items.length ? ' <span>' + l.items.length + '</span>' : '') + '</label>'; }).join('');
       pop.style.display = pop.style.display === 'none' ? 'block' : 'none';
     }
-    pop.addEventListener('change', function (e) { var id = e.target.getAttribute('data-ly'); if (!id) return; V.on[id] = e.target.checked; if (V.groups[id]) V.groups[id].visible = V.on[id]; if (V.explode > 0.02) build(); });
+    pop.addEventListener('change', function (e) { var id = e.target.getAttribute('data-ly'); if (!id) return; V.on[id] = e.target.checked; if (V.groups[id]) V.groups[id].visible = V.on[id]; relayout(); });
     bar.addEventListener('click', function (e) {
       var b = e.target.closest('button'); if (!b) return;
       var stl = b.getAttribute('data-st');
@@ -562,8 +651,8 @@ var FLTSCENE = (function () {
     function Y(z) { return H - mb - (z - z0) / (z1 - z0) * (H - mt - mb); }
     var h = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="100%" style="font:11px Segoe UI,Arial,sans-serif;background:#fff">';
     // grid and axes
-    var sx = nice(p.len / 8), sz = nice((z1 - z0) / u / 6);
-    for (var s = 0; s <= p.len + 1; s += sx) h += '<line x1="' + X(s) + '" y1="' + mt + '" x2="' + X(s) + '" y2="' + (H - mb) + '" stroke="#e6ebf0"/><text x="' + X(s) + '" y="' + (H - mb + 14) + '" text-anchor="middle" fill="#55616d">' + (s >= 1000 ? (s / 1000).toFixed(s % 1000 ? 1 : 0) + ' km' : Math.round(s) + ' m') + '</text>';
+    var sx = nice(p.len / NM / 8) * NM, sz = nice((z1 - z0) / u / 6);
+    for (var s = 0; s <= p.len + 1; s += sx) h += '<line x1="' + X(s) + '" y1="' + mt + '" x2="' + X(s) + '" y2="' + (H - mb) + '" stroke="#e6ebf0"/><text x="' + X(s) + '" y="' + (H - mb + 14) + '" text-anchor="middle" fill="#55616d">' + +(s / NM).toFixed(sx < NM ? 2 : 1) + ' NM</text>';
     for (var zz = Math.ceil(z0 / u / sz) * sz; zz * u <= z1; zz += sz) h += '<line x1="' + ml + '" y1="' + Y(zz * u) + '" x2="' + (W - mr) + '" y2="' + Y(zz * u) + '" stroke="#e6ebf0"/><text x="' + (ml - 6) + '" y="' + (Y(zz * u) + 4) + '" text-anchor="end" fill="#55616d">' + Math.round(zz) + '</text>';
     h += '<text x="' + (ml - 50) + '" y="' + (mt - 10) + '" fill="#55616d">' + ul + ' AMSL</text><text x="' + (W - mr) + '" y="' + (H - 6) + '" text-anchor="end" fill="#55616d">' + esc(p.xLabel || 'distance along the path') + '</text>';
     // airspace crossed: a band from entry to exit between its lower and upper limits

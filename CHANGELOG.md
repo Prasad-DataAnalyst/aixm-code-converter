@@ -34,6 +34,15 @@ NOT FOR NAVIGATION OR AIRCRAFT PERFORMANCE — indicative study figures.
     Hologram (layers on / off, layers apart, measure between obstacles, models of the obstacle kinds), each in its own
     window when wished; details on request; one Report menu: PDF, print, copy for e-mail, e-mail draft (.eml with the
     pictures), Excel, CSV, KML, GeoJSON, DXF (3D CAD), PNG.
+- **Layers apart in the order of their heights** (3D, Hologram, CAD, Solid): terrain, elevation contours, areas and
+  runway at the bottom, then obstacles, surfaces, flight paths and airspace each on its own plate in the order of their
+  heights; lifted by a smooth function of the height that starts at the runway, so the flight path still comes down
+  from its top to the runway, a surface still starts at its threshold, a vector still joins its ends and an obstacle
+  above a surface stays above it; the Layers list in the same order, highest first.
+- **Aviation units** in the analysis: distances in nautical miles (tables, distance arcs, vectors, measure, profile,
+  3D grid), heights and altitudes in feet (metres on request), threshold crossing height entered in feet; ICAO
+  definitions keep their metres and kilometres with the NM beside them; the obstacle maps have a scale in NM (and feet
+  when zoomed in).
 - **Obstacles as 3D models of their kind** on the obstacle map of the Digital data tab and on the map of the analysis:
   building with its windows, lattice tower, guyed mast, tower crane (jib, counter-jib, hook), wind turbine, tree,
   red and white chimney with smoke, pole, pylon with its lines, tank, dome, minaret, rig, arch bridge, tethered

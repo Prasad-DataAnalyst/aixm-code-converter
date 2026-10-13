@@ -314,9 +314,9 @@ var FLTCALC = (function () {
   var ETOD = { // accuracy required (m, 90 %), PANS-AIM Appendix 1 Table A1-6
     '1': { h: 50, v: 30, name: 'Area 1', what: 'the territory of the State', surf: '100 m above the ground' },
     '2a': { h: 5, v: 3, name: 'Area 2a', what: 'the runway strip and any clearway', surf: '3 m above the runway' },
-    '2b': { h: 5, v: 3, name: 'Area 2b', what: 'from the ends of Area 2a in the direction of departure, 10 km, splay 15 %', surf: '1.2 % from the runway end' },
-    '2c': { h: 5, v: 3, name: 'Area 2c', what: 'outside 2a and 2b, within 10 km of Area 2a', surf: '1.2 % from the edge of Area 2a' },
-    '2d': { h: 5, v: 3, name: 'Area 2d', what: 'outside 2a, 2b and 2c, to 45 km from the ARP or the TMA boundary', surf: '100 m above the ground' },
+    '2b': { h: 5, v: 3, name: 'Area 2b', what: 'from the ends of Area 2a in the direction of departure, 10 km (5.4 NM), splay 15 %', surf: '1.2 % from the runway end' },
+    '2c': { h: 5, v: 3, name: 'Area 2c', what: 'outside 2a and 2b, within 10 km (5.4 NM) of Area 2a', surf: '1.2 % from the edge of Area 2a' },
+    '2d': { h: 5, v: 3, name: 'Area 2d', what: 'outside 2a, 2b and 2c, to 45 km (24.3 NM) from the ARP or the TMA boundary', surf: '100 m above the ground' },
     '3': { h: 0.5, v: 0.5, name: 'Area 3', what: '90 m from the runway centre line and 50 m from the rest of the movement area', surf: '0.5 m above the movement area' },
     '4': { h: 2.5, v: 1, name: 'Area 4', what: 'CAT II / III runways: 900 m before the threshold, 60 m each side', surf: 'terrain (radio altimeter area)' }
   };
