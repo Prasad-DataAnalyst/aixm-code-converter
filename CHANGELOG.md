@@ -34,6 +34,17 @@ NOT FOR NAVIGATION OR AIRCRAFT PERFORMANCE — indicative study figures.
     Hologram (layers on / off, layers apart, measure between obstacles, models of the obstacle kinds), each in its own
     window when wished; details on request; one Report menu: PDF, print, copy for e-mail, e-mail draft (.eml with the
     pictures), Excel, CSV, KML, GeoJSON, DXF (3D CAD), PNG.
+- **Map from the AIP**: a map button beside the code button on every item of GEN, ENR and AD that has a place
+  (airspace, route, navaid, point, obstacle, aerodrome, runway — a runway direction shows its runway); the Map tab, or
+  the map window when it is open, goes to the item at once (no animation), outlines it and opens its information; the
+  main window stays on the AIP.
+- **eTOD area of each obstacle** in the obstacle list, map and exports: the ICAO area (1, 2a, 2b, 2c, 2d, 3, 4) worked
+  out from the runways of its aerodrome, with its collection surface and whether it must be in the data set; the area
+  the data set states when the runways are not loaded.
+- **NOTAM and AIP text in every analysis**: a NOTAM / AIP supplement / area-text box in take-off, approach, runway
+  impact and eTOD areas; the areas read (restricted, danger, activations) within 25 NM shown on the same map, 3D and
+  report as the analysis, the NOTAMs of the aerodrome in a table, a NOTAM closing the runway of the analysis in the
+  result.
 - **Layers apart in the order of their heights** (3D, Hologram, CAD, Solid): terrain, elevation contours, areas and
   runway at the bottom, then obstacles, surfaces, flight paths and airspace each on its own plate in the order of their
   heights; lifted by a smooth function of the height that starts at the runway, so the flight path still comes down

@@ -83,6 +83,10 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   const legOpen = await page.evaluate(() => document.querySelector('.ov-map .ddm-leg').classList.contains('open'));
   await page.click('.ov-map .ddm-leg-btn');
   if (dotsDrawn !== 0 || !legOpen) fails.push('dots switch / legend button: ' + JSON.stringify({ dotsDrawn, legOpen }));
+  // the ICAO eTOD area of each obstacle, worked out from the runways of its aerodrome (1, 2a, 2b, 2c, 2d, 3, 4)
+  await page.waitForFunction(() => typeof FLTCALC !== 'undefined' && [...document.querySelectorAll('.ov-tbl th')].some((t) => /eTOD area/.test(t.textContent)), null, { timeout: 20000 }).catch(() => {});
+  const icao = await page.evaluate(() => { const sets = OBSTVIEW.model(window.__AIXM.S.datasets).sets, subs = {}; let n = 0; sets.forEach((st) => st.rows.forEach((x) => { if (x.icao) { subs[x.icao.sub] = 1; n++; } })); return { n, subs: Object.keys(subs).sort(), cell: (document.querySelector('.ov-tbl tbody td .chip') || {}).textContent || '' }; });
+  if (icao.n < 10 || icao.subs.length < 3 || !icao.cell) fails.push('ICAO eTOD area of each obstacle: ' + JSON.stringify(icao));
   const marks = async () => page.evaluate(() => { const m = document.querySelector('.ov-map'); return m ? document.querySelectorAll('.ov-tbl tbody tr').length : -1; });
   const before = await marks();
   await page.fill('[data-ovf="minH"]', '30'); await page.waitForTimeout(600);

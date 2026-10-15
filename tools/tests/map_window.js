@@ -42,6 +42,19 @@ const ROOT = require('./_env').ROOT, OUT = require('./_env').out('map_window');
   const sel = await page.evaluate(() => window.__AIXM.S.aipSel);
   console.log('main AIP selection', sel);
   if (!/^AD2\./.test(sel || '')) fails.push('AIP link from the map window');
+  // the map buttons of the AIP: an ENR 2.1 airspace and an AD 2.12 runway go to the map window at once, outlined, their
+  // information open; the main window stays on the AIP
+  const adSec = await page.evaluate(() => { const ds = window.__AIXM.S.datasets[0]; const ad = ds.byType.AirportHeliport.find((a) => /EADD/.test(JSON.stringify(a.cur.p.locationIndicatorICAO))); return 'AD2.12:' + ad.i; });
+  for (const [sec, want] of [['ENR 2.1', /Type: Airspace/], [adSec, /Type: Runway/]]) {
+    await page.evaluate((i) => { window.__AIXM.S.aipSel = i; window.__AIXM.go('aip'); }, sec);
+    await page.waitForSelector('.aip-sec [data-amap]');
+    const before = await pop.evaluate(() => (document.querySelector('.leaflet-popup-content') || {}).innerText || '');
+    await page.click('.aip-sec [data-amap]');
+    const got = await pop.waitForFunction((bf) => { const p = document.querySelector('.leaflet-popup-content'); return p && p.innerText !== bf ? p.innerText : null; }, before, { timeout: 10000, polling: 100 }).then((h) => h.jsonValue()).catch(() => '');
+    if (!want.test(got) || await page.evaluate(() => window.__AIXM.S.view) !== 'aip') fails.push('AIP map button ' + sec + ': ' + JSON.stringify(got.slice(0, 60)));
+  }
+  const nBtn = await page.evaluate(() => document.querySelectorAll('.aip-sec [data-amap]').length);
+  if (nBtn < 2) fails.push('AD 2.12 map buttons: ' + nBtn);
   // theme follows the main window
   await page.click('#theme-btn');
   await pop.waitForTimeout(200);

@@ -167,7 +167,7 @@ var DDMAP = (function () {
       var m = new IconMark(ll(x.c), { renderer: mm.rend, radius: 11 * sc, sc: sc, dot: 3 + 9 * sh, kind: ok, lit: x.lighted === 'YES', glyphZoom: glyphZoom, color: '#fff', weight: 1, fillColor: OCOL[kind], fillOpacity: 0.9 });
       var hTxt = x.hgt === null ? '' : opt.unit === 'FT' ? Math.round(x.hgt / 0.3048) + ' ft' : (Math.round(x.hgt * 10) / 10) + ' m';
       var eTxt = x.elev === null ? '' : opt.unit === 'FT' ? Math.round(x.elev / 0.3048) + ' ft' : (Math.round(x.elev * 10) / 10) + ' m';
-      m.bindTooltip('<b>' + esc(x.id || x.name) + '</b> ' + esc(String(x.type || '').replace(/^OTHER:/, '') || (OBSICON.KIND_NAME[ok] || '')) + '<br>height ' + esc(hTxt) + ' · top ' + esc(eTxt) + ' AMSL' + (x.pen ? '<br><b style="color:#c62828">penetrates ' + esc(x.pen.surface) + ' by ' + (Math.round(x.pen.m * 10) / 10) + ' m</b>' : ''), { sticky: true, opacity: 0.95 });
+      m.bindTooltip('<b>' + esc(x.id || x.name) + '</b> ' + esc(String(x.type || '').replace(/^OTHER:/, '') || (OBSICON.KIND_NAME[ok] || '')) + '<br>height ' + esc(hTxt) + ' · top ' + esc(eTxt) + ' AMSL' + (x.icaoTxt ? '<br>ICAO eTOD area ' + esc(x.icaoTxt) : '') + (x.pen ? '<br><b style="color:#c62828">penetrates ' + esc(x.pen.surface) + ' by ' + (Math.round(x.pen.m * 10) / 10) + ' m</b>' : ''), { sticky: true, opacity: 0.95 });
       m.on('click', function (e) {
         var oe = e.originalEvent || {};
         if (opt.onToggle && (oe.ctrlKey || oe.metaKey || oe.shiftKey || (opt.pickMode && opt.pickMode()))) { opt.onToggle(x); picks(mm, opt.picked); return; }

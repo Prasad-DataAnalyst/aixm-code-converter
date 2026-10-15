@@ -23,7 +23,7 @@
  *                indicative MOC of the leg is flagged (list column and filter, compliance check)
  * Nothing here changes the data or the AIXM views.
  * ========================================================================== */
-/* global AX, MODEL, EXPORTS, CONVERT, OLS, DDMAP, STUDY, DDX, OBSICON */
+/* global AX, MODEL, EXPORTS, CONVERT, OLS, DDMAP, STUDY, DDX, OBSICON, AIP, FLTCALC, LAZY */
 var OBSTVIEW = (function () {
   'use strict';
   var M = MODEL, arr = AX.arr, s = M.s;
@@ -153,6 +153,62 @@ var OBSTVIEW = (function () {
       from: r.cur.b || '', to: r.cur.e || '', area: ar, notes: notes, dist: null, brg: null, pen: null, fp: null
     };
   }
+  // the input of the ICAO eTOD areas of an aerodrome (FLTCALC.etod): its runways (ends, strip, clearways from the
+  // declared distances, CAT II / III ends), the TMA containing the ARP, the movement area; null without runways
+  function etodInput(ds, ad) {
+    var S = null; try { S = OLS.surfaces(ds, ad); } catch (e) { S = null; }
+    if (!S || !S.runways.length) return null;
+    var arp = M.pointOf(ds, ad);
+    var decl = function (E) {
+      var d = {};
+      try { var dd = E && E.e.dir ? AIP.declared(ds, E.e.dir) : {}; Object.keys(dd).forEach(function (k) { var m = /(-?[\d.]+)\s*(FT|M)?/i.exec(dd[k].t || ''); if (m) d[k] = parseFloat(m[1]) * (/FT/i.test(m[2] || '') ? 0.3048 : 1); }); } catch (e) { /* not given */ }
+      return d;
+    };
+    var rws = S.runways.map(function (r) {
+      var eA = r.ends.filter(function (x) { return x.e.at === r.rm.a; })[0] || r.ends[0], eB = r.ends.filter(function (x) { return x !== eA; })[0] || eA;
+      var cw = function (E) { var d = decl(E); return d.TODA && d.TORA ? Math.max(0, d.TODA - d.TORA) : 0; };
+      var prec = function (x) { return !!(x && x.e.ils && /II/.test(x.e.ils.cat || '')); };
+      return { name: r.rm.name, a: r.rm.a, b: r.rm.b, elA: eA.el, elB: eB.el, strip: r.strip, ext: r.ext, cwyA: cw(eB), cwyB: cw(eA), precA: prec(eA), precB: prec(eB) };
+    });
+    var tma = null;
+    (ds.byType.Airspace || []).forEach(function (a) {
+      if (tma || !/^TMA/.test(s(a.cur.p.type)) || !arp) return;
+      var g = M.geometry(ds, a), ring = g && g.t === 'A' ? g.c[0] : g && g.t === 'M' && g.parts[0] && g.parts[0].t === 'A' ? g.parts[0].c[0] : null;
+      if (ring && inRing(arp, ring)) tma = ring;
+    });
+    var move = [];
+    ['TaxiwayElement', 'ApronElement'].forEach(function (k) { (ds.byType[k] || []).slice(0, 3000).forEach(function (r) { var g = M.geometry(ds, r); if (g && g.t === 'A') move.push(g.c[0]); }); });
+    return { rws: rws, arp: arp, tma: tma, move: move };
+  }
+  // the ICAO eTOD area of each obstacle (Annex 15, PANS-AIM: 1, 2a, 2b, 2c, 2d, 3, 4) from the runways of its
+  // aerodrome; kept per obstacle record and aerodrome, so a redraw of the list costs nothing
+  var etodCache = new WeakMap(), icaoCache = new WeakMap();
+  function etodOf(st) {
+    if (!st.ad || !st.ad.r || typeof FLTCALC === 'undefined') return null;
+    var key = st.ad.ds.viewDate || '', hit = etodCache.get(st.ad.r);
+    if (hit && hit.key === key) return hit.E;
+    var E = null;
+    try { var inp = etodInput(st.ad.ds, st.ad.r); E = inp ? FLTCALC.etod(inp.rws, { arp: inp.arp || st.ad.c, tma: inp.tma, move: inp.move }) : null; } catch (e) { E = null; }
+    etodCache.set(st.ad.r, { key: key, E: E });
+    return E;
+  }
+  function classifyRows(st) {
+    var E = etodOf(st);
+    if (!E) return;
+    st.etod = E;
+    st.rows.forEach(function (x) {
+      if (!x.c) return;
+      var c = icaoCache.get(x.r);
+      if (!c || c.E !== E) { var k = null; try { k = E.classify({ c: x.c, elev: x.elev, hgt: x.hgt }); } catch (e) { k = null; } c = { E: E, k: k }; icaoCache.set(x.r, c); }
+      x.icao = c.k; x.icaoTxt = icaoTxt(c.k);
+    });
+  }
+  function icaoTxt(k) { return !k ? '' : k.sub + (k.also.length ? ' (+' + k.also.filter(function (v, i, a) { return a.indexOf(v) === i; }).join(', ') + ')' : ''); }
+  function icaoTip(k) {
+    if (!k) return '';
+    return 'ICAO eTOD Area ' + icaoTxt(k) + (k.surf !== null ? ' · collection surface ' + num(k.surf, 1) + ' m' : ' · collection: 100 m above ground') +
+      (k.need === null ? '' : k.need ? ' · above it by ' + num(k.above, 1) + ' m: required in the data set' : ' · below it: not required') + ' · accuracy required ' + k.req.h + ' m / ' + k.req.v + ' m';
+  }
   // all obstacle data sets of the loaded data (and the obstacles of AIP / aerodrome mapping data sets)
   function model(datasets) {
     var ads = ADS(datasets);
@@ -168,6 +224,8 @@ var OBSTVIEW = (function () {
       res.list.forEach(function (x) { by.set(x.rec, x); });
       st.rows.forEach(function (x) { var hit = by.get(x.r); x.pen = hit ? { m: hit.pen, surface: hit.surface } : null; });
     });
+    // the ICAO eTOD area of each obstacle (when the calculation is loaded: render() loads it)
+    sets.forEach(classifyRows);
     // flight paths: procedure legs within 1 NM of each obstacle, with the clearance of the leg altitude over its top
     var segs = typeof STUDY !== 'undefined' ? STUDY.segments(datasets) : [];
     if (segs.length) flagPaths(sets, segs);
@@ -258,6 +316,8 @@ var OBSTVIEW = (function () {
   /* ------------------------------------------------------------------ view */
   var V = { layout: 'split', tab: 'list', unit: 'M', fmt: 'dms', q: '', type: '', lit: '', minH: '', only: '', sort: 'hgt', dir: -1, sel: null, shown: 300, picked: new Set(), pickMode: false, anaScope: '' };
   function render(host, ctx) {
+    // the ICAO eTOD areas use the calculation of the flight and obstacle analysis: loaded once, then the list again
+    if (typeof FLTCALC === 'undefined' && typeof LAZY !== 'undefined' && !V.calcLoad) V.calcLoad = LAZY.run('src-fltcalc').then(function () { if (host.isConnected) render(host, ctx); }, function () { /* the list without the ICAO areas */ });
     var mdl = model(ctx.datasets);
     if (!mdl.sets.length) { host.innerHTML = '<h1 class="view-title">Obstacles</h1><div class="card card-pad muted">No obstacle data loaded. Add an AIXM obstacle data set, an eTOD obstacle table (Excel / CSV) or an aerodrome mapping file.</div>'; return; }
     if (V.sel === null || (V.sel === 'all' ? mdl.sets.length < 2 : !mdl.sets.some(function (x) { return x.ds === V.sel; }))) V.sel = (mdl.sets.filter(function (x) { return x.ds === ctx.active; })[0] || mdl.sets[0]).ds;
@@ -419,6 +479,9 @@ var OBSTVIEW = (function () {
     var cols = [['id', 'Identifier'], ['name', 'Name'], ['type', 'Type'], ['c', 'Position'], ['elev', 'Elevation'], ['hgt', 'Height'], ['lighted', 'Lighted'], ['marked', 'Marked'], ['hAcc', 'H acc'], ['vAcc', 'V acc']];
     var multiArea = rows.some(function (x) { return x.area && x.area !== rows[0].area; });
     if (multiArea) cols.push(['area', 'Area']);
+    // the eTOD area of each obstacle: worked out from the runways of its aerodrome (ICAO 1, 2a … 4), else as the data states it
+    var hasIcao = rows.some(function (x) { return x.icao || x.area; });
+    if (hasIcao) cols.push(['icao', 'eTOD area']);
     if (hasDist) cols.push(['dist', 'From ARP']);
     if (hasPen) cols.push(['pen', 'Annex 14']);
     if (hasFp) cols.push(['fp', 'Flight path']);
@@ -429,7 +492,8 @@ var OBSTVIEW = (function () {
         return '<tr data-ovi="' + i + '"' + (is ? ' class="ov-bad" title="' + esc(is.map(function (y) { return y.msg; }).join('\n')) + '"' : '') + '><td><input type="checkbox" data-ovpick aria-label="Choose for the analysis report"' + (V.picked.has(x.r) ? ' checked' : '') + '></td><td class="mono click" data-ovrow><b>' + esc(x.id) + '</b></td><td>' + esc(x.name) + '</td><td>' + esc(typeTxt(x.type)) + '</td><td class="mono">' + esc(pos(x.c, V.fmt)) + (x.geom && x.geom !== 'P' ? ' <span class="chip">' + (x.geom === 'A' ? 'area' : 'line') + '</span>' : '') + '</td>' +
           '<td class="num">' + len(x.elev, V.unit) + '</td><td class="num">' + len(x.hgt, V.unit) + '</td><td>' + esc(yn(x.lighted)) + (x.lightTxt ? ' <small class="muted">' + esc(x.lightTxt) + '</small>' : '') + '</td><td>' + esc(yn(x.marked)) + (x.markTxt ? ' <small class="muted">' + esc(x.markTxt) + '</small>' : '') + '</td>' +
           '<td class="num">' + len(x.hAcc, 'M', 2) + '</td><td class="num">' + len(x.vAcc, 'M', 2) + '</td>' +
-          (multiArea ? '<td>' + esc(x.area || '') + '</td>' : '') + (hasDist ? '<td class="num">' + (x.dist !== null ? num(x.dist, 2) + ' NM ' + ('00' + Math.round(x.brg)).slice(-3) + '°' : '') + '</td>' : '') +
+          (multiArea ? '<td>' + esc(x.area || '') + '</td>' : '') + (hasIcao ? '<td class="nowrap"' + (x.icao ? ' title="' + esc(icaoTip(x.icao) + (x.area && x.area !== x.icao.sub ? ' · the data set states Area ' + x.area : '')) + '"' : x.area ? ' title="Area ' + esc(x.area) + ' as the data set states it (obstacle area or file). Load the AIP data set with the runways of the aerodrome to work out the ICAO area of each obstacle."' : '') + '>' +
+            (x.icao ? '<span class="chip ' + (x.icao.need ? 'warn' : 'info') + '">' + esc(icaoTxt(x.icao)) + '</span>' : x.area ? '<span class="chip">' + esc(x.area) + '</span>' : '') + '</td>' : '') + (hasDist ? '<td class="num">' + (x.dist !== null ? num(x.dist, 2) + ' NM ' + ('00' + Math.round(x.brg)).slice(-3) + '°' : '') + '</td>' : '') +
           (hasPen ? '<td>' + (x.pen ? '<span class="q-err">+' + num(x.pen.m) + ' m ' + esc(x.pen.surface) + '</span>' : '') + '</td>' : '') +
           (hasFp ? '<td>' + (x.fp ? '<span class="sev ' + (x.fp.sev === 'caution' ? 'info' : x.fp.sev) + '" title="' + esc(fpText(x.fp)) + '">' + (x.fp.clr < 0 ? '−' + num(-x.fp.clr, 0) : num(x.fp.clr, 0)) + ' m</span> <small class="muted">' + esc(x.fp.seg.proc) + '</small>' : '') + '</td>' : '') +
           '<td class="nowrap"><button class="btn small ghost" data-ovmap title="Show on the map">🗺</button><button class="btn small ghost" data-ovxml title="Source (AIXM code or table row)">&lt;/&gt;</button></td></tr>';
@@ -667,6 +731,8 @@ var OBSTVIEW = (function () {
     if (kind === 'full' || kind === 'list') {
       var cols = ['Identifier', 'Name', 'Type', 'Latitude', 'Longitude', 'Elevation (' + V.unit.toLowerCase() + ')', 'Height (' + V.unit.toLowerCase() + ')', 'Lighted', 'Marked', 'Horizontal accuracy (m)', 'Vertical accuracy (m)', 'Vertical datum'];
       cols.push('eTOD area');
+      var hasIcao = rows.some(function (x) { return x.icao; });
+      if (hasIcao) cols.push('ICAO eTOD area (from the runways)', 'Collection surface (m)', 'Required in the data set');
       if (hasDist) cols.push('From ARP');
       if (hasPen) cols.push('Annex 14 penetration');
       cols.push('Remarks');
@@ -675,6 +741,7 @@ var OBSTVIEW = (function () {
         var r = [C(x.id, x.r), C(x.name), C(typeTxt(x.type)), C(x.c ? (V.fmt === 'dd' ? x.c[1].toFixed(7) : AX.dms(x.c[1], false, 2)) : ''), C(x.c ? (V.fmt === 'dd' ? x.c[0].toFixed(7) : AX.dms(x.c[0], true, 2)) : ''),
           C(n1(x.elev)), C(n1(x.hgt)), C(yn(x.lighted) + (x.lightTxt ? ' ' + x.lightTxt : '')), C(yn(x.marked) + (x.markTxt ? ' ' + x.markTxt : '')), C(x.hAcc === null ? '' : String(Math.round(x.hAcc * 100) / 100)), C(x.vAcc === null ? '' : String(Math.round(x.vAcc * 100) / 100)), C(x.vDatum)];
         r.push(C(x.area || ''));
+        if (hasIcao) r.push(C(icaoTxt(x.icao)), C(x.icao && x.icao.surf !== null ? String(Math.round(x.icao.surf * 10) / 10) : x.icao ? '100 m above ground' : ''), C(!x.icao || x.icao.need === null ? '' : x.icao.need ? 'yes' : 'no'));
         if (hasDist) r.push(C(x.dist !== null ? num(x.dist, 2) + ' NM ' + ('00' + Math.round(x.brg)).slice(-3) + '°T' : ''));
         if (hasPen) r.push(C(x.pen ? '+' + num(x.pen.m) + ' m ' + x.pen.surface : ''));
         r.push(C(x.notes.join('; ')));
@@ -705,5 +772,5 @@ var OBSTVIEW = (function () {
     } catch (e) { ctx.toast('Report failed: ' + e.message, 6000); throw e; }
   }
 
-  return { render: render, model: model, compliance: compliance, scopeOf: scopeOf, areaOf: areaOf, AREAS: AREAS, state: V, analysisScope: analysisScope, has: function (datasets) { return datasets.some(function (d) { return (d.byType.VerticalStructure || []).length; }); } };
+  return { render: render, model: model, etodInput: etodInput, icaoTxt: icaoTxt, compliance: compliance, scopeOf: scopeOf, areaOf: areaOf, AREAS: AREAS, state: V, analysisScope: analysisScope, has: function (datasets) { return datasets.some(function (d) { return (d.byType.VerticalStructure || []).length; }); } };
 })();

@@ -1805,16 +1805,22 @@ var MAPVIEW = (function () {
     if (!map) return;
     if (r && r.k === 'AirportHeliport' && (ADCHART.of(ds, r) || M.pointOf(ds, r))) { airportView(ds, r); return; } // aerodromes open the airport view
     showAlso(ds);
-    var g = M.geometry(ds, r), b = null;
-    shapesOf(g, function (x) {
-      var pts = x.t === 'P' ? [x.c] : x.t === 'L' ? x.c : x.c[0];
-      pts.forEach(function (c) { if (typeof c[0] !== 'number') return; if (!b) b = L.latLngBounds([c[1], c[0]], [c[1], c[0]]); else b.extend([c[1], c[0]]); });
+    // the shapes of the feature, or of its parts (a route: its segments), as for a search result
+    var shapes = searchShapes(ds, r), b = null;
+    shapes.forEach(function (x) {
+      var pts = x.t === 'P' ? [x.c] : x.t === 'L' ? x.c : (x.c[0] || []);
+      pts.forEach(function (c) { if (!okc(c)) return; if (!b) b = L.latLngBounds(ll(c), ll(c)); else b.extend(ll(c)); });
     });
     if (!b) { hooks.toast('This feature has no geometry to show on the map.'); return; }
-    if (b.getNorthEast().equals(b.getSouthWest())) map.setView(b.getCenter(), Math.max(map.getZoom(), r.k === 'AirportHeliport' ? 12 : 10));
-    else map.fitBounds(b.pad(0.2), { maxZoom: 14 });
-    setTimeout(function () { openPopup(ds, r, b.getCenter()); }, 350);
+    // the feature outlined and the map moved at once, no animation: a FIR, a runway, a route, a point is shown
+    // straight away, its information open
+    highlight(shapes);
+    if (b.getNorthEast().equals(b.getSouthWest())) map.setView(b.getCenter(), Math.max(map.getZoom(), r.k === 'AirportHeliport' ? 12 : 13), { animate: false });
+    else map.fitBounds(b.pad(0.2), { maxZoom: r.k === 'Runway' ? 15 : 14, animate: false });
+    openPopup(ds, r, b.getCenter());
   }
+  // whether a feature can be shown on the map (its own shape or the shapes of its parts)
+  function locatable(ds, r) { try { return searchShapes(ds, r).length > 0; } catch (e) { return false; } }
   // name of the country containing lon/lat (Natural Earth 1:50m), or null
   var countryIdx = null;
   function countryAt(lon, lat) {
@@ -2080,7 +2086,7 @@ var MAPVIEW = (function () {
   }
   function datasetBounds(ds) { var b = dsBounds(ds); return b ? [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()] : null; }
 
-  return { countryAt: countryAt, mount: mount, show: show, release: release, focus: focus, showProcs: showProcs, airportView: airportView, closeAirportView: closeAdCard, open3d: open3d, asCat: asCat, COLORS: COLORS, procPaths: procPaths, setCompare: setCompare, refreshTheme: refreshTheme, renderImage: renderImage, boundsAround: boundsAround, datasetBounds: datasetBounds,
+  return { countryAt: countryAt, mount: mount, show: show, release: release, focus: focus, locatable: locatable, showProcs: showProcs, airportView: airportView, closeAirportView: closeAdCard, open3d: open3d, asCat: asCat, COLORS: COLORS, procPaths: procPaths, setCompare: setCompare, refreshTheme: refreshTheme, renderImage: renderImage, boundsAround: boundsAround, datasetBounds: datasetBounds,
     baseMaps: function () { return { list: ONLINE, def: BASE_DEFAULT, renamed: RENAMED }; }, savedBase: savedBase, searchMap: searchMap, highlighted: function () { return over.searchHL ? over.searchHL.getLayers().length : 0; },
     isMounted: function () { return !!map; }, leaflet: function () { return map; }, invalidate: function () { if (map) map.invalidateSize(); } };
 })();

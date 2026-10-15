@@ -1765,6 +1765,22 @@
       (ci ? '⚠ CHANGE ' + ci.lines.join('\n') + '\n\n' : '') + (c.tip ? c.tip + '\n' : '') + M.typeName(c.r) + (c.p ? ' · ' + c.p : '') + ' · line ' + num(c.r.line) + '\nClick to view the AIXM code';
     return '<span class="src' + (ci ? (ci.strong ? ' chg' : ' chg-soft') : '') + (qsev ? ' qflag q-' + qsev : '') + '" data-cell="' + idx + '" title="' + esc(tip) + '">' + (qsev ? '<span class="qmark" aria-label="data issue">⚠</span>' : '') + t + '</span>';
   }
+  // the feature of an AIP row that can be shown on the map (a runway direction shows its runway), or null
+  function locOf(ds, cells) {
+    for (var i = 0; i < cells.length; i++) {
+      var r = cells[i] && cells[i].r; if (!r) continue;
+      var t = r.k === 'RunwayDirection' ? (M.target(ds, r.cur.p.usedRunway) || r) : r;
+      if (MAPVIEW.locatable(ds, t)) return t;
+      if (t !== r && MAPVIEW.locatable(ds, r)) return r;
+    }
+    return null;
+  }
+  var PIN = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.8-6.5-11A6.5 6.5 0 0 1 18.5 10c0 5.2-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>';
+  // the map button of a row: the Map tab, or the map window when it is open, goes to the feature and opens its information
+  function mapBtn(ds, cells) {
+    var r = locOf(ds, cells);
+    return r ? '<span class="srcbtn mapbtn" data-amap="' + (cellRegistry.push({ ds: ds, r: r }) - 1) + '" role="button" tabindex="0" title="Show on the map" aria-label="Show ' + esc(M.label(ds, r)) + ' on the map">' + PIN + '</span>' : '';
+  }
   function rowChanged(ds, cells) { return S.hlOn && cells.some(function (c) { var ci = c && c.r && chgInfo(ds, c.r, c.p); return ci && (ci.strong || ci.amended); }); }
   function effOf(r) { return r && r.cur ? M.fmtTs(r.cur.b) : ''; }
   function sectionBodyHtml(ds, sec, rowLimit) {
@@ -1779,7 +1795,7 @@
           var src = cells.filter(function (c) { return c.r; })[0];
           return '<tr class="' + (rowChanged(ds, cells) ? 'chg-row' : '') + rowIssue(ds, cells) + '"><td class="no">' + esc(r.no || '') + '</td><td class="lbl">' + esc(r.label) + '</td><td class="val">' +
             (cells.length ? cells.map(function (c) { return '<div class="vpart">' + cellHtml(c, ds) + '</div>'; }).join('') : '<span class="nil">NIL</span>') +
-            (src ? '<div class="eff">Effective ' + esc(effOf(src.r)) + (src.r.ts.length > 1 ? ' · <span class="chip warn" style="height:18px">' + src.r.ts.length + ' time slices</span>' : '') + ' <span class="srcbtn" data-cell="' + (cellRegistry.push({ ds: ds, r: src.r, p: src.p }) - 1) + '" title="View AIXM code">&lt;/&gt;</span></div>' : '') + '</td></tr>';
+            (src ? '<div class="eff">Effective ' + esc(effOf(src.r)) + (src.r.ts.length > 1 ? ' · <span class="chip warn" style="height:18px">' + src.r.ts.length + ' time slices</span>' : '') + ' ' + mapBtn(ds, cells) + '<span class="srcbtn" data-cell="' + (cellRegistry.push({ ds: ds, r: src.r, p: src.p }) - 1) + '" title="View AIXM code">&lt;/&gt;</span></div>' : '') + '</td></tr>';
         }).join('') + '</tbody></table>';
         return;
       }
@@ -1799,7 +1815,7 @@
       var ptRow = r[0] && /^▲/.test(r[0].t);
       return '<tr class="' + (rowChanged(ds, r) ? 'chg-row' : '') + rowIssue(ds, r) + '">' + r.map(function (c, i) { return '<td' + (ptRow && i === 0 ? ' class="pt"' : '') + '>' + cellHtml(c, ds) + '</td>'; }).join('') +
         '<td class="eff nowrap">' + (src ? esc(effOf(src.r)) + (src.r.ts.length > 1 ? '<br><span class="chip warn" style="height:18px">Δ ' + src.r.ts.length + '</span>' : '') : '') + '</td>' +
-        '<td>' + (src ? '<span class="srcbtn" data-cell="' + (cellRegistry.push({ ds: ds, r: src.r, p: src.p }) - 1) + '" title="View AIXM code">&lt;/&gt;</span>' : '') + '</td></tr>';
+        '<td class="acts">' + mapBtn(ds, r) + (src ? '<span class="srcbtn" data-cell="' + (cellRegistry.push({ ds: ds, r: src.r, p: src.p }) - 1) + '" title="View AIXM code">&lt;/&gt;</span>' : '') + '</td></tr>';
     }).join('');
   }
   function cycleBarHtml(ds) {
@@ -1820,6 +1836,8 @@
     if (t.closest && t.closest('[data-prev]')) { pickPrevious(ds, rerender); return true; }
     return false;
   }
+  // the map buttons of the AIP from the keyboard (Enter or Space)
+  document.addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-amap]')) { e.preventDefault(); e.target.click(); } });
   document.addEventListener('change', function (e) {
     if (!e.target.matches || !e.target.matches('[data-cyc]')) return;
     var ds = dsOf(); if (!ds) return;
@@ -1933,6 +1951,8 @@
       host.onclick = function (e) {
         var qg = e.target.closest('[data-qtab-go]');
         if (qg) { e.preventDefault(); S.qFocus = qg.getAttribute('data-qtab-go') === 'sec' && qSecFocus && qSecFocus.ds === ds ? qSecFocus : null; S.qTab = 'basic'; go('quality'); return; }
+        var am = e.target.closest('[data-amap]');
+        if (am) { var rm = cellRegistry[+am.getAttribute('data-amap')]; go('map', { ds: rm.ds, focus: rm.r }); return; }
         var c = e.target.closest('[data-cell]');
         if (c) { var reg = cellRegistry[+c.getAttribute('data-cell')]; openXml(reg.ds, reg.r, reg.p, undefined, reg.t); return; }
         var more = e.target.closest('[data-more]');
@@ -2545,6 +2565,8 @@
     document.body.appendChild(back);
     back.addEventListener('click', function (e) {
       if (e.target === back) { back.remove(); return; }
+      var am = e.target.closest('[data-amap]');
+      if (am) { var rm = cellRegistry[+am.getAttribute('data-amap')]; if (!MAPWIN.isOpen()) back.remove(); go('map', { ds: rm.ds, focus: rm.r }); return; }
       var c = e.target.closest('[data-cell]');
       if (c) { var reg = cellRegistry[+c.getAttribute('data-cell')]; openXml(reg.ds, reg.r, reg.p, undefined, reg.t); return; }
       var m = e.target.closest('[data-m]');

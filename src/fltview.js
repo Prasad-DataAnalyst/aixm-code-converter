@@ -308,16 +308,8 @@ var FLTVIEW = (function () {
 
   /* ------------------------------------------------------------ eTOD areas */
   async function etodAreas(ctx, A) {
-    var rws = A.S.runways.map(function (r) {
-      var eA = r.ends.filter(function (x) { return x.e.at === r.rm.a; })[0] || r.ends[0], eB = r.ends.filter(function (x) { return x !== eA; })[0] || eA;
-      var cw = function (E) { if (!E) return 0; var d = declared(A, { x: E }); return d.TODA && d.TORA ? Math.max(0, d.TODA - d.TORA) : 0; };
-      var prec = function (x) { return !!(x && x.e.ils && /II/.test(x.e.ils.cat || '')); };
-      return { name: r.rm.name, a: r.rm.a, b: r.rm.b, elA: eA.el, elB: eB.el, strip: r.strip, ext: r.ext, cwyA: cw(eB), cwyB: cw(eA), precA: prec(eA), precB: prec(eB) };
-    });
-    var tma = null;
-    (A.ds.byType.Airspace || []).forEach(function (a) { if (tma || !/^TMA/.test(s(a.cur.p.type)) || !A.arp) return; var g = M.geometry(A.ds, a), ring = g && g.t === 'A' ? g.c[0] : g && g.t === 'M' && g.parts[0] && g.parts[0].t === 'A' ? g.parts[0].c[0] : null; if (ring && C.inRing(A.arp, ring)) tma = ring; });
-    var move = [];
-    ['TaxiwayElement', 'ApronElement'].forEach(function (k) { (A.ds.byType[k] || []).slice(0, 3000).forEach(function (r) { var g = M.geometry(A.ds, r); if (g && g.t === 'A') move.push(g.c[0]); }); });
+    // runways, TMA and movement area as the obstacle workspace reads them (OBSTVIEW.etodInput)
+    var inp = OBSTVIEW.etodInput(A.ds, A.ad) || { rws: [], tma: null, move: [] }, rws = inp.rws, tma = inp.tma, move = inp.move;
     var E = C.etod(rws, { arp: A.arp, tma: tma, move: move });
     var obs = obstacles(ctx).filter(function (o) { return C.distM(o.c, E.arp) < 60000; }), byArea = {}, rows = [];
     obs.forEach(function (o) {
@@ -500,21 +492,57 @@ var FLTVIEW = (function () {
     }
     return readText(await f.text(), f.name);
   }
+  // a NOTAM area / an area of the AIP text as a volume of a scene; what was read from a NOTAM, in a few words
+  function naItem(a, T) {
+    var n = V.notams.filter(function (x) { return 'NOTAM ' + x.id === a.desig; })[0], st = n ? NOTAMTXT.stateAt(n, T) : 'maybe';
+    return { ring: a.ring, lo: a.lower ? a.lower.m : 0, up: a.upper ? a.upper.m : 6000, color: st === 'on' ? ACOL[a.type] || '#e53935' : '#90a4ae', label: a.desig, sub: [a.name, (a.lower ? a.lower.txt : 'SFC') + ' – ' + (a.upper ? a.upper.txt : 'UNL'), 'now: ' + st] };
+  }
+  function taItem(a) { return { ring: a.ring, lo: a.lower ? a.lower.m : 0, up: a.upper ? a.upper.m : 6000, color: ACOL[a.type] || '#e53935', label: a.desig + (a.name ? ' ' + a.name : ''), sub: [(a.lower ? a.lower.txt : '?') + ' – ' + (a.upper ? a.upper.txt : '?'), a.hours || '', 'from ' + (a.src || 'text')] }; }
+  function noteWhat(n) { return n.obstacles.length ? n.obstacles.length + ' obstacle(s)' + (n.obstacles[0].elev !== null ? ' top ' + hU(n.obstacles[0].elev) : n.obstacles[0].hgt !== null ? ' height ' + hU(n.obstacles[0].hgt) : '') : n.area ? (n.area.circle ? 'circle ' + num(n.area.circle.rNM, 1) + ' NM' : 'area of ' + (n.area.ring.length - 1) + ' points') + (n.lower || n.upper ? ' ' + (n.lower ? n.lower.txt : 'SFC') + ' – ' + (n.upper ? n.upper.txt : 'UNL') : '') : n.runway ? 'RWY ' + n.runway.rwys.join(', ') + (n.runway.closed ? ' closed' : '') + (Object.keys(n.runway.dist).length ? ' ' + Object.keys(n.runway.dist).join(', ') : '') : n.designators.length ? n.designators.join(', ') + (n.activation === 'on' ? ' active' : n.activation === 'off' ? ' not active' : '') : ''; }
+  // What was read from NOTAM and AIP text, with the analysis of an aerodrome (take-off, approach, runway impact, eTOD
+  // areas): the areas around it on the same map, 3D and report (NOTAM obstacles are already among the obstacles), the
+  // NOTAMs of the aerodrome in a table, a NOTAM closing the runway of the analysis in the result.
+  var NEAR = 25 * NMM;
+  function withNotes(R, A, E) {
+    if (!R || R.empty || (!V.notams.length && !V.textAreas.length)) return R;
+    var c = A.arp || (A.S.runways[0] && A.S.runways[0].rm.a), T = Date.now();
+    if (!c) return R;
+    var near = function (ring) { return !!ring && (C.inRing(c, ring) || ring.some(function (p) { return C.distM(p, c) <= NEAR; })); };
+    var na = NOTAMTXT.notamAreas(V.notams).filter(function (a) { return near(a.ring); }), ta = V.textAreas.filter(function (a) { return near(a.ring); });
+    var layers = [];
+    if (na.length) layers.push({ id: 'na', name: 'NOTAM areas', kind: 'volume', items: na.map(function (a) { return naItem(a, T); }) });
+    if (ta.length) layers.push({ id: 'ta', name: 'Areas from the AIP text', kind: 'volume', items: ta.map(taItem) });
+    if (R.spec && layers.length) R.spec.layers = R.spec.layers.concat(layers);
+    var mine = V.notams.filter(function (n) { return n.locs.indexOf(A.code) >= 0 || (n.area && near(n.area.ring)) || n.obstacles.some(function (o) { return C.distM(o.c, c) <= NEAR; }); });
+    var rows = mine.map(function (n) { return ['NOTAM ' + (n.id || '?'), NOTAMTXT.CAT_NAME[n.cat] || n.cat, [n.subjTxt, n.condTxt].filter(Boolean).join(' — '), NOTAMTXT.stateAt(n, T), noteWhat(n), String(n.text || '').slice(0, 200)]; })
+      .concat(ta.map(function (a) { return ['AIP text', a.type || '', a.desig + (a.name ? ' ' + a.name : ''), a.hours || '', (a.lower ? a.lower.txt : '?') + ' – ' + (a.upper ? a.upper.txt : '?'), 'from ' + (a.src || 'text')]; }));
+    if (rows.length) R.notes = { title: 'NOTAM and AIP text around ' + A.code + ' (' + rows.length + ')', cols: ['Source', 'Category', 'What', 'Now', 'Read', 'Text'], rows: rows };
+    if (E) {
+      var cl = V.notams.filter(function (n) { return n.runway && n.runway.closed && n.runway.rwys.some(function (r) { return r.split('/').indexOf(E.desig) >= 0; }) && (!n.locs.length || n.locs.indexOf(A.code) >= 0) && NOTAMTXT.stateAt(n, T) !== 'off'; });
+      if (cl.length) {
+        R.verdict = { sev: 'error', txt: 'RWY ' + E.desig + ' CLOSED by NOTAM ' + cl.map(function (n) { return n.id; }).join(', ') + '. ' + (R.verdict ? R.verdict.txt : '') };
+        R.kpis = [['CLOSED', 'NOTAM ' + cl[0].id]].concat(R.kpis || []);
+        if (R.spec) R.spec.layers.push({ id: 'cl', name: 'Closed RWY ' + E.desig + ' (NOTAM)', kind: 'polygon', items: [{ ring: runwayRing(E.r.rm), color: '#e53935', opacity: 0.45, label: 'RWY ' + E.desig + ' CLOSED (NOTAM ' + cl[0].id + ')' }] });
+      }
+    }
+    if (R.facts) R.facts = R.facts.concat([['NOTAM / AIP text', num(mine.length) + ' NOTAM and ' + num(ta.length) + ' area(s) from text around the aerodrome (' + num(NEAR / NMM, 0) + ' NM), shown on this map, 3D and report']]);
+    return R;
+  }
   function notamResult(ctx) {
     var T = Date.now(), list = V.notams, cats = {};
     list.forEach(function (n) { cats[n.cat] = (cats[n.cat] || 0) + 1; });
     var layers = [], pts = [];
     var obsItems = [];
     list.forEach(function (n) { n.obstacles.forEach(function (o, k) { pts.push(o.c); var top = o.elev !== null ? o.elev : o.groundElev !== undefined ? o.groundElev + (o.hgt || 0) : null; obsItems.push({ id: 'n' + n.id + k, c: o.c, top: top, hgt: o.hgt, type: o.type, kind: FLTSCENE.kindOf(o.type, n.text), sev: NOTAMTXT.stateAt(n, T) === 'on' ? 'warning' : 'info', label: 'NOTAM ' + n.id, sub: [n.subjTxt + (n.condTxt ? ' — ' + n.condTxt : ''), 'top ' + hU(top) + (o.hgt !== null ? ' · height ' + hU(o.hgt) : ''), o.lightsUs ? 'LIGHTS UNSERVICEABLE' : o.lit ? 'lighted ' + o.lit : ''], tag: '', notam: true }); }); });
-    var areaItems = NOTAMTXT.notamAreas(list).map(function (a) { a.ring.forEach(function (p) { pts.push(p); }); var n = list.filter(function (x) { return 'NOTAM ' + x.id === a.desig; })[0], st = n ? NOTAMTXT.stateAt(n, T) : 'maybe'; return { ring: a.ring, lo: a.lower ? a.lower.m : 0, up: a.upper ? a.upper.m : 6000, color: st === 'on' ? ACOL[a.type] || '#e53935' : '#90a4ae', label: a.desig, sub: [a.name, (a.lower ? a.lower.txt : 'SFC') + ' – ' + (a.upper ? a.upper.txt : 'UNL'), 'now: ' + st] }; });
-    var txtItems = V.textAreas.map(function (a) { a.ring.forEach(function (p) { pts.push(p); }); return { ring: a.ring, lo: a.lower ? a.lower.m : 0, up: a.upper ? a.upper.m : 6000, color: ACOL[a.type] || '#e53935', label: a.desig + (a.name ? ' ' + a.name : ''), sub: [(a.lower ? a.lower.txt : '?') + ' – ' + (a.upper ? a.upper.txt : '?'), a.hours || '', 'from ' + (a.src || 'text')] }; });
+    var areaItems = NOTAMTXT.notamAreas(list).map(function (a) { a.ring.forEach(function (p) { pts.push(p); }); return naItem(a, T); });
+    var txtItems = V.textAreas.map(function (a) { a.ring.forEach(function (p) { pts.push(p); }); return taItem(a); });
     if (areaItems.length) layers.push({ id: 'na', name: 'NOTAM areas', kind: 'volume', items: areaItems });
     if (txtItems.length) layers.push({ id: 'ta', name: 'Areas read from the AIP text', kind: 'volume', items: txtItems });
     if (obsItems.length) layers.push({ id: 'obs', name: 'NOTAM obstacles', kind: 'obstacles', items: obsItems });
     var bb = pts.length ? bboxOf(pts, 3000) : null;
     var cols = ['NOTAM', 'Category', 'Code', 'Meaning', 'Locations', 'From', 'To', 'Now', 'What was read', 'Text'];
     var table = list.map(function (n) {
-      var what = n.obstacles.length ? n.obstacles.length + ' obstacle(s)' + (n.obstacles[0].elev !== null ? ' top ' + hU(n.obstacles[0].elev) : n.obstacles[0].hgt !== null ? ' height ' + hU(n.obstacles[0].hgt) : '') : n.area ? (n.area.circle ? 'circle ' + num(n.area.circle.rNM, 1) + ' NM' : 'area of ' + (n.area.ring.length - 1) + ' points') + (n.lower || n.upper ? ' ' + (n.lower ? n.lower.txt : 'SFC') + ' – ' + (n.upper ? n.upper.txt : 'UNL') : '') : n.runway ? 'RWY ' + n.runway.rwys.join(', ') + (n.runway.closed ? ' closed' : '') + (Object.keys(n.runway.dist).length ? ' ' + Object.keys(n.runway.dist).join(', ') : '') : n.designators.length ? n.designators.join(', ') + (n.activation === 'on' ? ' active' : n.activation === 'off' ? ' not active' : '') : '';
+      var what = noteWhat(n);
       return [n.id || '?', NOTAMTXT.CAT_NAME[n.cat] || n.cat, n.code, [n.subjTxt, n.condTxt].filter(Boolean).join(' — '), n.locs.join(' '), n.from ? new Date(n.from).toISOString().slice(0, 16).replace('T', ' ') : '', n.to === Infinity ? 'PERM' : n.to ? new Date(n.to).toISOString().slice(0, 16).replace('T', ' ') + (n.est ? ' EST' : '') : '', NOTAMTXT.stateAt(n, T), what, n.text.replace(/\s+/g, ' ').slice(0, 220)];
     });
     var kpis = [[num(list.length), 'NOTAM read'], [num(cats.obstacle || 0), 'obstacles'], [num((cats.airspace || 0) + (cats.warning || 0)), 'airspace / warnings'], [num(cats.runway || 0), 'runways'], [num(V.textAreas.length), 'areas from the AIP text']];
@@ -563,12 +591,12 @@ var FLTVIEW = (function () {
     if (V.mode === 'notam') return notamResult(ctx);
     if (V.mode === 'route') return route(ctx);
     if (!A) return { empty: true, noAd: true };
-    if (V.mode === 'rwy') return runwayImpact(ctx, A);
-    if (V.mode === 'etod') return etodAreas(ctx, A);
+    if (V.mode === 'rwy') return withNotes(await runwayImpact(ctx, A), A, null);
+    if (V.mode === 'etod') return withNotes(await etodAreas(ctx, A), A, null);
     var ends = endsOf(A), E = ends.filter(function (x) { return x.key === V.end; })[0] || ends[0];
     if (!E) return { empty: true, noAd: true };
     V.end = E.key;
-    return V.mode === 'app' ? approach(ctx, A, E) : takeoff(ctx, A, E);
+    return withNotes(V.mode === 'app' ? await approach(ctx, A, E) : await takeoff(ctx, A, E), A, E);
   }
   var SEVC = { error: 'err', warning: 'warn', caution: 'warn', ok: 'ok', info: 'info' };
   function render(host, ctx) {
@@ -583,7 +611,8 @@ var FLTVIEW = (function () {
       (needEnd && ends.length ? '<select data-fl="end" aria-label="Runway">' + ends.map(function (x) { return '<option value="' + esc(x.key) + '"' + (x.key === V.end ? ' selected' : '') + '>' + (V.mode === 'to' ? 'Departure ' : 'Landing ') + esc(x.label) + '</option>'; }).join('') + '</select>' : '') +
       '<button class="btn small ghost" data-fl="settings" aria-expanded="' + V.settings + '">⚙ Settings</button></div>' +
       '<div class="flt-set"' + (V.settings ? '' : ' hidden') + '>' + settingsHtml(A, ends) + '</div>' +
-      (V.mode === 'route' ? routeHtml() : V.mode === 'notam' ? notamInputHtml() : '') +
+      (V.mode === 'route' ? routeHtml() : '') +
+      (V.mode === 'notam' ? notamInputHtml() : '<details class="flt-ntbox"' + (V.ntOpen ? ' open' : '') + '><summary>NOTAM, AIP supplement or area text' + (V.notams.length || V.textAreas.length ? ' <span class="chip info">' + num(V.notams.length) + ' NOTAM · ' + num(V.textAreas.length) + ' area(s) read</span>' : '') + ' <span class="muted">— paste here: shown with this analysis, on the same map</span></summary>' + notamInputHtml() + '</details>') +
       '<div class="flt-out"><div class="flt-verdict"><span class="spinner"></span> Working…</div></div></div>';
     host.innerHTML = h;
     bind(host, ctx, A);
@@ -626,6 +655,7 @@ var FLTVIEW = (function () {
     if (R.spec) h += '<div class="flt-viewer"><div class="flt-vbar"><div class="pill-tabs">' + VIEWS.filter(function (x) { return x[0] !== 'profile' || R.profile; }).map(function (x) { return '<button data-fv="' + x[0] + '" class="' + (V.view === x[0] || (V.view === 'profile' && !R.profile && x[0] === 'map') ? 'active' : '') + '">' + x[1] + '</button>'; }).join('') + '</div><span class="sp"></span>' +
       '<button class="btn small ghost" data-fl="pop" title="Open this view in a separate window">⤢ Window</button><button class="btn small ghost" data-fl="vprint" title="Print this view">🖨</button></div><div class="flt-stage"></div><div class="flt-legend">' + FLTSCENE.legendHtml(kindsIn(R.spec)) + '</div></div>';
     if (R.extra) h += '<details class="flt-more" open><summary>' + esc(R.extra.title) + '</summary>' + tableHtml(R.extra.cols, R.extra.rows, 50) + '</details>';
+    if (R.notes) h += '<details class="flt-more" open><summary>' + esc(R.notes.title) + '</summary>' + tableHtml(R.notes.cols, R.notes.rows, 50) + '</details>';
     h += '<details class="flt-more"' + (R.table.length && R.table.length <= 30 ? ' open' : '') + '><summary>' + (V.mode === 'notam' ? 'NOTAM' : V.mode === 'route' ? 'Areas crossed' : V.mode === 'rwy' ? 'Runway directions' : 'Obstacles') + ' <span class="chip">' + num(R.table.length) + '</span></summary>' + (R.table.length ? tableHtml(R.cols, R.table, V.all ? 5000 : 15, true) : '<p class="muted">None.</p>') + '</details>';
     h += '<details class="flt-more"><summary>Data used and method</summary><table class="flt-kv">' + (R.facts || []).map(function (f) { return '<tr><th>' + esc(f[0]) + '</th><td>' + esc(f[1]) + '</td></tr>'; }).join('') + '</table><ul class="flt-meth">' + (R.method || []).map(function (m) { return '<li>' + esc(m) + '</li>'; }).join('') + '</ul><p class="muted">' + esc(NOTE) + '</p></details>';
     out.innerHTML = h;
@@ -661,6 +691,8 @@ var FLTVIEW = (function () {
   }
   function bind(host, ctx, A) {
     var rer = function () { render(host, ctx); };
+    var nb = host.querySelector('.flt-ntbox');
+    if (nb) nb.addEventListener('toggle', function () { V.ntOpen = nb.open; });
     host.onclick = async function (e) {
       var b = e.target.closest('[data-mode],[data-fl],[data-rep],[data-fv]');
       if (!b) { var m0 = host.querySelector('.flt-menu'); if (m0 && !e.target.closest('.flt-acts')) m0.hidden = true; return; }
@@ -672,7 +704,7 @@ var FLTVIEW = (function () {
       if (k === 'settings') { V.settings = !V.settings; host.querySelector('.flt-set').hidden = !V.settings; b.setAttribute('aria-expanded', V.settings); return; }
       if (k === 'all') { V.all = true; paint(host.querySelector('.flt-out'), V.last, ctx); return; }
       if (k === 'route') { V.route.text = host.querySelector('[data-rt="text"]').value; V.route.fl = host.querySelector('[data-rt="fl"]').value; V.route.time = host.querySelector('[data-rt="time"]').value; rer(); return; }
-      if (k === 'nread') { var ta = host.querySelector('[data-nt="text"]'); V.notamText = ta.value; var res = await readText(ta.value, 'pasted text'); V.notamText = ''; ctx.toast(res.notams + ' NOTAM and ' + res.areas + ' area(s) read.', 5000); rer(); return; }
+      if (k === 'nread') { V.ntOpen = true; var ta = host.querySelector('[data-nt="text"]'); V.notamText = ta.value; var res = await readText(ta.value, 'pasted text'); V.notamText = ''; ctx.toast(res.notams + ' NOTAM and ' + res.areas + ' area(s) read.', 5000); rer(); return; }
       if (k === 'nadd') { await addToData(ctx); return; }
       if (k === 'nclear') { V.notams = []; V.textAreas = []; V.notamsAdded = false; obsCache.sig = ''; rer(); return; }
       if (k === 'pop') { popout(ctx); return; }
@@ -682,7 +714,7 @@ var FLTVIEW = (function () {
       var t = e.target;
       if (t.getAttribute('data-fl') === 'ad') { V.ad = t.value; V.end = ''; rer(); return; }
       if (t.getAttribute('data-fl') === 'end') { V.end = t.value; rer(); return; }
-      if (t.getAttribute('data-nt') === 'file') { var fs = Array.prototype.slice.call(t.files || []); t.value = ''; var tot = { notams: 0, areas: 0 }; for (var i = 0; i < fs.length; i++) { try { var r = await readFile(fs[i]); tot.notams += r.notams; tot.areas += r.areas; } catch (er) { ctx.toast(fs[i].name + ': ' + er.message, 7000); } } ctx.toast(tot.notams + ' NOTAM and ' + tot.areas + ' area(s) read.', 5000); rer(); return; }
+      if (t.getAttribute('data-nt') === 'file') { V.ntOpen = true; var fs = Array.prototype.slice.call(t.files || []); t.value = ''; var tot = { notams: 0, areas: 0 }; for (var i = 0; i < fs.length; i++) { try { var r = await readFile(fs[i]); tot.notams += r.notams; tot.areas += r.areas; } catch (er) { ctx.toast(fs[i].name + ': ' + er.message, 7000); } } ctx.toast(tot.notams + ' NOTAM and ' + tot.areas + ' area(s) read.', 5000); rer(); return; }
       var k = t.getAttribute('data-set');
       if (!k) return;
       var v = t.type === 'number' ? parseFloat(t.value) : t.value;
@@ -736,6 +768,7 @@ var FLTVIEW = (function () {
     } catch (e) { /* no picture */ }
     if (R.profile) { var pp = await FLTSCENE.svgPng(FLTSCENE.profile(R.profile), 1300, 450); if (pp) pics.push({ kind: 'image', src: pp, h: 450 / 1300, caption: R.profile.title }); }
     if (pics.length) secs.push({ title: 'Pictures', blocks: pics });
+    if (R.notes) secs.push({ title: R.notes.title, blocks: [{ kind: 'table', title: R.notes.title, cols: R.notes.cols, rows: R.notes.rows.map(function (r) { return r.map(C1); }) }] });
     if (R.extra) secs.push({ title: R.extra.title, blocks: [{ kind: 'table', title: R.extra.title, cols: R.extra.cols, rows: R.extra.rows.map(function (r) { return r.map(C1); }) }] });
     secs.push({ title: V.mode === 'notam' ? 'NOTAM' : V.mode === 'route' ? 'Areas crossed' : V.mode === 'rwy' ? 'Runway directions' : 'Obstacles', blocks: [{ kind: 'table', title: '', cols: R.cols, rows: R.table.map(function (r) { return r.map(C1); }) }] });
     secs.push({ title: 'Method and references', blocks: (R.method || []).map(function (m) { return { kind: 'note', text: m }; }).concat([{ kind: 'note', text: NOTE }]) });

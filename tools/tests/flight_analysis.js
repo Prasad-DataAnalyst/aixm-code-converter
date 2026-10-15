@@ -109,6 +109,22 @@ const URL = 'file://' + ROOT + '/AIXM-Code-Converter.html';
   await mode('etod');
   const et = await page.evaluate(() => { const R = FLTVIEW.state.last; return { areas: R.extra.rows.map((r) => r[0]), n: R.table.length, layers: R.spec.layers.map((l) => l.id) }; });
   if (et.areas.indexOf('Area 2a') < 0 || !et.n || ['e2a', 'e2b', 'e2c', 'e2d', 'e3'].some((k) => et.layers.indexOf(k) < 0)) fails.push('eTOD areas: ' + JSON.stringify(et));
+  // the NOTAMs read go with every analysis of the aerodrome, on the same map: the restricted area, the table, the closure
+  for (const m of ['to', 'app', 'rwy', 'etod']) {
+    await mode(m);
+    const o = await page.evaluate(() => { const R = FLTVIEW.state.last; return { na: R.spec.layers.some((l) => l.id === 'na'), notes: R.notes ? R.notes.rows.length : 0, closed: /CLOSED by NOTAM/.test(R.verdict.txt), box: !!document.querySelector('.flt-ntbox') }; });
+    if (!o.na || o.notes < 3 || !o.box || (m === 'to' && !o.closed)) fails.push('NOTAM with the ' + m + ' analysis: ' + JSON.stringify(o));
+  }
+  // pasted in the runway impact tab itself: read there, shown there
+  await mode('rwy');
+  const openBox = async () => { if (!(await page.evaluate(() => document.querySelector('.flt-ntbox').open))) await page.click('.flt-ntbox > summary'); };
+  await openBox();
+  await page.click('.flt-ntbox [data-fl="nclear"]'); await done();
+  await openBox();
+  await page.fill('.flt-ntbox [data-nt="text"]', brief);
+  await page.click('.flt-ntbox [data-fl="nread"]'); await done();
+  const here = await page.evaluate(() => { const R = FLTVIEW.state.last; return { mode: FLTVIEW.state.mode, n: FLTVIEW.state.notams.length, na: R.spec.layers.some((l) => l.id === 'na'), closed: R.table.some((r) => /CLOSED/.test(r[9])), notes: !!R.notes }; });
+  if (here.mode !== 'rwy' || here.n !== 3 || !here.na || !here.closed || !here.notes) fails.push('NOTAM pasted in the runway impact tab: ' + JSON.stringify(here));
   // route through the NOTAM restricted area at FL050: entered while active
   await mode('route');
   const pts = await page.evaluate(() => (window.__AIXM.S.datasets[0].byType.DesignatedPoint || []).slice(0, 1).map((p) => p.cur.p.designator));
