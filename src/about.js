@@ -124,7 +124,6 @@ var ABOUT = (function () {
       '<li><b>Not affiliated:</b> the AIXM Code Converter is not affiliated with, endorsed or certified by EUROCONTROL, the FAA, ICAO, EASA, RTCA, EUROCAE, SAE / ARINC or any organisation named in it; their names describe the data only. Online maps from Esri are free for non-commercial use only (Esri terms of use).</li>' +
       '<li><b>Safe download:</b> each release lists the SHA-256 checksum of its files and has a signed build record (see SECURITY.md).</li></ul></section>';
     h += '<section class="ab-author"><h2>Author</h2><p>Created by <b>' + esc(APP_INFO.author) + '</b> · <a href="mailto:' + esc(APP_INFO.email) + '">' + esc(APP_INFO.email) + '</a> · <a href="' + esc(APP_INFO.linkedin) + '" target="_blank" rel="noopener">LinkedIn</a></p>' +
-      '<p><b>Editions.</b> Version 1.28 is the final feature release of the free edition, which stays free and open source under the Apache License 2.0. New features, starting with digital charts, come in the Pro edition. Professional services (AIXM data audits and migration, eTOD and obstacle studies, aerodrome mapping) and support: <a href="mailto:' + esc(APP_INFO.email) + '">' + esc(APP_INFO.email) + '</a>.</p>' +
       '<p class="muted">© ' + esc(APP_INFO.year) + ' ' + esc(APP_INFO.author) + '. Open source under the Apache License 2.0 — redistributions and modified versions must keep this attribution (LICENSE and NOTICE).</p>' +
       '<span class="ab-sig" aria-hidden="true">' + zw(SIG) + '</span></section>';
     h += '</div>';

@@ -2,17 +2,19 @@
 
 AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.0
 
-## Planned — Pro edition
+## Planned
 
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG.
-- New features after 1.28 come in the Pro edition. The free edition stays free and open source (Apache-2.0).
 
-## 1.28.0 — 2026-10-16 — Flight & obstacle analysis, NOTAM, FAA data · final feature release of the free edition
+## 1.28.1 — 2026-10-16 — About page and wording
 
-**Free edition.** 1.28.0 is the final feature release of the free edition, which stays free and open source under the
-Apache License 2.0. New features come in the Pro edition. This release also brings 1.26.0 and 1.27.0, which were not
-published separately.
+- About page: shorter and cleaner; the version-by-version history stays in this file.
+- README and About page: wording tidied.
+
+## 1.28.0 — 2026-10-16 — Flight & obstacle analysis, NOTAM, FAA data
+
+This release also brings 1.26.0 and 1.27.0, which were not published separately.
 
 NOT FOR NAVIGATION OR AIRCRAFT PERFORMANCE — indicative study figures.
 

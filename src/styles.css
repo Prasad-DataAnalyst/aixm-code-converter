@@ -699,7 +699,6 @@ pre, .xml, .notam-text { text-align: left; }
 .coming-soon { min-height: 60vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .coming-soon h1 { font-size: 28px; color: var(--brand); margin: 0 0 8px; }
 .coming-soon p { font-size: 18px; color: var(--muted); margin: 0; font-weight: 600; letter-spacing: .5px; }
-.coming-soon .muted { margin-top: 14px; font-size: 13px; max-width: 520px; }
 .leaflet-container.shape-hover { cursor: pointer; }
 .mem-chip { font-size: 11.5px; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; white-space: nowrap; margin-right: 6px; }
 .mem-chip.warn { background: #b26a00; }
