@@ -14,6 +14,11 @@ and no internet requirement. No data leaves the computer. (Also as a [ZIP](https
 with the licence, or from the [releases page](https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases).)
 Phones and tablets get their own layout — see [Phones and tablets](#phones-and-tablets).
 
+> **Free edition · version 1.28.** Version 1.28 is the final feature release of the free edition. It stays free and open
+> source under the Apache License 2.0. New features, starting with digital charts, will come in a **Pro edition**.
+> Professional services (AIXM data audits and migration, eTOD and obstacle studies, aerodrome mapping), training and
+> support are available: [prasad2t@gmail.com](mailto:prasad2t@gmail.com).
+
 ---
 
 ## What the user can do
@@ -240,7 +245,8 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.18.0, set in `src/config.js`; version 2 will add digital charts).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.28.0, set in `src/config.js`, the final feature release of the free edition;
+digital charts are planned for the Pro edition).
 
 ```bash
 cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core

@@ -2338,9 +2338,11 @@
   }
 
   /* ================================================= DIGITAL CHARTS */
-  // planned for version 2
+  // planned for the Pro edition
   function viewCharts(v) {
-    v.innerHTML = '<div class="coming-soon"><h1>Digital charts</h1><p>Coming soon</p></div>';
+    v.innerHTML = '<div class="coming-soon"><h1>Digital charts</h1><p>Coming in the Pro edition</p>' +
+      '<div class="muted">Version 1.28 is the final feature release of this free edition. Pro edition, services and support: ' +
+      '<a href="mailto:' + esc(AUTHOR_EMAIL) + '">' + esc(AUTHOR_EMAIL) + '</a></div></div>';
   }
 
   /* ========================================================== ABOUT */

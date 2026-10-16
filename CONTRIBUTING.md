@@ -15,5 +15,9 @@ without a review by the maintainer, Prasad Selvaraj.
 4. Open a **pull request** to `main` describing the change. The automatic checks (lint, unit tests, build check, browser
    tests) must pass, and the maintainer reviews every pull request before it is merged.
 
+**Terms for contributions.** By opening a pull request you confirm that the contribution is your own work, and you agree
+that it is licensed under the Apache License 2.0 and that Prasad Selvaraj may also use, change and license it under
+other terms, including in the Pro edition. Pull requests are merged only on these terms.
+
 Please keep the copyright headers, the author credit and the `NOTICE` file: they are required by the Apache License 2.0
 for redistributions and derivative works. Report bugs or ideas by e-mail to prasad2t@gmail.com.
