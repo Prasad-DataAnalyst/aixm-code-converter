@@ -1,0 +1,35 @@
+# AIXM Code Converter - Copyright 2026 Prasad Selvaraj <prasad2t@gmail.com> - Apache-2.0
+# Website: publishes the download page in site/ to GitHub Pages
+# (https://prasad-dataanalyst.github.io/aixm-code-converter/). Needs Settings -> Pages -> Source: GitHub Actions.
+# The Download button always points to the latest release, so the page does not change with each release.
+name: Website
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

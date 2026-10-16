@@ -13,6 +13,7 @@ comparison and exports. The user does not need to read AIXM/XML.
 and no internet requirement. No data leaves the computer. (Also as a [ZIP](https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases/latest/download/AIXM-Code-Converter.zip)
 with the licence, or from the [releases page](https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases).)
 Phones and tablets get their own layout — see [Phones and tablets](#phones-and-tablets).
+Website: **https://prasad-dataanalyst.github.io/aixm-code-converter/**
 
 ---
 
@@ -231,6 +232,7 @@ aixm-code-converter/
 │   └── app.js                  user interface and extraction orchestration
 ├── schemas/                    official AIXM XSDs (4.5, 5.1, 5.1.1, 5.2), business rules (rules/) from aixm.aero, AMXM 2.0.2 XSD (amxm/)
 ├── data/                       compiled dictionary and business rules, Natural Earth places, terrain model
+├── site/                       the website (download page), published by .github/workflows/pages.yml
 ├── testdata/                   public sample files (Donlon, Chicago O'Hare, AIXM 4.5, 5.2, IFP 5.1 / 5.2, temporality cases, Digital NOTAM)
 │                               and fictitious test files (AMXM aerodrome EAXM, IFP procedures for EADD, AMDB defects EAXB)
 │                               and synthetic test files (Donlon_EADD_changes_AIRAC2611.xml, sample_aixm45_extra.xml)
