@@ -66,6 +66,7 @@ them, so they cost nothing at start):
 | `obstab.js` | `OBSTAB` | at start | obstacle tables (Excel / CSV, any column layout) and the FAA Digital Obstacle File (DOF.DAT, State files, CHG.DAT) as AIXM 5.1 VerticalStructure records |
 | `demfile.js` | `DEMF` | at start | terrain file readers: GeoTIFF / BigTIFF, DTED, SRTM .hgt, ESRI ASCII grid (headers, blocks, GeoKeys) |
 | `dem.js` | `DEM` | at start | terrain files loaded by the user: block cache with a memory budget, sampling, grids, statistics |
+| `tiles.js` | `TILES` | at start (also in the map window and the analysis windows) | online base map tile layers: Esri's grey "Map data not yet available" tile is recognised and replaced by the enlarged level that has data |
 | `obsicon.js` | `OBSICON` | at start (and in the analysis window) | obstacle kinds from type and name; their 3D models (SVG and canvas sprites) and line badges, shared by the obstacle map and the analysis |
 | `ddmap.js` | `DDMAP` | at start | the map of the Digital data tab (obstacles as 3D models of their kind, lines, areas; the Map tab is a separate map) |
 | `obstview.js` | `OBSTVIEW` | at start | Obstacles (eTOD) workspace: overview, list, PANS-AIM compliance, statistics, reports, analysis |

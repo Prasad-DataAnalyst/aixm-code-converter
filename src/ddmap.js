@@ -15,7 +15,7 @@
  *   lines       procedure paths and aerodrome mapping geometry (points, lines, areas)
  * Base: the built-in offline world map, or the free online maps of the Map tab (Esri, OpenStreetMap, OpenTopoMap, NASA).
  * ========================================================================== */
-/* global L, topojson, MODEL, MAPVIEW, OBSICON */
+/* global L, topojson, MODEL, MAPVIEW, OBSICON, TILES */
 var DDMAP = (function () {
   'use strict';
   var M = MODEL, world = null;
@@ -74,7 +74,7 @@ var DDMAP = (function () {
     var d = k !== 'offline' ? online()[k] : null;
     mm.map.getContainer().style.background = !d ? (dark ? '#0d1a2b' : '#dfe9f3') : d.dark ? '#111' : '#e8e8e8';
     if (d) {
-      var tl = L.tileLayer(d.url, { attribution: d.attr, maxZoom: 21, maxNativeZoom: d.maxZoom, subdomains: d.sub || 'abc', crossOrigin: true, referrerPolicy: 'strict-origin-when-cross-origin' });
+      var tl = TILES.layer(d.url, { attribution: d.attr, maxZoom: 21, maxNativeZoom: d.maxZoom, subdomains: d.sub || 'abc', crossOrigin: true, referrerPolicy: 'strict-origin-when-cross-origin' });
       mm.base = d.labels ? L.layerGroup([tl, L.tileLayer(d.labels, { maxZoom: 21, maxNativeZoom: d.maxZoom, crossOrigin: true, referrerPolicy: 'strict-origin-when-cross-origin' })]) : tl;
       var errors = 0, loaded = 0;
       tl.on('tileload', function () { loaded++; });

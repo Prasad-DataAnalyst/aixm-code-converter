@@ -16,7 +16,7 @@
  * Terrain: grid MORA per 1° square (built-in terrain model), online terrain
  * shading, terrain elevation under the mouse, and the 3D view (view3d.js).
  * ========================================================================== */
-/* global L, topojson, AX, MODEL, AIP, ADCHART, TERRAIN, VIEW3D, LAZY, FOURD */
+/* global L, topojson, AX, MODEL, AIP, ADCHART, TERRAIN, VIEW3D, LAZY, FOURD, TILES */
 var MAPVIEW = (function () {
   'use strict';
   // phones and tablets (device.js; the pop-out map window has no DEVICE and counts as a computer)
@@ -572,7 +572,7 @@ var MAPVIEW = (function () {
     if (key === 'offline') { map.addLayer(base.offline); base.offline.restyle(); return; }
     var d = ONLINE[key];
     if (!base.online[key]) {
-      var tl = L.tileLayer(d.url, { attribution: d.attr, maxZoom: 19, maxNativeZoom: d.maxZoom, subdomains: d.sub || 'abc', crossOrigin: true, referrerPolicy: 'strict-origin-when-cross-origin' });
+      var tl = TILES.layer(d.url, { attribution: d.attr, maxZoom: 19, maxNativeZoom: d.maxZoom, subdomains: d.sub || 'abc', crossOrigin: true, referrerPolicy: 'strict-origin-when-cross-origin' });
       base.online[key] = d.labels ? L.layerGroup([tl, L.tileLayer(d.labels, { maxZoom: 19, maxNativeZoom: d.maxZoom, crossOrigin: true, pane: labelPane() })]) : tl;
       var errors = 0, loaded = 0;
       tl.on('tileload', function () { loaded++; });
@@ -953,7 +953,7 @@ var MAPVIEW = (function () {
     over.pLgt = pointLayer(lgt, { size: 6, labelZoom: 8, prio: 35 });
     over.annot = annotLayer(list);
     over.mora = moraLayer();
-    over.hill = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}', { opacity: 0.38, maxZoom: 16, attribution: 'Hillshade © Esri', crossOrigin: true });
+    over.hill = TILES.layer('https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}', { opacity: 0.38, maxZoom: 16, attribution: 'Hillshade © Esri', crossOrigin: true });
     over.hill.count = 0;
     over.obstLines = shapeLayer(obSet, { prio: 4 });
     over.obstacles = L.layerGroup([over.obstLines, over.pObs]);

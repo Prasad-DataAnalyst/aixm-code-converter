@@ -20,7 +20,7 @@
  *   window     any of them in a separate window (second screen), with print and PNG
  * Needs only Leaflet, three.js and the obstacle icons (OBSICON), so it runs the same in a separate window.
  * ========================================================================== */
-/* global L, THREE, OBSICON */
+/* global L, THREE, OBSICON, TILES */
 var FLTSCENE = (function () {
   'use strict';
   var D2R = Math.PI / 180, RE = 6371008.8, FT = 0.3048, NM = 1852;
@@ -84,7 +84,7 @@ var FLTSCENE = (function () {
     function setBase(k) {
       if (base) { map.removeLayer(base); base = null; }
       var d = spec.bases && spec.bases.list && spec.bases.list[k];
-      if (d) base = L.tileLayer(d.url, { attribution: d.attr, maxZoom: 19, maxNativeZoom: d.maxZoom || 18, subdomains: d.sub || 'abc', crossOrigin: true }).addTo(map);
+      if (d) base = TILES.layer(d.url, { attribution: d.attr, maxZoom: 19, maxNativeZoom: d.maxZoom || 18, subdomains: d.sub || 'abc', crossOrigin: true }).addTo(map);
       el.firstChild.style.background = d && d.dark ? '#0d1b2a' : '#eef2f5';
     }
     setBase(spec.bases ? spec.bases.def : null);

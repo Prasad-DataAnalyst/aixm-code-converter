@@ -7,6 +7,13 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG.
 
+## 1.28.3 — 2026-10-16 — Base maps without "Map data not yet available"
+
+- Where Esri has no map (open sea such as the Donlon sample, remote places, or closer in than the last level of that map), its tile
+  server answers with a grey picture "Map data not yet available". The tool now recognises it and shows the enlarged level that has
+  data instead, in the Map tab and the map window, the Digital data maps, the flight and obstacle analysis (and its windows) and the
+  imagery for aerodrome mapping. A server that is down still makes the tool fall back to another base map or the offline map.
+
 ## 1.28.2 — 2026-10-16 — Sample data and where to get AIXM files
 
 - **Try it with sample data**: on the Files page one button opens the Donlon sample (the fictitious State of EUROCONTROL and the FAA:

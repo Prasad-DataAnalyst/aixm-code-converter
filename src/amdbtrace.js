@@ -19,7 +19,7 @@
  *              imagery, under which licence, with an unknown accuracy; exported as GeoJSON (AMXM feature types).
  * Loaded only when used (src/lazy.js).
  * ========================================================================== */
-/* global L, AMDBX, AMDBGEO */
+/* global L, AMDBX, AMDBGEO, TILES */
 var AMDBTRACE = (function () {
   'use strict';
   var D2R = Math.PI / 180, KEY = 'aixm-amdb-traced', CKEY = 'aixm-amdb-imagery';
@@ -213,7 +213,7 @@ var AMDBTRACE = (function () {
       map.attributionControl.addAttribution(esc(im.attr));
       if (im.chart && typeof AMDBGEO !== 'undefined') AMDBGEO.drawFit(map, im.chart);
     } else {
-      P.base = L.tileLayer(im.url, { maxZoom: 22, maxNativeZoom: im.max || 19, attribution: esc(im.attr), subdomains: 'abc', referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(map);
+      P.base = TILES.layer(im.url, { maxZoom: 22, maxNativeZoom: im.max || 19, attribution: esc(im.attr), subdomains: 'abc', referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(map);
     }
     L.control.scale({ imperial: false }).addTo(map);
     // what the generator makes now, drawn over the imagery
