@@ -17,6 +17,18 @@ Website: **https://prasad-dataanalyst.github.io/aixm-code-converter/**
 
 ---
 
+## No AIXM file? Try the sample
+
+On the **Files** page, **Try it with sample data** opens the *Donlon* sample (the fictitious State of EUROCONTROL and the FAA: AIP,
+obstacles and flight procedures), built into the file: no download, no network request. The same files are in the `samples` folder of
+the release ZIP and on the website. **Where to get AIXM files** (also on the Files page) links to the official sources:
+[FAA NASR subscription](https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/) (AIXM 5.1 and 5.0, free),
+[FAA Digital Obstacle File](https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/dof/),
+[Donlon 2025 on GitHub](https://github.com/aixm/Donlon_2025),
+[EUROCONTROL's Donlon specimen](https://swim-eurocontrol.atlassian.net/wiki/spaces/ACGAIP/pages/212013877/AIP+Data+Set+-+Specimen+DONLON),
+[AIXM 5.1 data sets of temporary restrictions](https://ext.eurocontrol.int/aixm_confluence/x/2QFY) and [aixm.aero](https://www.aixm.aero/).
+Check the terms of use of each provider.
+
 ## What the user can do
 
 | Step | What happens |
@@ -242,7 +254,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.28.1, set in `src/config.js`; digital charts are planned).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.28.2, set in `src/config.js`; digital charts are planned).
 
 ```bash
 cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core

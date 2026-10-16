@@ -46,7 +46,9 @@ Aeronautical reference material
 AIXM XML Schemas (4.5, 5.1, 5.1.1, 5.2), AIXM code-list definitions, the
 AIXM 5.1 business rules (SBVR) and the Donlon / Digital NOTAM sample data
 are published by EUROCONTROL and the US FAA at https://aixm.aero and remain
-subject to their own copyright and terms.
+subject to their own copyright and terms. The Donlon sample data (a fictitious State) are also built into
+AIXM-Code-Converter.html ("Try it with sample data") and shipped in the samples folder of the release; their
+notice and licence are kept in the files and in THIRD-PARTY-LICENSES.txt.
 The AMXM 2.0.2 XML schema (aerodrome mapping exchange model, code lists and
 definitions) is Copyright RTCA and EUROCAE and is used under its BSD-style
 licence; RTCA and EUROCAE do not endorse this product.

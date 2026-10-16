@@ -164,6 +164,15 @@ label.chk input { accent-color: var(--brand); width: 15px; height: 15px; }
 
 /* ------------------------------------------------------------------ upload */
 .hero { display: grid; grid-template-columns: 1.25fr 1fr; gap: 20px; align-items: stretch; }
+.sample-card { margin-top: 18px; }
+.sample-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.sample-top > div { flex: 1 1 360px; min-width: 0; }
+.sample-top h3 { margin: 0 0 4px; }
+.sample-top .btn { flex: none; }
+.sample-src { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 10px; }
+.sample-src summary { cursor: pointer; font-weight: 600; color: var(--brand-2); }
+.sample-src ul { margin: 10px 0 8px; padding-left: 20px; }
+.sample-src li { margin: 5px 0; line-height: 1.45; }
 .drop { border: 2px dashed var(--border-strong); border-radius: 18px; background: var(--surface); padding: 40px 30px; text-align: center; transition: .15s;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 260px; cursor: pointer; }
 .drop:hover, .drop.over { border-color: var(--brand); background: var(--brand-soft); }

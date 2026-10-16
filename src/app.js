@@ -362,6 +362,7 @@
       step(2, 'Extract', 'Press <b>Extract</b>. Large files are read in parallel streams — results appear while reading.') +
       step(3, 'Read like the ICAO AIP', 'GEN / ENR / AD pages, map, effective dates, AIRAC cycle, changes. Every value links to its exact AIXM code.') +
       step(4, 'Share', 'Export any section or everything to JSON, Excel, PDF, print, or a ready e-mail for Outlook.') + '</div></div>' +
+      sampleCard() +
       ABOUT.intro() +
       '<div class="filelist" id="filelist"></div>' +
       '<div class="extract-bar card" id="extract-bar"></div>' +
@@ -371,7 +372,38 @@
     ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
     ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
     drop.addEventListener('drop', function (e) { addFiles(e.dataTransfer.files); });
+    var ts = $('#try-sample', v); if (ts) ts.onclick = trySample;
     renderFileList();
+  }
+  // No AIXM file at hand: the Donlon sample data (a fictitious State, EUROCONTROL and FAA) are built into this page, and
+  // official places to get real AIXM files are listed. Nothing is downloaded: the links open in the browser's own tab.
+  var SAMPLE_FILES = [['smp-aip', 'Donlon_ALL_Baseline_2025.xml'], ['smp-obs', 'EA_EADD_OBS_DS_AREA_2_3_4_FULL_20191205.xml'], ['smp-ifp', 'ifp_test_EADD.xml']];
+  var AIXM_SOURCES = [
+    ['FAA NASR subscription', 'https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/', 'United States: airports, navaids and airways in AIXM 5.1, special activity airspace in AIXM 5.0, every 28 days, free of charge.'],
+    ['FAA Digital Obstacle File (DOF)', 'https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/dof/', 'United States obstacles. This tool reads it under Digital data → Obstacles.'],
+    ['Donlon 2025 data set (AIXM community, GitHub)', 'https://github.com/aixm/Donlon_2025', 'The fictitious State of EUROCONTROL and the FAA, the data set built into this page.'],
+    ['Donlon specimen AIP data set (EUROCONTROL)', 'https://swim-eurocontrol.atlassian.net/wiki/spaces/ACGAIP/pages/212013877/AIP+Data+Set+-+Specimen+DONLON', 'How the fictitious AIP is coded in AIXM.'],
+    ['AIXM 5.1 data sets of temporary restrictions (EUROCONTROL)', 'https://ext.eurocontrol.int/aixm_confluence/x/2QFY', 'States that publish AIXM 5.1 with their AIP supplements.'],
+    ['aixm.aero', 'https://www.aixm.aero/', 'The AIXM community: schemas, documentation and examples.']
+  ];
+  function sampleCard() {
+    return '<div class="card card-pad sample-card" id="sample-card"><div class="sample-top"><div><h3>No AIXM file yet?</h3>' +
+      '<div class="muted">Try the tool with the sample data of <b>Donlon</b>, the fictitious State of EUROCONTROL and the FAA: its AIP, obstacles and flight procedures. They are built into this file, nothing is downloaded.</div></div>' +
+      '<button class="btn primary big" id="try-sample">' + I.play + ' Try it with sample data</button></div>' +
+      '<details class="sample-src"><summary>Where to get AIXM files</summary><ul>' + AIXM_SOURCES.map(function (s) {
+        return '<li><a href="' + esc(s[1]) + '" target="_blank" rel="noopener noreferrer">' + esc(s[0]) + '</a><span class="muted"> — ' + esc(s[2]) + '</span></li>';
+      }).join('') + '<li><b>Your State\'s AIS</b><span class="muted"> — many AIS offices publish or supply AIXM with the AIP; ask the AIS office or the administrator of your own AIM system.</span></li></ul>' +
+      '<div class="muted">Check the terms of use of each provider. The tool never downloads data for you.</div></details></div>';
+  }
+  async function trySample() {
+    var btn = $('#try-sample'); if (btn) btn.disabled = true;
+    try {
+      if (S.files.some(function (f) { return f.name === SAMPLE_FILES[0][1]; })) { toast('The sample data is already open.'); go(S.datasets.length ? 'dash' : 'files'); return; }
+      toast('Opening the Donlon sample data …', 4000);
+      await addFiles(SAMPLE_FILES.map(function (s) { return new File([LAZY.bytes(s[0])], s[1], { type: 'text/xml', lastModified: Date.UTC(2025, 9, 30) }); }));
+      await extractAll();
+    } catch (err) { toast('Could not open the sample data: ' + err.message, 7000); }
+    finally { if (btn) btn.disabled = false; }
   }
   function step(n, t, d) { return '<div class="step"><div class="num">' + n + '</div><div><b>' + t + '</b><div class="muted">' + d + '</div></div></div>'; }
   $('#file-input').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });

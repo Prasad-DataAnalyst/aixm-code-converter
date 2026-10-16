@@ -7,6 +7,13 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG.
 
+## 1.28.2 — 2026-10-16 — Sample data and where to get AIXM files
+
+- **Try it with sample data**: on the Files page one button opens the Donlon sample (the fictitious State of EUROCONTROL and the FAA:
+  its AIP, obstacles and flight procedures), built into the file. No download, no network request.
+- **Where to get AIXM files**: the official sources (FAA NASR and Digital Obstacle File, the AIXM community, EUROCONTROL) with links.
+- The ZIP of a release has a `samples` folder with the Donlon files; the website offers them as a ZIP.
+
 ## 1.28.1 — 2026-10-16 — About page and wording
 
 - About page: shorter and cleaner; the version-by-version history stays in this file.

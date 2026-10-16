@@ -1,0 +1,26 @@
+AIXM Code Converter - sample AIXM files
+=======================================
+
+These are the sample data of "Donlon", a FICTITIOUS State, published by EUROCONTROL and the FAA to test AIXM software.
+They are NOT real aeronautical data. Never use them for navigation or any operational purpose.
+
+Files
+-----
+Donlon_ALL_Baseline_2025.xml                    The AIP data set of Donlon (AIXM 5.1.1): airspace, routes, navaids, aerodromes, procedures.
+EA_EADD_OBS_DS_AREA_2_3_4_FULL_20191205.xml     Obstacle data set (eTOD areas 2, 3 and 4) of the aerodrome EADD.
+ifp_test_EADD.xml                               Instrument flight procedures of EADD.
+Donlon_EADD_changes_AIRAC2611.xml               A modified copy of the Donlon data set with changes of a later AIRAC cycle (2611),
+                                                made for this tool, to try Changes and Compare.
+
+How to use
+----------
+1. Open AIXM-Code-Converter.html (Chrome or Edge) and go to Files.
+2. Drop this ZIP (or the .xml files) on the page and press Extract. Each file becomes its own data set.
+   To try the comparison, open the Compare tab and choose the Donlon data set and its changed copy.
+   (Version 1.28.2 and later also open the first three files with one button: "Try it with sample data".)
+
+Licence
+-------
+The notice and licence of EUROCONTROL and the FAA are at the top of each file and in THIRD-PARTY-LICENSES.txt.
+Other places to get AIXM files are listed in the tool (Files -> "Where to get AIXM files") and on
+https://prasad-dataanalyst.github.io/aixm-code-converter/

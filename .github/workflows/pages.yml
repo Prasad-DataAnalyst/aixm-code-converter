@@ -7,7 +7,7 @@ name: Website
 on:
   push:
     branches: [main]
-    paths: ['site/**', '.github/workflows/pages.yml']
+    paths: ['site/**', '.github/workflows/pages.yml', 'docs/SAMPLES.txt']
   workflow_dispatch:
 
 permissions:
@@ -27,6 +27,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
+      - name: Sample AIXM files (zip) for the download page
+        run: |
+          mkdir -p pack site/samples
+          cp testdata/Donlon_ALL_Baseline_2025.xml testdata/EA_EADD_OBS_DS_AREA_2_3_4_FULL_20191205.xml testdata/ifp_test_EADD.xml testdata/Donlon_EADD_changes_AIRAC2611.xml pack/
+          cp docs/SAMPLES.txt pack/README.txt
+          (cd pack && zip -q -9 ../site/samples/AIXM-sample-data-Donlon.zip *)
+          ls -la site/samples
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

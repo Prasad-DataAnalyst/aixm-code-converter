@@ -21,7 +21,7 @@
 <style>
   :root {
     --bg: #f3f4f1; --surface: #ffffff; --ink: #12171c; --muted: #5a6671; --line: #dde1dc;
-    --accent: #0b8a80; --accent-ink: #ffffff; --soft: #e8f1ef; --warn: #b4530a;
+    --accent: #0a7a71; --accent-ink: #ffffff; --soft: #e8f1ef; --warn: #b4530a;
     --g1: #0c1014; --g2: #141a20; --g3: #1c242c; --mint: #5eead4; --amber: #f2a63a;
     --shadow: 0 1px 2px rgba(18, 23, 28, .06), 0 10px 28px rgba(18, 23, 28, .08);
   }
@@ -127,6 +127,12 @@
   .steps li::before { content: counter(s); display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--soft); color: var(--accent); font-weight: 700; margin-bottom: 8px; }
   .steps b { display: block; margin-bottom: 2px; }
   .steps span { color: var(--muted); font-size: 15px; }
+  .btn.accent { background: var(--accent); color: var(--accent-ink); }
+  .btn.accent:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .sample-hero { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; margin-bottom: 16px; }
+  .sample-hero > div { flex: 1 1 380px; }
+  .sample-hero h3 { margin: 0 0 4px; font-size: 18px; }
+  .card a.src { font-weight: 650; }
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; box-shadow: var(--shadow); }
   .card h3 { margin: 0 0 6px; font-size: 17px; }
@@ -177,7 +183,7 @@
         AIXM Code Converter
       </a>
       <nav aria-label="Main">
-        <a class="l" href="#how">How to use</a><a class="l" href="#features">Features</a><a class="l" href="https://github.com/Prasad-DataAnalyst/aixm-code-converter" data-goatcounter-click="github-top" data-goatcounter-title="GitHub (top)">GitHub</a>
+        <a class="l" href="#how">How to use</a><a class="l" href="#samples">Sample files</a><a class="l" href="#features">Features</a><a class="l" href="https://github.com/Prasad-DataAnalyst/aixm-code-converter" data-goatcounter-click="github-top" data-goatcounter-title="GitHub (top)">GitHub</a>
         <a class="in" href="https://www.linkedin.com/in/prasadselvaraj/" target="_blank" rel="noopener" aria-label="Prasad Selvaraj on LinkedIn" data-goatcounter-click="linkedin-top" data-goatcounter-title="LinkedIn (top bar)"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45z"/></svg></i><b>Prasad Selvaraj</b></a>
       </nav>
     </div>
@@ -190,7 +196,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
           Download (HTML, 14 MB)
         </a>
-        <a class="btn ghost" href="https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases/latest/download/AIXM-Code-Converter.zip" data-goatcounter-click="download-zip" data-goatcounter-title="Download ZIP">ZIP with licence</a>
+        <a class="btn ghost" href="samples/AIXM-sample-data-Donlon.zip" data-goatcounter-click="download-sample-hero" data-goatcounter-title="Sample AIXM files (hero)">Sample AIXM files</a>
         <a class="btn ghost" href="https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases/latest" data-goatcounter-click="release-notes" data-goatcounter-title="Release notes">Release notes</a>
       </div>
       <div class="by">
@@ -254,10 +260,28 @@
     <h2>How to use</h2>
     <p class="sub">No account, no server and no installation.</p>
     <ol class="steps">
-      <li><b>Download</b><span>Save <i>AIXM-Code-Converter.html</i> with the Download button at the top.</span></li>
+      <li><b>Download</b><span>Save <i>AIXM-Code-Converter.html</i> with the Download button at the top, or the <a href="https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases/latest/download/AIXM-Code-Converter.zip" data-goatcounter-click="download-zip" data-goatcounter-title="Download ZIP">ZIP with licence and sample files</a>.</span></li>
       <li><b>Open</b><span>Double-click the file. It opens in Chrome or Edge and works without internet.</span></li>
-      <li><b>Add your files</b><span>Drop AIXM files (.xml, .aixm or .zip) and press Extract. Files of several GB are supported.</span></li>
+      <li><b>Add your files</b><span>Drop AIXM files (.xml, .aixm or .zip) and press Extract. No AIXM file? <a href="#samples">Get sample files</a>. Files of several GB are supported.</span></li>
     </ol>
+  </section>
+
+  <section id="samples">
+    <h2>No AIXM file yet?</h2>
+    <p class="sub">Most people do not have an AIXM file at hand. Start with the official sample data, then try real data from one of the sources below.</p>
+    <div class="card sample-hero">
+      <div><h3>Donlon sample files</h3><p style="margin:0;color:var(--muted);font-size:15px">The AIP, obstacles and flight procedures of Donlon, the fictitious State of EUROCONTROL and the FAA, and a copy with the changes of a later AIRAC cycle to try Changes and Compare. About 1.5 MB. Not real data: never for operational use.</p></div>
+      <a class="btn accent" href="samples/AIXM-sample-data-Donlon.zip" data-goatcounter-click="download-sample" data-goatcounter-title="Download sample files"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download sample files (ZIP)</a>
+    </div>
+    <div class="grid">
+      <div class="card"><h3>FAA NASR subscription</h3><p>United States airports, navaids and airways in AIXM 5.1 and special activity airspace in AIXM 5.0, every 28 days, free of charge. <a class="src" href="https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/" target="_blank" rel="noopener noreferrer" data-goatcounter-click="src-faa-nasr" data-goatcounter-title="Source: FAA NASR">Open the FAA page</a></p></div>
+      <div class="card"><h3>FAA Digital Obstacle File</h3><p>United States obstacles. The tool reads it under Digital data, Obstacles. <a class="src" href="https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/dof/" target="_blank" rel="noopener noreferrer" data-goatcounter-click="src-faa-dof" data-goatcounter-title="Source: FAA DOF">Open the FAA page</a></p></div>
+      <div class="card"><h3>Donlon 2025 on GitHub</h3><p>The AIXM community's own copy of the fictitious State, with other sample data sets and tools. <a class="src" href="https://github.com/aixm/Donlon_2025" target="_blank" rel="noopener noreferrer" data-goatcounter-click="src-donlon-github" data-goatcounter-title="Source: Donlon GitHub">Open on GitHub</a></p></div>
+      <div class="card"><h3>EUROCONTROL: Donlon specimen AIP</h3><p>How the fictitious AIP data set is coded in AIXM. <a class="src" href="https://swim-eurocontrol.atlassian.net/wiki/spaces/ACGAIP/pages/212013877/AIP+Data+Set+-+Specimen+DONLON" target="_blank" rel="noopener noreferrer" data-goatcounter-click="src-eurocontrol-donlon" data-goatcounter-title="Source: EUROCONTROL Donlon">Open the page</a></p></div>
+      <div class="card"><h3>Temporary restrictions</h3><p>AIXM 5.1 data sets that some States publish with their AIP supplements. <a class="src" href="https://ext.eurocontrol.int/aixm_confluence/x/2QFY" target="_blank" rel="noopener noreferrer" data-goatcounter-click="src-eurocontrol-temp" data-goatcounter-title="Source: EUROCONTROL temporary">Open the EUROCONTROL list</a></p></div>
+      <div class="card"><h3>aixm.aero</h3><p>The AIXM community: schemas, documentation and examples. For your own State, ask its AIS office. <a class="src" href="https://www.aixm.aero/" target="_blank" rel="noopener noreferrer" data-goatcounter-click="src-aixm-aero" data-goatcounter-title="Source: aixm.aero">Open aixm.aero</a></p></div>
+    </div>
+    <p class="note"><b>Check the terms of use of each provider.</b> This page only links to them; the files come from the providers, not from this tool.</p>
   </section>
 
   <section id="features">

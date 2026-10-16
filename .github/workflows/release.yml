@@ -56,7 +56,11 @@ jobs:
 
       - name: Package and checksums
         run: |
+          mkdir -p samples
+          cp testdata/Donlon_ALL_Baseline_2025.xml testdata/EA_EADD_OBS_DS_AREA_2_3_4_FULL_20191205.xml testdata/ifp_test_EADD.xml testdata/Donlon_EADD_changes_AIRAC2611.xml samples/
+          cp docs/SAMPLES.txt samples/README.txt
           zip -j AIXM-Code-Converter.zip AIXM-Code-Converter.html LICENSE NOTICE THIRD-PARTY-LICENSES.txt README.md CHANGELOG.md
+          zip -r AIXM-Code-Converter.zip samples
           sha256sum AIXM-Code-Converter.html AIXM-Code-Converter.zip > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
