@@ -8,16 +8,16 @@ Updated 2026-10-16 (daily). GitHub does not report the location of visitors.
 
 | | |
 |---|---|
-| Downloads of the tool (HTML file), all time | **82** |
-| All release files, all time (HTML, ZIP, checksums) | **129** |
-| Current release v1.28.1: HTML file | 1 |
+| Downloads of the tool (HTML file), all time | **83** |
+| All release files, all time (HTML, ZIP, checksums) | **132** |
+| Current release v1.28.2: HTML file | 0 |
 | Stars · forks · watchers | 0 · 0 · 0 |
 
 ## New downloads of the HTML file per day (last 30 days recorded)
 
 | Date | New | Total |
 |---|---|---|
-| 2026-10-16 | 1 | 82 |
+| 2026-10-16 | 2 | 83 |
 | 2026-10-15 | 7 | 81 |
 | 2026-10-14 | 0 | 74 |
 | 2026-10-13 | 2 | 74 |
@@ -38,7 +38,8 @@ Updated 2026-10-16 (daily). GitHub does not report the location of visitors.
 
 | Release | HTML | ZIP | Checksums | |
 |---|---|---|---|---|
-| v1.28.1 | 1 | 0 | 1 | current |
+| v1.28.2 | 0 | 0 | 0 | current |
+| v1.28.1 | 2 | 2 | 1 | current |
 | v1.25.0 | 14 | 2 | 1 | removed |
 | v1.24.0 | 1 | 1 | 1 | removed |
 | v1.23.0 | 1 | 1 | 1 | removed |
