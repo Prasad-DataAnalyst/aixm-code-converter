@@ -16,8 +16,8 @@ Phones and tablets get their own layout — see [Phones and tablets](#phones-and
 
 > **Free edition · version 1.28.** Version 1.28 is the final feature release of the free edition. It stays free and open
 > source under the Apache License 2.0. New features, starting with digital charts, will come in a **Pro edition**.
-> Professional services (AIXM data audits and migration, eTOD and obstacle studies, aerodrome mapping), training and
-> support are available: [prasad2t@gmail.com](mailto:prasad2t@gmail.com).
+> Professional services (AIXM data audits and migration, eTOD and obstacle studies, aerodrome mapping) and support are
+> available: [prasad2t@gmail.com](mailto:prasad2t@gmail.com).
 
 ---
 
