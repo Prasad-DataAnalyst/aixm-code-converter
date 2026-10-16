@@ -81,24 +81,52 @@ async function main() {
   console.log('Statistics for ' + today + ' written to ' + dir);
 }
 
+// Last download count of every release file recorded on or before a date (all dates when none is given). Files of
+// releases deleted later keep their last count, so the all-time totals do not drop when old releases are removed.
+function allTime(downloads, upTo) {
+  const last = new Map();
+  downloads.filter((r) => !upTo || r.date <= upTo).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+    .forEach((r) => last.set(r.release + '\u0001' + r.file, { release: r.release, file: r.file, downloads: +r.downloads || 0 }));
+  return Array.from(last.values());
+}
+const isHtml = (x) => /\.html$/i.test(x.file);
+const kind = (x) => (isHtml(x) ? 'html' : /\.zip$/i.test(x.file) ? 'zip' : /sha256/i.test(x.file) ? 'sums' : 'other');
+const vkey = (t) => String(t).replace(/^v/, '').split('.').map((n) => +n || 0);
+const newer = (a, b) => { const x = vkey(a), y = vkey(b); for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] || 0) !== (y[i] || 0)) return (y[i] || 0) - (x[i] || 0); return 0; };
+
 function summary(s) {
   const latest = (rows) => rows.filter((r) => r.date === s.today);
   const sum = (rows, k) => rows.reduce((a, r) => a + (+r[k] || 0), 0);
-  const dlToday = latest(s.downloads), r = latest(s.repo)[0] || {};
+  const dlToday = latest(s.downloads), r = latest(s.repo)[0] || {}, all = allTime(s.downloads);
+  const current = new Set(dlToday.map((x) => x.release)), cur = Array.from(current).sort(newer)[0];
   const lines = ['# AIXM Code Converter: downloads and traffic', '', 'Updated ' + s.today + ' (daily). GitHub does not report the location of visitors.', s.note,
     '## Totals', '', '| | |', '|---|---|',
-    '| Release downloads (all files, all versions) | **' + sum(dlToday, 'downloads') + '** |',
-    '| Stars · forks · watchers | ' + (r.stars || 0) + ' · ' + (r.forks || 0) + ' · ' + (r.watchers || 0) + ' |'];
+    '| Downloads of the tool (HTML file), all time | **' + sum(all.filter(isHtml), 'downloads') + '** |',
+    '| All release files, all time (HTML, ZIP, checksums) | **' + sum(all, 'downloads') + '** |'];
+  if (cur) lines.push('| Current release ' + cur + ': HTML file | ' + sum(dlToday.filter((x) => x.release === cur && isHtml(x)), 'downloads') + ' |');
+  lines.push('| Stars · forks · watchers | ' + (r.stars || 0) + ' · ' + (r.forks || 0) + ' · ' + (r.watchers || 0) + ' |');
   if (s.views.length) lines.push('| Page views since recording began | ' + sum(s.views, 'views') + ' |', '| Clones since recording began | ' + sum(s.clones, 'clones') + ' |');
-  lines.push('', '## Downloads per file (' + s.today + ')', '', '| Release | File | Downloads |', '|---|---|---|');
-  dlToday.forEach((x) => lines.push('| ' + x.release + ' | ' + x.file + ' | ' + x.downloads + ' |'));
+
+  const dates = Array.from(new Set(s.downloads.map((x) => x.date))).sort();
+  let prev = 0;
+  const daily = dates.map((d) => { const t = sum(allTime(s.downloads, d).filter(isHtml), 'downloads'), row = { date: d, add: t - prev, total: t }; prev = t; return row; });
+  if (daily.length) {
+    lines.push('', '## New downloads of the HTML file per day (last 30 days recorded)', '', '| Date | New | Total |', '|---|---|---|');
+    daily.slice(-30).reverse().forEach((x) => lines.push('| ' + x.date + ' | ' + x.add + ' | ' + x.total + ' |'));
+  }
+
+  const per = new Map();
+  all.forEach((x) => { const o = per.get(x.release) || { html: 0, zip: 0, sums: 0, other: 0 }; o[kind(x)] += x.downloads; per.set(x.release, o); });
+  lines.push('', '## Downloads per release, all time', '', '| Release | HTML | ZIP | Checksums | |', '|---|---|---|---|---|');
+  Array.from(per.keys()).sort(newer).forEach((k) => { const o = per.get(k); lines.push('| ' + k + ' | ' + o.html + ' | ' + o.zip + ' | ' + o.sums + ' | ' + (current.has(k) ? 'current' : 'removed') + ' |'); });
+
   const rf = latest(s.refs).sort((a, b) => b.views_14d - a.views_14d);
   if (rf.length) { lines.push('', '## Where visitors come from (last 14 days)', '', '| Site | Views | Unique visitors |', '|---|---|---|'); rf.forEach((x) => lines.push('| ' + x.referrer + ' | ' + x.views_14d + ' | ' + x.unique_14d + ' |')); }
   const v = s.views.slice(-30).reverse();
   if (v.length) { lines.push('', '## Page views (last 30 days recorded)', '', '| Date | Views | Unique visitors |', '|---|---|---|'); v.forEach((x) => lines.push('| ' + x.date + ' | ' + x.views + ' | ' + x.unique_visitors + ' |')); }
-  lines.push('', 'Full history: the CSV files in this branch (open them in Excel).', '');
+  lines.push('', 'Full history: the CSV files in this branch (open them in Excel). Releases marked "removed" keep the last count recorded before they were deleted.', '');
   return lines.join('\n');
 }
 
-module.exports = { parseCsv, toCsv, upsert, summary };
+module.exports = { parseCsv, toCsv, upsert, summary, allTime };
 if (require.main === module) main().catch((e) => { console.error(e.message); process.exit(1); });
