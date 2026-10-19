@@ -353,15 +353,33 @@
     b.addEventListener('click', function () { show(k); });
     segsEl.appendChild(b); return b;
   });
-  var openLink = document.getElementById('open');
+  var openLink = document.getElementById('open'), pics = null;
+  // A picture that cannot be loaded: some networks and browsers block picture files from this site but let text through.
+  // Then the pictures come as text (img/slides.json, fetched only when needed); if that fails too, the slide says so.
   function broken(s) {
     if (s.getAttribute('data-broken')) return;
     s.setAttribute('data-broken', '1');
     var img = s.querySelector('img'), d = document.createElement('div'); d.className = 'slide-err';
-    d.innerHTML = '<div>This picture could not be loaded. Your browser or network may be blocking images from this site.<br><a href="' + (img ? img.getAttribute('src') : '#') + '" target="_blank" rel="noopener">Open it directly</a></div>';
+    d.innerHTML = '<div>This picture could not be loaded. Your browser or network may be blocking images from this site.<br><a href="' + (img ? img.getAttribute('data-file') : '#') + '" target="_blank" rel="noopener">Open it directly</a></div>';
     s.appendChild(d);
   }
-  slides.forEach(function (s) { var img = s.querySelector('img'); if (!img) return; img.addEventListener('error', function () { broken(s); }); if (img.complete && img.naturalWidth === 0 && img.getAttribute('loading') !== 'lazy') broken(s); });
+  function recover(img) {
+    var s = img.closest ? img.closest('.slide') : null;
+    function fail() { if (s) broken(s); }
+    if (img.getAttribute('data-fb') || typeof fetch !== 'function') return fail();
+    img.setAttribute('data-fb', '1');
+    if (!pics) pics = fetch('img/slides.json').then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    pics.then(function (d) {
+      var v = d[img.getAttribute('data-file').replace(/^.*\//, '').replace(/\.jpg$/, '')];
+      if (!v) throw new Error('missing');
+      img.removeAttribute('loading'); img.src = v; if (openLink) openLink.style.display = 'none';
+    }).catch(fail);
+  }
+  [].forEach.call(document.querySelectorAll('.slide img, #screens img'), function (img) {
+    img.setAttribute('data-file', img.getAttribute('src'));
+    img.addEventListener('error', function () { recover(img); });
+    if (img.complete && img.naturalWidth === 0 && img.getAttribute('loading') !== 'lazy') recover(img); // failed before this script ran
+  });
   slides.forEach(function (s, k) { s.setAttribute('role', 'group'); s.setAttribute('aria-roledescription', 'slide'); s.setAttribute('aria-label', (k + 1) + ' of ' + n); s.setAttribute('aria-hidden', k ? 'true' : 'false'); });
 
   function pad(v) { return v < 10 ? '0' + v : '' + v; }
@@ -379,7 +397,7 @@
     void root.offsetWidth; bars[i].classList.add('now');
     var d = slides[i].dataset;
     ct.textContent = d.title; cx.textContent = d.text; cn.textContent = pad(i + 1) + ' / ' + pad(n);
-    var cur = slides[i].querySelector('img'); if (openLink && cur) openLink.setAttribute('href', cur.getAttribute('src'));
+    var cur = slides[i].querySelector('img'); if (openLink && cur) openLink.setAttribute('href', cur.getAttribute('data-file'));
     temp.wait = false; sync(); warm(i + 1);
   }
   function warm(k) { var img = slides[(k + n) % n].querySelector('img'); if (img && img.loading === 'lazy') img.loading = 'eager'; }
@@ -409,7 +427,7 @@
 
   show(0);
   // load the other screens right after the first one is on screen
-  window.addEventListener('load', function () { slides.forEach(function (s) { var img = s.querySelector('img'); if (img) img.loading = 'eager'; }); });
+  window.addEventListener('load', function () { [].forEach.call(document.querySelectorAll('.slide img'), function (img) { img.loading = 'eager'; if (img.complete && img.naturalWidth === 0 && img.getAttribute('src') && !img.getAttribute('data-fb')) recover(img); }); });
 })();
 </script>
 <script data-goatcounter="https://prasad2t.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
