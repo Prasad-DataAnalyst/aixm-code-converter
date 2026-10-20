@@ -40,9 +40,9 @@ Every release lists the SHA-256 checksum of its files (`SHA256SUMS.txt`) and has
 GitHub Actions from the source in this repository. To check a downloaded file:
 
 ```
-sha256sum AIXM-Code-Converter.html            # Linux / macOS: compare with SHA256SUMS.txt
-certutil -hashfile AIXM-Code-Converter.html SHA256   # Windows
-gh attestation verify AIXM-Code-Converter.html --repo Prasad-DataAnalyst/aixm-code-converter   # GitHub CLI
+sha256sum AIXM-Code-Converter-by-Prasad-Selvaraj.html   # Linux / macOS: compare with SHA256SUMS.txt
+certutil -hashfile AIXM-Code-Converter-by-Prasad-Selvaraj.html SHA256   # Windows
+gh attestation verify AIXM-Code-Converter-by-Prasad-Selvaraj.html --repo Prasad-DataAnalyst/aixm-code-converter   # GitHub CLI
 ```
 
 Download the tool only from this repository's releases.
