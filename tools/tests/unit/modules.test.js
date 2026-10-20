@@ -16,7 +16,7 @@ test.before(async () => {
 const eadd = (ds) => ds.byType.AirportHeliport.find((a) => /EADD/.test(JSON.stringify(a.cur.p.locationIndicatorICAO)));
 
 test('Donlon baseline: features, State, AIRAC', () => {
-  assert.equal(base.recs.length, 1028);
+  assert.equal(base.recs.length, 1027); // the Route UA6 that the file has in a comment is not read
   assert.equal(base.state, 'REPUBLIC OF DONLON');
   assert.equal(base.airac.id, '2511');
 });

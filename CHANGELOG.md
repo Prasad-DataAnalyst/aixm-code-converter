@@ -7,6 +7,23 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG.
 
+## 1.29.0 — 2026-10-20 — Several States in one AIXM file, file names after the content
+
+- **All data sets in one AIXM file** (Export, step 4): the data sets loaded — the AIP data sets of several States, any AIXM
+  version, also AIXM 4.5, aerodrome mapping and obstacle tables — written as one complete AIXM 5 file (5.1, 5.1.1 or 5.2):
+  every AIXM 5 feature with its original XML and every time slice as delivered, or only what is valid at the moment shown.
+  A list in the header and a comment before each part give its State, data set, byte and line. **Opened again, the file
+  shows each State as its own data set** (also after it was edited); other AIXM software reads it as one AIXM message.
+  Prefixes bound to other namespaces are renamed and the `gml:id` values of later parts get the part number, so the file
+  stays valid XML even when States share features (borders, points). A report lists what was written.
+- **Every exported file is named after what is in it** — the State, the aerodromes or section, the kind of data, the AIXM
+  version or format and the AIRAC cycle (e.g. `REPUBLIC-OF-DONLON_EADD_AD2.12_AIXM-5.1.1_AIRAC2511.xml`,
+  `REPUBLIC-OF-DONLON_AIP-GEN-ENR-AD_AIRAC2511.pdf`) — instead of after the file it was read from: PDF, print (Save as PDF), Excel, CSV,
+  JSON, e-mail, GeoJSON, KML, Shapefile, AIXM conversions and selections, map pictures, CRC32Q lists, Digital data exports.
+- The released files carry the author's name: `AIXM-Code-Converter-by-Prasad-Selvaraj.html` and `.zip`.
+- Fix: a feature inside an XML comment (data the publisher has commented out, e.g. a Route in the Donlon sample) is no
+  longer read as data. Saved copies of data sets are read again once.
+
 ## 1.28.3 — 2026-10-16 — Base maps without "Map data not yet available"
 
 - Where Esri has no map (open sea such as the Donlon sample, remote places, or closer in than the last level of that map), its tile

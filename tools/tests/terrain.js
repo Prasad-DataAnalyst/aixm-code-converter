@@ -44,9 +44,11 @@ function elev(lon, lat) {
   const errors = [], fails = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('dialog', (x) => x.accept());
+  let lastFile = null; // the file saved by the last download (files are named after their content)
   async function download(sel) {
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 120000 }), page.click(sel)]);
     const p = OUT + '/' + dl.suggestedFilename(); await dl.saveAs(p);
+    lastFile = p;
     return fs.statSync(p).size;
   }
 
@@ -133,7 +135,7 @@ function elev(lon, lat) {
   if (!marker || chosen.n !== 4 || chosen.bar !== '4') fails.push('obstacle chosen on the map (Ctrl+click): ' + JSON.stringify(chosen));
   await page.screenshot({ path: OUT + '/obstacles_chosen.png' });
   const ana = await download('[data-ovana="sel:pdf"]').catch((e) => { fails.push('analysis PDF: ' + e.message.split('\n')[0]); return 0; });
-  const anaFile = fs.readdirSync(OUT).filter((f) => /^Obstacle_analysis.*\.pdf$/.test(f)).map((f) => OUT + '/' + f).sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
+  const anaFile = ana ? lastFile : null;
   const imgs = anaFile ? (fs.readFileSync(anaFile, 'latin1').match(/\/Subtype\s*\/Image/g) || []).length : 0;
   if (imgs !== 5) fails.push('analysis PDF: ' + imgs + ' pictures (overview + 4 obstacles expected), ' + ana + ' bytes');
   const xlA = await download('[data-ovana="sel:xlsx"]').catch((e) => { fails.push('analysis Excel: ' + e.message.split('\n')[0]); return 0; });

@@ -184,7 +184,7 @@ var LIBRARY = (function () {
       await put('chunks', key + '#' + i, recs.slice(i * CH, (i + 1) * CH).map(slim));
     }
     await put('meta', key, { key: key, name: ds.name, size: ds.size, sniff: ds.sniff, family: ds.family, version: ds.version, chunks: n, count: recs.length,
-      parseErrors: (ds.parseErrors || []).map(slim), tRead: ds.tRead, errors: ds.errors, savedAt: Date.now(), lib: ds.lib || null, state: ds.state, lite: !!ds.lite, delivery: ds.delivery || null, fmt: 2,
+      parseErrors: (ds.parseErrors || []).map(slim), tRead: ds.tRead, errors: ds.errors, savedAt: Date.now(), lib: ds.lib || null, state: ds.state, lite: !!ds.lite, delivery: ds.delivery || null, part: ds.part || null, range: ds.range || null, fmt: 2,
       pv: APP_SETTINGS.parserVersion });
   }
   async function loadDataset(key) {
@@ -194,7 +194,7 @@ var LIBRARY = (function () {
     if ((m.pv || 1) !== APP_SETTINGS.parserVersion) { removeCached(key).catch(function () {}); return null; }
     var recs = [];
     for (var i = 0; i < m.chunks; i++) { var c = await get('chunks', key + '#' + i); if (!c) return null; for (var j = 0; j < c.length; j++) recs.push(c[j]); }
-    return { name: m.name, size: m.size, sniff: m.sniff, family: m.family, version: m.version, recs: recs, parseErrors: m.parseErrors, tRead: m.tRead, errors: m.errors, prepared: true, lib: m.lib, cachedAt: m.savedAt, lite: m.lite, delivery: m.delivery || undefined, fmt: m.fmt || 1, pv: m.pv || 1 };
+    return { name: m.name, size: m.size, sniff: m.sniff, family: m.family, version: m.version, recs: recs, parseErrors: m.parseErrors, tRead: m.tRead, errors: m.errors, prepared: true, lib: m.lib, cachedAt: m.savedAt, lite: m.lite, delivery: m.delivery || undefined, part: m.part || undefined, range: m.range || undefined, fmt: m.fmt || 1, pv: m.pv || 1 };
   }
   async function cachedKeys() { try { return new Set(await keys('meta')); } catch (e) { return new Set(); } }
   async function cachedList() { try { return await getAll('meta'); } catch (e) { return []; } }

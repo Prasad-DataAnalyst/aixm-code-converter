@@ -86,7 +86,7 @@ var DDX = (function () {
       var ds = all[i][0].ds;
       if (prog) prog('writing ' + ds.name + '…');
       var res = await CONVERT.selection(ds, all[i].concat(rel), datasets.concat(window.__AIXM ? window.__AIXM.S.datasets : []), ver, label, null, relLabel);
-      EXPORTS.download(EXPORTS.safeName((ds.state || 'data') + '_' + ds.name.replace(/\.[^.]+$/, '') + '_' + label.replace(/[^\w]+/g, '_').slice(0, 40)) + (ver !== 'orig' ? '_AIXM-' + ver : '') + '.xml', res.blob);
+      EXPORTS.download(EXPORTS.fileName({ ds: ds, what: label.replace(/\s*\(\d+\)\s*$/, ''), tag: ver !== 'orig' ? 'AIXM-' + ver : EXPORTS.versionTag(ds) }, '.xml'), res.blob);
       res.report.notes.unshift(ds.name + ':');
       reps.push(res.report);
     }

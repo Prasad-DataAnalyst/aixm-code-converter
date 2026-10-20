@@ -39,7 +39,10 @@ var CONVERT = (function () {
     var renRe = Object.keys(ren).length ? new RegExp('(</?[\\w.-]+:)(' + Object.keys(ren).join('|') + ')(TimeSlice|PropertyType)?(?=[\\s>/])', 'g') : null;
     if (target === '5.2') ds.recs.forEach(function (r) { if (REMOVED_52.indexOf(r.k) >= 0) report.review[r.k] = (report.review[r.k] || 0) + 1; });
     if (from === '5.2' && target !== '5.2') ds.recs.forEach(function (r) { if ((M.dict().v5.featureVersions[r.k] || []).indexOf('5.1.1') < 0) report.review[r.k] = (report.review[r.k] || 0) + 1; });
-    var parts = [], file = srcFile || ds.file, size = file.size, CH = 8 * 1024 * 1024, pos = 0, carry = '', first = true;
+    var parts = [], file = srcFile || ds.file, CH = 8 * 1024 * 1024, pos = 0, carry = '', first = true;
+    // one State of a file with several (merge): its part only, in the root element of the file
+    if (ds.range && !srcFile) { var ri = rootInfo(await file.slice(0, Math.min(file.size, 262144)).text()); file = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n<' + ri.name + ri.attrs + '>\n', file.slice(ds.range[0], ds.range[1]), '</' + ri.name + '>\n']); }
+    var size = file.size;
     var dec = new TextDecoder('utf-8');
     while (pos < size) {
       var buf = await file.slice(pos, Math.min(size, pos + CH)).arrayBuffer();
@@ -305,7 +308,7 @@ var CONVERT = (function () {
     });
     return { shp: new Uint8Array(shpB), shx: new Uint8Array(shxB) };
   }
-  function toShapefile(ds, filter) {
+  function toShapefile(ds, filter, name) { // name: base of the file names inside the zip (what the export holds)
     var sets = { points: { kind: 1, g: [], a: [] }, lines: { kind: 3, g: [], a: [] }, polygons: { kind: 5, g: [], a: [] } };
     function clean(c) { return c.filter(function (p) { return typeof p[0] === 'number'; }); }
     gisFeatures(ds, filter).forEach(function (f) {
@@ -323,7 +326,7 @@ var CONVERT = (function () {
         }
       })(f.g);
     });
-    var files = {}, base = (ds.state + '_' + ds.name.replace(/\.[^.]+$/, '')).replace(/[^\w.-]+/g, '_').slice(0, 60);
+    var files = {}, base = (name || (ds.state + '_' + ds.name.replace(/\.[^.]+$/, ''))).replace(/[^\w.-]+/g, '_').slice(0, 100);
     Object.keys(sets).forEach(function (k) {
       var st = sets[k];
       if (!st.g.length) return;
@@ -361,9 +364,9 @@ var CONVERT = (function () {
   }
   // the XML of features of a data set, read part by part from its file(s): rec -> feature element with the time
   // slices still valid at the moment shown (AIXM 5; a time slice delivered twice is kept once) or the whole element
-  // (AIXM 4.5)
-  async function featureTexts(ds, recs, onProgress) {
-    var files = ds.files || [ds.file], at = ds.atMoment, rep = { slices: 0, ended: 0, dup: 0 }, five = ds.family === '5';
+  // (AIXM 4.5); all: every time slice, also those that had ended by then
+  async function featureTexts(ds, recs, onProgress, all) {
+    var files = ds.files || [ds.file], at = all ? null : ds.atMoment, rep = { slices: 0, ended: 0, dup: 0 }, five = ds.family === '5';
     if (files.some(function (f) { return !f; })) throw new Error('The original file of ' + ds.name + ' is not connected — open it again from Files or the Library.');
     var occs = [];
     recs.forEach(function (r) { (r.occ || [{ o: r.o, n: r.n, f: r.f }]).forEach(function (o, i) { if (o.n) occs.push({ r: r, i: i, o: o.o, n: o.n, f: o.f || 0 }); }); });
@@ -383,6 +386,7 @@ var CONVERT = (function () {
       var list = (byRec.get(r) || []).sort(function (a, b) { return a.i - b.i; });
       if (!list.length) return;
       if (!five) { out.set(r, text.get(list[0])); return; }
+      if (all && list.length === 1) { out.set(r, text.get(list[0])); rep.slices += r.ts.length; return; } // as delivered
       var slices = [], hasNth = r.ts.some(function (y) { return y.nth !== undefined; }), firstEnd = -1, firstStart = -1;
       list.forEach(function (x, li) {
         var nth = 0;
@@ -624,5 +628,188 @@ var CONVERT = (function () {
     return { blob: new Blob([out], { type: 'text/xml' }), report: report, selected: nSel, supporting: nSup, missing: cl.missing.size };
   }
 
-  return { convertVersion: convertVersion, consolidate: consolidate, selection: selection, closure: closure, related: related, writer45: writer45, toGeoJSON: toGeoJSON, toKML: toKML, toShapefile: toShapefile, uuidFor: uuidFor, gisFeatures: gisFeatures, shpWrite: shp };
+  /* ------------------------------------------- one AIXM file of several data sets (States) */
+  // All the data sets chosen (a State each, any AIXM version) in one AIXM 5 BasicMessage, in the AIXM version chosen:
+  // AIXM 5 features with their original XML (every time slice as delivered, or with opt.current only what is valid at
+  // the moment shown), AIXM 4.5, aerodrome mapping and obstacle tables written as AIXM 5.1.1 from the data read. A list
+  // in the header and a comment before each part give its State and data set and the byte and line where it starts:
+  // the AIXM Code Converter opens the file again as one data set per State (mergedPartsOf), other AIXM software reads
+  // it as one message. So that one file stays valid XML: a prefix that another part binds to another namespace is
+  // renamed in this part, and gml:id values of parts 2, 3 … that could repeat those of another part (not uuid.*, or a
+  // feature that is also in an earlier part, e.g. a shared border point) end with the part number.
+  var MERGED = 'AIXM-CC-MERGED', PART = 'AIXM-CC-PART';
+  var MSG = { '5.1': 'http://www.aixm.aero/schema/5.1/message', '5.1.1': 'http://www.aixm.aero/schema/5.1.1/message', '5.2': 'http://www.aixm.aero/schema/5.2/message' };
+  function ver5(ds) { return /^5\.2/.test(ds.version) ? '5.2' : ds.version === '5.1.1' ? '5.1.1' : '5.1'; }
+  function plain(t) { return String(t === undefined || t === null ? '' : t).replace(/[<>|\r\n\t]+/g, ' ').replace(/-{2,}/g, '-').replace(/\s+/g, ' ').trim(); }
+  function pad(n, w) { var t = String(n); while (t.length < w) t = '0' + t; return t; }
+  function lineCount(t) { var n = 0, i = -1; while ((i = t.indexOf('\n', i + 1)) >= 0) n++; return n; }
+  function escRe(t) { return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  async function merge(dsList, opt, onProgress) {
+    opt = opt || {};
+    var target = LOC[opt.target] ? opt.target : '5.1.1', n = dsList.length;
+    var M0 = { target: target, current: !!opt.current, n: n, renamed: [], dflt: [], ids: 0, dups: 0,
+      ns: { message: MSG[target], aixm: LOC[target], gml: 'http://www.opengis.net/gml/3.2', xlink: 'http://www.w3.org/1999/xlink', xsi: 'http://www.w3.org/2001/XMLSchema-instance' } };
+    var states = dsList.map(function (d) { return d.state; }).filter(function (x, i, a) { return a.indexOf(x) === i; });
+    var report = { title: 'All data sets in one AIXM file', from: states.length <= 4 ? states.join(', ') : states.length + ' States', to: 'one AIXM ' + target + ' file', notes: [], renamed: 0 };
+    var parts = [];
+    for (var k = 0; k < n; k++) parts.push(await mergePart(dsList, k, M0, report, partProgress(onProgress, k, n)));
+    var today = new Date().toISOString().slice(0, 10);
+    var rootStart = '<message:AIXMBasicMessage' + Object.keys(M0.ns).map(function (p) { return ' xmlns:' + p + '="' + xesc(M0.ns[p]) + '"'; }).join('') +
+      ' xsi:schemaLocation="' + MSG[target] + ' ' + LOCFILE[target] + '" gml:id="MERGED_' + uuidFor(dsList.map(function (d) { return d.name; }).join('|') + today).slice(0, 8) + '">\n';
+    // the list of parts: numbers of a fixed width, so the header has the same length before and after they are known
+    function header(offs) {
+      return '<?xml version="1.0" encoding="UTF-8"?>\n<!-- ' + MERGED + ' 1: one AIXM ' + target + ' file of ' + n + ' data set' + (n > 1 ? 's' : '') + ', made by ' + plain(CREDIT) + ' on ' + today + '.\n' +
+        '     ' + (M0.current ? 'What is valid at the moment shown in each data set' : 'Every time slice as delivered') + '. Open it in the AIXM Code Converter to see each State as its own data set\n' +
+        '     again; other AIXM software reads it as one message. Each part starts with a comment ' + PART + ' at the byte and line given here.\n' +
+        parts.map(function (x, i) {
+          return '     part ' + x.P.k + ' | byte ' + pad(offs ? offs[i].b : 0, 13) + ' | line ' + pad(offs ? offs[i].l : 0, 10) + ' | ' + plain(x.P.state) + ' | ' + plain(x.P.name) + ' | ' + plain(x.P.version) +
+            ' | AIRAC ' + (x.P.airac || '-') + ' | ' + x.P.features + ' features\n';
+        }).join('') + '-->\n';
+    }
+    var enc = new TextEncoder(), h0 = header(null), at = enc.encode(h0).length + enc.encode(rootStart).length, line = lineCount(h0) + lineCount(rootStart) + 1, offs = [];
+    parts.forEach(function (x) { offs.push({ b: at, l: line }); at += x.blob.size; line += x.lines; });
+    var blob = new Blob([header(offs), rootStart].concat(parts.map(function (x) { return x.blob; }), ['</message:AIXMBasicMessage>\n']), { type: 'text/xml' });
+    report.notes.unshift(n + ' data set' + (n > 1 ? 's' : '') + ' in one AIXM ' + target + ' file (' + (M0.current ? 'what is valid at the moment shown in each' : 'every time slice as delivered') + '), ' +
+      parts.reduce(function (a, x) { return a + x.P.features; }, 0) + ' features. Open the file again (Files) and each State is its own data set again; other AIXM software reads it as one AIXM message.');
+    if (M0.renamed.length) report.notes.push('Namespace prefixes bound to another namespace in another part renamed, so that one file declares them all: ' + M0.renamed.join('; ') + '.');
+    if (M0.dflt.length) report.notes.push('Default namespace of ' + M0.dflt.join(', ') + ' declared on each of its members.');
+    if (M0.dups) report.notes.push(M0.dups + ' feature(s) are in more than one data set (e.g. shared borders or points): each part keeps its own copy.');
+    if (M0.ids) report.notes.push(M0.ids + ' gml:id value(s) of ' + (n > 2 ? 'parts 2 to ' + n : 'part 2') + ' end with the part number (e.g. _p2), so that they stay unique in one file; gml:identifier (UUID) values are unchanged.');
+    if (onProgress) onProgress(1);
+    return { blob: blob, report: report, parts: parts.map(function (x) { return x.P; }) };
+  }
+  function partProgress(fn, k, n) { return function (q) { if (fn) fn((k + q) / n); }; }
+  // one part of merge(): {blob, lines (newlines in it), P (what the list in the header says)}
+  async function mergePart(dsList, k, M0, report, onProgress) {
+    var d = dsList[k], no = k + 1, target = M0.target, five = d.family === '5';
+    var P = { k: no, state: d.state, name: d.name, version: d.sniff ? d.sniff.versionLabel : '', airac: d.airac ? d.airac.id : '', features: 0, slices: 0 };
+    var pieces = [], buf = [], size = 0, lines = 0;
+    function emit(t) { buf.push(t); size += t.length; lines += lineCount(t); if (size > 8388608) { pieces.push(new Blob(buf)); buf = []; size = 0; } }
+    emit('<!-- ' + PART + ' ' + no + ' of ' + M0.n + ' | ' + plain(d.state) + ' | ' + plain(d.name) + ' | ' + plain(P.version) + ' | AIRAC ' + (P.airac || '-') + ' -->\n');
+    // a feature an earlier part has too (same identifier): its gml:id values in this part get the part number
+    var dupR = new Set(), dupG = new Set(), sfx = '_p' + no;
+    function dupOf(r) { for (var j = 0; j < k; j++) { var o = dsList[j]; if (o.byId && (o.family === '5') === five && o.byId.get(r.id)) return true; } return false; }
+    var recs = d.recs.filter(function (r) { return r.k !== '#error' && !((M0.current || !five) && r.cur && r.cur.gone); });
+    if (k) recs.forEach(function (r) { if (r.id && dupOf(r)) { dupR.add(r); dupG.add(five ? String(r.gid || '').trim() : 'uuid.' + idOf(r.id)); } });
+    M0.dups += dupR.size;
+    var gmlP = ['gml'], idRe = null;
+    function renameIds(t, all) {
+      if (!k) return t;
+      // (an ID is a token: white space around it is dropped before the part number is added)
+      t = t.replace(idRe, function (m, a, q, v) { v = v.trim(); if (!all && /^uuid\./i.test(v) && !dupG.has(v)) return m; M0.ids++; return a + q + v + sfx + q; });
+      return t.replace(/(:href\s*=\s*)(["'])#([^"']+)\2/g, function (m, a, q, v) { v = v.trim(); return /^uuid\./i.test(v) && !dupG.has(v) ? m : a + q + '#' + v + sfx + q; });
+    }
+    if (five) {
+      var files = d.files || [d.file], from = ver5(d);
+      if (files.some(function (f) { return !f; })) throw new Error('The original file of ' + d.state + ' — ' + d.name + ' is not connected: open it again from Files or the Library.');
+      // the namespaces of its root element(s), in the version of the file; a prefix bound to another namespace by an
+      // earlier part is renamed here
+      var pns = {}, ren = {}, dflt;
+      for (var i = 0; i < files.length; i++) {
+        var ri = rootInfo(await files[i].slice(0, Math.min(files[i].size, 262144)).text());
+        if (ri) Object.keys(ri.ns).forEach(function (a) { if (!(a in pns)) pns[a] = ri.ns[a].replace(NS_RE, LOC[target]).slice(1, -1); });
+      }
+      Object.keys(pns).forEach(function (a) {
+        var uri = pns[a];
+        if (a === 'xmlns') { dflt = uri; return; }
+        var p = a.slice(6), q = p;
+        if (M0.ns[p] && M0.ns[p] !== uri) { q = p + sfx; while (M0.ns[q]) q += 'x'; ren[p] = q; M0.renamed.push(d.state + ': ' + p + ' → ' + q); }
+        M0.ns[q] = uri;
+        if (AX.GML_NS_RE.test(uri) && gmlP.indexOf(q) < 0) gmlP.push(q);
+      });
+      if (dflt) M0.dflt.push(d.state);
+      var rk = Object.keys(ren), renEl = rk.length ? new RegExp('(<\\/?|\\s)(' + rk.map(escRe).join('|') + ')(?=:)', 'g') : null, renNs = rk.length ? new RegExp('(xmlns:)(' + rk.map(escRe).join('|') + ')(?=\\s*=)', 'g') : null;
+      idRe = new RegExp('(\\s(?:' + gmlP.map(escRe).join('|') + '):id\\s*=\\s*)(["\'])([^"\']*)\\2', 'g');
+      var open = '  <message:hasMember' + (dflt ? ' xmlns="' + xesc(dflt) + '"' : '') + '>\n    ', close = '\n  </message:hasMember>\n', B = 4000;
+      for (var s0 = 0; s0 < recs.length; s0 += B) {
+        var batch = recs.slice(s0, s0 + B), ft = await featureTexts(d, batch, null, !M0.current);
+        P.slices += ft.rep.slices;
+        for (var bi = 0; bi < batch.length; bi++) {
+          var r = batch[bi], t = ft.map.get(r);
+          if (!t) continue;
+          if (from !== target) t = retarget(t, from, target, report);
+          else if (t.indexOf('xmlns') >= 0) t = t.replace(NS_RE, LOC[target]);
+          if (renEl) t = t.replace(renEl, function (m, a, p) { return a + ren[p]; }).replace(renNs, function (m, a, p) { return a + ren[p]; });
+          emit(open + renameIds(t, dupR.has(r)) + close);
+          P.features++;
+        }
+        if (onProgress) onProgress(Math.min(1, (s0 + B) / Math.max(1, recs.length)));
+      }
+      // features that do not exist in the version of the file (another AIXM reader may leave them out)
+      var gone = {};
+      if (from !== target) recs.forEach(function (r) { if ((target === '5.2' && REMOVED_52.indexOf(r.k) >= 0) || (target !== '5.2' && from === '5.2' && (M.dict().v5.featureVersions[r.k] || []).indexOf(target) < 0)) gone[r.k] = (gone[r.k] || 0) + 1; });
+      report.notes.push('Part ' + no + ' · ' + d.state + ' — ' + d.name + ' (' + P.version + (P.airac ? ', AIRAC ' + P.airac : '') + '): ' + P.features + ' features with ' + P.slices + ' time slices, their original XML' +
+        (from !== target ? ', written as AIXM ' + target : '') + '.' + (Object.keys(gone).length ? ' Not in AIXM ' + target + ' (review): ' + Object.keys(gone).map(function (x) { return x + ' (' + gone[x] + ')'; }).join(', ') + '.' : ''));
+    } else {
+      // AIXM 4.5, aerodrome mapping, obstacle tables: AIXM 5.1.1 written from the data read, then the version chosen
+      var keep = new Set(recs), w = writer45(d, function (r) { return keep.has(r); });
+      var txt = await w.blob.text(), a0 = txt.indexOf('<message:AIXMBasicMessage'), a1 = txt.indexOf('>', a0) + 1, z = txt.lastIndexOf('</message:AIXMBasicMessage>');
+      var body = txt.slice(a1, z).replace(/^\s*\n/, '');
+      txt = null;
+      if (target !== '5.1.1') body = retarget(body, '5.1.1', target, report);
+      idRe = /(\sgml:id\s*=\s*)(["'])([^"']*)\2/g;
+      emit(renameIds(body, false));
+      P.features = w.report.written; P.slices = w.report.written;
+      report.notes.push('Part ' + no + ' · ' + d.state + ' — ' + d.name + ' (' + P.version + (P.airac ? ', AIRAC ' + P.airac : '') + '): ' + P.features + ' features written as AIXM ' + target + ' from the data read.' +
+        w.report.notes.filter(function (x) { return /Not converted|nil/.test(x); }).map(function (x) { return ' ' + x; }).join(''));
+      if (onProgress) onProgress(1);
+    }
+    if (buf.length) pieces.push(new Blob(buf));
+    return { blob: new Blob(pieces), lines: lines, P: P };
+  }
+  // the parts of a file written by merge(), from its first bytes: [{k, b (byte), line, state, name, version, airac,
+  // features}], or null for another file
+  function mergedParts(head) {
+    var m = new RegExp('<!--\\s*' + MERGED + ' \\d+:([\\s\\S]*?)-->').exec(head);
+    if (!m) return null;
+    var re = /part (\d+) \| byte (\d+) \| line (\d+) \| ([^|\n]*) \| ([^|\n]*) \| ([^|\n]*) \| AIRAC ([^|\n]*) \| (\d+) features/g, x, out = [];
+    while ((x = re.exec(m[1]))) out.push({ k: +x[1], b: +x[2], line: +x[3], state: x[4].trim(), name: x[5].trim(), version: x[6].trim(), airac: x[7].trim() === '-' ? '' : x[7].trim(), features: +x[8] });
+    return out.length ? out : null;
+  }
+  // ... checked against the file (the comment of each part where the list says; when bytes moved, e.g. the file was
+  // edited, the comments are looked for in the whole file), each with its end (to: the next part, or the end tag of the
+  // root). Prefixes declared in a part (e.g. a default namespace on its members) are added to sniff.
+  async function mergedPartsOf(file, head, sniff) {
+    var parts = mergedParts(head);
+    if (!parts) return null;
+    var tag = '<!-- ' + PART + ' ', moved = false;
+    for (var i = 0; i < parts.length && !moved; i++) moved = (await file.slice(parts[i].b, parts[i].b + 40).text()).indexOf(tag + parts[i].k + ' of ') !== 0;
+    if (moved) {
+      var listed = parts, found = await findParts(file, tag);
+      parts = found.map(function (f) { var p = listed.filter(function (x) { return x.k === f.k; })[0] || {}; return Object.assign({}, p, f, { state: f.state || p.state, name: f.name || p.name }); });
+      if (!parts.length) return null;
+    }
+    var tail = Math.min(file.size, 65536), tt = new TextDecoder('windows-1252').decode(new Uint8Array(await file.slice(file.size - tail).arrayBuffer())), endTag = tt.lastIndexOf('</');
+    var end = endTag >= 0 ? file.size - tail + endTag : file.size;
+    parts.forEach(function (p, j) { p.to = j < parts.length - 1 ? parts[j + 1].b : Math.max(p.b, end); });
+    if (sniff) {
+      var rootTag = /<[A-Za-z_][\w.:-]*[^>]*>/.exec(head.replace(/<\?[\s\S]*?\?>/g, '').replace(/<!--[\s\S]*?-->/g, ''));
+      for (var q = 0; q < parts.length; q++) {
+        var sn = AX.sniff((rootTag ? rootTag[0] : '') + (await file.slice(parts[q].b, Math.min(parts[q].to, parts[q].b + 65536)).text()), file.name);
+        ['aixmPrefixes', 'gmlPrefixes', 'eventPrefixes', 'xlinkPrefixes'].forEach(function (key) { (sn[key] || []).forEach(function (p) { if (sniff[key] && sniff[key].indexOf(p) < 0) sniff[key].push(p); }); });
+      }
+    }
+    return parts;
+  }
+  // the comment of every part in the whole file, with its byte and line (windows-1252: one character per byte)
+  async function findParts(file, tag) {
+    var dec = new TextDecoder('windows-1252'), CH = 16 * 1024 * 1024, pos = 0, prev = '', nl = 0, out = [], seen = new Set(), keep = tag.length + 600;
+    while (pos < file.size) {
+      var end = Math.min(file.size, pos + CH), t = dec.decode(new Uint8Array(await file.slice(pos, end).arrayBuffer()));
+      var s = prev + t, s0 = pos - prev.length, before = nl - lineCount(prev), i = -1;
+      while ((i = s.indexOf(tag, i + 1)) >= 0) {
+        var c = s.indexOf('-->', i);
+        if (c < 0 || seen.has(s0 + i)) continue;
+        var m = /^<!-- AIXM-CC-PART (\d+) of \d+ \| ([^|]*) \| ([^|]*)/.exec(s.slice(i, c));
+        if (!m) continue;
+        seen.add(s0 + i);
+        out.push({ k: +m[1], b: s0 + i, line: before + lineCount(s.slice(0, i)) + 1, state: m[2].trim(), name: m[3].trim() });
+      }
+      nl += lineCount(t); prev = s.slice(-keep); pos = end;
+    }
+    return out.sort(function (a, b) { return a.b - b.b; });
+  }
+
+  return { convertVersion: convertVersion, consolidate: consolidate, selection: selection, closure: closure, related: related, writer45: writer45, toGeoJSON: toGeoJSON, toKML: toKML, toShapefile: toShapefile, uuidFor: uuidFor, gisFeatures: gisFeatures, shpWrite: shp,
+    merge: merge, mergedParts: mergedParts, mergedPartsOf: mergedPartsOf };
 })();

@@ -25,7 +25,7 @@ data only. NOT FOR NAVIGATION: everything the application shows or exports is
 for study and analysis only.
 
 ----------------------------------------------------------------------------
-Third-party components included in AIXM-Code-Converter.html
+Third-party components included in the AIXM Code Converter HTML file
 ----------------------------------------------------------------------------
 Leaflet                      BSD-2-Clause    (c) Volodymyr Agafonkin, CloudMade
 three.js                     MIT             (c) three.js authors

@@ -195,7 +195,7 @@ var MODEL = (function () {
   var locator = null;
   function setLocator(fn) { locator = fn; }
   function harmonizeStates(list) {
-    var strong = list.filter(function (d) { return d.icaoPrefix && /OrganisationAuthority|ICAO location|library folder/.test(d.stateSource || ''); });
+    var strong = list.filter(function (d) { return d.icaoPrefix && /OrganisationAuthority|ICAO location|library folder|several States/.test(d.stateSource || ''); });
     list.forEach(function (d) {
       if (!/file name|FIR name|header origin|ICAO location|geographic|metadata/.test(d.stateSource || '') || d.lib) return;
       var hit = strong.filter(function (o) { return o !== d && (o.icaoPrefix === d.icaoPrefix || (d.prefixes || []).indexOf(o.icaoPrefix) >= 0) && o.state !== d.state; })[0];

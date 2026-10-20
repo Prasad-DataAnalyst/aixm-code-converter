@@ -148,7 +148,23 @@ var EXTRACT = (function () {
     if (types.length) what.push(types.join(', ') + ' airspace');
     if (secIds.length) what.push(secIds.join(', '));
     var ds0 = sel.datasets[0];
-    var scope = { title: (multi ? sel.datasets.length + ' data sets' : ds0.state) + ' — selected data', sub: what.join(' · '), ds: ds0, sections: sections };
+    var scope = { title: (multi ? sel.datasets.length + ' data sets' : ds0.state) + ' — selected data', sub: what.join(' · '), ds: ds0, datasets: sel.datasets, sections: sections };
+    // what the files of the selection are named after (exports.js fileName): the aerodromes, AD items, airspace types
+    // and sections chosen, of all the data sets or of one of them
+    scope.fileFor = function (only) {
+      var codes = [], w = [];
+      ads.forEach(function (x) { var c = M.shortName(x.ad); if ((!only || x.ds === only) && codes.indexOf(c) < 0) codes.push(c); });
+      if (bs.length && codes.length) {
+        // heliports only: their AD 3 numbers
+        var mine = ads.filter(function (x) { return !only || x.ds === only; }), hp = mine.every(function (x) { return AIP.isHeliport(x.ad); });
+        w.push(codes.length <= 4 ? codes.join(' ') : codes.length + ' aerodromes');
+        w.push(bs.length <= 3 ? bs.map(function (b) { return hp ? 'AD3.' + secNo(mine[0].ad, b) : 'AD2.' + b; }).join(' ') : bs.length + ' AD items');
+      }
+      if (types.length) w.push(types.length <= 4 ? types.join(' ') + ' airspace' : types.length + ' airspace types');
+      if (secIds.length) w.push(secIds.length <= 3 ? secIds.map(function (x) { return x.replace(/\s+/g, ''); }).join(' ') : secIds.length + ' sections');
+      return w.length ? w : ['selected data'];
+    };
+    scope.file = scope.fileFor(null);
     scope.gisFilter = function (ds) { var fns = gisSel.get(ds); return fns ? function (r) { for (var i = 0; i < fns.length; i++) if (fns[i](r)) return true; return false; } : null; };
     if (sel.raw) {
       var feats = [];

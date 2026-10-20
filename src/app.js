@@ -509,6 +509,11 @@
       var head = await f.slice(0, Math.min(f.size, 262144)).text();
       item.sniff = AX.sniff(head, f.name);
       item.status = item.sniff.family ? 'ready' : 'invalid';
+      // a file written by "All data sets in one AIXM file" (several States): read as one data set per State
+      if (item.sniff.family === '5' && head.indexOf('AIXM-CC-MERGED') >= 0) {
+        var parts = await CONVERT.mergedPartsOf(f, head, item.sniff);
+        if (parts) item.parts = parts.map(function (p) { p.id = ++fileSeq; return p; });
+      }
       // the data set's title in its ISO 19115 metadata (e.g. "Obstacle Data (Area 2d) for HAMAD INTL (OTHH)")
       var mt = item.sniff.family && /<(?:[\w-]+:)?title>\s*<(?:[\w-]+:)?CharacterString>([^<]{3,200})</.exec(head);
       if (mt) item.sniff.title = mt[1].trim();
@@ -577,7 +582,7 @@
   // key of the delivery a file belongs to: listed in the same checksum list, or a name that differs from the others
   // only by feature type and variant (…_Runway_BASELINE_EFF… / …_VOR_DIFF_EFF…); "Combine" sets its own key
   function setKeyOf(f) {
-    if (!f.sniff || !f.sniff.family || f.sniff.family === 'tab' || f.sniff.family === 'dem') return null;
+    if (!f.sniff || !f.sniff.family || f.sniff.family === 'tab' || f.sniff.family === 'dem' || f.parts) return null;
     if (f.manualSet) return f.manualSet;
     if (f.manifest) return 'm:' + f.manifest.uid;
     var p = nameParts(f);
@@ -664,6 +669,14 @@
       '<span class="chip brand">' + esc(sn.versionLabel || '') + '</span>' + (sn.isUpdate ? '<span class="chip info">AIXM update</span>' : '');
     var info = f.status === 'invalid' ? '<div class="muted" style="color:var(--err)">' + esc(f.error || '') + '</div>' :
       '<div class="muted" style="font-size:12.5px">' + fmtSize(f.size) + (sn.root ? ' · root &lt;' + esc(sn.root) + '&gt;' : '') + (f.from ? ' · from ' + esc(f.from) : '') + (f.detail ? ' · ' + f.detail : '') + '</div>';
+    // one file with several States: each part is read as its own data set
+    if (f.parts) {
+      var nst = f.parts.map(function (p) { return p.state; }).filter(function (x, i, l) { return l.indexOf(x) === i; }).length;
+      badge += '<span class="chip info">' + f.parts.length + ' data set' + (f.parts.length > 1 ? 's' : '') + ' in one file · ' + nst + ' State' + (nst > 1 ? 's' : '') + '</span>';
+      info += '<details class="set-files"><summary>The data sets (States) in this file</summary>' + f.parts.map(function (p) {
+        return '<div class="set-file"><span><b>' + esc(p.state) + '</b> · <span class="mono">' + esc(p.name) + '</span></span><span class="muted">' + esc([p.version, p.airac ? 'AIRAC ' + p.airac : '', num(p.features || 0) + ' features'].filter(Boolean).join(' · ')) + '</span></div>';
+      }).join('') + '</details>';
+    }
     var prog = f.status === 'parsing' || f.status === 'indexing' ? '<div class="progress"><div style="width:' + (f.progress * 100).toFixed(1) + '%"></div></div>' : '';
     return '<div class="fileitem card" data-fid="' + f.id + '"><div class="ficon">' + (sn.family === '45' ? '4.5' : sn.version ? esc(sn.version) : 'XML') + '</div>' +
       '<div class="grow"><div class="row wrap"><span class="fname">' + esc(f.name) + '</span>' + badge + (STATUS_CHIP[f.status] || '') + '</div>' + info + prog + '</div>' +
@@ -714,7 +727,7 @@
     if (!S.files.length) { bar.classList.add('hidden'); return; }
     bar.classList.remove('hidden');
     // files read one by one that could be combined (same AIXM family): "Combine" makes them one data set
-    var loose = ready.filter(function (f) { return !setOf(f); }), canJoin = loose.length > 1 && loose[0].sniff.family !== 'tab' && loose[0].sniff.family !== 'dem' && loose.every(function (f) { return f.sniff.family === loose[0].sniff.family; });
+    var loose = ready.filter(function (f) { return !setOf(f) && !f.parts; }), canJoin = loose.length > 1 && loose[0].sniff.family !== 'tab' && loose[0].sniff.family !== 'dem' && loose.every(function (f) { return f.sniff.family === loose[0].sniff.family; });
     var big = S.files.some(function (f) { return f.size > liteAuto(); }) || memPlan(ready).lite;
     bar.innerHTML = '<div class="grow"><b>' + S.files.length + ' file(s)</b> <span class="muted">· ' + ready.length + ' ready to extract · parallel threads: ' + threads() + '</span></div>' +
       (canJoin && !busy ? '<button class="btn" id="join-btn" title="Read the ' + loose.length + ' files as one data set, e.g. a State that delivers one AIRAC cycle in several files">⧉ Combine ' + loose.length + ' files into one data set</button>' : '') +
@@ -848,6 +861,7 @@
     // the files of one delivery are read as one data set, the others one by one
     var units = [], seen = {};
     list.forEach(function (f) {
+      if (f.parts) { f.parts.forEach(function (p) { units.push({ item: f, members: [f], part: p }); }); return; }
       var g = setOf(f);
       if (!g) { units.push({ item: f, members: [f] }); return; }
       if (seen[g.key]) return;
@@ -867,20 +881,24 @@
     try {
       for (var i = 0; i < units.length; i++) {
         var u = units[i], f = u.item, multi = u.members.length > 1, size = 0;
+        if (u.part && f.status === 'cancelled') continue; // the other States of a file whose reading was cancelled
         u.members.forEach(function (m) { size += m.size; });
-        var key = multi ? setCacheKey(u.members) : dropKey(f.file);
+        if (u.part) size = u.part.to - u.part.b;
+        var key = multi ? setCacheKey(u.members) : dropKey(f.file) + (u.part ? '#part' + u.part.k : '');
         // a saved copy is used only when it was read in the memory mode that applies now (Lite / Full)
         var wantLite = S.memMode === 'lite' || (S.memMode !== 'full' && (size > liteAuto() || !!plan.lite));
         var cached = await openFromCache(key, multi ? null : f.file, null, wantLite, multi ? u.members.map(function (m) { return m.file; }) : null);
         if (cached) {
+          if (u.part) { applyPart(cached, f, u.part); M.harmonizeStates(S.datasets); }
           f.status = 'done'; if (multi) u.members.forEach(function (m) { m.status = 'done'; });
           f.detail = 'opened from saved data (instant) · ' + num(cached.recs.length) + ' features · ' + esc(cached.state); renderFileList(); continue;
         }
-        if (f.sniff && f.sniff.family === 'tab') await extractTab(f); else if (f.sniff && f.sniff.family === 'dem') await extractDem(f); else await extractSet(u.members, f, plan);
+        if (f.sniff && f.sniff.family === 'tab') await extractTab(f); else if (f.sniff && f.sniff.family === 'dem') await extractDem(f); else await extractSet(u.members, f, plan, u.part);
         // a moment between files: the browser frees the memory of the reader threads before the next file starts
         if (i < units.length - 1) await new Promise(function (r) { setTimeout(r, 120); });
       }
     } finally { busyEnd(); }
+    list.forEach(function (f) { if (f.parts && f.status === 'done') f.detail = f.parts.length + ' data sets read: ' + f.parts.map(function (p) { return esc(p.state); }).join(', '); });
     renderFileList();
     var stay = opt && opt.stay;
     if (S.datasets.length) { initSearch(); renderDsSelect(); memGauge(); if (stay) renderNav(); else if (!checkPending()) go('dash'); }
@@ -897,9 +915,10 @@
     var n = Math.max(1, Math.min(threads(), Math.floor(f.size / (6 * 1024 * 1024)) || 1));
     return f.sniff.family === '45' && f.sniff.isUpdate ? Math.min(n, 4) : n;
   }
-  // reads one file with parallel reader threads; onBatch gets the features, onBytes the bytes read so far
-  function scanFile(f, nParts, liteOn, ctl, onBatch, onBytes) {
-    var sn = f.sniff, size = f.size;
+  // reads one file (or the byte range [from, to) of it) with parallel reader threads; onBatch gets the features, onBytes
+  // the bytes read so far
+  function scanFile(f, nParts, liteOn, ctl, onBatch, onBytes, range) {
+    var sn = f.sniff, a0 = range ? range[0] : 0, size = range ? range[1] - range[0] : f.size;
     var cfg = { family: sn.family, names: featureNames(sn), aixmPrefixes: sn.aixmPrefixes, eventPrefixes: sn.eventPrefixes, gmlPrefixes: sn.gmlPrefixes, isUpdate: sn.isUpdate, effective: sn.header && sn.header.effective, lite: liteOn };
     return new Promise(function (resolve, reject) {
       var done = new Array(nParts).fill(0), lines = new Array(nParts), finished = 0, errors = 0;
@@ -918,7 +937,7 @@
             } else if (m.type === 'error') { worker.terminate(); reject(new Error(m.msg)); }
           };
           worker.onerror = function (e) { reject(new Error(e.message)); };
-          worker.postMessage({ cmd: 'scan', file: f.file, start: Math.floor(size * part / nParts), end: Math.floor(size * (part + 1) / nParts), cfg: cfg, jobId: f.id, part: part, chunk: 16 * 1024 * 1024 });
+          worker.postMessage({ cmd: 'scan', file: f.file, start: a0 + Math.floor(size * part / nParts), end: a0 + Math.floor(size * (part + 1) / nParts), cfg: cfg, jobId: f.id, part: part, chunk: 16 * 1024 * 1024 });
         })(p, w);
       }
     });
@@ -977,12 +996,14 @@
       return null;
     }
   }
-  // one data set from one file, or from several files of one delivery (members) shown as one item in the file list
-  function extractSet(members, item, plan) {
+  // one data set from one file, or from several files of one delivery (members) shown as one item in the file list, or
+  // from one part (a State) of a file with several (part: its byte range and the line it starts on)
+  function extractSet(members, item, plan, part) {
     return new Promise(function (resolve) {
       var multi = members.length > 1, sn = members[0].sniff, size = 0;
       members.forEach(function (m) { size += m.size; });
-      var ds = { id: item.id, name: item.name, file: multi ? null : members[0].file, size: size, sniff: sn, family: sn.family, version: sn.version, recs: [], partLines: [], viewDate: S.asOf };
+      if (part) size = part.to - part.b;
+      var ds = { id: part ? part.id : item.id, name: part ? part.name : item.name, file: multi ? null : members[0].file, size: size, sniff: sn, family: sn.family, version: sn.version, recs: [], partLines: part ? [part.line - 1] : [], viewDate: S.asOf };
       if (multi) { ds.files = members.map(function (m) { return m.file; }); ds.partFile = []; if (item.delivery) ds.delivery = item.delivery; }
       var liteOn = S.memMode === 'lite' || (S.memMode !== 'full' && (size > liteAuto() || !!(plan && plan.lite)));
       ds.lite = liteOn;
@@ -1006,13 +1027,13 @@
       (async function () {
         try {
           for (var fi = 0; fi < members.length; fi++) {
-            var m = members[fi], np = partsFor(m), pb = ds.partLines.length;
+            var m = members[fi], np = partsFor(part ? { size: size, sniff: m.sniff } : m), pb = ds.partLines.length;
             nThreads = np;
             var res = await scanFile(m, np, liteOn, ctl, function (recs) {
               strs.recs(recs);
-              for (var i = 0; i < recs.length; i++) { var r = recs[i]; if (multi) { r.f = fi; r.w = pb + (r.w || 0); } ds.recs.push(r); }
+              for (var i = 0; i < recs.length; i++) { var r = recs[i]; if (multi) r.f = fi; if (multi || part) r.w = pb + (r.w || 0); ds.recs.push(r); }
               ui(0);
-            }, ui);
+            }, ui, part ? [part.b, part.to] : null);
             if (ctl.cancelled) return;
             for (var p = 0; p < np; p++) { ds.partLines.push(res.lines[p]); if (multi) ds.partFile.push(fi); }
             errors += res.errors; base += m.size;
@@ -1034,13 +1055,14 @@
             await M.finalizeAsync(ds, function (q) { item.progress = 1; item.detail = 'building indexes and AIP model for ' + num(ds.recs.length) + ' features… ' + Math.round(q * 100) + ' %'; updateFileItem(item); });
             ds.tRead = tRead; ds.tTotal = performance.now() - t0; ds.errors = errors;
             applyLib(ds, item.lib);
-            ds.cacheKey = item.lib ? item.lib.key : multi ? setCacheKey(members) : dropKey(item.file);
+            if (part) applyPart(ds, item, part);
+            ds.cacheKey = (item.lib ? item.lib.key : multi ? setCacheKey(members) : dropKey(item.file)) + (part ? '#part' + part.k : '');
             if (ds.size <= APP_SETTINGS.cacheMaxBytes) saveCache(ds); // large data sets are not duplicated into browser storage
             S.datasets = S.datasets.filter(function (x) { return x.id !== ds.id; });
             S.datasets.push(ds);
             M.harmonizeStates(S.datasets);
             setStatus('done');
-            item.detail = num(ds.recs.length) + ' features · ' + esc(ds.state) + (ds.airac ? ' · AIRAC ' + ds.airac.id : '') + ' · read in ' + (tRead / 1000).toFixed(1) + ' s (' + (size / 1048576 / (tRead / 1000)).toFixed(1) + ' MB/s)';
+            item.detail = (part ? 'part ' + part.k + ' of ' + item.parts.length + ': ' : '') + num(ds.recs.length) + ' features · ' + esc(ds.state) + (ds.airac ? ' · AIRAC ' + ds.airac.id : '') + ' · read in ' + (tRead / 1000).toFixed(1) + ' s (' + (size / 1048576 / (tRead / 1000)).toFixed(1) + ' MB/s)';
           } catch (err) {
             console.error(err);
             setStatus('error'); item.error = String(err.stack || err); toast('Error while indexing ' + item.name + ': ' + err.message, 8000);
@@ -1065,6 +1087,14 @@
     ds.stateDetected = ds.state;
     ds.state = lib.state;
     ds.stateSource = 'library folder "' + lib.state + '"' + (ds.stateDetected && ds.stateDetected !== lib.state ? ' (detected in data: ' + ds.stateDetected + ')' : '');
+  }
+  // one State of a file with several (convert.js merge): its byte range of the file, the State written in the file
+  function applyPart(ds, item, part) {
+    ds.range = [part.b, part.to];
+    ds.part = { k: part.k, n: item.parts.length, of: item.name };
+    ds.stateDetected = ds.state;
+    if (part.state) ds.state = part.state;
+    ds.stateSource = 'part ' + part.k + ' of ' + item.parts.length + ' of the AIXM file ' + item.name + ' (several States)' + (ds.stateDetected && ds.stateDetected !== ds.state ? '; detected in data: ' + ds.stateDetected : '');
   }
   function saveCache(ds) {
     if (!ds.cacheKey || typeof LIBRARY === 'undefined') return;
@@ -1593,7 +1623,8 @@
           ['AIRAC cycle', ds.airac ? ds.airac.id + ' — cycle start ' + M.fmtDate(ds.airac.date) + (ds.airac.exact ? ' (exact AIRAC date)' : ' (effective date falls inside this cycle)') : '—'],
           ['Data valid from', ds.dataFrom !== null ? M.fmtDate(ds.dataFrom) : '—'], ['Latest time slice start', ds.dataLatest !== null ? M.fmtDate(ds.dataLatest, true) : '—'],
           ['ICAO prefixes', (ds.prefixes || []).join(', ')], ['Created', ds.created || '—'], ['Read time', (ds.tRead / 1000).toFixed(2) + ' s · ' + (ds.size / 1048576 / (ds.tRead / 1000)).toFixed(1) + ' MB/s'], ['Memory mode', ds.lite ? 'Lite — light and marking elements are counted, not kept (open the AIXM code to see them)' : 'Full detail'],
-          ['Parse warnings', ds.parseErrors ? ds.parseErrors.length : 0]].concat(ds.files ? [['Read from', ds.files.length + ' files, as one data set' + (ds.delivery ? ' (delivery checksum list: ' + ds.delivery.listed + ' files)' : '')]] : []).map(function (r) { return '<tr><td class="muted">' + r[0] + '</td><td>' + esc(r[1]) + '</td></tr>'; }).join('') + '</table>' +
+          ['Parse warnings', ds.parseErrors ? ds.parseErrors.length : 0]].concat(ds.files ? [['Read from', ds.files.length + ' files, as one data set' + (ds.delivery ? ' (delivery checksum list: ' + ds.delivery.listed + ' files)' : '')]] : [])
+          .concat(ds.part ? [['Read from', 'part ' + ds.part.k + ' of ' + ds.part.n + ' of ' + ds.part.of + ' (one AIXM file with several States)']] : []).map(function (r) { return '<tr><td class="muted">' + r[0] + '</td><td>' + esc(r[1]) + '</td></tr>'; }).join('') + '</table>' +
         '<div class="btn-group" style="margin-top:12px"><button class="btn primary" data-act="aip">' + I.book + ' Open AIP</button><button class="btn" data-act="map">' + I.map + ' Map</button><button class="btn" data-act="export">' + I.export + ' Export</button>' + (function () { var dd = DDVIEW.sections([ds]).filter(function (x) { return x.n; }); return dd.length ? '<button class="btn" data-act="digital" data-sec="' + dd[0].id + '" title="' + esc(dd.map(function (x) { return num(x.n) + ' ' + x.what; }).join(', ')) + ': lists, checks and reports">' + I.layers + ' Digital data</button>' : ''; })() + '<button class="btn" data-act="remove">' + I.trash + ' Remove</button></div></div></div>';
       card.addEventListener('click', function (e) {
         S.active = idx; renderDsSelect();
@@ -2157,7 +2188,8 @@
     return '00:00 local time (UTC+' + (h % 1 ? h.toFixed(2).replace(/0$/, '') : h) + ') on ' + M.fmtDate(ds.airac.date);
   }
   function srcFile(ds, fi) { return ds.files ? ds.files[fi || 0] : ds.file; }
-  function srcName(ds, fi) { var f = srcFile(ds, fi); return ds.files && f ? f.name : ds.name; }
+  // the file the code is read from (a State of a file with several: that file, whose lines are shown)
+  function srcName(ds, fi) { var f = srcFile(ds, fi); return (ds.files || ds.part) && f ? f.name : ds.name; }
   async function readFragment(ds, occ) {
     if (ds.tab && ds.tab.src) return ds.tab.src[occ.o] || ''; // a table row: its cells, one "column: value" per line (a DOF line: read from the file)
     var buf = await srcFile(ds, occ.f).slice(occ.o, occ.o + occ.n).arrayBuffer();
@@ -2248,7 +2280,7 @@
     $('.drawer-body', drawer).innerHTML = (locNote ? '<div class="note-box" style="margin:8px 12px">' + esc(locNote) + '</div>' : '') + '<pre class="xml">' + html + '</pre>';
     if (first > 0) { var n = $$('.ln', drawer)[first]; if (n) n.scrollIntoView({ block: 'center' }); }
     $('#dx-copy').onclick = function () { EXPORTS.copyText(txt).then(function (ok) { toast(ok ? 'AIXM XML copied to the clipboard' : 'Copy failed — select the text manually'); }); };
-    $('#dx-dl').onclick = function () { EXPORTS.download(EXPORTS.safeName(M.label(ds, r)) + '.xml', new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n<!-- extracted from ' + srcName(ds, occ.f) + ', line ' + occ.line + ' -->\n' + txt], { type: 'text/xml' })); };
+    $('#dx-dl').onclick = function () { EXPORTS.download(EXPORTS.fileName({ ds: ds, what: [r.k, M.label(ds, r)], tag: EXPORTS.versionTag(ds) }, '.xml'), new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n<!-- extracted from ' + srcName(ds, occ.f) + ', line ' + occ.line + ' -->\n' + txt], { type: 'text/xml' })); };
   }
   function tsSummary(r) {
     var c = r.cur;
@@ -2387,7 +2419,7 @@
   function mapHooks(inWindow) {
     var h = {
       toast: toast, openAip: openAipFor, openXml: function (ds, r) { openXml(ds, r); }, openDetail: function (ds, r) { openDetail(ds, r); },
-      savePng: function (url) { fetch(url).then(function (res) { return res.blob(); }).then(function (b) { EXPORTS.download('aixm-map.png', b); }); },
+      savePng: function (url, title, dsl) { fetch(url).then(function (res) { return res.blob(); }).then(function (b) { EXPORTS.download(EXPORTS.fileName({ datasets: dsl || S.datasets, what: [title || '', 'map'] }, '.png'), b); }); },
       popout: popOutMap,
       dock: function () { go('map', { docked: true }); },
       // a feature the map could not draw (unexpected data): reported in the error bar, the rest is drawn
@@ -3041,7 +3073,7 @@
       if (a) { e.preventDefault(); var r1 = cellRegistry[+a.getAttribute('data-det')]; openDetail(r1.ds, r1.r); }
       if (x) { var r2 = cellRegistry[+x.getAttribute('data-xml')]; openXml(r2.ds, r2.r); }
     };
-    $('#i-csv').onclick = function () { EXPORTS.download(EXPORTS.safeName(ds.state + '_' + (ds.airac ? ds.airac.id : '') + '_CRC32Q') + '.csv', new Blob(['# ' + APP_INFO.credit + ' - CRC32Q list of ' + ds.name + '\n' + INTEGRITY.toCsv(list)], { type: 'text/csv' })); };
+    $('#i-csv').onclick = function () { EXPORTS.download(EXPORTS.fileName({ ds: ds, what: EXPORTS.dataWhat(ds), tag: 'CRC32Q' }, '.csv'), new Blob(['# ' + APP_INFO.credit + ' - CRC32Q list of ' + ds.name + '\n' + INTEGRITY.toCsv(list)], { type: 'text/csv' })); };
     $('#i-ver').onclick = function () { $('#i-file').click(); };
     $('#i-file').onchange = function () {
       var f = this.files[0]; if (!f) return;
@@ -3137,10 +3169,11 @@
         '<div class="card export-card"><h4>' + I.code + 'AIXM 4.5 → AIXM 5.1.1</h4><div class="muted" style="font-size:13px;flex:1">Writes an AIXM 5.1.1 BasicMessage from this 4.5 data set (aerodromes, runways, declared distances, lighting, navaids, points, airspace with borders, routes, obstacles, units, services, frequencies…). UUIDs are derived from the 4.5 identifiers.</div><button class="btn primary" data-cv="45">Convert to 5.1.1</button></div>') +
       '<div class="card export-card"><h4>' + I.map + 'GeoJSON</h4><div class="muted" style="font-size:13px;flex:1">All features with geometry (WGS 84) and key attributes, for QGIS, ArcGIS, web maps.</div><button class="btn primary" data-cv="geojson">Export GeoJSON</button></div>' +
       '<div class="card export-card"><h4>' + I.map + 'KML (Google Earth)</h4><div class="muted" style="font-size:13px;flex:1">Folders per feature type, styled airspace, routes, points and obstacles with attribute tables.</div><button class="btn primary" data-cv="kml">Export KML</button></div>' +
-      '<div class="card export-card"><h4>' + I.map + 'ESRI Shapefile (.zip)</h4><div class="muted" style="font-size:13px;flex:1">Separate point, line and polygon shapefiles with .dbf attributes and WGS 84 .prj.</div><button class="btn primary" data-cv="shp">Export Shapefile</button></div></div>';
+      '<div class="card export-card"><h4>' + I.map + 'ESRI Shapefile (.zip)</h4><div class="muted" style="font-size:13px;flex:1">Separate point, line and polygon shapefiles with .dbf attributes and WGS 84 .prj.</div><button class="btn primary" data-cv="shp">Export Shapefile</button></div></div>' +
+      '<h3 style="margin:22px 0 10px">4 · All data sets in one AIXM file <span class="muted" style="font-weight:400">(several States in one file)</span></h3>' + mergeCardHtml();
     function scope() {
       var sc = $('input[name="scope"]:checked', v).value;
-      if (sc === 'features') return { title: ds.state + ' — all AIXM features', ds: ds, sections: [], features: ds.recs };
+      if (sc === 'features') return { title: ds.state + ' — all AIXM features', file: 'all AIXM features', ds: ds, sections: [], features: ds.recs };
       var sections = [];
       function addItem(it) { sections.push(AIP.build(ds, it)); }
       if (sc === 'all' || sc === 'GEN') cat[0].children.forEach(addItem);
@@ -3148,21 +3181,24 @@
       if (sc === 'all' || sc === 'AD') cat[2].children.forEach(addItem);
       if (sc === 'ads') $$('.ad-pick:checked', v).forEach(function (cb) { addItem(AIP.findSection(ds, cb.value)); });
       if (!sections.length) { toast('Nothing selected'); return null; }
-      return { title: ds.state + ' — ' + ({ all: 'AIP data (GEN, ENR, AD)', GEN: 'GEN', ENR: 'ENR', AD: 'AD aerodromes', ads: 'selected aerodromes' })[sc], sub: ds.name, ds: ds, sections: sections };
+      var codes = $$('.ad-pick:checked', v).map(function (cb) { var it = AIP.findSection(ds, cb.value); return it && it.ad ? M.shortName(it.ad) : ''; }).filter(Boolean);
+      var what = sc === 'ads' ? (codes.length <= 6 ? 'AD ' + codes.join(', ') : codes.length + ' aerodromes') : ({ all: 'AIP data (GEN, ENR, AD)', GEN: 'GEN', ENR: 'ENR', AD: 'AD aerodromes' })[sc];
+      return { title: ds.state + ' — ' + what, file: sc === 'ads' && codes.length <= 6 ? [codes.join(' '), 'AD'] : 'AIP ' + what.replace('AIP data ', ''), sub: ds.name, ds: ds, sections: sections };
     }
     $$('[data-cv]', v).forEach(function (b) {
       b.onclick = async function () {
-        var k = b.getAttribute('data-cv'), base = EXPORTS.safeName(ds.state + '_' + ds.name.replace(/\.[^.]+$/, ''));
+        // the files are named after what is in them: State, kind of data, version or format, AIRAC cycle
+        var k = b.getAttribute('data-cv'), what = EXPORTS.dataWhat(ds), name = function (tag, ext) { return EXPORTS.fileName({ ds: ds, what: what, tag: tag }, ext); };
         try {
-          if (k === 'geojson') EXPORTS.download(base + '.geojson', CONVERT.toGeoJSON(ds));
-          else if (k === 'kml') EXPORTS.download(base + '.kml', CONVERT.toKML(ds));
-          else if (k === 'shp') EXPORTS.download(base + '_shapefile.zip', CONVERT.toShapefile(ds));
-          else if (k === '45') { var r45 = CONVERT.writer45(ds); EXPORTS.download(base + '_AIXM-5.1.1.xml', r45.blob); showReport(r45.report); }
+          if (k === 'geojson') EXPORTS.download(name('', '.geojson'), CONVERT.toGeoJSON(ds));
+          else if (k === 'kml') EXPORTS.download(name('', '.kml'), CONVERT.toKML(ds));
+          else if (k === 'shp') EXPORTS.download(name('shapefile', '.zip'), CONVERT.toShapefile(ds, null, name('', '')));
+          else if (k === '45') { var r45 = CONVERT.writer45(ds); EXPORTS.download(name('AIXM-5.1.1', '.xml'), r45.blob); showReport(r45.report); }
           else if (k === 'cycle') {
             var ovc = overlay('Writing one AIXM file for ' + (ds.airac ? 'AIRAC ' + ds.airac.id : 'this data set'));
             var cons = await CONVERT.consolidate(ds, function (q) { var bb = $('#ov-bar'); if (bb) bb.style.width = (q * 100).toFixed(0) + '%'; });
             ovc.remove();
-            EXPORTS.download(base + (ds.airac ? '_AIRAC' + ds.airac.id : '') + '_one-file.xml', cons.blob);
+            EXPORTS.download(name([EXPORTS.versionTag(ds), 'one file'], '.xml'), cons.blob);
             var rp = cons.report, cc = ANALYSIS.cycleChanges(ds), notes = [];
             notes.push(num(rp.features) + ' features written with ' + num(rp.slices) + ' time slices, from ' + (ds.files ? ds.files.length : 1) + ' file(s), the original XML of each feature kept.');
             if (rp.ended) notes.push(num(rp.ended) + ' time slice(s) that had ended by then left out.');
@@ -3184,11 +3220,11 @@
                 if (!rep) rep = one.report; else rep.renamed += one.report.renamed;
               }
               ov.remove();
-              EXPORTS.download(base + '_AIXM-' + tgt + '.zip', new Blob([fflate.zipSync(zf, { level: 6 })], { type: 'application/zip' })); showReport(rep);
+              EXPORTS.download(name('AIXM-' + tgt, '.zip'), new Blob([fflate.zipSync(zf, { level: 6 })], { type: 'application/zip' })); showReport(rep);
             } else {
               var res = await CONVERT.convertVersion(ds, tgt, bar);
               ov.remove();
-              EXPORTS.download(base + '_AIXM-' + tgt + '.xml', res.blob); showReport(res.report);
+              EXPORTS.download(name('AIXM-' + tgt, '.xml'), res.blob); showReport(res.report);
             }
           }
         } catch (err) { var o2 = $('#overlay'); if (o2) o2.remove(); toast('Conversion failed: ' + err.message, 7000); }
@@ -3205,6 +3241,41 @@
       };
     });
     bindCustomExport(v, ds);
+    bindMerge(v);
+  }
+  /* ------------------------------------------- all data sets in one AIXM file (several States) */
+  // convert.js merge: the data sets loaded (a State each) in one complete AIXM file, opened again as one data set per State
+  function mergeable(d) { return d.family === '5' || d.family === '45' || d.family === 'amxm' || d.family === 'tab'; }
+  function mergeCardHtml() {
+    var list = S.datasets.filter(mergeable), vers = {};
+    list.forEach(function (d) { if (d.family === '5') { var vv = /^5\.2/.test(d.version) ? '5.2' : d.version === '5.1.1' ? '5.1.1' : '5.1'; vers[vv] = (vers[vv] || 0) + d.recs.length; } });
+    var def = Object.keys(vers).sort(function (a, b) { return vers[b] - vers[a]; })[0] || '5.1.1';
+    return '<div class="card card-pad mg-card" id="mg"><div class="muted" style="font-size:13px">Puts the data sets loaded — for example the AIP data sets of several States — into <b>one complete AIXM file</b>, every feature with its original XML ' +
+      '(AIXM 4.5, aerodrome mapping and obstacle tables are written as AIXM 5). Open that file again in Files and each State is its own data set again; other AIXM software reads it as one AIXM message.</div>' +
+      (list.length ? '<div class="mg-list">' + list.map(function (d) {
+        return '<label class="chk"><input type="checkbox" data-mg="' + d.id + '" checked> <b>' + esc(d.state) + '</b> <span class="muted">' + esc(d.name + ' · ' + (d.sniff.versionLabel || '') + (d.airac ? ' · AIRAC ' + d.airac.id : '') + ' · ' + num(d.recs.length) + ' features') + '</span></label>';
+      }).join('') + '</div>' : '') +
+      (list.length < 2 ? '<p class="muted" style="margin:8px 0 0">Add the AIXM files of other States in <button class="btn small" data-mg-files>Files</button> to put them together in one file.</p>' : '') +
+      '<div class="row wrap mg-row"><select class="inp" id="mg-ver" aria-label="AIXM version of the file">' + ['5.1.1', '5.2', '5.1'].map(function (vv) { return '<option value="' + vv + '"' + (vv === def ? ' selected' : '') + '>AIXM ' + vv + '</option>'; }).join('') + '</select>' +
+      '<label class="chk"><input type="checkbox" id="mg-cur"> Only what is valid at the moment shown <span class="muted">(otherwise every time slice, as delivered)</span></label><span class="sp"></span>' +
+      '<button class="btn primary" id="mg-go"' + (list.length ? '' : ' disabled') + '>' + I.code + ' Write one AIXM file</button></div></div>';
+  }
+  function bindMerge(v) {
+    var b = $('#mg-go', v), fb = $('[data-mg-files]', v);
+    if (fb) fb.onclick = function () { go('files'); };
+    if (!b) return;
+    b.onclick = async function () {
+      var ids = $$('[data-mg]:checked', v).map(function (c) { return +c.getAttribute('data-mg'); });
+      var list = S.datasets.filter(function (d) { return ids.indexOf(d.id) >= 0; });
+      if (!list.length) { toast('Choose at least one data set.'); return; }
+      var tgt = $('#mg-ver', v).value, ov = overlay('Writing one AIXM file of ' + list.length + ' data set' + (list.length > 1 ? 's' : ''));
+      try {
+        var res = await CONVERT.merge(list, { target: tgt, current: $('#mg-cur', v).checked }, function (q) { var bb = $('#ov-bar'); if (bb) bb.style.width = (q * 100).toFixed(0) + '%'; });
+        ov.remove();
+        EXPORTS.download(EXPORTS.fileName({ datasets: list, what: list.length > 1 ? 'merged' : EXPORTS.dataWhat(list[0]), tag: 'AIXM-' + tgt }, '.xml'), res.blob);
+        showReport(res.report);
+      } catch (err) { ov.remove(); toast('Could not write the file: ' + err.message, 8000); }
+    };
   }
   /* ------------------------------------------------------- custom data export */
   // Pick data sets, aerodromes and exactly which data (any AD 2 section or single items of it, airspace by type, ENR /
@@ -3365,10 +3436,10 @@
           xpDatasets(ds).forEach(function (d) {
             var flt = scope.gisFilter(d);
             if (!flt) return;
-            var base = EXPORTS.safeName(d.state + '_' + d.name.replace(/\.[^.]+$/, '') + '_selection');
+            var what = scope.fileFor(d), base = EXPORTS.fileName({ ds: d, what: what }, '');
             if (f === 'geojson') EXPORTS.download(base + '.geojson', CONVERT.toGeoJSON(d, flt));
             else if (f === 'kml') EXPORTS.download(base + '.kml', CONVERT.toKML(d, flt));
-            else EXPORTS.download(base + '_shapefile.zip', CONVERT.toShapefile(d, flt));
+            else EXPORTS.download(EXPORTS.fileName({ ds: d, what: what, tag: 'shapefile' }, '.zip'), CONVERT.toShapefile(d, flt, base));
             n++;
           });
           if (!n) toast('Nothing with a position in the selection.');
@@ -3406,8 +3477,7 @@
       try {
         toast('Writing the AIXM file of ' + d.name + '…');
         var res = await CONVERT.selection(d, seeds, S.datasets, target || 'orig', scope.sub, null, relLabel);
-        var tag = target && target !== 'orig' ? '_AIXM-' + target : '';
-        EXPORTS.download(EXPORTS.safeName(d.state + '_' + d.name.replace(/\.[^.]+$/, '') + '_selection') + tag + '.xml', res.blob);
+        EXPORTS.download(EXPORTS.fileName({ ds: d, what: scope.fileFor(d), tag: target && target !== 'orig' ? 'AIXM-' + target : EXPORTS.versionTag(d) }, '.xml'), res.blob);
         res.report.notes.unshift(d.name + ':');
         reps.push(res.report); n++;
       } catch (e) { toast('AIXM export failed: ' + e.message, 6000); reportError(e.message, e.stack); return; }
@@ -3462,7 +3532,7 @@
       if (!b) return;
       var k = b.getAttribute('data-m'), subj = $('#m-subj', back).value;
       mail.subject = subj;
-      var name = EXPORTS.safeName(subj);
+      var name = EXPORTS.fileName({ state: '', airac: '', what: subj.replace(/^AIXM data — /, '').split(' — ') }, '');
       if (k === 'close') back.remove();
       else if (k === 'subj') EXPORTS.copyText(subj).then(function (ok) { toast(ok ? 'Subject copied' : 'Copy failed'); });
       else if (k === 'copy') EXPORTS.copyRich(mail.html, mail.text).then(function (ok) { toast(ok ? 'E-mail copied — paste it into a new Outlook message (Ctrl+V)' : 'Copy failed — use Save .html instead', 5000); });

@@ -32,7 +32,7 @@ Data compiled once from the official sources:
 |---|---|---|---|
 | 1 | `config.js` | `APP_INFO`, `APP_SETTINGS` | name, version, author, licence; tunable limits (Lite threshold, threads, PDF rows, AIRAC publication days) |
 | 2 | `core.js` | `AX` | version sniffing, fast XML parser, AIXM 5.x and 4.5 → 5.x conversion, GML geometry, temporality (`resolve`), flatten/diff, AIRAC, ICAO State prefixes. Also runs inside the workers and in Node (`module.exports`). |
-| 3 | `worker.js` | – (Web Worker) | streams a byte range of the file, finds feature elements, converts them with `AX`, posts batches. Lite mode trims heavy content. |
+| 3 | `worker.js` | – (Web Worker) | streams a byte range of the file, finds feature elements (not those inside XML comments), converts them with `AX`, posts batches. Lite mode trims heavy content. |
 | 4 | `model.js` | `MODEL` | `finalize(ds)`: merges records, indexes (`byId`, `byType`, references `rev`), aerodrome ownership, time-slice resolution (`setViewDate`), labels, formatting, geometry, State/effective date (`computeMeta`) |
 | 5 | `library.js` | `LIBRARY` | State folders on disk (File System Access API) and the IndexedDB cache of extracted data |
 | 6 | `aip.js` | `AIP` | ICAO AIP structure: catalogue of GEN / ENR / AD 2 / AD 3 sections and their builders; `sectionOf(ds, rec)` |
@@ -45,8 +45,8 @@ Data compiled once from the official sources:
 | 10 | `mapview.js` | `MAPVIEW` | Leaflet map, offline base map, aeronautical layers and labels, airport view, grid MORA, procedures, measure, print/PNG renderer |
 | 11 | `view3d.js` | `VIEW3D` | 3D view (three.js): terrain, airspace volumes, runways, obstacles, procedures, approach / departure crew views |
 | 12 | `mapwindow.js` | `MAPWIN` | the map in a separate browser window (copies the `data-mapwin` scripts into a same-origin window) |
-| 13 | `exports.js` | `EXPORTS` | JSON, Excel, PDF, print, e-mail (clipboard / .eml / .html) |
-| 14 | `convert.js` | `CONVERT` | AIXM version conversion, 4.5 → 5.1.1 writer, GeoJSON, KML, Shapefile |
+| 13 | `exports.js` | `EXPORTS` | JSON, Excel, PDF, print, e-mail (clipboard / .eml / .html); file names after the content (`fileName`: State, what, version / format, AIRAC) |
+| 14 | `convert.js` | `CONVERT` | AIXM version conversion, 4.5 → 5.1.1 writer, GeoJSON, KML, Shapefile; several data sets in one AIXM file (`merge`) and its parts when it is opened again (`mergedPartsOf`: one data set per State, each a byte range of the file) |
 | 14a | `extract.js` | `EXTRACT` | custom data export: catalogue of choosable items (AD 2 sections and their items, airspace types, ENR / GEN sections) and `build(selection)` → export scope (sections + GIS filter) |
 | 15 | `review.js` | `REVIEW` | AMDT report, side-by-side diff, Digital NOTAM, timeline data |
 | 16 | `rules.js` | `RULES` | AIXM 5.1 business-rule evaluation |

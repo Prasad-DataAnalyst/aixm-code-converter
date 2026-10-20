@@ -23,6 +23,74 @@ var EXPORTS = (function () {
     return out;
   }
   function safeName(t) { return String(t || 'aixm').replace(/[\u2013\u2014\u2192\u21c6]/g, '-').replace(/[\\/:*?"<>|]+/g, '_').replace(/[^\x20-\x7e]/g, '').replace(/\s+/g, '_').replace(/_+/g, '_').slice(0, 120) || 'aixm'; }
+
+  /* ------------------------------------------------------------- file names */
+  // Every exported file is named after what is in it, not after the file it was read from: the State(s), what was
+  // exported (aerodromes, a section, the kind of data), the AIXM version or format, and the AIRAC cycle, e.g.
+  //   REPUBLIC-OF-DONLON_EADD-AD-2.12-Runway-physical-characteristics_AIRAC2511.pdf   REPUBLIC-OF-DONLON_AIP_AIXM-5.2_AIRAC2511.xml
+  // The words of one part are joined with "-", the parts with "_"; accents are dropped, characters that are awkward in
+  // file names are left out.
+  function namePart(t) {
+    return String(t === undefined || t === null ? '' : t).normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\u00b7\u2022\u2013\u2014\u2018\u2019\u201c\u201d\u2192\u21c6_|/\\:;,()[\]{}<>"'`!?*=+&#%@$^~]+/g, ' ').replace(/[^\x20-\x7e]/g, '')
+      .trim().replace(/\s+/g, '-').replace(/-{2,}/g, '-').replace(/^[-.]+|[-.]+$/g, '');
+  }
+  function nameParts(v) { return (Array.isArray(v) ? v : [v]).map(namePart).filter(Boolean); }
+  // the States of data sets: one or up to three names, "5-States" for more (a data set that names no State has its file
+  // name for one: left out, the file name is not what is in the file)
+  function statesOf(list) {
+    var st = [];
+    (list || []).forEach(function (d) { var n = d && d.stateSource !== 'file name' && namePart(d.state); if (n && st.indexOf(n) < 0) st.push(n); });
+    return st.length > 3 ? st.length + '-States' : st.join('-');
+  }
+  function cyclesOf(list) {
+    var c = [];
+    (list || []).forEach(function (d) { var id = d && d.airac && d.airac.id; if (id && c.indexOf(id) < 0) c.push(id); });
+    return c.length && c.length <= 3 ? 'AIRAC' + c.sort().join('-') : '';
+  }
+  // o: {ds | datasets, what, tag (string or list), state, airac} -- state / airac given instead of taken from the data sets
+  function fileName(o, ext) {
+    o = o || {};
+    var list = o.datasets || (o.ds ? [o.ds] : []), st = o.state !== undefined ? namePart(o.state) : statesOf(list);
+    var cyc = o.airac !== undefined ? (o.airac ? 'AIRAC' + namePart(o.airac).replace(/^AIRAC-?/i, '') : '') : cyclesOf(list);
+    var what = nameParts(o.what).map(function (w) { return w.replace(/^AIRAC-(\d{4})$/i, 'AIRAC$1'); }), lo = st.toLowerCase();
+    // a title often starts with the State and names the cycle: both are said once, the cycle at the end
+    if (st && what.length && (what[0].toLowerCase() === lo || what[0].toLowerCase().indexOf(lo + '-') === 0)) what[0] = what[0].slice(st.length + 1);
+    if (cyc) what = what.map(function (w) {
+      var ms = w.match(/AIRAC-?\d{4}/gi) || [];
+      if (ms.length > 1 && ms.some(function (m) { return cyc.indexOf(m.slice(-4)) >= 0; })) cyc = ''; // "changes AIRAC 2610 to AIRAC 2611" stays as it is
+      return ms.length !== 1 ? w : w.replace(/(^|-)AIRAC-?(\d{4})(?=-|$)/i, function (m, a, d) { return cyc.indexOf(d) >= 0 ? '' : m; }).replace(/^-+|-+$/g, '').replace(/-{2,}/g, '-');
+    });
+    var seen = {}, parts = [st].concat(what, nameParts(o.tag)).filter(function (p) { var k = p.toLowerCase(); if (!p || seen[k]) return false; seen[k] = 1; return true; });
+    ext = ext || '';
+    var head = parts.join('_'), max = 150 - ext.length - (cyc ? cyc.length + 1 : 0);
+    if (head.length > max) head = head.slice(0, max).replace(/[-_.]+$/, '');
+    return ([head, cyc].filter(Boolean).join('_') || 'aixm') + ext;
+  }
+  // the name of the file of a scope (PDF, Excel, JSON, CSV, e-mail): its short "what" (scope.file) or its title
+  function scopeName(scope, ext, tag) {
+    return fileName({ datasets: scope.datasets || (scope.ds ? [scope.ds] : []), what: scope.file || scope.title, tag: tag }, ext);
+  }
+  // what a whole data set holds: its aerodrome when it has only one, and the kind of data
+  var PROC_TYPES = ['InstrumentApproachProcedure', 'StandardInstrumentDeparture', 'StandardInstrumentArrival', 'DepartureLeg', 'ArrivalLeg', 'ArrivalFeederLeg', 'InitialLeg',
+    'IntermediateLeg', 'FinalLeg', 'MissedApproachLeg', 'HoldingPattern', 'SafeAltitudeArea', 'TerminalArrivalArea'];
+  function dataWhat(ds) {
+    if (!ds || !ds.byType) return [];
+    var bt = ds.byType, n = ds.recs.length || 1;
+    function count(ks) { return ks.reduce(function (a, k) { return a + (bt[k] || []).length; }, 0); }
+    var kind = ds.family === 'amxm' ? 'aerodrome mapping' : ds.family === 'tab' || count(['VerticalStructure', 'ObstacleArea']) > n / 2 ? 'obstacles' :
+      count(['Event']) > n / 3 ? 'Digital NOTAM' : count(PROC_TYPES) > n / 3 ? 'procedures' : 'AIP';
+    var ads = (bt.AirportHeliport || []).filter(function (a) { return !(a.cur && a.cur.gone); });
+    return ads.length === 1 ? [M.shortName(ads[0]), kind] : [kind];
+  }
+  // the AIXM (or AMXM) version of a data set as a part of a file name
+  function versionTag(ds) {
+    if (!ds) return '';
+    if (ds.family === '5') return 'AIXM-' + ds.version;
+    if (ds.family === '45') return ds.sniff && ds.sniff.ofmx ? 'OFMX' : 'AIXM-4.5';
+    if (ds.family === 'amxm') return 'AMXM-' + ds.version;
+    return '';
+  }
   function download(name, blob) {
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -36,7 +104,7 @@ var EXPORTS = (function () {
     if (!ds) return [];
     return [
       ['State', ds.state],
-      ['Source file', ds.name + ' (' + fmtSize(ds.size) + ')'],
+      ['Source file', ds.name + (ds.part ? ' — part ' + ds.part.k + ' of ' + ds.part.n + ' of ' + ds.part.of : '') + ' (' + fmtSize(ds.size) + ')'],
       ['AIXM version', (ds.sniff && ds.sniff.versionLabel) || ds.version],
       ['AIRAC cycle', ds.airac ? ds.airac.id + ' (cycle effective ' + M.fmtDate(ds.airac.date) + ')' : '—'],
       ['Effective date', ds.effective !== null ? M.fmtDate(ds.effective, true) + ' — ' + ds.effectiveSource : '—'],
@@ -105,11 +173,11 @@ var EXPORTS = (function () {
       });
     });
     if (!files.length) throw new Error('nothing to export as CSV (no tables)');
-    if (files.length === 1) { download(files[0].name, new Blob([files[0].text], { type: 'text/csv;charset=utf-8' })); return; }
+    if (files.length === 1) { download(scopeName(scope, '.csv'), new Blob([files[0].text], { type: 'text/csv;charset=utf-8' })); return; }
     var z = {};
     files.forEach(function (f) { z[f.name] = fflate.strToU8(f.text); });
     z['README.txt'] = fflate.strToU8(scope.title + '\r\n' + (scope.sub || '') + '\r\nExported by ' + CREDIT + '\r\nColumn "AIXM line": line of the source feature in the AIXM file.\r\n');
-    download(safeName(scope.title) + '_csv.zip', new Blob([fflate.zipSync(z, { level: 6 })], { type: 'application/zip' }));
+    download(scopeName(scope, '.zip', 'CSV'), new Blob([fflate.zipSync(z, { level: 6 })], { type: 'application/zip' }));
   }
   function exportJSON(scope) {
     var parts = [];
@@ -130,7 +198,7 @@ var EXPORTS = (function () {
       }
       parts.push('\n ]\n}\n');
     } else parts.push(JSON.stringify(obj, null, 1));
-    download(safeName(scope.title) + '.json', new Blob(parts, { type: 'application/json' }));
+    download(scopeName(scope, '.json'), new Blob(parts, { type: 'application/json' }));
   }
 
   /* ----------------------------------------------------------------- Excel */
@@ -200,7 +268,7 @@ var EXPORTS = (function () {
     }
     wb.Props = { Title: String(scope.title || APP), Subject: String(scope.sub || ''), Author: AUTHOR + ' <' + AUTHOR_EMAIL + '>', Company: APP, Comments: CREDIT, CreatedDate: new Date() };
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[APP], ['Author', AUTHOR], ['E-mail', AUTHOR_EMAIL], ['Licence', 'Apache-2.0'], ['Generated', new Date().toISOString()], ['Title', String(scope.title || '')]]), sheetName('About'));
-    XLSX.writeFile(wb, safeName(scope.title) + '.xlsx', { compression: true });
+    XLSX.writeFile(wb, scopeName(scope, '.xlsx'), { compression: true });
   }
 
   /* ------------------------------------------------------------------- PDF */
@@ -298,7 +366,7 @@ var EXPORTS = (function () {
     });
     decorate();
     if (opt.blob) return doc.output('blob'); // for a package (aerodrome mapping): the PDF as data
-    doc.save(safeName(scope.title) + '.pdf');
+    doc.save(scopeName(scope, '.pdf'));
   }
 
   /* ----------------------------------------------------------------- print */
@@ -342,7 +410,15 @@ var EXPORTS = (function () {
     h += sectionsHtml(flatSections(scope.sections), 20000, false);
     h += '<div class="p-foot">Generated by ' + APP + ' (© 2026 ' + AUTHOR + ', ' + AUTHOR_EMAIL + ') from ' + esc(ds ? ds.name : '') + ' — ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z</div>';
     root.innerHTML = h;
-    setTimeout(function () { window.print(); }, 60);
+    setTimeout(function () { printNamed(scopeName(scope, '')); }, 60);
+  }
+  // "Save as PDF" in the print dialog names the file after the page title: while printing, the title says what is printed
+  function printNamed(name) {
+    var t0 = document.title, back = function () { if (back) { document.title = t0; back = null; } };
+    document.title = name;
+    window.addEventListener('afterprint', function () { if (back) back(); }, { once: true });
+    window.print();
+    setTimeout(function () { if (back) back(); }, 4000);
   }
 
   /* ----------------------------------------------------------------- email */
@@ -411,5 +487,5 @@ var EXPORTS = (function () {
   }
 
   return { CREDIT: CREDIT, AUTHOR: AUTHOR, AUTHOR_EMAIL: AUTHOR_EMAIL, exportJSON: exportJSON, exportCSV: exportCSV, exportExcel: exportExcel, exportPDF: exportPDF, print: print, emailContent: emailContent, emlBlob: emlBlob, copyRich: copyRich, copyText: copyText,
-    download: download, safeName: safeName, csvCell: csvCell, flatSections: flatSections, fmtSize: fmtSize, toJSON: toJSON, blockRows: blockRows, secTitle: secTitle, sectionsHtml: sectionsHtml };
+    download: download, safeName: safeName, fileName: fileName, scopeName: scopeName, namePart: namePart, dataWhat: dataWhat, versionTag: versionTag, printNamed: printNamed, csvCell: csvCell, flatSections: flatSections, fmtSize: fmtSize, toJSON: toJSON, blockRows: blockRows, secTitle: secTitle, sectionsHtml: sectionsHtml };
 })();

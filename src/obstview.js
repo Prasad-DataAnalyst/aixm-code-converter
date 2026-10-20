@@ -759,7 +759,7 @@ var OBSTVIEW = (function () {
         sets.forEach(function (st) {
           var f = function (r) { return r.k === 'VerticalStructure' && keep.has(r); };
           var blob = fmt === 'kml' ? CONVERT.toKML(st.ds, f) : CONVERT.toGeoJSON(st.ds, f);
-          EXPORTS.download(EXPORTS.safeName('obstacles_' + (st.adCode || st.ds.state) + '_' + st.ds.name.replace(/\.[^.]+$/, '')) + (fmt === 'kml' ? '.kml' : '.geojson'), blob);
+          EXPORTS.download(EXPORTS.fileName({ ds: st.ds, what: [st.adCode || '', 'obstacles'] }, fmt === 'kml' ? '.kml' : '.geojson'), blob);
         });
         void ds;
         return;

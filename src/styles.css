@@ -1049,6 +1049,11 @@ pre, .xml, .notam-text { text-align: left; }
 .xp-rel { margin-top: 8px; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; }
 .xp-rel summary { cursor: pointer; }
 .xp-rel .xp-cols { margin: 8px 0; }
+/* Export: all data sets in one AIXM file */
+.mg-list { display: flex; flex-direction: column; gap: 2px; max-height: 260px; overflow: auto; margin-top: 10px; }
+.mg-list .chk { align-items: baseline; }
+.mg-row { gap: 10px; align-items: center; margin-top: 10px; }
+.mg-row select { width: auto; }
 .ddx { margin-top: 12px; }
 .ddx-row { gap: 8px; align-items: center; margin: 8px 0; }
 .ddx-row select { width: auto; }

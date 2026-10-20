@@ -55,6 +55,14 @@
     var cursor = 0, nlTo = 0, lines = 0;
     var batch = [], count = 0, errors = 0, lastProgress = 0;
     var chg45 = null; // AIXM 4.5 Update wrapper state (New / Changed / Withdrawn)
+    // XML comments: a feature inside a comment (data the publisher has commented out) is not read. cmt is the position
+    // in the file of the next "<!--" at or after the cursor (-1: none in the buffer, -2: not looked for yet).
+    var cmt = -2, inCmt = false;
+    if (start > 0) {
+      var cb = Math.max(0, start - 1048576), cpre = latin1.decode(await readSlice(file, cb, Math.min(size, start + 3)));
+      var co = cpre.lastIndexOf('<!--');
+      inCmt = co >= 0 && cb + co < start && co > cpre.lastIndexOf('-->'); // the range starts inside a comment
+    }
 
     if (cfg.family === '45' && cfg.isUpdate && start > 0) {
       var back = Math.max(0, start - 262144);
@@ -79,7 +87,12 @@
       nb.set(bytes, 0); nb.set(chunk, bytes.length);
       bytes = nb;
       str = str + latin1.decode(chunk);
+      if (cmt === -1) cmt = -2;
       return true;
+    }
+    function nextCmt() {
+      if (cmt === -2 || (cmt >= 0 && cmt < base + cursor)) { var c = str.indexOf('<!--', cursor); cmt = c < 0 ? -1 : base + c; }
+      return cmt;
     }
     function post(final) {
       if (batch.length || final) {
@@ -101,12 +114,15 @@
     }
 
     await more();
+    if (inCmt) { var ce0 = str.indexOf('-->'); while (ce0 < 0 && await more()) ce0 = str.indexOf('-->'); cursor = ce0 < 0 ? str.length : ce0 + 3; }
     while (true) {
       re.lastIndex = cursor;
       var m = re.exec(str);
       if (!m) {
         if (base + str.length >= Math.min(size, end + 1024) || readPos >= size) break;
         var tail = Math.max(cursor, str.length - 1024);
+        var oc = str.lastIndexOf('<!--');
+        if (oc >= cursor && str.indexOf('-->', oc + 4) < 0) tail = Math.min(tail, oc); // a comment open at the end: kept
         trackWrappers(cursor, tail);
         lines += countNL(str, nlTo, Math.min(tail, end - base)); nlTo = tail; cursor = tail;
         await more();
@@ -115,6 +131,16 @@
       }
       var s = m.index, abs = base + s;
       if (abs >= end) break;
+      // a comment before the feature: the search goes on after it (a feature inside it is not read)
+      var ca = nextCmt();
+      if (ca >= 0 && ca < abs) {
+        var ce = str.indexOf('-->', ca - base + 4);
+        while (ce < 0 && await more()) ce = str.indexOf('-->', ca - base + 4);
+        if (ce < 0) break; // the rest of the file is a comment
+        trackWrappers(cursor, ca - base);
+        cursor = ce + 3; cmt = -2;
+        continue;
+      }
       var qn = m[1];
       // self-closing feature element -> skip
       var gt = str.indexOf('>', s);

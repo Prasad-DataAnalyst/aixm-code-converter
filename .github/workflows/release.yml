@@ -2,7 +2,9 @@
 # Release: publishes a GitHub release (tag v<version from src/config.js>) with the single HTML file and a ZIP attached, so
 # users get a real download (the raw file link only shows the code). Run it from Actions -> Release -> Run workflow,
 # or push a version tag (v1.0.0, v1.1.0, ...).
-# Latest download: https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases/latest/download/AIXM-Code-Converter.html
+# The released files carry the author's name: AIXM-Code-Converter-by-Prasad-Selvaraj.html and .zip (the repository keeps
+# the build as AIXM-Code-Converter.html). Latest download:
+# https://github.com/Prasad-DataAnalyst/aixm-code-converter/releases/latest/download/AIXM-Code-Converter-by-Prasad-Selvaraj.html
 name: Release
 
 on:
@@ -56,20 +58,23 @@ jobs:
 
       - name: Package and checksums
         run: |
+          NAME=AIXM-Code-Converter-by-Prasad-Selvaraj
+          echo "NAME=$NAME" >> "$GITHUB_ENV"
+          cp AIXM-Code-Converter.html "$NAME.html"
           mkdir -p samples
           cp testdata/Donlon_ALL_Baseline_2025.xml testdata/EA_EADD_OBS_DS_AREA_2_3_4_FULL_20191205.xml testdata/ifp_test_EADD.xml testdata/Donlon_EADD_changes_AIRAC2611.xml samples/
           cp docs/SAMPLES.txt samples/README.txt
-          zip -j AIXM-Code-Converter.zip AIXM-Code-Converter.html LICENSE NOTICE THIRD-PARTY-LICENSES.txt README.md CHANGELOG.md
-          zip -r AIXM-Code-Converter.zip samples
-          sha256sum AIXM-Code-Converter.html AIXM-Code-Converter.zip > SHA256SUMS.txt
+          zip -j "$NAME.zip" "$NAME.html" LICENSE NOTICE THIRD-PARTY-LICENSES.txt README.md CHANGELOG.md
+          zip -r "$NAME.zip" samples
+          sha256sum "$NAME.html" "$NAME.zip" > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Signed build record (provenance) of the released files
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
-            AIXM-Code-Converter.html
-            AIXM-Code-Converter.zip
+            AIXM-Code-Converter-by-Prasad-Selvaraj.html
+            AIXM-Code-Converter-by-Prasad-Selvaraj.zip
 
       - name: Publish the release
         env:
@@ -80,16 +85,16 @@ jobs:
           airport charts, terrain and 3D approach / departure views, AIRAC change detection, Annex 14 obstacle surfaces
           and CRC32Q integrity checks.
 
-          **How to use:** download `AIXM-Code-Converter.html` below and double-click it (Chrome or Edge).
+          **How to use:** download `AIXM-Code-Converter-by-Prasad-Selvaraj.html` below and double-click it (Chrome or Edge).
           No installation, no server, works offline; your data never leaves your computer.
 
           **Verify the download:** compare its SHA-256 with `SHA256SUMS.txt`, or run
-          `gh attestation verify AIXM-Code-Converter.html --repo Prasad-DataAnalyst/aixm-code-converter` (see SECURITY.md).
+          `gh attestation verify AIXM-Code-Converter-by-Prasad-Selvaraj.html --repo Prasad-DataAnalyst/aixm-code-converter` (see SECURITY.md).
 
           ⚠️ For study, analysis and data review — not for operational use.
 
           © 2026 Prasad Selvaraj · Apache License 2.0 · see CHANGELOG.md for the full list of features.
           EOF
-          gh release create "$TAG" AIXM-Code-Converter.html AIXM-Code-Converter.zip SHA256SUMS.txt \
+          gh release create "$TAG" "$NAME.html" "$NAME.zip" SHA256SUMS.txt \
             --target "$GITHUB_SHA" \
             --title "AIXM Code Converter $TAG" --notes-file notes.md --latest

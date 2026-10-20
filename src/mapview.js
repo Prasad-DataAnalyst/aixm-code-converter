@@ -16,7 +16,7 @@
  * Terrain: grid MORA per 1° square (built-in terrain model), online terrain
  * shading, terrain elevation under the mouse, and the 3D view (view3d.js).
  * ========================================================================== */
-/* global L, topojson, AX, MODEL, AIP, ADCHART, TERRAIN, VIEW3D, LAZY, FOURD, TILES */
+/* global L, topojson, AX, MODEL, AIP, ADCHART, TERRAIN, VIEW3D, LAZY, FOURD, TILES, EXPORTS */
 var MAPVIEW = (function () {
   'use strict';
   // phones and tablets (device.js; the pop-out map window has no DEVICE and counts as a computer)
@@ -1440,7 +1440,7 @@ var MAPVIEW = (function () {
     q('#map-adview').addEventListener('change', function (e) { var x = optRec(e.target.value); if (!x) closeAdCard(); else airportView(x.ds, x.r); });
     q('#map-fit').addEventListener('click', function () { fit(); });
     q('#map-measure').addEventListener('click', function (e) { toggleMeasure(e.currentTarget); });
-    q('#map-png').addEventListener('click', function () { hooks.savePng(renderImage(shownList(), map.getBounds(), 1600, 1000, { title: shownTitle(), layers: currentLayers() })); });
+    q('#map-png').addEventListener('click', function () { hooks.savePng(renderImage(shownList(), map.getBounds(), 1600, 1000, { title: shownTitle(), layers: currentLayers() }), shownTitle(), shownList()); });
     q('#map-print').addEventListener('click', function () { printDialog(null); });
     q('#map-3d').addEventListener('click', function () { open3d('area', state.adView && state.adView.ds === state.ds ? state.adView.ad : null); });
     q('#map-traffic').addEventListener('click', function () { if (traffic) trafficOff(); else trafficOn(); });
@@ -1846,6 +1846,8 @@ var MAPVIEW = (function () {
   /* ------------------------------------------------ static map renderer */
   // Renders the offline base map + aeronautical features of `ds` (one data set or a list) inside `bounds` to a PNG data URL.
   // opt: {title, sub, procAd, layers:{key:bool}, legend, north, grid, scale, footer}
+  // exports.js of this window, or in the map window the main window's (file names of the pictures and PDFs)
+  function exportsOf() { try { return typeof EXPORTS !== 'undefined' ? EXPORTS : (window.opener && window.opener.EXPORTS) || null; } catch (e) { return null; } }
   function renderImage(ds, bounds, w, h, opt) {
     opt = opt || {};
     var dsl = Array.isArray(ds) ? ds.filter(Boolean) : ds ? [ds] : [];
@@ -2048,15 +2050,18 @@ var MAPVIEW = (function () {
       hooks.toast('Rendering the map…');
       setTimeout(function () {
         var url = renderImage(dsl, b, W, H, { title: title, sub: dsl.length > 1 ? dsl.length + ' data sets' : ds ? ds.name : '', layers: layers, legend: o.legend, north: o.north, grid: o.grid, scale: o.scale, footer: 'Printed ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z' });
-        if (k === 'png') hooks.savePng(url);
+        // file names say what is on the map (exports.js; in the map window, the main window's)
+        var X = exportsOf(), fname = function (ext) { return X ? X.fileName({ datasets: dsl, what: [title || '', 'map'] }, ext) : (title || 'map').replace(/[^\w.-]+/g, '_') + ext; };
+        if (k === 'png') hooks.savePng(url, title, dsl);
         else if (k === 'pdf') {
           var land = paper[0] > paper[1], doc = new window.jspdf.jsPDF({ orientation: land ? 'landscape' : 'portrait', unit: 'mm', format: paper[0] === 420 || paper[1] === 420 ? 'a3' : 'a4' });
           doc.addImage(url, 'PNG', 0, 0, paper[0], paper[1]);
-          doc.save((title || 'map').replace(/[^\w.-]+/g, '_') + '.pdf');
+          doc.save(fname('.pdf'));
         } else {
           var root = document.getElementById('print-root');
           root.innerHTML = '<style>@page { size: ' + (paper[0] === 420 || paper[1] === 420 ? 'A3' : 'A4') + ' ' + (paper[0] > paper[1] ? 'landscape' : 'portrait') + '; margin: 0 }</style><img src="' + url + '" style="width:100%;display:block">';
-          setTimeout(function () { window.print(); }, 60);
+          // "Save as PDF" names the file after the page title
+          setTimeout(function () { var t0 = document.title; document.title = fname(''); window.print(); setTimeout(function () { document.title = t0; }, 4000); }, 60);
         }
         d.remove();
       }, 30);

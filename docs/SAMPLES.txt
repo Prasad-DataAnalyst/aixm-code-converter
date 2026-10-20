@@ -14,7 +14,7 @@ Donlon_EADD_changes_AIRAC2611.xml               A modified copy of the Donlon da
 
 How to use
 ----------
-1. Open AIXM-Code-Converter.html (Chrome or Edge) and go to Files.
+1. Open the AIXM Code Converter (AIXM-Code-Converter-by-Prasad-Selvaraj.html, in Chrome or Edge) and go to Files.
 2. Drop this ZIP (or the .xml files) on the page and press Extract. Each file becomes its own data set.
    To try the comparison, open the Compare tab and choose the Donlon data set and its changed copy.
    (Version 1.28.2 and later also open the first three files with one button: "Try it with sample data".)
