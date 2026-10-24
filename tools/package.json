@@ -16,7 +16,7 @@
   "dependencies": {
     "fflate": "^0.8.3",
     "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.8",
+    "jspdf-autotable": "^5.0.9",
     "jsts": "^2.12.1",
     "leaflet": "^1.9.4",
     "pdfjs-dist": "^3.11.174",
