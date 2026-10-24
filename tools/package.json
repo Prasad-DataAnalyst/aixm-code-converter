@@ -20,7 +20,7 @@
     "jsts": "^2.12.1",
     "leaflet": "^1.9.4",
     "pdfjs-dist": "^3.11.174",
-    "sql.js": "^1.14.2",
+    "sql.js": "^1.15.1",
     "three": "^0.147.0",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2",
