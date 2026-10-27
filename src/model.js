@@ -422,32 +422,69 @@ var MODEL = (function () {
   }
 
   /* ------------------------------------------------------------ geometry */
-  function resolveRing(ds, ring) {
-    if (!ring.some(function (p) { return p[0] === 'ref'; })) return ring;
-    var out = [];
-    for (var i = 0; i < ring.length; i++) {
-      var p = ring[i];
-      if (p[0] !== 'ref') { out.push(p); continue; }
-      var c = ds.curves.get(String(p[1]).replace(/^#/, ''));
-      if (!c) continue;
-      // trim the referenced curve between the points closest to the neighbours
-      var prev = out[out.length - 1], next = null;
-      for (var j = i + 1; j < ring.length; j++) if (ring[j][0] !== 'ref') { next = ring[j]; break; }
-      var a = 0, b = c.length - 1;
-      if (prev) a = nearest(c, prev);
-      if (next) b = nearest(c, next);
-      var seg = a <= b ? c.slice(a, b + 1) : c.slice(b, a + 1).reverse();
-      out = out.concat(seg);
-    }
-    return out;
+  function isPt(p) { return p && typeof p[0] === 'number'; }
+  // the curve a boundary follows (curveMember xlink:href): a curve by its gml:id (also inside an XPointer link), else the
+  // feature by its identifier (urn:uuid:…): a GeoBorder's border, or another feature's line
+  function borderCurve(ds, href) {
+    var h = String(href || ''), c = ds.curves && ds.curves.get(h.replace(/^#/, ''));
+    var m = !c && /@(?:[\w-]+:)?id\s*=\s*['"]([^'"]+)['"]/.exec(h);
+    if (m && ds.curves) c = ds.curves.get(m[1]);
+    if (c) return c.every(isPt) ? c : c.filter(isPt);
+    var r = target(ds, AX.normRef(h));
+    if (!r || !r.cur || r.cur.gone) return null;
+    var g = findGeo(r.cur.p.border || r.cur.p, ['L'], 0);
+    return g && g.c && g.c.length > 1 ? g.c.filter(isPt) : null;
   }
-  function nearest(c, p) {
-    var best = 0, bd = Infinity;
-    for (var i = 0; i < c.length; i++) {
-      var dx = c[i][0] - p[0], dy = c[i][1] - p[1], d = dx * dx + dy * dy;
-      if (d < bd) { bd = d; best = i; }
+  // a point held by another feature (gml:pointProperty xlink:href to a fix, navaid, …): its position
+  function refPoint(ds, href) {
+    var h = String(href || ''), r = target(ds, AX.normRef(h));
+    if (!r && h.charAt(0) === '#') r = ds.gid.get(h.slice(1)) || null;
+    return r && !r.cur.gone ? pointOf(ds, r) : null;
+  }
+  // position of p along the polyline c: segment index + fraction (nearest point, distances scaled by cos(lat))
+  function along(c, p) {
+    var best = 0, bd = Infinity, k = Math.cos(p[1] * Math.PI / 180);
+    for (var i = 0; i + 1 < c.length; i++) {
+      var ax = (c[i][0] - p[0]) * k, ay = c[i][1] - p[1], dx = (c[i + 1][0] - c[i][0]) * k, dy = c[i + 1][1] - c[i][1];
+      var l2 = dx * dx + dy * dy, t = l2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0;
+      var ex = ax + t * dx, ey = ay + t * dy, d = ex * ex + ey * ey;
+      if (d < bd) { bd = d; best = i + t; }
     }
     return best;
+  }
+  // a boundary as drawn: links resolved (borders followed between the neighbouring points, referenced points and arc
+  // centres looked up); the parser leaves them as ['ref', href], ['pt', href], ['arc', href, rNM, b1, b2, cw],
+  // ['circle', href, rNM]. Unresolved links are left out (the airspace checks report them).
+  function resolveRing(ds, ring, open) {
+    if (ring.every(isPt)) return ring;
+    var flat = [];
+    function add(q) { var l = flat[flat.length - 1]; if (!isPt(l) || l[0] !== q[0] || l[1] !== q[1]) flat.push(q); }
+    ring.forEach(function (p) {
+      if (isPt(p)) { add(p); return; }
+      if (p[0] === 'ref') { flat.push(p); return; }
+      var c = refPoint(ds, p[1]);
+      if (!c) return;
+      if (p[0] === 'pt') add(c);
+      else (p[0] === 'circle' ? AX.circlePts(c, p[2]) : AX.arcPts(c, p[2], p[3], p[4], p[5])).forEach(add);
+    });
+    var out = [], n = flat.length;
+    for (var i = 0; i < n; i++) {
+      var p = flat[i];
+      if (p[0] !== 'ref') { out.push(p); continue; }
+      var c = borderCurve(ds, p[1]);
+      if (!c) continue;
+      // the neighbouring points (round the ring when the border link comes first or last)
+      var prev = null, next = null, j;
+      for (j = 1; j < n && !prev; j++) { var q = flat[i - j] || (open ? null : flat[(i - j + n) % n]); if (isPt(q)) prev = q; else if (!q) break; }
+      for (j = 1; j < n && !next; j++) { var q2 = flat[i + j] || (open ? null : flat[(i + j) % n]); if (isPt(q2)) next = q2; else if (!q2) break; }
+      if (!prev && !next) { out = out.concat(c); continue; }
+      // the border's own points strictly between the two neighbours (a missing neighbour: the border's end)
+      var a = prev ? along(c, prev) : 0, b = next ? along(c, next) : c.length - 1, k;
+      if (a <= b) { for (k = prev ? Math.floor(a) + 1 : 0; next ? k < b : k <= b; k++) out.push(c[k]); }
+      else { for (k = Math.ceil(a) - 1; k > b; k--) out.push(c[k]); }
+    }
+    if (!open && out.length > 2) { var f = out[0], l = out[out.length - 1]; if (f[0] !== l[0] || f[1] !== l[1]) out.push([f[0], f[1]]); }
+    return out;
   }
   function findGeo(v, want, depth) {
     if (!v || typeof v !== 'object' || depth > 8) return null;
@@ -504,26 +541,194 @@ var MODEL = (function () {
     var nav = navaidOf(ds, eq);
     return !!(nav && pointOf(ds, nav));
   }
+  /* --------------------------------------- airspace built from other airspaces (AIXM 5.1 airspace aggregation) */
+  // Each geometryComponent has an operation (BASE, UNION, SUBTR, INTERS) applied in operationSequence order to a volume
+  // that has its own horizontalProjection or takes another airspace's (contributorAirspace: AirspaceVolumeDependency,
+  // FULL_GEOMETRY = the other airspace's shape and levels, HORZ_PROJECTION = its shape only). The shapes are combined with
+  // the geometry engine (JSTS), which the page loads when a data set needs it; until then such an airspace is drawn as
+  // before (its own projections, uncached).
+  var engine = null, assembler = null;
+  function setGeomEngine(j) { engine = j || null; }
+  // the pop-out map window asks the main window, whose engine and realm built the shape (it shares the data sets)
+  function setAssembler(fn) { assembler = fn || null; }
+  function geomEngine() { return engine || (typeof jsts !== 'undefined' ? jsts : null); } // eslint-disable-line no-undef
+  function componentsOf(p) {
+    return arr(p.geometryComponent).map(function (gc, i) {
+      var vol = gc && gc.theAirspaceVolume, dep = vol && arr(vol.contributorAirspace).filter(function (d) { return d && d.theAirspace; })[0];
+      return { op: s(gc && gc.operation).toUpperCase() || (i ? 'UNION' : 'BASE'), seq: parseFloat(s(gc && gc.operationSequence)), i: i, vol: vol, dep: dep || null };
+    }).filter(function (c) { return c.vol; }).sort(function (a, b) { return (isNaN(a.seq) ? a.i : a.seq) - (isNaN(b.seq) ? b.i : b.seq) || a.i - b.i; });
+  }
+  function needsAssembly(r) {
+    if (r.k !== 'Airspace' || !r.cur || r.cur.gone) return false;
+    var cs = componentsOf(r.cur.p), own = function (c) { return !!(c.vol.horizontalProjection && c.vol.horizontalProjection._geo); };
+    // volumes that are areas (own or another airspace's); corridors given by a centre line only stay lines, as before
+    var areas = cs.filter(function (c) { return own(c) || c.dep; }).length;
+    return cs.some(function (c) { return c.dep && !own(c); }) || (areas > 1 && cs.some(function (c) { return /^(UNION|SUBTR|INTERS)$/.test(c.op); }));
+  }
+  function needsEngine(ds) { return (ds.byType && ds.byType.Airspace || []).some(needsAssembly); }
+  function contributor(ds, dep) {
+    var ref = dep.theAirspace, r = target(ds, ref);
+    if (r) return { ds: ds, r: r };
+    var o = peer(ds, ref);
+    return o && o.r.k === 'Airspace' ? o : null;
+  }
+  function ownShape(ds, vol) {
+    var hg = vol.horizontalProjection && vol.horizontalProjection._geo;
+    return hg && hg.t === 'A' ? { t: 'A', c: hg.c.map(function (ring) { return resolveRing(ds, ring); }), d: hg.d } : null;
+  }
+  // -> {g, notes[]} : the combined horizontal shape of airspace r (null when nothing could be drawn)
+  function assemble(ds, r, J, seen) {
+    var notes = [], acc = null, gf = new J.geom.GeometryFactory();
+    if (seen.indexOf(r) >= 0 || seen.length > 8) return { g: null, notes: ['the airspace is built from itself (circular contributor links)'] };
+    seen = seen.concat([r]);
+    componentsOf(r.cur.p).forEach(function (c) {
+      var shape = ownShape(ds, c.vol), from = '';
+      if (!shape && c.dep) {
+        var o = contributor(ds, c.dep);
+        if (!o) { notes.push(c.op + ': the contributor airspace ' + (c.dep.theAirspace.title || c.dep.theAirspace.ref) + ' is not in the data'); return; }
+        from = shortName(o.r);
+        shape = needsAssembly(o.r) ? assemble(o.ds, o.r, J, seen).g : geometry(o.ds, o.r);
+        if (!shape) { notes.push(c.op + ': the contributor airspace ' + from + ' has no shape'); return; }
+      }
+      if (!shape) { if (!(c.vol.centreline && c.vol.centreline._geo)) notes.push(c.op + ': the volume has no horizontal projection'); return; }
+      var jg = toJsts(J, gf, shape);
+      if (!jg) { notes.push(c.op + (from ? ' ' + from : '') + ': the shape could not be read'); return; }
+      try { acc = acc ? overlay(J, acc, jg, c.op) : jg; } catch (e) { notes.push(c.op + (from ? ' ' + from : '') + ': the shapes could not be combined (' + String(e && e.message || e).slice(0, 120) + ')'); }
+    });
+    var g = acc ? fromJsts(acc) : null;
+    if (g) g.asm = 1;
+    return { g: g, notes: notes };
+  }
+  // a with b: UNION, SUBTR (difference) or INTERS; boundaries coded twice meet at almost the same points, which plain
+  // overlay may refuse (non-noded intersection): then with the shapes snapped together, then cleaned (buffer 0)
+  function overlay(J, a, b, op) {
+    function run(x, y) { return op === 'SUBTR' ? x.difference(y) : op === 'INTERS' ? x.intersection(y) : x.union(y); }
+    try { return run(a, b); } catch (e) {
+      var GS = J.operation.overlay.snap.GeometrySnapper;
+      try { var sn = GS.snap(a, b, GS.computeOverlaySnapTolerance(a, b)); return run(sn[0], sn[1]); } catch (e2) {
+        var pm = new J.geom.PrecisionModel(1e7), R = J.precision.GeometryPrecisionReducer; // 1e-7 degree: about a centimetre
+        return run(R.reduce(a, pm), R.reduce(b, pm));
+      }
+    }
+  }
+  // arrays for JSTS are made here, in this script's own realm (JSTS tells arrays from coordinate sequences with
+  // instanceof Array, which an array made by the data's own map/filter in another window or context fails)
+  function toJsts(J, gf, g, raw) {
+    var polys = [], parts = g.t === 'M' ? g.parts : [g];
+    for (var i = 0; i < parts.length; i++) {
+      var x = parts[i], rings = [], holes = [];
+      if (x.t !== 'A') continue;
+      for (var k = 0; k < x.c.length; k++) {
+        var c = [], ring = x.c[k];
+        for (var j = 0; j < ring.length; j++) if (isPt(ring[j])) c.push(new J.geom.Coordinate(ring[j][0], ring[j][1]));
+        if (c.length && !c[0].equals2D(c[c.length - 1])) c.push(new J.geom.Coordinate(c[0].x, c[0].y));
+        if (c.length >= 4) rings.push(gf.createLinearRing(c));
+      }
+      for (var h = 1; h < rings.length; h++) holes.push(rings[h]);
+      if (rings.length) polys.push(gf.createPolygon(rings[0], holes));
+    }
+    if (!polys.length) return null;
+    var out = polys.length === 1 ? polys[0] : gf.createMultiPolygon(polys);
+    return raw || out.isValid() ? out : out.buffer(0); // raw: as drawn (the checks look at it)
+  }
+  // JSTS -> {t:'A'} or {t:'M'}; slivers left by boundaries coded twice (mean width under 30 m) are dropped
+  function fromJsts(geom) {
+    var out = [];
+    function ring(ls) { return ls.getCoordinates().map(function (c) { return [c.x, c.y]; }); }
+    function thin(pg) { var a = pg.getArea(), l = pg.getLength(); return l > 0 && 2 * a / l < 0.0003; } // degrees: ~30 m
+    for (var i = 0; i < geom.getNumGeometries(); i++) {
+      var pg = geom.getGeometryN(i);
+      if (pg.getGeometryType() !== 'Polygon' || pg.isEmpty() || thin(pg)) continue;
+      var rings = [ring(pg.getExteriorRing())];
+      for (var h = 0; h < pg.getNumInteriorRing(); h++) { var hr = pg.getInteriorRingN(h); if (!thin(pg.getFactory().createPolygon(hr, []))) rings.push(ring(hr)); }
+      out.push({ t: 'A', c: rings });
+    }
+    return out.length ? (out.length === 1 ? out[0] : { t: 'M', parts: out }) : null;
+  }
+  // what the map shows for an aggregated airspace: how it was built and what could not be done
+  function assembly(ds, r) {
+    if (!needsAssembly(r)) return null;
+    var J = geomEngine(), cs = componentsOf(r.cur.p);
+    var steps = cs.map(function (c) { var o = c.dep && !ownShape(ds, c.vol) ? contributor(ds, c.dep) : null; return c.op + ' ' + (o ? shortName(o.r) + (c.dep.dependency ? ' (' + s(c.dep.dependency) + ')' : '') : c.dep ? '(contributor not in the data)' : 'own shape'); });
+    return { steps: steps, notes: J ? assemble(ds, r, J, []).notes : ['the geometry engine is not loaded: drawn from its own shapes only'] };
+  }
+  // vertical extent in feet (FL x 100; heights above ground counted from sea level; GND/SFC 0; UNL: no limit):
+  // {lo, up} over all volumes, contributors included (FULL_GEOMETRY), null when the data gives no limits
+  function limitFt(v, ref) {
+    v = Array.isArray(v) ? v[0] : v;
+    if (!v || (typeof v === 'object' && v.nil !== undefined)) return null;
+    var val = String(typeof v === 'object' ? v.v : v).trim().toUpperCase(), u = String(typeof v === 'object' && v.u || '').toUpperCase();
+    if (/^(GND|SFC)$/.test(val)) return 0;
+    if (val === 'UNL') return Infinity;
+    var n = parseFloat(val);
+    if (isNaN(n)) return null;
+    if (u === 'FL' || s(ref) === 'STD' && !u) return n * 100;
+    return u === 'M' ? n / 0.3048 : u === 'KM' ? n * 1000 / 0.3048 : n;
+  }
+  // the 3D pieces of an airspace: [{g: JSTS shape, vb: {lo, up}}], one per volume (contributors' own pieces for
+  // FULL_GEOMETRY, the contributor's shape with this volume's levels for HORZ_PROJECTION; a subtracted or intersected
+  // volume cuts every piece). For the overlap check: lower and upper parts of one airspace keep their own levels.
+  function pieces(ds, r, J, seen) {
+    seen = seen || [];
+    if (!r || r.k !== 'Airspace' || seen.indexOf(r) >= 0 || seen.length > 8) return [];
+    seen = seen.concat([r]);
+    var out = [], gf = new J.geom.GeometryFactory();
+    componentsOf(r.cur.p).forEach(function (c) {
+      var v = c.vol, own = ownShape(ds, v), o = !own && c.dep ? contributor(ds, c.dep) : null, full = o && s(c.dep.dependency) !== 'HORZ_PROJECTION';
+      var lo = limitFt(v.lowerLimit, v.lowerLimitReference), up = limitFt(v.upperLimit, v.upperLimitReference);
+      var mine = [];
+      if (own) { var g0 = toJsts(J, gf, own); if (g0) mine.push({ g: g0, vb: lo === null && up === null ? null : { lo: lo === null ? 0 : lo, up: up === null ? Infinity : up } }); }
+      else if (o && full) mine = pieces(o.ds, o.r, J, seen);
+      else if (o) { var sh = needsAssembly(o.r) ? assemble(o.ds, o.r, J, seen).g : geometry(o.ds, o.r), g1 = sh && toJsts(J, gf, sh); if (g1) mine.push({ g: g1, vb: lo === null && up === null ? vband(o.ds, o.r) : { lo: lo === null ? 0 : lo, up: up === null ? Infinity : up } }); }
+      if (c.op === 'SUBTR' || c.op === 'INTERS') {
+        mine.forEach(function (m) { out = out.map(function (p) { try { return { g: overlay(J, p.g, m.g, c.op), vb: p.vb }; } catch (e) { return p; } }); });
+      } else out = out.concat(mine);
+    });
+    return out.filter(function (p) { return p.g && !p.g.isEmpty(); });
+  }
+  function vband(ds, r, seen) {
+    seen = seen || [];
+    if (!r || r.k !== 'Airspace' || seen.indexOf(r) >= 0 || seen.length > 8) return null;
+    var lo = Infinity, up = -Infinity;
+    componentsOf(r.cur.p).forEach(function (c) {
+      if (c.op === 'SUBTR') return;
+      var v = c.vol, a = limitFt(v.lowerLimit, v.lowerLimitReference), b = limitFt(v.upperLimit, v.upperLimitReference);
+      if ((a === null || b === null) && c.dep && s(c.dep.dependency) !== 'HORZ_PROJECTION') {
+        var o = contributor(ds, c.dep), cb = o && vband(o.ds, o.r, seen.concat([r]));
+        if (cb) { if (a === null) a = cb.lo; if (b === null) b = cb.up; }
+      }
+      if (a !== null && a < lo) lo = a;
+      if (b !== null && b > up) up = b;
+    });
+    return lo === Infinity && up === -Infinity ? null : { lo: lo === Infinity ? 0 : lo, up: up === -Infinity ? Infinity : up };
+  }
+
   // Map geometry of a feature: {t:'P'|'L'|'A', c, parts?}
   function geometry(ds, r) {
     if (r.geo !== undefined) return r.geo;
     var p = r.cur.p, g = null, list;
     switch (r.k) {
       case 'Airspace': {
+        if (needsAssembly(r)) {
+          var J = geomEngine();
+          if (J) { g = assemble(ds, r, J, []).g; break; }
+          if (assembler) { var ag0 = assembler(ds, r); if (ag0 && ag0.asm) return ag0; }
+        }
         list = [];
         arr(p.geometryComponent).forEach(function (gc) {
           var vol = gc && gc.theAirspaceVolume;
           if (vol && vol.horizontalProjection && vol.horizontalProjection._geo) {
             var hg = vol.horizontalProjection._geo;
             list.push({ t: 'A', c: hg.c.map(function (ring) { return resolveRing(ds, ring); }), d: hg.d, op: gc.operation });
-          } else if (vol && vol.centreline && vol.centreline._geo) list.push(vol.centreline._geo);
+          } else if (vol && vol.centreline && vol.centreline._geo) list.push(lineOf(ds, vol.centreline._geo));
         });
         g = list.length ? (list.length === 1 ? list[0] : { t: 'M', parts: list }) : null;
+        if (needsAssembly(r)) return g; // drawn again once the geometry engine is there
         break;
       }
       case 'RouteSegment': {
         var ce = p.curveExtent && p.curveExtent._geo;
-        if (ce) g = ce;
+        if (ce) g = lineOf(ds, ce);
         else {
           var a = segPoint(ds, p.start), b = segPoint(ds, p.end);
           if (a && b) g = { t: 'L', c: [a, b] };
@@ -562,9 +767,12 @@ var MODEL = (function () {
         } else if (pg) g = { t: 'P', c: pg };
       }
     }
+    if (g && g.t === 'L' && g.c && !g.c.every(isPt)) g = lineOf(ds, g);
     r.geo = g;
     return g;
   }
+  // a line with referenced points (fixes, navaids, arc centres) resolved
+  function lineOf(ds, g) { return g.c.every(isPt) ? g : Object.assign({}, g, { c: resolveRing(ds, g.c, true) }); }
   // a point of a procedure leg held in another data set loaded (an IFP data set referring to the AIP data set's
   // fixes, navaids and runway points); used only for the leg end points
   var peersOf = null;
@@ -1019,7 +1227,8 @@ var MODEL = (function () {
   return {
     setPeers: setPeers, peer: peer,
     setDict: setDict, dict: dict, amxmDict: amxmDict, amxmMeaning: amxmMeaning, finalize: finalize, finalizeAsync: finalizeAsync, setViewDate: setViewDate, harmonizeStates: harmonizeStates, setLocator: setLocator, target: target, eachRef: eachRef,
-    geometry: geometry, pointOf: pointOf, posFromNavaid: posFromNavaid, navaidOf: navaidOf, findGeo: findGeo, segPoint: segPoint, segPointLabel: segPointLabel, segPointRec: segPointRec,
+    geometry: geometry, setGeomEngine: setGeomEngine, setAssembler: setAssembler, geomEngine: geomEngine, needsEngine: needsEngine, needsAssembly: needsAssembly, assembly: assembly, componentsOf: componentsOf,
+    vband: vband, pieces: pieces, limitFt: limitFt, overlay: overlay, toJsts: function (J, gf, g, raw) { return toJsts(J, gf, g, raw); }, borderCurve: borderCurve, refPoint: refPoint, resolveRing: resolveRing, pointOf: pointOf, posFromNavaid: posFromNavaid, navaidOf: navaidOf, findGeo: findGeo, segPoint: segPoint, segPointLabel: segPointLabel, segPointRec: segPointRec,
     label: label, shortName: shortName, typeName: typeName, routeDesignator: routeDesignator, s: s, searchText: searchText, searchMatch: searchMatch, searchCore: searchCore,
     fq: fq, fLimit: fLimit, fPoint: fPoint, fElev: fElev, fTimesheet: fTimesheet, fSchedule: fSchedule, noteText: noteText, notesOf: notesOf,
     fContact: fContact, fFreq: fFreq, fv: fv, propDef: propDef, featureDef: featureDef, codeDef: codeDef, def45: def45,

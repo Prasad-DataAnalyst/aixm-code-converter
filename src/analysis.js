@@ -6,7 +6,7 @@
  * AIXM Code Converter - analysis: in-file changes (temporality), comparison of
  * two data sets (same State, any versions) and data quality checks.
  * ========================================================================== */
-/* global AX, MODEL, AIP, IFP */
+/* global AX, MODEL, AIP, IFP, LAZY */
 var ANALYSIS = (function () {
   'use strict';
   var M = MODEL, s = M.s, arr = AX.arr;
@@ -189,6 +189,129 @@ var ANALYSIS = (function () {
     return { ft: u === 'M' ? v / 0.3048 : v, ref: s(ref) || 'MSL' };
   }
   function pos(c) { return AX.fmtPos(c, 0); }
+
+  /* ---------------------------------------------------- airspace geometry */
+  // The shape an AIS system computed (arc ends, border junctions, aggregated airspace) against what the data codes:
+  // - arcs: the arc of the coded centre, radius and angles must end on the coded points before and after it (WGS-84);
+  // - links: a border followed (curveMember xlink:href) and points held by other features must be in the data, and the
+  //   points where the boundary joins the border must lie on it;
+  // - airspace built from other airspaces: every contributor found and combined;
+  // - a boundary must not cross itself; airspace of the same type must not overlap at the same levels (sectors, FIR,
+  //   TMA, CTA…: lower and upper airspace stacked is not an overlap).
+  var ARC_TOL = 0.05, JOIN_TOL = 0.5, OVL_NM2 = 1; // NM, NM, NM²
+  var OVL_TYPES = /^(FIR|UIR|OCA|UTA|NAS|CTA|TMA|CTR|SECTOR|SECTOR_C|OTA)(_P)?$/, OVL_HARD = /^(FIR|UIR|OCA|UTA|NAS|SECTOR|SECTOR_C)(_P)?$/;
+  var OVL_MAX_PAIRS = 60000;
+  function nm(v) { return v < 10 ? v.toFixed(2) : v.toFixed(1); }
+  function uomOf(u) { return /nmi|^NM$/i.test(u || 'NM') ? 'NM' : M.UOM[u] || u; }
+  async function airspaceChecks(ds, add) {
+    var list = (ds.byType.Airspace || []).filter(function (r) { return !r.cur.gone; });
+    if (!list.length) return;
+    if (!M.geomEngine() && typeof LAZY !== 'undefined') { try { await LAZY.run('lazy-jsts'); M.setGeomEngine(window.jsts); } catch (e) { /* checks that need it are left out */ } }
+    var J = M.geomEngine(), R = 'Airspace geometry', P = 'geometryComponent', shapes = [];
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i], name = M.label(ds, r), steps = []; // steps: arc ends reported (a crossing there is the same fault)
+      arr(r.cur.p.geometryComponent).forEach(function (gc) {
+        var hp = gc && gc.theAirspaceVolume && gc.theAirspaceVolume.horizontalProjection, hg = hp && hp._geo;
+        if (!hg || hg.t !== 'A') return;
+        hg.c.forEach(function (ring, ri) {
+          // links to borders and to points of other features
+          ring.forEach(function (x, k) {
+            if (typeof x[0] === 'number') return;
+            if (x[0] === 'ref') {
+              var bc = M.borderCurve(ds, x[1]);
+              if (!bc) { add('error', R, 'The boundary follows a border that is not in the data', r, P, 'curveMember xlink:href="' + x[1] + '": no GeoBorder or curve with this identifier. The map joins the points before and after it with a straight line instead of the border.'); return; }
+              [ring[k - 1] || ring[ring.length - 1], ring[k + 1] || ring[0]].forEach(function (q, side) {
+                if (!q || typeof q[0] !== 'number') return;
+                var d = Infinity;
+                for (var j = 0; j + 1 < bc.length; j++) d = Math.min(d, segDist(q, bc[j], bc[j + 1]));
+                if (d > JOIN_TOL) add('warning', R, 'The boundary joins the border it follows ' + nm(d) + ' NM away from it', r, P, 'Point ' + pos(q) + ' (where the boundary ' + (side ? 'leaves' : 'meets') + ' the border ' + x[1] + ') is ' + nm(d) + ' NM from the nearest point of the border: the boundary jumps there. The point is probably not on the border, or the wrong border is linked.');
+              });
+            } else if (!M.refPoint(ds, x[1])) add('error', R, 'A boundary point held by another feature is not in the data', r, P, (x[0] === 'pt' ? 'gml:pointProperty' : 'The centre of the ' + (x[0] === 'arc' ? 'arc' : 'circle')) + ' xlink:href="' + x[1] + '" names no fix, navaid or other feature with a position in this data: that part of the boundary is left out.');
+          });
+          // arcs: do they end on the coded points before and after them?
+          if (ri) return;
+          var d = hg.d || [];
+          d.forEach(function (part, k) {
+            if (part.k !== 'arc' || part.b1 === undefined) return;
+            var c = part.c || (part.h ? M.refPoint(ds, part.h) : null);
+            if (!c) return;
+            var prev = null, next = null, j, q;
+            for (j = 1; j < d.length && !prev; j++) { q = d[(k - j + d.length) % d.length]; if (q.p && q.p.length && typeof q.p[q.p.length - 1][0] === 'number') prev = q.p[q.p.length - 1]; else if (q.k === 'arc' || q.k === 'ref' || q.k === 'border') break; }
+            for (j = 1; j < d.length && !next; j++) { q = d[(k + j) % d.length]; if (q.p && q.p.length && typeof q.p[0][0] === 'number') next = q.p[0]; else if (q.k === 'arc' || q.k === 'ref' || q.k === 'border') break; }
+            if (!prev || !next) return;
+            var rNM = AX.toNM(part.r, part.u), a = AX.geoDest(c[0], c[1], part.b1, rNM), b = AX.geoDest(c[0], c[1], part.b2, rNM);
+            var g1 = AX.geoDist(prev, a), g2 = AX.geoDist(next, b), gap = Math.max(g1, g2);
+            if (gap <= ARC_TOL) return;
+            steps.push({ p: prev, d: gap }, { p: next, d: gap });
+            add(gap >= 1 ? 'error' : 'warning', R, 'Arc of ' + part.r + ' ' + uomOf(part.u) + ' ends ' + nm(gap) + ' NM from the boundary point ' + (g1 >= g2 ? 'before' : 'after') + ' it', r, P,
+              'Centre ' + pos(c) + ', radius ' + part.r + ' ' + uomOf(part.u) + '. The point before the arc is ' + nm(AX.geoDist(c, prev)) + ' NM from the centre and ' + nm(g1) + ' NM from the arc start; the point after it ' + nm(AX.geoDist(c, next)) + ' NM from the centre and ' + nm(g2) + ' NM from the arc end (WGS-84). ' +
+              'The radius, the centre or the angles do not fit the points: the boundary has a step there' + (gap >= 1 ? ' that shows on the map' : '') + '. Within ' + ARC_TOL + ' NM is expected.');
+          });
+        });
+      });
+      // aggregated airspace
+      var asm = M.assembly(ds, r);
+      if (asm) asm.notes.forEach(function (n) { add('warning', R, 'Airspace built from other airspaces: ' + n, r, P, 'Built as: ' + asm.steps.join(', ') + '. Without it, the airspace is drawn without that part (or not at all).'); });
+      // the shape as drawn: crossing itself? (and kept for the overlap check)
+      if (J) {
+        var g = M.geometry(ds, r), gf = new J.geom.GeometryFactory();
+        (g && g.t === 'M' ? g.parts : g ? [g] : []).forEach(function (pg) {
+          if (pg.t !== 'A') return;
+          var one = null;
+          try { one = M.toJsts(J, gf, pg, true); } catch (e) { one = null; }
+          if (!one) return;
+          if (!one.isValid()) {
+            var ve = new J.operation.valid.IsValidOp(one).getValidationError(), at = ve && ve.getCoordinate();
+            if (!at || !steps.some(function (q) { return AX.distNM(q.p, [at.x, at.y]) < Math.max(1, q.d + 0.5); })) add('warning', R, 'The boundary crosses itself' + (at ? ' at ' + pos([at.x, at.y]) : ''), r, P, (ve ? ve.getMessage() + '. ' : '') + 'Points in the wrong order, or an arc drawn the wrong way round: the area is unclear where the boundary crosses. The map fills it even-odd.');
+            try { one = one.buffer(0); } catch (e) { one = null; }
+          }
+        });
+        // the overlap check works on the 3D pieces (lower and upper parts of one airspace each with its own levels)
+        var t = s(r.cur.p.type);
+        if (OVL_TYPES.test(t)) {
+          var pc = [];
+          try { pc = M.pieces(ds, r, J); } catch (e) { pc = []; }
+          pc.forEach(function (x) { if (x.vb) { var gx = x.g.isValid() ? x.g : x.g.buffer(0); shapes.push({ r: r, g: gx, vb: x.vb, t: t, env: gx.getEnvelopeInternal(), name: name }); } });
+        }
+      }
+      if (i % 100 === 99) await yieldUI();
+    }
+    // same type, same levels, overlapping area (each pair of airspaces once, its largest overlap); shapes sorted west to
+    // east, so only those whose extents meet are compared
+    var seenPair = new Map(), pairs = 0;
+    shapes.sort(function (p, q) { return p.env.getMinX() - q.env.getMinX(); });
+    for (var a = 0; a < shapes.length && pairs < OVL_MAX_PAIRS; a++) {
+      for (var b = a + 1; b < shapes.length && shapes[b].env.getMinX() <= shapes[a].env.getMaxX(); b++) {
+        var x = shapes[a], y = shapes[b];
+        if (x.r === y.r || x.t !== y.t || !(x.vb.lo < y.vb.up && y.vb.lo < x.vb.up) || !x.env.intersects(y.env)) continue;
+        if (++pairs > OVL_MAX_PAIRS) break;
+        var ov = null;
+        try { ov = M.overlay(J, x.g, y.g, 'INTERS'); } catch (e) { continue; }
+        if (ov.isEmpty()) continue;
+        var c = ov.getCentroid(), area = ov.getArea() * 3600 * Math.cos(c.getY() * Math.PI / 180);
+        if (area < OVL_NM2) continue;
+        var key = x.r.i + '|' + y.r.i, prev = seenPair.get(key);
+        if (!prev || prev.area < area) seenPair.set(key, { x: x, y: y, area: area, c: c, lo: Math.max(x.vb.lo, y.vb.lo), up: Math.min(x.vb.up, y.vb.up) });
+      }
+      if (a % 50 === 49) await yieldUI();
+    }
+    if (pairs > OVL_MAX_PAIRS) add('info', R, 'Overlaps of airspace of one type checked in part only (' + shapes.length.toLocaleString('en-US') + ' shapes)', list[0], P, 'More than ' + OVL_MAX_PAIRS.toLocaleString('en-US') + ' pairs of neighbouring airspaces: the check stopped there.');
+    seenPair.forEach(function (o) {
+      // FIR, UIR and ACC sectors partition the airspace: an overlap at the same levels is a fault. CTA, TMA and CTR may
+      // overlap by design (delegated airspace, a CTA over a TMA part): a note to check.
+      var hard = OVL_HARD.test(o.x.t);
+      add(hard ? 'warning' : 'info', R, o.x.name + ' and ' + o.y.name + ' overlap by ' + Math.round(o.area).toLocaleString('en-US') + ' NM² at the same levels', o.x.r, P,
+        'Both are ' + o.x.t + '. ' + o.x.name + ' ' + fmtBand(o.x.vb) + ', ' + o.y.name + ' ' + fmtBand(o.y.vb) + ': both cover ' + fmtBand({ lo: o.lo, up: o.up }) + ' over ' + Math.round(o.area).toLocaleString('en-US') + ' NM² around ' + pos([o.c.getX(), o.c.getY()]) + '. ' +
+        (hard ? o.x.t + ' airspace shares borders, not area, at the same levels: a boundary point is probably wrong, or the vertical limits are.' : 'Airspace of one type usually shares borders, not area, at the same levels: check the boundaries and the vertical limits (an overlap made on purpose, e.g. delegated airspace, can stay).'));
+    });
+  }
+  function fmtBand(b) { function f(v) { return v === Infinity ? 'UNL' : v === 0 ? 'GND' : v % 100 === 0 && v >= 1000 ? 'FL' + (v < 10000 ? '0' : '') + v / 100 : Math.round(v).toLocaleString('en-US') + ' ft'; } return b ? f(b.lo) + ' – ' + f(b.up) : 'levels unknown'; }
+  // distance in NM from p to the segment a-b (local plane, scaled by cos(lat))
+  function segDist(p, a, b) {
+    var k = Math.cos(p[1] * Math.PI / 180), ax = (a[0] - p[0]) * k, ay = a[1] - p[1], dx = (b[0] - a[0]) * k, dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+    var t = l2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0, ex = ax + t * dx, ey = ay + t * dy;
+    return Math.sqrt(ex * ex + ey * ey) * 60;
+  }
   // Issues: {sev: error|warning|info, rule, msg, rec, p: property it is about (or none), detail: what was found and
   // what is expected}. The AIP view marks the values and sections they concern.
   async function quality(ds, onProgress) {
@@ -380,6 +503,7 @@ var ANALYSIS = (function () {
       }
       add('warning', 'References', list.length + ' reference(s) of ' + k + ' point to features that are not in this file', list[0], null, 'For example: ' + list.slice(0, 5).map(function (x) { return M.label(ds, x) + ' (line ' + x.line + ')'; }).join('; ') + (list.length > 5 ? ' … and ' + (list.length - 5) + ' more' : '') + '. The feature referred to is missing: load the file that contains it with this one, or the reference (xlink:href) is wrong.');
     });
+    await airspaceChecks(ds, add);
     var rank = { error: 0, warning: 1, info: 2 };
     issues.sort(function (a, b) { return rank[a.sev] - rank[b.sev]; });
     // an instrument flight procedure data set holds the procedure features and what they reference (ICAO data set

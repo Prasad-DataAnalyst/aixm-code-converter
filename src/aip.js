@@ -109,10 +109,12 @@ var AIP = (function () {
   function lateral(ds, as) {
     var g = M.geometry(ds, as);
     if (!g) return '';
-    var comps = g.t === 'M' ? g.parts : [g];
-    return comps.map(function (c) { return lateralOf(c); }).filter(Boolean).join('\n\n');
+    var comps = g.t === 'M' ? g.parts : [g], asm = M.assembly(ds, as);
+    // built from other airspace: how, then the outline that results
+    return (asm ? 'Formed by: ' + asm.steps.join(', ') + (asm.notes.length ? ' (' + asm.notes.join('; ') + ')' : '') + (g.asm ? '\nOutline: ' : '\n') : '') +
+      comps.map(function (c) { return lateralOf(c, ds); }).filter(Boolean).join('\n\n');
   }
-  function lateralOf(g) {
+  function lateralOf(g, ds) {
     if (!g || g.t !== 'A') return '';
     var parts = g.d || [];
     var circle = parts.filter(function (x) { return x.k === 'circle'; })[0];
@@ -131,11 +133,11 @@ var AIP = (function () {
       else if (x.k === 'arc') { out.push('then ' + (x.cw ? 'clockwise' : 'anticlockwise') + ' along the arc of a circle radius ' + x.r + ' ' + (M.UOM[x.u] || x.u) + ' centred on ' + AX.fmtPos(x.c, 0) + ' to'); last = null; }
       else if (x.k === 'circle') { out.push('a circle, radius ' + x.r + ' ' + (M.UOM[x.u] || x.u) + ' centred on ' + AX.fmtPos(x.c, 0)); last = null; }
       else if (x.k === 'border') { out.push('then along the border to'); last = null; }
-      else if (x.k === 'ref') { out.push('then along the referenced border line (' + x.h + ') to'); last = null; }
+      else if (x.k === 'ref') { var gb = ds && M.target(ds, AX.normRef(x.h)); out.push('then along ' + (gb && s(gb.cur.p.name) ? s(gb.cur.p.name) : 'the referenced border line (' + x.h + ')') + ' to'); last = null; }
     });
     return out.join(' - ').replace(/ to - /g, ' to ');
   }
-  function vertical(ds, as) {
+  function vertical(ds, as, depth) {
     var out = [];
     arr(as.cur.p.geometryComponent).forEach(function (gc) {
       var v = gc && gc.theAirspaceVolume;
@@ -144,6 +146,11 @@ var AIP = (function () {
       if (up || lo) out.push((up || '—') + ' / ' + (lo || '—'));
       var mx = M.fLimit(v.maximumLimit, v.maximumLimitReference), mn = M.fLimit(v.minimumLimit, v.minimumLimitReference);
       if (mx || mn) out.push('(max ' + (mx || '—') + ', min ' + (mn || '—') + ')');
+      // a volume that is another airspace (contributor, FULL_GEOMETRY): that airspace's limits; a subtracted one adds none
+      if (!up && !lo && s(gc.operation) !== 'SUBTR' && (depth || 0) < 6) {
+        var dep = arr(v.contributorAirspace).filter(function (d) { return d && d.theAirspace && s(d.dependency) !== 'HORZ_PROJECTION'; })[0], c = dep && M.target(ds, dep.theAirspace);
+        if (c && c !== as) vertical(ds, c, (depth || 0) + 1).split('\n').forEach(function (x) { if (x) out.push(x); });
+      }
     });
     return uniq(out).join('\n');
   }

@@ -60,6 +60,7 @@ var MAPWIN = (function () {
       d.head.appendChild(c);
     });
     w.MODEL.setDict(JSON.parse(d.getElementById('data-dictionary').textContent));
+    w.MODEL.setAssembler(function (ds, r) { return MODEL.geometry(ds, r); }); // airspace built from other airspaces: shaped here
     // signature: author of the AIXM Code Converter (Apache-2.0 NOTICE)
     d.documentElement.setAttribute('data-generator', APP_INFO.credit);
   }

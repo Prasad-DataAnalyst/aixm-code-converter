@@ -314,6 +314,13 @@ pre.xml .ln.hl { background: var(--hl); }
 .map-dsl-row label.chk span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .map-dsl-row .linkbtn { font-size: 12px; flex: none; }
 .map-dsl .btn { margin-top: 6px; }
+.map-lvl { margin-top: 6px; font-size: 13px; }
+.map-lvl select.inp { width: auto; padding: 3px 6px; margin-left: 4px; }
+.map-lvl-in { display: block; margin-top: 4px; }
+.map-lvl-in.hidden, .map-lvl-b.hidden { display: none; }
+.map-lvl input.inp { width: 82px; padding: 3px 6px; }
+.map-lvl input.inp.bad { border-color: var(--err); }
+.map-lvl-note { font-size: 11.5px; margin-top: 3px; }
 .map-panel .sw { width: 14px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 2px; border: 1px solid rgba(0, 0, 0, .2); }
 .map-tools { position: absolute; top: 12px; right: 12px; z-index: 500; display: flex; flex-direction: column; gap: 6px; }
 .map-tools .btn { box-shadow: var(--shadow); }

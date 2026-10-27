@@ -48,6 +48,18 @@
     prjs: {}              // .prj files dropped with ESRI ASCII grids: base name -> WKT
   };
   M.setPeers(function () { return S.datasets; }); // procedure leg points held in another data set
+  // airspace built from other airspaces (contributor airspace, UNION / SUBTR): the geometry engine (JSTS) is loaded once,
+  // when a data set has such airspace, and the map is drawn again with their shapes
+  var geomLoad = null;
+  function geomFor(ds) {
+    if (geomLoad || M.geomEngine() || !ds || !ds.byType || !M.needsEngine(ds)) return;
+    geomLoad = LAZY.run('lazy-jsts').then(function () {
+      M.setGeomEngine(window.jsts);
+      if (MAPVIEW.isMounted()) MAPVIEW.redraw();
+      var w = MAPWIN.isOpen() && MAPWIN.window();
+      if (w && w.MAPVIEW.redraw) w.MAPVIEW.redraw();
+    }, function (e) { geomLoad = null; console.warn('geometry engine:', e); });
+  }
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
   function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -1061,6 +1073,7 @@
             S.datasets = S.datasets.filter(function (x) { return x.id !== ds.id; });
             S.datasets.push(ds);
             M.harmonizeStates(S.datasets);
+            geomFor(ds);
             setStatus('done');
             item.detail = (part ? 'part ' + part.k + ' of ' + item.parts.length + ': ' : '') + num(ds.recs.length) + ' features · ' + esc(ds.state) + (ds.airac ? ' · AIRAC ' + ds.airac.id : '') + ' · read in ' + (tRead / 1000).toFixed(1) + ' s (' + (size / 1048576 / (tRead / 1000)).toFixed(1) + ' MB/s)';
           } catch (err) {
@@ -1117,6 +1130,7 @@
     applyLib(ds, lib || ds.lib);
     S.datasets.push(ds);
     M.harmonizeStates(S.datasets);
+    geomFor(ds);
     renderNav(); renderDsSelect(); initSearch();
     return ds;
   }

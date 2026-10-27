@@ -25,13 +25,14 @@ var MAPVIEW = (function () {
   var M = MODEL, s = M.s, arr = AX.arr;
   var map = null, hooks = null, el = {}, world50 = null, world10 = null, places = null;
   var base = { offline: null, current: 'offline', online: {} };
-  var over = {}, vec = null, state = { ds: null, cmp: null, labels: true, measure: null, filters: {} };
+  var over = {}, vec = null, state = { ds: null, cmp: null, labels: true, measure: null, filters: {}, levels: { mode: 'all', a: null, b: null, ta: '', tb: '' } };
 
   var COLORS = {
-    fir: '#0b2a4a', cta: '#1d5f99', ctr: '#b3261e', atz: '#d9480f', prd: '#c2185b', mil: '#8d6e00', other: '#546e7a',
+    fir: '#0b2a4a', cta: '#1d5f99', ctr: '#b3261e', atz: '#d9480f', prd: '#c2185b', mil: '#8d6e00', other: '#546e7a', part: '#78909c',
     route: '#2e7d32', rnav: '#00838f', rwy: '#212121', apron: '#8d6e63', obst: '#d32f2f', dp: '#1d5f99', nav: '#0b2a4a', ad: '#0b2a4a'
   };
   function asCat(t) {
+    if (t === 'PART') return 'part';
     if (/^(FIR|UIR|NAS|OCA|UTA)/.test(t)) return 'fir';
     if (/^(CTA|TMA|OTA|SECTOR|AWY|RAS|ADV|UADV)/.test(t)) return 'cta';
     if (/^(CTR|MCTR)/.test(t)) return 'ctr';
@@ -40,7 +41,30 @@ var MAPVIEW = (function () {
     if (/^(TSA|TRA|CBA|MTR|MOA|ADIZ)/.test(t)) return 'mil';
     return 'other';
   }
-  var AS_CATS = [['fir', 'FIR / UIR / OCA'], ['cta', 'CTA / TMA / sectors / airways'], ['ctr', 'CTR'], ['atz', 'ATZ / HTZ / RMZ / TMZ'], ['prd', 'Prohibited / Restricted / Danger'], ['mil', 'Military / TSA / TRA / ADIZ'], ['other', 'Other airspace']];
+  // [key, name, shown at first]: parts (AIXM type PART) only build other airspace (TMA part 2 = PART 2 minus part 1): off at first
+  var AS_CATS = [['fir', 'FIR / UIR / OCA'], ['cta', 'CTA / TMA / sectors / airways'], ['ctr', 'CTR'], ['atz', 'ATZ / HTZ / RMZ / TMZ'], ['prd', 'Prohibited / Restricted / Danger'], ['mil', 'Military / TSA / TRA / ADIZ'], ['other', 'Other airspace'],
+    ['part', 'Parts that build other airspace (PART)', false]];
+  function catOn(c) { var k = 'as_' + c[0]; return state.filters[k] !== undefined ? state.filters[k] : c[2] !== false; }
+  /* -------------------------------------------------- airspace by flight level */
+  // state.levels: all levels, at one level (a) or between two (a, b), in feet (FL x 100). An airspace is shown when its
+  // vertical extent (MODEL.vband: all its volumes, contributors included) includes the level or overlaps the band;
+  // airspace without vertical limits is always shown.
+  function parseLevel(v) {
+    var m = /^\s*(FL)?\s*(\d+(?:\.\d+)?)\s*(FT|M)?\s*$/i.exec(String(v || '')), u;
+    if (/^\s*(GND|SFC)\s*$/i.test(v || '')) return 0;
+    if (/^\s*UNL\s*$/i.test(v || '')) return Infinity;
+    if (!m) return null;
+    u = (m[3] || '').toUpperCase();
+    var n = parseFloat(m[2]);
+    return m[1] || !u && n < 1000 ? n * 100 : u === 'M' ? n / 0.3048 : n;
+  }
+  function lvlOk(vb) {
+    var L = state.levels;
+    if (!vb || L.mode === 'all' || L.a === null) return true;
+    var a = L.a, b = L.mode === 'band' && L.b !== null ? L.b : a;
+    if (b < a) { var x = a; a = b; b = x; }
+    return a === b ? vb.lo <= a && a <= vb.up : vb.lo < b && vb.up > a;
+  }
 
   /* ------------------------------------------------------- canvas layers */
   // All canvas layers are redrawn together, once per animation frame and in priority order (opts.prio,
@@ -292,7 +316,7 @@ var MAPVIEW = (function () {
   function mercY(lat) { var sn = Math.sin(Math.max(-MAXLAT, Math.min(MAXLAT, lat)) * Math.PI / 180); return 0.5 - Math.log((1 + sn) / (1 - sn)) / (4 * Math.PI); }
   function ShapeSet() { this.items = []; this.styles = []; this.keys = {}; }
   // g: {t:'A', c:[rings]} or {t:'L', c:[points]}; st: {color, weight, opacity, fill, fillOpacity, dash}; tip: hover text
-  ShapeSet.prototype.add = function (g, st, r, ds, tip) {
+  ShapeSet.prototype.add = function (g, st, r, ds, tip, vb) {
     var sk = JSON.stringify(st);
     if (this.keys[sk] === undefined) { this.keys[sk] = this.styles.length; this.styles.push(st); }
     var rings = g.t === 'A' ? g.c : [g.c], out = [], bb = [Infinity, Infinity, -Infinity, -Infinity];
@@ -311,7 +335,7 @@ var MAPVIEW = (function () {
       if (g.t === 'A' && n >= 6 && (ringArea(a) > 0) !== (out.length === 0)) reversePairs(a);
       out.push(a);
     }
-    if (out.length) this.items.push({ area: g.t === 'A', rings: out, bb: bb, s: this.keys[sk], r: r, ds: ds, tip: tip });
+    if (out.length) this.items.push({ area: g.t === 'A', rings: out, bb: bb, s: this.keys[sk], r: r, ds: ds, tip: tip, vb: vb });
   };
   function ringArea(a) { var A = 0; for (var i = 0, n = a.length, j = n - 2; i < n; j = i, i += 2) A += (a[j] - a[i]) * (a[j + 1] + a[i + 1]); return A; }
   function reversePairs(a) { for (var i = 0, j = a.length - 2; i < j; i += 2, j -= 2) { var x = a[i], y = a[i + 1]; a[i] = a[j]; a[i + 1] = a[j + 1]; a[j] = x; a[j + 1] = y; } }
@@ -332,6 +356,7 @@ var MAPVIEW = (function () {
         var b = its[i].bb;
         if (b[2] < x0 || b[0] > x1 || b[3] < y0 || b[1] > y1) continue;
         if ((b[2] - b[0]) * S < 1 && (b[3] - b[1]) * S < 1) continue; // smaller than a pixel
+        if (opt.lvl && !lvlOk(its[i].vb)) continue; // airspace outside the flight levels chosen
         drawn.push(i);
       }
       ctx.lineJoin = 'round';
@@ -802,7 +827,11 @@ var MAPVIEW = (function () {
     kv('AIP', sec.no + (sec.ad ? ' ' + M.shortName(sec.ad) : ''));
     var pt = M.pointOf(ds, r);
     if (pt && r.k !== 'Airspace') kv('Position', AX.fmtPos(pt, 2));
-    if (r.k === 'Airspace') { kv('Vertical', AIP.vertical(ds, r).replace(/\n/g, '; ')); kv('Class', AIP.airspaceClass(r).replace(/\n/g, '; ')); }
+    if (r.k === 'Airspace') {
+      kv('Vertical', AIP.vertical(ds, r).replace(/\n/g, '; ')); kv('Class', AIP.airspaceClass(r).replace(/\n/g, '; '));
+      var asm = M.assembly(ds, r); // built from other airspaces: how, and what could not be done
+      if (asm) { kv('Built from', asm.steps.join(' · ')); if (asm.notes.length) kv('Not drawn exactly', asm.notes.join('; ')); }
+    }
     if (p.frequency) kv('Frequency', M.fq(arr(p.frequency)[0]));
     if (r.k === 'VerticalStructure') { var part = arr(p.part)[0] || {}; kv('Height', M.fq(part.verticalExtent)); }
     kv('Effective', M.fmtTs(r.cur.b) + (r.cur.e ? ' – ' + M.fmtTs(r.cur.e) : ''));
@@ -845,13 +874,13 @@ var MAPVIEW = (function () {
     var asSets = {};
     AS_CATS.forEach(function (c) { asSets[c[0]] = new ShapeSet(); });
     each('Airspace', function (a, ds) {
-      var t = s(a.cur.p.type), cat = asCat(t), col = COLORS[cat], tip = M.label(ds, a);
+      var t = s(a.cur.p.type), cat = asCat(t), col = COLORS[cat], tip = M.label(ds, a), vb = M.vband(ds, a);
       shapesOf(M.geometry(ds, a), function (g) {
-        if (g.t === 'A') asSets[cat].add(g, { color: col, weight: cat === 'fir' ? 2.2 : 1.5, fillOpacity: cat === 'fir' ? 0.02 : 0.08, dash: cat === 'prd' || cat === 'mil' ? '6 4' : null }, a, ds, tip);
-        else if (g.t === 'L') asSets[cat].add(g, { color: col, weight: 1.5 }, a, ds, tip);
+        if (g.t === 'A') asSets[cat].add(g, { color: col, weight: cat === 'fir' ? 2.2 : 1.5, fillOpacity: cat === 'fir' || cat === 'part' ? 0.02 : 0.08, dash: cat === 'prd' || cat === 'mil' || cat === 'part' ? '6 4' : null }, a, ds, tip, vb);
+        else if (g.t === 'L') asSets[cat].add(g, { color: col, weight: 1.5 }, a, ds, tip, vb);
       });
     });
-    AS_CATS.forEach(function (c) { over['as_' + c[0]] = shapeLayer(asSets[c[0]], { prio: 1, pane: 'asPane' }); });
+    AS_CATS.forEach(function (c) { over['as_' + c[0]] = shapeLayer(asSets[c[0]], { prio: 1, pane: 'asPane', lvl: true }); });
     // routes
     var rtSet = new ShapeSet();
     each('RouteSegment', function (sg, ds) {
@@ -988,7 +1017,7 @@ var MAPVIEW = (function () {
     var areas = [], segs = [];
     list.forEach(function (ds) {
       (ds.byType.Airspace || []).forEach(function (a) { try {
-        var cat = asCat(s(a.cur.p.type)), vert = ADCHART.tidy(AIP.vertical(ds, a).split('\n')[0] || ''), cls = AIP.airspaceClass(a).split('\n').map(function (x) { return x.charAt(0); }).filter(Boolean);
+        var cat = asCat(s(a.cur.p.type)), vb = M.vband(ds, a), vert = ADCHART.tidy(AIP.vertical(ds, a).split('\n')[0] || ''), cls = AIP.airspaceClass(a).split('\n').map(function (x) { return x.charAt(0); }).filter(Boolean);
         var lim = vert.split(' / ');
         shapesOf(M.geometry(ds, a), function (g) {
           if (g.t !== 'A') return;
@@ -999,7 +1028,7 @@ var MAPVIEW = (function () {
           var c = [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2];
           if (!inRingLL(c, ring)) c = ring.reduce(function (acc, p) { return [acc[0] + p[0] / ring.length, acc[1] + p[1] / ring.length]; }, [0, 0]);
           if (!inRingLL(c, ring)) return;
-          areas.push({ cat: cat, bb: bb, c: c, name: M.label(ds, a).split(' ').filter(function (w, i, l) { return w !== l[i - 1]; }).join(' '), cls: cls.filter(function (x, i, l) { return l.indexOf(x) === i; }).join('/'), up: lim[0] || '', lo: lim[1] || '' });
+          areas.push({ vb: vb, cat: cat, bb: bb, c: c, name: M.label(ds, a).split(' ').filter(function (w, i, l) { return w !== l[i - 1]; }).join(' '), cls: cls.filter(function (x, i, l) { return l.indexOf(x) === i; }).join('/'), up: lim[0] || '', lo: lim[1] || '' });
         });
       } catch (e) { skipped(a, e); } });
       (ds.byType.RouteSegment || []).forEach(function (sg) { try {
@@ -1026,7 +1055,7 @@ var MAPVIEW = (function () {
       }
       if (z < 5) return;
       areas.forEach(function (ar) {
-        if (!over['as_' + ar.cat] || !map.hasLayer(over['as_' + ar.cat])) return;
+        if (!over['as_' + ar.cat] || !map.hasLayer(over['as_' + ar.cat]) || !lvlOk(ar.vb)) return;
         if (ar.bb[2] < W || ar.bb[0] > E || ar.bb[3] < S || ar.bb[1] > N) return;
         var p0 = project(m, ar.bb[0], ar.bb[3]), p1 = project(m, ar.bb[2], ar.bb[1]);
         if (p1.x - p0.x < 150 || p1.y - p0.y < 70) return;
@@ -1100,7 +1129,7 @@ var MAPVIEW = (function () {
       if (!on && map.hasLayer(over[d[0]])) map.removeLayer(over[d[0]]);
     });
     AS_CATS.forEach(function (c) {
-      var k = 'as_' + c[0], on = state.filters[k] !== undefined ? state.filters[k] : c[0] !== 'fir' || true;
+      var k = 'as_' + c[0], on = catOn(c);
       if (!over[k]) return;
       if (on && !map.hasLayer(over[k])) map.addLayer(over[k]);
       if (!on && map.hasLayer(over[k])) map.removeLayer(over[k]);
@@ -1109,7 +1138,7 @@ var MAPVIEW = (function () {
   function currentLayers() {
     var o = {};
     LAYER_DEF.forEach(function (x) { o[x[0]] = state.filters[x[0]] !== undefined ? state.filters[x[0]] : x[2]; });
-    AS_CATS.forEach(function (x) { o['as_' + x[0]] = state.filters['as_' + x[0]] !== undefined ? state.filters['as_' + x[0]] : true; });
+    AS_CATS.forEach(function (x) { o['as_' + x[0]] = catOn(x); });
     return o;
   }
   function countOf(k) {
@@ -1370,7 +1399,10 @@ var MAPVIEW = (function () {
     h += '<div class="row" style="gap:10px;margin-top:4px">' + ['SID', 'STAR', 'IAP'].map(function (k) { var col = { SID: '#1565c0', STAR: '#2e7d32', IAP: '#8e24aa' }[k]; return '<label class="chk" style="margin:0"><input type="checkbox" data-pk="' + k + '" checked> <span class="sw" style="background:' + col + '"></span> ' + k + '</label>'; }).join('') + '</div>';
     h += '<div class="muted" style="font-size:11.5px;margin-top:2px">Dashed: missed approach, or a leg ending at an altitude (drawn along its course).</div>';
     h += '<h4>Airspace</h4>';
-    AS_CATS.forEach(function (c) { h += '<label class="chk"><input type="checkbox" data-layer="as_' + c[0] + '" checked> <span class="sw" style="background:' + COLORS[c[0]] + '"></span> ' + c[1] + ' <span class="muted" data-count="as_' + c[0] + '"></span></label>'; });
+    AS_CATS.forEach(function (c) { h += '<label class="chk"><input type="checkbox" data-layer="as_' + c[0] + '"' + (catOn(c) ? ' checked' : '') + '> <span class="sw" style="background:' + COLORS[c[0]] + '"></span> ' + c[1] + ' <span class="muted" data-count="as_' + c[0] + '"></span></label>'; });
+    h += '<div class="map-lvl"><label for="map-lvl-mode">Flight levels</label> <select class="inp" id="map-lvl-mode"><option value="all">All levels</option><option value="at">At one level</option><option value="band">Between two levels</option></select>' +
+      '<span class="map-lvl-in hidden"><input class="inp" id="map-lvl-a" aria-label="Level" placeholder="FL245" size="7"><span class="map-lvl-b hidden"> to <input class="inp" id="map-lvl-b" aria-label="Upper level" placeholder="FL660" size="7"></span></span>' +
+      '<div class="muted map-lvl-note" id="map-lvl-note">Levels as FL245, 2500 ft, GND or UNL. Lower sectors and upper sectors are shown apart. Levels are compared in feet: a flight level as 100 ft steps on standard pressure, a height above ground from sea level.</div></div>';
     h += '<h4>Display</h4><label class="chk"><input type="checkbox" id="map-labels" checked> Labels</label>';
     h += '<label class="chk"><input type="checkbox" id="map-cmp" disabled> Show comparison result (added / removed / modified)</label>';
     h += '</div>';
@@ -1433,6 +1465,31 @@ var MAPVIEW = (function () {
     map.on('mouseout', function () { if (tipLayer) { map.closeTooltip(tipLayer); tipLayer = null; } });
     var q = function (sel) { return container.querySelector(sel); };
     q('#map-base').addEventListener('change', function (e) { setBase(e.target.value); saveBase(e.target.value); if (ONLINE[e.target.value]) checkOnline(showOnline); else showOnline(null); });
+    // flight levels: lower and upper airspace apart (redrawn at once, the shapes stay built)
+    var lvM = q('#map-lvl-mode'), lvA = q('#map-lvl-a'), lvB = q('#map-lvl-b');
+    function levels() {
+      var L = state.levels;
+      L.mode = lvM.value; L.a = parseLevel(lvA.value); L.b = parseLevel(lvB.value); L.ta = lvA.value; L.tb = lvB.value;
+      q('.map-lvl-in').classList.toggle('hidden', L.mode === 'all');
+      q('.map-lvl-b').classList.toggle('hidden', L.mode !== 'band');
+      lvA.classList.toggle('bad', L.mode !== 'all' && lvA.value.trim() !== '' && L.a === null);
+      lvB.classList.toggle('bad', L.mode === 'band' && lvB.value.trim() !== '' && L.b === null);
+      var note = q('#map-lvl-note');
+      if (L.mode !== 'all' && L.a !== null) {
+        var n = 0, tot = 0;
+        (state.shown || []).forEach(function (d) { (d.byType.Airspace || []).forEach(function (r) { tot++; if (lvlOk(M.vband(d, r))) n++; }); });
+        // the levels as typed (2500 ft stays 2500 ft), lower first
+        var ta = lvA.value.trim().toUpperCase(), tb = lvB.value.trim().toUpperCase(), sw = L.b !== null && L.b < L.a;
+        note.textContent = 'Showing ' + n.toLocaleString('en-US') + ' of ' + tot.toLocaleString('en-US') + ' airspaces ' + (L.mode === 'band' && L.b !== null ? 'from ' + (sw ? tb : ta) + ' to ' + (sw ? ta : tb) : 'at ' + ta) + ' (airspace without vertical limits is always shown).';
+      } else note.textContent = 'Levels as FL245, 2500 ft, GND or UNL. Lower sectors and upper sectors are shown apart. Levels are compared in feet: a flight level as 100 ft steps on standard pressure, a height above ground from sea level.';
+      scheduleDraw();
+    }
+    if (lvM) {
+      lvM.value = state.levels.mode;
+      lvA.value = state.levels.ta || ''; lvB.value = state.levels.tb || ''; // as typed
+      lvM.addEventListener('change', levels); lvA.addEventListener('input', levels); lvB.addEventListener('input', levels);
+      q('.map-lvl-in').classList.toggle('hidden', state.levels.mode === 'all'); q('.map-lvl-b').classList.toggle('hidden', state.levels.mode !== 'band');
+    }
     container.querySelectorAll('[data-layer]').forEach(function (cb) {
       cb.addEventListener('change', function () { state.filters[cb.getAttribute('data-layer')] = cb.checked; applyLayers(); });
     });
@@ -2045,7 +2102,7 @@ var MAPVIEW = (function () {
       d.querySelectorAll('[data-o]').forEach(function (cb) { o[cb.getAttribute('data-o')] = cb.checked; });
       var layers = {};
       LAYER_DEF.forEach(function (x) { layers[x[0]] = state.filters[x[0]] !== undefined ? state.filters[x[0]] : x[2]; });
-      AS_CATS.forEach(function (x) { layers['as_' + x[0]] = state.filters['as_' + x[0]] !== undefined ? state.filters['as_' + x[0]] : true; });
+      AS_CATS.forEach(function (x) { layers['as_' + x[0]] = catOn(x); });
       var title = d.querySelector('#mp-title').value;
       hooks.toast('Rendering the map…');
       setTimeout(function () {
@@ -2093,5 +2150,7 @@ var MAPVIEW = (function () {
 
   return { countryAt: countryAt, mount: mount, show: show, release: release, focus: focus, locatable: locatable, showProcs: showProcs, airportView: airportView, closeAirportView: closeAdCard, open3d: open3d, asCat: asCat, COLORS: COLORS, procPaths: procPaths, setCompare: setCompare, refreshTheme: refreshTheme, renderImage: renderImage, boundsAround: boundsAround, datasetBounds: datasetBounds,
     baseMaps: function () { return { list: ONLINE, def: BASE_DEFAULT, renamed: RENAMED }; }, savedBase: savedBase, searchMap: searchMap, highlighted: function () { return over.searchHL ? over.searchHL.getLayers().length : 0; },
-    isMounted: function () { return !!map; }, leaflet: function () { return map; }, invalidate: function () { if (map) map.invalidateSize(); } };
+    isMounted: function () { return !!map; }, leaflet: function () { return map; }, invalidate: function () { if (map) map.invalidateSize(); },
+    // the shapes again (airspace built from other airspaces, once the geometry engine is there)
+    redraw: function () { if (map && state.shown) setShown(state.shown, state.ds); }, levelOk: lvlOk, parseLevel: parseLevel };
 })();

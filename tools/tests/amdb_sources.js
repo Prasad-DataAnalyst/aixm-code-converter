@@ -155,6 +155,7 @@ function dms(v, lat) { const h = lat ? (v < 0 ? 'S' : 'N') : (v < 0 ? 'W' : 'E')
   const ready = await page.evaluate(() => { const c = AMDBX.candidates(window.__AIXM.S.datasets).filter((x) => x.code === 'EADD')[0]; const r = AMDBX.readiness(c); return { pct: r.pct, by: r.by, src: r.src, st: r.st }; });
   if (ready.pct < 95 || !ready.by.C || !ready.by.O || !ready.by.T) fails.push('readiness of EADD with the chart, OpenStreetMap and tracing: ' + JSON.stringify(ready));
   const gen = await page.evaluate(async () => {
+    await LAZY.run('lazy-jsts'); // as Generate does: paved surfaces trimmed where they overlap (the traced taxiway in two parts)
     const c = AMDBX.candidates(window.__AIXM.S.datasets).filter((x) => x.code === 'EADD'), g = AMDBX.generate(c, {});
     await LAZY.run('src-amdbpkg');
     const by = (re) => g.features.filter((f) => re.test(f.a.source.v));
@@ -163,7 +164,7 @@ function dms(v, lat) { const h = lat ? (v < 0 ? 'S' : 'N') : (v < 0 ? 'W' : 'E')
       pcn: g.features.filter((f) => f.t === 'RunwayElement' && f.a.pcn).length, asrn: g.features.filter((f) => /^Asrn/.test(f.t)).length, hold: g.features.filter((f) => f.t === 'TaxiwayHoldingPosition').length,
       notes: g.notes, xml: AMDBPKG.writeAmxm(g.features, 'test') };
   });
-  if (gen.chartStd !== 12 || !gen.chartLgt || !gen.osm || gen.traced !== 5 || !gen.asrn || gen.hold < 2) fails.push('generated from the sources: ' + JSON.stringify(Object.assign({}, gen, { xml: undefined })));
+  if (gen.chartStd !== 12 || !gen.chartLgt || !gen.osm || gen.traced !== 6 || !gen.asrn || gen.hold < 2) fails.push('generated from the sources: ' + JSON.stringify(Object.assign({}, gen, { xml: undefined })));
   // the chart's stands 1 to 4 are in OpenStreetMap too: kept once, from the chart; 21 and 22 come from OpenStreetMap
   if (gen.osmStd.sort().join() !== '21,22') fails.push('stands of OpenStreetMap beside the chart: ' + JSON.stringify(gen.osmStd));
   if (!gen.notes.some((n) => /1 left out — stand 13/.test(n))) fails.push('misread stand note: ' + JSON.stringify(gen.notes));

@@ -7,6 +7,39 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG.
 
+## 1.30.0 — 2026-10-27 — Airspace drawn as the data codes it (WGS-84), built from other airspace, by flight level, checked
+
+- **Borders followed**: a boundary that follows a border (`gml:curveMember xlink:href` to a GeoBorder by its `urn:uuid:`
+  identifier, as AIP data sets code FIR and sector boundaries along a State border) is drawn along the border's own points,
+  between the points where the boundary meets and leaves it — also when the border link comes first or last in the ring.
+  Before, such a border was skipped and the two points joined by a straight line: on real AIP data sets FIR boundaries
+  were drawn up to tens of NM away from the border.
+- **Airspace built from other airspace** (AIXM 5.1 aggregation: `contributorAirspace`, operations BASE, UNION, SUBTR,
+  INTERS in `operationSequence` order; FULL_GEOMETRY and HORZ_PROJECTION): a TMA made of part 1 and part 2, part 2 made of
+  "PART 2 minus part 1", a UIR on the FIR's shape, a sector of two volumes — all drawn with their combined outline (the
+  geometry engine is loaded once, only when a data set has such airspace). The pop-up says how it is built; the AIP gives
+  "Formed by …" and the limits of its parts. Airspace of type PART (only there to build other airspace) is a layer of its
+  own, off at first, so it no longer covers the airspace it builds.
+- **Flight levels on the map**: Map → Airspace → *Flight levels*: all levels, at one level, or between two (FL245, 2500 ft,
+  GND, UNL). Lower and upper sectors, stacked over the same area, are shown apart; labels follow.
+- **Points held by other features**: a boundary point or an arc centre given as `gml:pointProperty xlink:href` to a
+  designated point, navaid or other feature is taken from that feature's position (before, it was left out).
+- **WGS-84 ellipsoid**: arcs, circles and geodesic lines of airspace are computed on the WGS-84 ellipsoid (Vincenty's
+  formulae, within a millimetre of GeographicLib), as AIS systems do, instead of a sphere. Long geodesic lines get points
+  along the curve of the earth, so that a straight line on the map and in GIS files stays within 0.005 NM (about 9 m) of
+  the true line (a 270 NM FIR edge drawn straight is off by more than 1 NM); arcs are drawn within the same distance. An
+  arc computed from its centre, radius and angles that ends within 0.05 NM of the coded point next to it goes through
+  that point (no tiny zigzag). Measured on the AIP data sets of three States against GeographicLib: geodesic lines from
+  up to 2.4 NM off to within 0.005 NM; arcs and circles from up to 0.25 NM to within 0.035 NM (what remains is where the
+  data's own points lie off the arc).
+- **Airspace checks** (Quality, and in the AIP where they apply): an arc that does not end on the boundary points before
+  and after it (centre, radius or angles do not fit them: a step in the boundary), a border or a point the boundary links to
+  that is not in the data, a junction away from the border it follows, airspace built from other airspace that cannot be
+  built, a boundary that crosses itself, and airspace of one type overlapping at the same levels (FIR, UIR, sectors:
+  warning; CTA, TMA, CTR, which may overlap by design: a note) — each 3D part with its own levels, so lower and upper
+  sectors are not reported.
+- Saved copies of data sets are read again once (the shapes are computed when the file is read).
+
 ## 1.29.0 — 2026-10-20 — Several States in one AIXM file, file names after the content
 
 - **All data sets in one AIXM file** (Export, step 4): the data sets loaded — the AIP data sets of several States, any AIXM

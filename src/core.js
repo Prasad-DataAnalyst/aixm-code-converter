@@ -238,18 +238,97 @@ var AX = (function () {
     var y = Math.sin(dl) * Math.cos(p2), x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
     return (Math.atan2(y, x) * R2D + 360) % 360;
   }
+  // WGS-84 ellipsoid (Vincenty's direct and inverse formulae, iterated to 1e-12 rad: well under a millimetre at
+  // airspace distances). Airspace arcs, circles and geodesic lines are computed on it, as States and AIS systems do;
+  // dest / distNM / bearing above stay on the sphere for the drawings that only need to look right.
+  var WGS_A = 6378137, WGS_F = 1 / 298.257223563, WGS_B = WGS_A * (1 - WGS_F), WGS_E2 = (WGS_A * WGS_A - WGS_B * WGS_B) / (WGS_B * WGS_B);
+  var GEO_TOL_NM = 0.005; // ~9 m: the largest gap allowed between a drawn line and the true arc or geodesic
+  function geoDest(lon, lat, brgDeg, distNM) {
+    var s = distNM * 1852, a1 = brgDeg * D2R, sa1 = Math.sin(a1), ca1 = Math.cos(a1);
+    var tanU1 = (1 - WGS_F) * Math.tan(lat * D2R), cosU1 = 1 / Math.sqrt(1 + tanU1 * tanU1), sinU1 = tanU1 * cosU1;
+    var sig1 = Math.atan2(tanU1, ca1), sinA = cosU1 * sa1, cos2A = 1 - sinA * sinA, u2 = cos2A * WGS_E2;
+    var A = 1 + u2 / 16384 * (4096 + u2 * (-768 + u2 * (320 - 175 * u2))), B = u2 / 1024 * (256 + u2 * (-128 + u2 * (74 - 47 * u2)));
+    var sig = s / (WGS_B * A), sigP, it = 0, c2m, sinS, cosS;
+    do {
+      c2m = Math.cos(2 * sig1 + sig); sinS = Math.sin(sig); cosS = Math.cos(sig);
+      sigP = sig;
+      sig = s / (WGS_B * A) + B * sinS * (c2m + B / 4 * (cosS * (-1 + 2 * c2m * c2m) - B / 6 * c2m * (-3 + 4 * sinS * sinS) * (-3 + 4 * c2m * c2m)));
+    } while (Math.abs(sig - sigP) > 1e-12 && ++it < 100);
+    c2m = Math.cos(2 * sig1 + sig); sinS = Math.sin(sig); cosS = Math.cos(sig);
+    var x = sinU1 * sinS - cosU1 * cosS * ca1;
+    var lat2 = Math.atan2(sinU1 * cosS + cosU1 * sinS * ca1, (1 - WGS_F) * Math.sqrt(sinA * sinA + x * x));
+    var lam = Math.atan2(sinS * sa1, cosU1 * cosS - sinU1 * sinS * ca1);
+    var C = WGS_F / 16 * cos2A * (4 + WGS_F * (4 - 3 * cos2A));
+    var L = lam - (1 - C) * WGS_F * sinA * (sig + C * sinS * (c2m + C * cosS * (-1 + 2 * c2m * c2m)));
+    var lon2 = lon + L * R2D;
+    return [lon2 > 180 ? lon2 - 360 : lon2 < -180 ? lon2 + 360 : lon2, lat2 * R2D];
+  }
+  // a, b = [lon, lat] -> {d: NM, a1: bearing at a, a2: bearing at b}; nearly antipodal points (no convergence): the sphere
+  function geoInv(a, b) {
+    var dl = b[0] - a[0]; if (dl > 180) dl -= 360; else if (dl < -180) dl += 360;
+    var L = dl * D2R, U1 = Math.atan((1 - WGS_F) * Math.tan(a[1] * D2R)), U2 = Math.atan((1 - WGS_F) * Math.tan(b[1] * D2R));
+    var sU1 = Math.sin(U1), cU1 = Math.cos(U1), sU2 = Math.sin(U2), cU2 = Math.cos(U2);
+    var lam = L, lamP, it = 0, sinS, cosS, sig, cos2A, c2m, sl, cl;
+    do {
+      sl = Math.sin(lam); cl = Math.cos(lam);
+      var t1 = cU2 * sl, t2 = cU1 * sU2 - sU1 * cU2 * cl;
+      sinS = Math.sqrt(t1 * t1 + t2 * t2);
+      if (sinS === 0) return { d: 0, a1: 0, a2: 0 };
+      cosS = sU1 * sU2 + cU1 * cU2 * cl; sig = Math.atan2(sinS, cosS);
+      var sinA = cU1 * cU2 * sl / sinS; cos2A = 1 - sinA * sinA;
+      c2m = cos2A !== 0 ? cosS - 2 * sU1 * sU2 / cos2A : 0;
+      var C = WGS_F / 16 * cos2A * (4 + WGS_F * (4 - 3 * cos2A));
+      lamP = lam;
+      lam = L + (1 - C) * WGS_F * sinA * (sig + C * sinS * (c2m + C * cosS * (-1 + 2 * c2m * c2m)));
+    } while (Math.abs(lam - lamP) > 1e-12 && ++it < 100);
+    if (it >= 100) return { d: distNM(a, b), a1: bearing(a, b), a2: (bearing(b, a) + 180) % 360 };
+    var u2 = cos2A * WGS_E2, A = 1 + u2 / 16384 * (4096 + u2 * (-768 + u2 * (320 - 175 * u2))), B = u2 / 1024 * (256 + u2 * (-128 + u2 * (74 - 47 * u2)));
+    var dS = B * sinS * (c2m + B / 4 * (cosS * (-1 + 2 * c2m * c2m) - B / 6 * c2m * (-3 + 4 * sinS * sinS) * (-3 + 4 * c2m * c2m)));
+    sl = Math.sin(lam); cl = Math.cos(lam);
+    return { d: WGS_B * A * (sig - dS) / 1852, a1: (Math.atan2(cU2 * sl, cU1 * sU2 - sU1 * cU2 * cl) * R2D + 360) % 360, a2: (Math.atan2(cU1 * sl, -sU1 * cU2 + cU1 * sU2 * cl) * R2D + 360) % 360 };
+  }
+  function geoDist(a, b) { return geoInv(a, b).d; }
+  function geoBearing(a, b) { return geoInv(a, b).a1; }
+  // arc of radius rNM round center from bearing b1 to b2 (clockwise or not), on the ellipsoid; the step keeps the chords
+  // within GEO_TOL_NM of the arc (3° at most: small circles as before, about 1° for a 120 NM arc)
   function arcPts(center, rNM, b1, b2, cw) {
     var out = [], span;
     if (cw) { span = (b2 - b1 + 360) % 360; if (span === 0) span = 360; }
     else { span = (b1 - b2 + 360) % 360; if (span === 0) span = 360; }
-    var n = Math.max(2, Math.ceil(span / 3));
+    var step = rNM > GEO_TOL_NM ? Math.min(3, 2 * Math.acos(1 - 0.9 * GEO_TOL_NM / rNM) * R2D) : 3; // 0.9: some room for the ellipsoid
+    var n = Math.min(1440, Math.max(2, Math.ceil(span / step)));
     for (var i = 0; i <= n; i++) {
       var b = cw ? b1 + span * i / n : b1 - span * i / n;
-      out.push(dest(center[0], center[1], (b + 360) % 360, rNM));
+      out.push(geoDest(center[0], center[1], (b + 360) % 360, rNM));
     }
     return out;
   }
   function circlePts(center, rNM) { return arcPts(center, rNM, 0, 360, true); }
+  // the points to add between a and b so that straight lines on the map (Mercator) and in degrees (GIS files) follow the
+  // geodesic within GEO_TOL_NM (a long FIR edge drawn straight is off by more than a nautical mile); a, b excluded
+  function mercLat(y) { return (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * R2D; }
+  function mercOf(lat) { return Math.log(Math.tan(Math.PI / 4 + Math.max(-89.9, Math.min(89.9, lat)) * D2R / 2)); }
+  function geodesicFill(a, b) {
+    if (typeof a[0] !== 'number' || typeof b[0] !== 'number' || Math.abs(b[0] - a[0]) > 180 || Math.abs(a[1]) > 89 || Math.abs(b[1]) > 89) return [];
+    // short lines need nothing: the gap grows with the square of the length (and with the latitude), about 0.004 NM
+    // for 10 NM at 45°; most boundary segments are shorter
+    var la = Math.max(Math.abs(a[1]), Math.abs(b[1])) * D2R, kx = Math.cos(la), dx = (b[0] - a[0]) * kx, dy = b[1] - a[1];
+    if ((dx * dx + dy * dy) * 3600 * Math.max(1, Math.tan(la)) < 100) return [];
+    var inv = geoInv(a, b);
+    if (inv.d < 1) return [];
+    var mid = geoDest(a[0], a[1], inv.a1, inv.d / 2), lon = (a[0] + b[0]) / 2;
+    var dev = Math.max(distNM(mid, [lon, (a[1] + b[1]) / 2]), distNM(mid, [lon, mercLat((mercOf(a[1]) + mercOf(b[1])) / 2)]));
+    if (dev <= GEO_TOL_NM) return [];
+    var n = Math.min(512, Math.ceil(Math.sqrt(dev / GEO_TOL_NM))), out = [];
+    for (var i = 1; i < n; i++) out.push(geoDest(a[0], a[1], inv.a1, inv.d * i / n));
+    return out;
+  }
+  function densify(pts) {
+    if (pts.length < 2) return pts;
+    var out = [pts[0]];
+    for (var i = 1; i < pts.length; i++) { var f = geodesicFill(pts[i - 1], pts[i]); for (var j = 0; j < f.length; j++) out.push(f[j]); out.push(pts[i]); }
+    return out;
+  }
 
   /* ------------------------------------------------------------ coordinates */
   // AIXM 4.5 latitude/longitude strings: DDMMSS.ssH, DDMM.mmH, DD.ddH, or signed decimal
@@ -311,6 +390,7 @@ var AX = (function () {
       else if (x.n === 'pointProperty' || x.n === 'pointRep') {
         var p = x.c && x.c[0];
         if (p) out = out.concat(pointsOf(p, srsOf(p, srs)));
+        else if (attr(x, 'href')) out.push(['pt', attr(x, 'href')]); // a point held by another feature (fix, navaid…): found after reading (MODEL)
       }
     }
     return out;
@@ -332,76 +412,104 @@ var AX = (function () {
     var ux = ((a[0] * a[0] + a[1] * a[1]) * (b[1] - c[1]) + (b[0] * b[0] + b[1] * b[1]) * (c[1] - a[1]) + (c[0] * c[0] + c[1] * c[1]) * (a[1] - b[1])) / d;
     var uy = ((a[0] * a[0] + a[1] * a[1]) * (c[0] - b[0]) + (b[0] * b[0] + b[1] * b[1]) * (a[0] - c[0]) + (c[0] * c[0] + c[1] * c[1]) * (b[0] - a[0])) / d;
     var center = [p1[0] + ux / kx, p1[1] + uy];
-    var r = distNM(center, p1);
-    var b1 = bearing(center, p1), b2 = bearing(center, p2), b3 = bearing(center, p3);
+    var r = geoDist(center, p1);
+    var b1 = geoBearing(center, p1), b2 = geoBearing(center, p2), b3 = geoBearing(center, p3);
     var cwSpan = (b3 - b1 + 360) % 360, cwMid = (b2 - b1 + 360) % 360;
     var cw = cwMid < cwSpan;
     return { pts: arcPts(center, r, b1, b3, cw), center: center, r: r, cw: cw };
   }
+  // An arc computed from its centre, radius and angles ends a few metres from the coded point next to it (rounding by the
+  // State's system): within ARC_SNAP_NM the coded point is kept and the computed end dropped, so the boundary passes
+  // through the published points without a tiny zigzag. Larger differences stay visible (the airspace checks report them).
+  var ARC_SNAP_NM = 0.05;
+  function near(a, b) { return a && b && typeof a[0] === 'number' && typeof b[0] === 'number' && Math.abs(a[0] - b[0]) < 0.01 && Math.abs(a[1] - b[1]) < 0.01 && geoDist(a, b) <= ARC_SNAP_NM; }
+  // append a computed arc (its first point dropped when a coded point is already there)
+  function pushArc(pts, ap) { if (pts.length && ap.length > 2 && near(pts[pts.length - 1], ap[0])) ap = ap.slice(1); pushPts(pts, ap); }
+  // append coded points after a computed arc end (that end dropped when the first coded point is next to it)
+  function pushCoded(pts, sp, afterArc) { if (afterArc && pts.length > 1 && sp.length && near(pts[pts.length - 1], sp[0])) pts.pop(); pushPts(pts, sp); }
   function curveGeo(n, srs, ctx, parts) { // returns point list; appends segment descriptions to parts
     srs = srsOf(n, srs);
-    var pts = [];
+    var pts = [], arcEnd = false;
     var segs = child(n, 'segments');
     if (!segs) {
       if (n.n === 'LineString' || n.n === 'LinearRing') { var lp = pointsOf(n, srs); pushPts(pts, lp); parts.push({ k: 'line', p: lp }); return pts; }
       if (n.n === 'OrientableCurve') { var bc = child(n, 'baseCurve'); if (bc && bc.c) return curveGeo(bc.c[0], srs, ctx, parts); }
       if (n.c) for (var q = 0; q < n.c.length; q++) if (n.c[q].n === 'curveMember' || n.c[q].n === 'curveMembers') {
         var cm = n.c[q];
-        if (cm.c) for (var r = 0; r < cm.c.length; r++) pushPts(pts, curveGeo(cm.c[r], srs, ctx, parts));
+        if (cm.c) for (var r = 0; r < cm.c.length; r++) joinCurve(pts, curveGeo(cm.c[r], srs, ctx, parts));
       }
       return pts;
     }
     if (!segs.c) return pts;
     for (var i = 0; i < segs.c.length; i++) {
-      var s = segs.c[i], ss = srsOf(s, srs), sp;
+      var s = segs.c[i], ss = srsOf(s, srs), sp, wasArc = arcEnd;
+      arcEnd = false;
       switch (s.n) {
         case 'LineStringSegment': case 'GeodesicString': case 'Geodesic': case 'LineString':
-          sp = pointsOf(s, ss); pushPts(pts, sp); parts.push({ k: s.n === 'LineStringSegment' ? 'line' : 'gc', p: sp }); break;
+          // geodesic lines: points added along the curve of the earth (WGS-84); the part keeps the coded points
+          sp = pointsOf(s, ss); pushCoded(pts, s.n === 'LineStringSegment' || s.n === 'LineString' ? sp : densify(sp), wasArc); parts.push({ k: s.n === 'LineStringSegment' ? 'line' : 'gc', p: sp });
+          break;
         case 'ArcByCenterPoint': case 'CircleByCenterPoint': {
           var cp = pointsOf(s, ss)[0];
           var rn = child(s, 'radius');
           if (!cp || !rn) break;
           var rNM = toNM(parseFloat(textOf(rn)), attr(rn, 'uom'));
           if (s.n === 'CircleByCenterPoint') {
-            pushPts(pts, circlePts(cp, rNM));
-            parts.push({ k: 'circle', c: cp, r: parseFloat(textOf(rn)), u: attr(rn, 'uom') || 'NM' });
+            if (cp[0] === 'pt') pts.push(['circle', cp[1], rNM]); else pushPts(pts, circlePts(cp, rNM));
+            arcEnd = true; if (!i) pts.arcStart = true;
+            parts.push({ k: 'circle', c: cp[0] === 'pt' ? null : cp, h: cp[0] === 'pt' ? cp[1] : undefined, r: parseFloat(textOf(rn)), u: attr(rn, 'uom') || 'NM' });
           } else {
             var a1 = parseFloat(textOf(child(s, 'startAngle') || { t: '0' })), a2 = parseFloat(textOf(child(s, 'endAngle') || { t: '0' }));
             var b1 = angleToBearing(a1, ss), b2 = angleToBearing(a2, ss);
             // positive angular direction = anticlockwise in GML (from first to second axis).
             var ccw = a2 > a1;
             var cw = isLonLatSrs(ss) ? !ccw : ccw;
-            pushPts(pts, arcPts(cp, rNM, b1, b2, cw));
-            parts.push({ k: 'arc', c: cp, r: parseFloat(textOf(rn)), u: attr(rn, 'uom') || 'NM', cw: cw });
+            if (cp[0] === 'pt') pts.push(['arc', cp[1], rNM, b1, b2, cw]); else pushArc(pts, arcPts(cp, rNM, b1, b2, cw));
+            arcEnd = cp[0] !== 'pt'; if (!i) pts.arcStart = arcEnd;
+            parts.push({ k: 'arc', c: cp[0] === 'pt' ? null : cp, h: cp[0] === 'pt' ? cp[1] : undefined, r: parseFloat(textOf(rn)), u: attr(rn, 'uom') || 'NM', cw: cw, b1: +b1.toFixed(6), b2: +b2.toFixed(6) });
           }
           break;
         }
         case 'Arc': case 'ArcString': case 'Circle': {
           sp = pointsOf(s, ss);
-          if (sp.length >= 3) {
+          if (sp.length >= 3 && typeof sp[0][0] === 'number' && typeof sp[1][0] === 'number' && typeof sp[2][0] === 'number') {
             var a3 = arc3(sp[0], sp[1], sp[2]);
             if (s.n === 'Circle') { pushPts(pts, circlePts(a3.center, a3.r)); parts.push({ k: 'circle', c: a3.center, r: +a3.r.toFixed(3), u: 'NM' }); }
             else { pushPts(pts, a3.pts); parts.push({ k: 'arc', c: a3.center, r: +a3.r.toFixed(3), u: 'NM', cw: a3.cw }); }
+            arcEnd = s.n === 'Circle';
           } else pushPts(pts, sp);
           break;
         }
         default:
-          sp = pointsOf(s, ss); pushPts(pts, sp); if (sp.length) parts.push({ k: 'line', p: sp });
+          sp = pointsOf(s, ss); pushCoded(pts, sp, wasArc); if (sp.length) parts.push({ k: 'line', p: sp });
       }
     }
+    pts.arcEnd = arcEnd;
     return pts;
+  }
+  // one curve after another in a ring or composite curve: a computed arc end next to coded points is merged as above
+  function joinCurve(pts, cp) {
+    var lastArc = pts.arcEnd;
+    if (cp.arcStart) pushArc(pts, cp); else pushCoded(pts, cp, lastArc);
+    pts.arcEnd = cp.length ? !!cp.arcEnd : lastArc;
   }
   function ringGeo(n, srs, ctx, parts) {
     if (!n) return [];
     srs = srsOf(n, srs);
-    if (n.n === 'LinearRing') { var lp = pointsOf(n, srs); parts.push({ k: 'line', p: lp }); return lp; }
-    var pts = [];
+    if (n.n === 'LinearRing') { var lr = pointsOf(n, srs); parts.push({ k: 'line', p: lr }); return lr; }
+    var pts = [], firstArc = false;
     if (n.c) for (var i = 0; i < n.c.length; i++) {
       var cm = n.c[i];
       if (cm.n !== 'curveMember') continue;
       var href = attr(cm, 'href');
-      if (href && !cm.c) { parts.push({ k: 'ref', h: href }); pts.push(['ref', href]); continue; }
-      if (cm.c) for (var j = 0; j < cm.c.length; j++) pushPts(pts, curveGeo(cm.c[j], srs, ctx, parts));
+      if (href && !cm.c) { parts.push({ k: 'ref', h: href }); pts.push(['ref', href]); pts.arcEnd = false; continue; }
+      if (cm.c) for (var j = 0; j < cm.c.length; j++) { var cg = curveGeo(cm.c[j], srs, ctx, parts); if (!pts.length) firstArc = !!cg.arcStart; joinCurve(pts, cg); }
+    }
+    // the ring closes on its first point: a computed arc end just before it is dropped, a computed arc start replaced
+    // by the coded point the ring ends on
+    var lp = pts[pts.length - 1];
+    if (pts.length > 3 && near(lp, pts[0]) && (lp[0] !== pts[0][0] || lp[1] !== pts[0][1])) {
+      if (pts.arcEnd) pts.pop(); else if (firstArc) pts[0] = [lp[0], lp[1]];
     }
     return pts;
   }
@@ -448,7 +556,7 @@ var AX = (function () {
     if (kind === 'P') {
       if (el.n === 'MultiPoint') return null;
       var pts = pointsOf(el, srsOf(el, srs));
-      return pts.length ? { t: 'P', c: pts[0] } : null;
+      return pts.length && typeof pts[0][0] === 'number' ? { t: 'P', c: pts[0] } : null;
     }
     if (kind === 'L') {
       var parts = [];
@@ -1190,7 +1298,8 @@ var AX = (function () {
         return { t: 'A', c: [circlePts(cc, toNM(rv, c.uomRadius))], d: parts };
       }
     }
-    var v = arr(r.Avx);
+    var v = arr(r.Avx), gc = false; // gc: the segment ending at the next vertex is a great circle (geodesic)
+    function vertex(p) { if (gc && ring.length) pushPts(ring, geodesicFill(ring[ring.length - 1], p)); pushPts(ring, [p]); }
     for (var i = 0; i < v.length; i++) {
       var a = v[i], p = [parse45Coord(a.geoLong, true), parse45Coord(a.geoLat, false)];
       if (isNaN(p[0]) || isNaN(p[1])) continue;
@@ -1199,17 +1308,21 @@ var AX = (function () {
         var cen = [parse45Coord(a.geoLongArc, true), parse45Coord(a.geoLatArc, false)];
         var nxt = v[(i + 1) % v.length];
         var q = nxt ? [parse45Coord(nxt.geoLong, true), parse45Coord(nxt.geoLat, false)] : p;
-        var rNM = a.valRadiusArc ? toNM(parseFloat(a.valRadiusArc), a.uomRadiusArc) : distNM(cen, p);
-        pushPts(ring, [p]);
-        pushPts(ring, arcPts(cen, rNM, bearing(cen, p), bearing(cen, q), t === 'CWA'));
+        var rNM = a.valRadiusArc ? toNM(parseFloat(a.valRadiusArc), a.uomRadiusArc) : geoDist(cen, p);
+        var ab1 = geoBearing(cen, p), ab2 = geoBearing(cen, q);
+        vertex(p);
+        pushPts(ring, arcPts(cen, rNM, ab1, ab2, t === 'CWA'));
+        gc = false;
         parts.push({ k: 'gc', p: [p] });
-        parts.push({ k: 'arc', c: cen, r: a.valRadiusArc ? parseFloat(a.valRadiusArc) : +rNM.toFixed(2), u: a.uomRadiusArc || 'NM', cw: t === 'CWA' });
+        parts.push({ k: 'arc', c: cen, r: a.valRadiusArc ? parseFloat(a.valRadiusArc) : +rNM.toFixed(2), u: a.uomRadiusArc || 'NM', cw: t === 'CWA', b1: +ab1.toFixed(6), b2: +ab2.toFixed(6) });
       } else {
-        pushPts(ring, [p]);
+        vertex(p);
+        gc = t !== 'RHL' && t !== 'FNT';
         if (t === 'FNT') parts.push({ k: 'border' }); parts.push({ k: t === 'RHL' ? 'rhumb' : 'gc', p: [p] });
       }
     }
     if (!ring.length) return null;
+    if (!open && gc && ring.length > 2) pushPts(ring, geodesicFill(ring[ring.length - 1], ring[0]));
     if (!open) closeRing(ring);
     return { t: 'A', c: [ring], d: parts };
   }
@@ -1404,6 +1517,7 @@ var AX = (function () {
     parseXml: parseXml, textOf: textOf, attr: attr, child: child, desc: desc,
     sniff: sniff, convFeature5: convFeature5, convFeature45: convFeature45, convFeatureAmxm: convFeatureAmxm, AMXM_TYPES: AMXM_TYPES, amxmId: amId, uidKey: uidKey,
     parse45Coord: parse45Coord, dms: dms, fmtPos: fmtPos, toNM: toNM, dest: dest, distNM: distNM, bearing: bearing,
+    geoDest: geoDest, geoInv: geoInv, geoDist: geoDist, geoBearing: geoBearing, densify: densify, geodesicFill: geodesicFill, GEO_TOL_NM: GEO_TOL_NM,
     arcPts: arcPts, circlePts: circlePts, resolve: resolve, mergeProps: mergeProps, tms: tms, flatten: flatten, fingerprint: fingerprint, diffFlat: diffFlat,
     valStr: valStr, geoSig: geoSig, airac: airac, stateFromICAO: stateFromICAO, icaoPrefixOf: icaoPrefixOf, normRef: normRef,
     GML_NS_RE: GML_NS_RE, AIXM5_RE: AIXM5_RE, FROM45: FROM45

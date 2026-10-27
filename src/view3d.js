@@ -219,15 +219,18 @@ var VIEW3D = (function () {
     var ds = V.ds, cap = +q('cap').value, labels = [];
     (ds.byType.Airspace || []).forEach(function (a) {
       var cat = MAPVIEW.asCat(s(a.cur.p.type));
-      if (cat === 'fir' ? !layerOn('fir') : !layerOn('airspace')) return;
+      if (cat === 'part' || (cat === 'fir' ? !layerOn('fir') : !layerOn('airspace'))) return; // parts (type PART) only build other airspace
       // 4D switched on: the airspace at the time of the time bar (inactive or not valid then: not drawn; active: red)
       var t4 = typeof FOURD !== 'undefined' ? FOURD.stateOf(ds, a) : null;
       if (t4 === 'off' || t4 === 'none') return;
-      var g = M.geometry(ds, a), parts = !g ? [] : g.t === 'M' ? g.parts : [g], pi = 0;
-      arr(a.cur.p.geometryComponent).forEach(function (gc) {
+      var g = M.geometry(ds, a), parts = !g ? [] : g.t === 'M' ? g.parts : [g], pi = 0, asm = g && g.asm;
+      arr(a.cur.p.geometryComponent).forEach(function (gc, ci) {
         var vol = gc && gc.theAirspaceVolume;
         if (!vol || vol.nil !== undefined) return;
-        var part = vol.horizontalProjection && vol.horizontalProjection._geo ? parts[pi++] : vol.centreline && vol.centreline._geo ? (pi++, null) : null;
+        // built from other airspace: drawn once, with the limits of its own volume (a UIR on the FIR's shape); built from
+        // whole airspaces (parts with their own levels), those parts are drawn instead
+        if (asm && (ci || !vol.upperLimit || !vol.lowerLimit)) return;
+        var part = asm ? parts[pi++] : vol.horizontalProjection && vol.horizontalProjection._geo ? parts[pi++] : vol.centreline && vol.centreline._geo ? (pi++, null) : null;
         if (!part || part.t !== 'A') return;
         var ring = part.c[0].filter(function (p) { return typeof p[0] === 'number'; });
         if (ring.length < 3) return;
