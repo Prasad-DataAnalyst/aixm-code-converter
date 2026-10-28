@@ -7,6 +7,20 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG.
 
+## 1.30.1 — 2026-10-28 — Arcs drawn between their published boundary points
+
+- **Airspace sharing boundary points shares the arc between them**: an arc whose coded radius or centre misses the
+  published boundary points before and after it by more than 0.5 NM is drawn through those points, round its coded
+  centre (the radius changes evenly from one point to the other), as charts show the boundary. Before, the coded arc was
+  drawn and joined to the points by straight lines, so two airspaces that share the points but code the arc with radii
+  7 NM apart (sectors and the CTA beside them) were drawn with a band 7 NM wide between them, as if they overlapped or
+  left a gap. Arcs within 0.05 NM of their points go through them as before; within 0.5 NM the coded arc stays, with a
+  short straight line to the point, so airspace on both sides of one arc still meets. Measured on the AIP data sets of
+  three States: the outlines that change are only those of the arcs far off their points; all others are drawn as in
+  1.30.0, and the airspace checks find the same.
+- The airspace check of such an arc says how the map draws it (through the points, or the coded arc with a step).
+- Saved copies of data sets are read again once.
+
 ## 1.30.0 — 2026-10-27 — Airspace drawn as the data codes it (WGS-84), built from other airspace, by flight level, checked
 
 - **Borders followed**: a boundary that follows a border (`gml:curveMember xlink:href` to a GeoBorder by its `urn:uuid:`

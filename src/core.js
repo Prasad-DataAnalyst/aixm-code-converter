@@ -304,6 +304,79 @@ var AX = (function () {
     return out;
   }
   function circlePts(center, rNM) { return arcPts(center, rNM, 0, 360, true); }
+  // The ends of an arc and the boundary points next to them (the published coordinates):
+  // - a point on the arc (within ARC_ON_NM: rounding of the coordinates) replaces the computed end;
+  // - a point a little off the arc (up to ARC_KEEP_NM, or 5 % of a small radius) leaves the coded arc, which the
+  //   neighbouring airspace draws the same, with a short straight line to the point;
+  // - a point far off the arc (the coded radius or centre does not describe the boundary) that still fits its circle
+  //   (ARC_FIT_R of the radius, ARC_FIT_DEG of the angle) becomes its end, and so does the point at the other end if it
+  //   is off the arc too: the arc is drawn through the published points, as charts show it. Airspace sharing those
+  //   points then shares the arc, also when one codes another radius (sectors at 123 NM and a CTA at 130 NM between
+  //   the same two points drew a band 7 NM wide).
+  // Points that fit nowhere leave the arc as coded. The airspace checks report every arc that misses its points.
+  var ARC_ON_NM = 0.05, ARC_KEEP_NM = 0.5, ARC_FIT_R = 0.15, ARC_FIT_DEG = 10;
+  function sweepOf(b1, b2, cw) { var s = cw ? (b2 - b1 + 360) % 360 : (b1 - b2 + 360) % 360; return s === 0 ? 360 : s; }
+  // the arc end at bearing b and the point p next to it: 1 (p on the arc), p's distance and bearing from the centre
+  // ({d, a1}: the arc is drawn through p) or null (the arc as coded); near: also a point a little off the arc
+  function fitArc(c, r, b, p, near) {
+    if (!p || typeof p[0] !== 'number') return null;
+    var gap = geoDist(geoDest(c[0], c[1], b, r), p);
+    if (gap <= ARC_ON_NM) return 1;
+    if (!near && gap <= Math.min(ARC_KEEP_NM, 0.05 * r)) return null;
+    var g = geoInv(c, p);
+    return Math.abs(g.d - r) <= ARC_FIT_R * r && Math.abs((g.a1 - b + 540) % 360 - 180) <= ARC_FIT_DEG ? g : null;
+  }
+  // points of the arc round c (radius rNM, from bearing b1 to b2) from prev to next as they fit (drawn through a point
+  // far off it: the radius changes evenly from one end to the other); prev / next: the boundary points before and
+  // after it, or null
+  function arcBetween(c, rNM, b1, b2, cw, prev, next) {
+    var s = fitArc(c, rNM, b1, prev), e = fitArc(c, rNM, b2, next), span0 = sweepOf(b1, b2, cw);
+    if (s && s.d && !e) e = fitArc(c, rNM, b2, next, true); // drawn through one point: through the other one too
+    else if (e && e.d && !s) s = fitArc(c, rNM, b1, prev, true);
+    var sb = s && s.d ? s.a1 : b1, eb = e && e.d ? e.a1 : b2, span = sweepOf(sb, eb, cw);
+    if (Math.abs(span - span0) > ARC_FIT_DEG) { // the points would turn it round: as coded
+      if (s && s.d) s = null;
+      if (e && e.d) e = null;
+      sb = b1; eb = b2; span = span0;
+    }
+    var r1 = s && s.d ? s.d : rNM, r2 = e && e.d ? e.d : rNM, rm = Math.max(r1, r2);
+    var step = rm > GEO_TOL_NM ? Math.min(3, 2 * Math.acos(1 - 0.9 * GEO_TOL_NM / rm) * R2D) : 3;
+    var n = Math.min(1440, Math.max(2, Math.ceil(span / step))), out = [];
+    for (var i = 0; i <= n; i++) {
+      var b = cw ? sb + span * i / n : sb - span * i / n;
+      out.push(geoDest(c[0], c[1], (b + 360) % 360, r1 + (r2 - r1) * i / n));
+    }
+    if (s) out[0] = [prev[0], prev[1]];
+    if (e) out[n] = [next[0], next[1]];
+    return out;
+  }
+  // A boundary as read: points [lon, lat] and arcs still to draw — ['arcc', lon, lat, rNM, b1, b2, cw] (centre given) or
+  // ['arc', href, rNM, b1, b2, cw] (centre held by another feature: resolve(href) gives it). Each arc starts where the
+  // boundary before it ends (a coded point, or the end of the arc before it) and ends on the coded point after it.
+  // closed: a ring (the arcs are drawn from its first coded point round). Other markers stay in place.
+  function expandArcs(list, closed, resolve) {
+    var n = list.length, out = new Array(n), start = 0, k, i;
+    if (closed) { while (start < n && typeof list[start][0] !== 'number') start++; if (start === n) start = 0; }
+    for (k = 0; k < n; k++) {
+      i = closed ? (start + k) % n : k;
+      var x = list[i];
+      if (x[0] !== 'arcc' && x[0] !== 'arc') { out[i] = [x]; continue; }
+      var c = x[0] === 'arcc' ? [x[1], x[2]] : resolve ? resolve(x[1]) : null;
+      if (!c) { out[i] = resolve ? [] : [x]; continue; }
+      var o = x[0] === 'arcc' ? 3 : 2, pi = closed ? (i - 1 + n) % n : i - 1, ni = closed ? (i + 1) % n : i + 1, prev = null;
+      if (pi >= 0 && pi !== i && out[pi] && out[pi].length) prev = out[pi][out[pi].length - 1];
+      var next = ni < n && ni !== i && typeof list[ni][0] === 'number' ? list[ni] : null;
+      out[i] = arcBetween(c, x[o], x[o + 1], x[o + 2], x[o + 3], prev, next);
+    }
+    var flat = [];
+    for (i = 0; i < n; i++) if (out[i]) pushPts(flat, out[i]);
+    return flat;
+  }
+  // a boundary with only points and arcs whose centre is given: drawn now; with links to other features: by the model
+  function drawArcs(pts, closed) {
+    for (var i = 0; i < pts.length; i++) if (typeof pts[i][0] !== 'number' && pts[i][0] !== 'arcc') return pts;
+    return pts.some(function (p) { return p[0] === 'arcc'; }) ? expandArcs(pts, closed, null) : pts;
+  }
   // the points to add between a and b so that straight lines on the map (Mercator) and in degrees (GIS files) follow the
   // geodesic within GEO_TOL_NM (a long FIR edge drawn straight is off by more than a nautical mile); a, b excluded
   function mercLat(y) { return (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * R2D; }
@@ -415,39 +488,32 @@ var AX = (function () {
     var r = geoDist(center, p1);
     var b1 = geoBearing(center, p1), b2 = geoBearing(center, p2), b3 = geoBearing(center, p3);
     var cwSpan = (b3 - b1 + 360) % 360, cwMid = (b2 - b1 + 360) % 360;
-    var cw = cwMid < cwSpan;
-    return { pts: arcPts(center, r, b1, b3, cw), center: center, r: r, cw: cw };
+    var cw = cwMid < cwSpan, pts = arcPts(center, r, b1, b3, cw);
+    pts[0] = [p1[0], p1[1]]; pts[pts.length - 1] = [p3[0], p3[1]]; // exactly on its points
+    return { pts: pts, center: center, r: r, cw: cw };
   }
-  // An arc computed from its centre, radius and angles ends a few metres from the coded point next to it (rounding by the
-  // State's system): within ARC_SNAP_NM the coded point is kept and the computed end dropped, so the boundary passes
-  // through the published points without a tiny zigzag. Larger differences stay visible (the airspace checks report them).
-  var ARC_SNAP_NM = 0.05;
-  function near(a, b) { return a && b && typeof a[0] === 'number' && typeof b[0] === 'number' && Math.abs(a[0] - b[0]) < 0.01 && Math.abs(a[1] - b[1]) < 0.01 && geoDist(a, b) <= ARC_SNAP_NM; }
-  // append a computed arc (its first point dropped when a coded point is already there)
-  function pushArc(pts, ap) { if (pts.length && ap.length > 2 && near(pts[pts.length - 1], ap[0])) ap = ap.slice(1); pushPts(pts, ap); }
-  // append coded points after a computed arc end (that end dropped when the first coded point is next to it)
-  function pushCoded(pts, sp, afterArc) { if (afterArc && pts.length > 1 && sp.length && near(pts[pts.length - 1], sp[0])) pts.pop(); pushPts(pts, sp); }
-  function curveGeo(n, srs, ctx, parts) { // returns point list; appends segment descriptions to parts
+  // returns the point list, arcs by centre point as markers (expandArcs draws them between their neighbours); appends
+  // segment descriptions to parts
+  function curveGeo(n, srs, ctx, parts) {
     srs = srsOf(n, srs);
-    var pts = [], arcEnd = false;
+    var pts = [];
     var segs = child(n, 'segments');
     if (!segs) {
       if (n.n === 'LineString' || n.n === 'LinearRing') { var lp = pointsOf(n, srs); pushPts(pts, lp); parts.push({ k: 'line', p: lp }); return pts; }
       if (n.n === 'OrientableCurve') { var bc = child(n, 'baseCurve'); if (bc && bc.c) return curveGeo(bc.c[0], srs, ctx, parts); }
       if (n.c) for (var q = 0; q < n.c.length; q++) if (n.c[q].n === 'curveMember' || n.c[q].n === 'curveMembers') {
         var cm = n.c[q];
-        if (cm.c) for (var r = 0; r < cm.c.length; r++) joinCurve(pts, curveGeo(cm.c[r], srs, ctx, parts));
+        if (cm.c) for (var r = 0; r < cm.c.length; r++) pushPts(pts, curveGeo(cm.c[r], srs, ctx, parts));
       }
       return pts;
     }
     if (!segs.c) return pts;
     for (var i = 0; i < segs.c.length; i++) {
-      var s = segs.c[i], ss = srsOf(s, srs), sp, wasArc = arcEnd;
-      arcEnd = false;
+      var s = segs.c[i], ss = srsOf(s, srs), sp;
       switch (s.n) {
         case 'LineStringSegment': case 'GeodesicString': case 'Geodesic': case 'LineString':
           // geodesic lines: points added along the curve of the earth (WGS-84); the part keeps the coded points
-          sp = pointsOf(s, ss); pushCoded(pts, s.n === 'LineStringSegment' || s.n === 'LineString' ? sp : densify(sp), wasArc); parts.push({ k: s.n === 'LineStringSegment' ? 'line' : 'gc', p: sp });
+          sp = pointsOf(s, ss); pushPts(pts, s.n === 'LineStringSegment' || s.n === 'LineString' ? sp : densify(sp)); parts.push({ k: s.n === 'LineStringSegment' ? 'line' : 'gc', p: sp });
           break;
         case 'ArcByCenterPoint': case 'CircleByCenterPoint': {
           var cp = pointsOf(s, ss)[0];
@@ -456,7 +522,6 @@ var AX = (function () {
           var rNM = toNM(parseFloat(textOf(rn)), attr(rn, 'uom'));
           if (s.n === 'CircleByCenterPoint') {
             if (cp[0] === 'pt') pts.push(['circle', cp[1], rNM]); else pushPts(pts, circlePts(cp, rNM));
-            arcEnd = true; if (!i) pts.arcStart = true;
             parts.push({ k: 'circle', c: cp[0] === 'pt' ? null : cp, h: cp[0] === 'pt' ? cp[1] : undefined, r: parseFloat(textOf(rn)), u: attr(rn, 'uom') || 'NM' });
           } else {
             var a1 = parseFloat(textOf(child(s, 'startAngle') || { t: '0' })), a2 = parseFloat(textOf(child(s, 'endAngle') || { t: '0' }));
@@ -464,8 +529,7 @@ var AX = (function () {
             // positive angular direction = anticlockwise in GML (from first to second axis).
             var ccw = a2 > a1;
             var cw = isLonLatSrs(ss) ? !ccw : ccw;
-            if (cp[0] === 'pt') pts.push(['arc', cp[1], rNM, b1, b2, cw]); else pushArc(pts, arcPts(cp, rNM, b1, b2, cw));
-            arcEnd = cp[0] !== 'pt'; if (!i) pts.arcStart = arcEnd;
+            pts.push(cp[0] === 'pt' ? ['arc', cp[1], rNM, b1, b2, cw] : ['arcc', cp[0], cp[1], rNM, b1, b2, cw]);
             parts.push({ k: 'arc', c: cp[0] === 'pt' ? null : cp, h: cp[0] === 'pt' ? cp[1] : undefined, r: parseFloat(textOf(rn)), u: attr(rn, 'uom') || 'NM', cw: cw, b1: +b1.toFixed(6), b2: +b2.toFixed(6) });
           }
           break;
@@ -476,42 +540,28 @@ var AX = (function () {
             var a3 = arc3(sp[0], sp[1], sp[2]);
             if (s.n === 'Circle') { pushPts(pts, circlePts(a3.center, a3.r)); parts.push({ k: 'circle', c: a3.center, r: +a3.r.toFixed(3), u: 'NM' }); }
             else { pushPts(pts, a3.pts); parts.push({ k: 'arc', c: a3.center, r: +a3.r.toFixed(3), u: 'NM', cw: a3.cw }); }
-            arcEnd = s.n === 'Circle';
           } else pushPts(pts, sp);
           break;
         }
         default:
-          sp = pointsOf(s, ss); pushCoded(pts, sp, wasArc); if (sp.length) parts.push({ k: 'line', p: sp });
+          sp = pointsOf(s, ss); pushPts(pts, sp); if (sp.length) parts.push({ k: 'line', p: sp });
       }
     }
-    pts.arcEnd = arcEnd;
     return pts;
-  }
-  // one curve after another in a ring or composite curve: a computed arc end next to coded points is merged as above
-  function joinCurve(pts, cp) {
-    var lastArc = pts.arcEnd;
-    if (cp.arcStart) pushArc(pts, cp); else pushCoded(pts, cp, lastArc);
-    pts.arcEnd = cp.length ? !!cp.arcEnd : lastArc;
   }
   function ringGeo(n, srs, ctx, parts) {
     if (!n) return [];
     srs = srsOf(n, srs);
     if (n.n === 'LinearRing') { var lr = pointsOf(n, srs); parts.push({ k: 'line', p: lr }); return lr; }
-    var pts = [], firstArc = false;
+    var pts = [];
     if (n.c) for (var i = 0; i < n.c.length; i++) {
       var cm = n.c[i];
       if (cm.n !== 'curveMember') continue;
       var href = attr(cm, 'href');
-      if (href && !cm.c) { parts.push({ k: 'ref', h: href }); pts.push(['ref', href]); pts.arcEnd = false; continue; }
-      if (cm.c) for (var j = 0; j < cm.c.length; j++) { var cg = curveGeo(cm.c[j], srs, ctx, parts); if (!pts.length) firstArc = !!cg.arcStart; joinCurve(pts, cg); }
+      if (href && !cm.c) { parts.push({ k: 'ref', h: href }); pts.push(['ref', href]); continue; }
+      if (cm.c) for (var j = 0; j < cm.c.length; j++) pushPts(pts, curveGeo(cm.c[j], srs, ctx, parts));
     }
-    // the ring closes on its first point: a computed arc end just before it is dropped, a computed arc start replaced
-    // by the coded point the ring ends on
-    var lp = pts[pts.length - 1];
-    if (pts.length > 3 && near(lp, pts[0]) && (lp[0] !== pts[0][0] || lp[1] !== pts[0][1])) {
-      if (pts.arcEnd) pts.pop(); else if (firstArc) pts[0] = [lp[0], lp[1]];
-    }
-    return pts;
+    return drawArcs(pts, true);
   }
   function closeRing(r) {
     if (r.length > 2) {
@@ -560,7 +610,7 @@ var AX = (function () {
     }
     if (kind === 'L') {
       var parts = [];
-      var lp = curveGeo(el, srs, ctx, parts);
+      var lp = drawArcs(curveGeo(el, srs, ctx, parts), false);
       if (!lp.length) return null;
       var g = { t: 'L', c: lp };
       if (parts.length) g.d = parts;
@@ -1311,7 +1361,7 @@ var AX = (function () {
         var rNM = a.valRadiusArc ? toNM(parseFloat(a.valRadiusArc), a.uomRadiusArc) : geoDist(cen, p);
         var ab1 = geoBearing(cen, p), ab2 = geoBearing(cen, q);
         vertex(p);
-        pushPts(ring, arcPts(cen, rNM, ab1, ab2, t === 'CWA'));
+        pushPts(ring, arcBetween(cen, rNM, ab1, ab2, t === 'CWA', p, q)); // from this vertex to the next one
         gc = false;
         parts.push({ k: 'gc', p: [p] });
         parts.push({ k: 'arc', c: cen, r: a.valRadiusArc ? parseFloat(a.valRadiusArc) : +rNM.toFixed(2), u: a.uomRadiusArc || 'NM', cw: t === 'CWA', b1: +ab1.toFixed(6), b2: +ab2.toFixed(6) });
@@ -1518,6 +1568,7 @@ var AX = (function () {
     sniff: sniff, convFeature5: convFeature5, convFeature45: convFeature45, convFeatureAmxm: convFeatureAmxm, AMXM_TYPES: AMXM_TYPES, amxmId: amId, uidKey: uidKey,
     parse45Coord: parse45Coord, dms: dms, fmtPos: fmtPos, toNM: toNM, dest: dest, distNM: distNM, bearing: bearing,
     geoDest: geoDest, geoInv: geoInv, geoDist: geoDist, geoBearing: geoBearing, densify: densify, geodesicFill: geodesicFill, GEO_TOL_NM: GEO_TOL_NM,
+    arcBetween: arcBetween, expandArcs: expandArcs, ARC_ON_NM: ARC_ON_NM, ARC_KEEP_NM: ARC_KEEP_NM,
     arcPts: arcPts, circlePts: circlePts, resolve: resolve, mergeProps: mergeProps, tms: tms, flatten: flatten, fingerprint: fingerprint, diffFlat: diffFlat,
     valStr: valStr, geoSig: geoSig, airac: airac, stateFromICAO: stateFromICAO, icaoPrefixOf: icaoPrefixOf, normRef: normRef,
     GML_NS_RE: GML_NS_RE, AIXM5_RE: AIXM5_RE, FROM45: FROM45

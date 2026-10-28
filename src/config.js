@@ -9,7 +9,7 @@
  * ========================================================================== */
 var APP_INFO = Object.freeze({
   name: 'AIXM Code Converter',
-  version: '1.30.0',
+  version: '1.30.1',
   year: '2026',
   author: 'Prasad Selvaraj',
   email: 'prasad2t@gmail.com',
@@ -36,7 +36,7 @@ var APP_SETTINGS = Object.freeze({
   maxThreadsPhone: 2,                     // phones and tablets give a browser tab far less memory: fewer threads
   maxThreadsTablet: 3,
   threadMem: 160 * 1024 * 1024,           // memory one parser thread uses while it reads (measured: about 150 MB)
-  parserVersion: 4,                       // saved copies made by an older parser are read again from the file (3: features in comments are not read; 4: airspace geometry on the WGS-84 ellipsoid)
+  parserVersion: 5,                       // saved copies made by an older parser are read again from the file (3: features in comments are not read; 4: airspace geometry on the WGS-84 ellipsoid; 5: arcs drawn between their published points)
   zipMaxBytes: 4 * 1024 * 1024 * 1024,   // unpacking a .zip stops above this size (protects against "zip bombs")
   dofMaxObstacles: 150000,               // FAA DOF larger than this (DOF.DAT: ~650 000): the obstacles around the aerodromes loaded, else the first this many
   pdfMaxRows: 5000,                       // rows per table in PDF exports (Excel/JSON keep everything)

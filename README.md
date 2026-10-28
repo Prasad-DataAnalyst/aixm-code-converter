@@ -162,7 +162,7 @@ security problem privately.
 | **FAA NASR AIXM 5.1** (APT, NAV, AWY, AWOS subscriber files) and **SAA AIXM 5.0** messages | as AIXM 5 | `urn:ogc:def:crs:OGC:1.3:CRS83` positions read longitude first; XPath links (`#/faa:SubscriberFile/faa:Member/aixm:Navaid[@gml:id='…']`) resolve to their feature; the default namespaces the SAA files declare on each element are followed, and their FAA `suaType` gives the airspace type (RA → R, PA → P, WA → W, AA → A, MOA). |
 | **NOTAM text** and **AIP area lists** | Digital data → Flight & obstacle analysis → NOTAM & areas (paste, .txt or .pdf) | ICAO NOTAM format and FAA domestic / FDC NOTAMs; the prohibited, restricted and danger areas of an AIP (ENR 5.1) with polygons, arcs, circles and limits. |
 | Times | ISO 8601; times without a zone are UTC (as AIXM requires), whatever the laptop's time zone | |
-| GML | `EPSG:4326/4269` (lat/lon) and `CRS84` / `CRS83` / `CRS27` (lon/lat) axis order | Point, LineString, GeodesicString, Geodesic, ArcByCenterPoint, CircleByCenterPoint, Arc (3-point), Polygon, Surface/patches, Ring/curveMember. Arcs, circles and geodesic lines on the **WGS-84 ellipsoid** (within 0.005 NM of the true curve on the map and in GIS files). |
+| GML | `EPSG:4326/4269` (lat/lon) and `CRS84` / `CRS83` / `CRS27` (lon/lat) axis order | Point, LineString, GeodesicString, Geodesic, ArcByCenterPoint, CircleByCenterPoint, Arc (3-point), Polygon, Surface/patches, Ring/curveMember. Arcs, circles and geodesic lines on the **WGS-84 ellipsoid** (within 0.005 NM of the true curve on the map and in GIS files). Arcs end on the published boundary points next to them: an arc whose coded radius or centre misses them by more than 0.5 NM is drawn through them, so airspace sharing the points shares the arc. |
 | Boundary along a border | `gml:curveMember xlink:href` to a GeoBorder (by `urn:uuid:` identifier) or to a curve (by `gml:id`, also in an XPointer) | Drawn along the border's points between the points where the boundary meets and leaves it, also when the link is the first or last curve of the ring. |
 | Points held by other features | `gml:pointProperty xlink:href` (a boundary vertex or an arc / circle centre) to a designated point, navaid or other feature | Taken from that feature's position; a link to a feature that is not in the data is reported. |
 | Airspace built from other airspace | `contributorAirspace` (AirspaceVolumeDependency FULL_GEOMETRY or HORZ_PROJECTION) and the operations BASE, UNION, SUBTR, INTERS | The combined outline is drawn and exported; the pop-up and the AIP say how it is built, the vertical limits come from its parts. Airspace of type PART (only there to build others) is a map layer of its own, off at first. |
@@ -259,7 +259,7 @@ aixm-code-converter/
 ## Build and test (developers)
 
 The developer guide [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the modules, the data model and how to extend the
-application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.30.0, set in `src/config.js`; digital charts are planned).
+application; [CHANGELOG.md](CHANGELOG.md) lists the releases (current version: 1.30.1, set in `src/config.js`; digital charts are planned).
 
 ```bash
 cd tools && npm install          # Leaflet, SheetJS, jsPDF, fflate, world-atlas, playwright-core

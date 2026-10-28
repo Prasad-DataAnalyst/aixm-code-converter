@@ -216,11 +216,13 @@ var ANALYSIS = (function () {
         hg.c.forEach(function (ring, ri) {
           // links to borders and to points of other features
           ring.forEach(function (x, k) {
-            if (typeof x[0] === 'number') return;
+            if (typeof x[0] === 'number' || x[0] === 'arcc') return;
             if (x[0] === 'ref') {
               var bc = M.borderCurve(ds, x[1]);
               if (!bc) { add('error', R, 'The boundary follows a border that is not in the data', r, P, 'curveMember xlink:href="' + x[1] + '": no GeoBorder or curve with this identifier. The map joins the points before and after it with a straight line instead of the border.'); return; }
               [ring[k - 1] || ring[ring.length - 1], ring[k + 1] || ring[0]].forEach(function (q, side) {
+                // an arc next to the border joins it at its computed end (the map draws it so): ['arcc', lon, lat, rNM, b1, b2, cw]
+                if (q && q[0] === 'arcc') q = AX.geoDest(q[1], q[2], side ? q[4] : q[5], q[3]);
                 if (!q || typeof q[0] !== 'number') return;
                 var d = Infinity;
                 for (var j = 0; j + 1 < bc.length; j++) d = Math.min(d, segDist(q, bc[j], bc[j + 1]));
@@ -243,9 +245,17 @@ var ANALYSIS = (function () {
             var g1 = AX.geoDist(prev, a), g2 = AX.geoDist(next, b), gap = Math.max(g1, g2);
             if (gap <= ARC_TOL) return;
             steps.push({ p: prev, d: gap }, { p: next, d: gap });
+            // what the map draws (AX.arcBetween): the arc through a point far off it; near it, the coded arc and a short line
+            var dr = AX.arcBetween(c, rNM, part.b1, part.b2, part.cw, prev, next), on = [], off = [], de = dr[dr.length - 1];
+            if (g1 > ARC_TOL) (dr[0][0] === prev[0] && dr[0][1] === prev[1] ? on : off).push('before');
+            if (g2 > ARC_TOL) (de[0] === next[0] && de[1] === next[1] ? on : off).push('after');
+            var which = function (s) { return s.length > 1 ? 'both points' : 'the point ' + s[0] + ' it'; };
             add(gap >= 1 ? 'error' : 'warning', R, 'Arc of ' + part.r + ' ' + uomOf(part.u) + ' ends ' + nm(gap) + ' NM from the boundary point ' + (g1 >= g2 ? 'before' : 'after') + ' it', r, P,
               'Centre ' + pos(c) + ', radius ' + part.r + ' ' + uomOf(part.u) + '. The point before the arc is ' + nm(AX.geoDist(c, prev)) + ' NM from the centre and ' + nm(g1) + ' NM from the arc start; the point after it ' + nm(AX.geoDist(c, next)) + ' NM from the centre and ' + nm(g2) + ' NM from the arc end (WGS-84). ' +
-              'The radius, the centre or the angles do not fit the points: the boundary has a step there' + (gap >= 1 ? ' that shows on the map' : '') + '. Within ' + ARC_TOL + ' NM is expected.');
+              'The radius, the centre or the angles do not fit the points. ' +
+              (on.length ? 'The map draws the arc through ' + which(on) + ' (round the coded centre, the radius changing evenly from end to end), as charts show the boundary. ' : '') +
+              (off.length ? 'At ' + which(off) + ' the map keeps the coded arc, with a straight line to the point: a step in the boundary. ' : '') +
+              'Within ' + ARC_TOL + ' NM is expected.');
           });
         });
       });

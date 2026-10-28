@@ -453,20 +453,19 @@ var MODEL = (function () {
     return best;
   }
   // a boundary as drawn: links resolved (borders followed between the neighbouring points, referenced points and arc
-  // centres looked up); the parser leaves them as ['ref', href], ['pt', href], ['arc', href, rNM, b1, b2, cw],
-  // ['circle', href, rNM]. Unresolved links are left out (the airspace checks report them).
+  // centres looked up, arcs drawn between their boundary points: AX.expandArcs); the parser leaves them as ['ref', href],
+  // ['pt', href], ['arc', href, rNM, b1, b2, cw], ['arcc', lon, lat, rNM, b1, b2, cw], ['circle', href, rNM]. Unresolved
+  // links are left out (the airspace checks report them).
   function resolveRing(ds, ring, open) {
     if (ring.every(isPt)) return ring;
-    var flat = [];
-    function add(q) { var l = flat[flat.length - 1]; if (!isPt(l) || l[0] !== q[0] || l[1] !== q[1]) flat.push(q); }
+    var list = [];
     ring.forEach(function (p) {
-      if (isPt(p)) { add(p); return; }
-      if (p[0] === 'ref') { flat.push(p); return; }
+      if (isPt(p) || p[0] === 'ref' || p[0] === 'arc' || p[0] === 'arcc') { list.push(p); return; }
       var c = refPoint(ds, p[1]);
       if (!c) return;
-      if (p[0] === 'pt') add(c);
-      else (p[0] === 'circle' ? AX.circlePts(c, p[2]) : AX.arcPts(c, p[2], p[3], p[4], p[5])).forEach(add);
+      if (p[0] === 'pt') list.push(c); else AX.circlePts(c, p[2]).forEach(function (q) { list.push(q); });
     });
+    var flat = AX.expandArcs(list, !open, function (h) { return refPoint(ds, h); });
     var out = [], n = flat.length;
     for (var i = 0; i < n; i++) {
       var p = flat[i];

@@ -9,7 +9,9 @@
 // - airspace built from other airspace (PART 2 minus part 1, part 1 plus part 2, a UIR on the FIR's shape);
 // - vertical extent (flight levels), contributors included;
 // - the airspace checks: an arc missing its points, a missing border and point, two sectors overlapping at the same
-//   levels; lower and upper sectors stacked and a computed arc end 30 m from its point are not reported.
+//   levels; lower and upper sectors stacked and a computed arc end 30 m from its point are not reported;
+// - arcs between their published points: through points far off the coded arc (airspace coding other radii between the
+//   same points shares one boundary), the coded arc kept for points up to 0.5 NM off it (neighbours on it meet).
 // The model, the analysis and JSTS run in one clean context (one JavaScript realm, as in the page).
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -133,7 +135,7 @@ test('airspace checks: the defects of the test data, nothing else', async () => 
     'warning EADD-S: SECTOR EADD-S DONLON TEST LOWER SECTOR and SECTOR EADD-SX DONLON TEST OVERLAPPING SECTOR overlap by 755 NM² at the same levels'
   ]);
   assert.match(iss.find((x) => /overlap/.test(x.msg)).detail, /both cover GND – FL195/);
-  assert.match(iss.find((x) => /Arc/.test(x.msg)).detail, /21\.5 NM from the centre/);
+  assert.match(iss.find((x) => /Arc/.test(x.msg)).detail, /21\.5 NM from the centre.*The map draws the arc through both points/);
 });
 
 test('a computed arc end 30 m from its coded point: the boundary goes through the coded point, no zigzag', () => {
@@ -142,4 +144,42 @@ test('a computed arc end 30 m from its coded point: the boundary goes through th
   const D4 = [-29.3, 51.7], a = AX.geoDest(D4[0], D4[1], 300, 12 + 30 / 1852);
   assert.ok(r4.some((p) => Math.abs(p[0] - a[0]) < 1e-9 && Math.abs(p[1] - a[1]) < 1e-9), 'the coded point is kept');
   assert.ok(!r4.some((p) => Math.abs(AX.geoBearing(D4, p) - 300) < 1e-6 && Math.abs(AX.geoDist(D4, p) - 12) < 1e-6), 'the computed arc start is dropped');
+});
+
+test('an arc whose radius does not fit its points (20 NM coded, points at 21.5 NM): drawn through them, still reported', () => {
+  const r3 = outer(M.geometry(ds, asp('EADR3'))), D3 = [-29.5, 52.4], arc = r3.filter((p) => AX.geoDist(D3, p) > 20);
+  assert.ok(arc.length > 20, 'arc drawn: ' + arc.length + ' points');
+  arc.forEach((p) => near(AX.geoDist(D3, p), 21.5, 1e-6, 'on the circle through the points'));
+});
+
+test('arcs between published points: airspace coding 123 NM and 130 NM between the same points shares one boundary', () => {
+  // the points 131.34 NM and 130 NM from the centre (published); a sector codes the arc with 123 NM, a CTA with 130 NM
+  const c = [-31.0, 52.0], p1 = AX.geoDest(c[0], c[1], 151.6, 131.34), p2 = AX.geoDest(c[0], c[1], 199.3, 130);
+  const ring = (r) => AX.expandArcs([c, p1, ['arcc', c[0], c[1], r, 151.6, 199.3, true], p2, c], true, null);
+  const arcOf = (pts) => pts.filter((p) => AX.geoDist(c, p) > 100), sec = arcOf(ring(123)), cta = arcOf(ring(130));
+  [sec, cta].forEach((a) => {
+    assert.deepEqual(Array.from(a[0]), Array.from(p1), 'starts on the published point');
+    assert.deepEqual(Array.from(a[a.length - 1]), Array.from(p2), 'ends on the published point');
+  });
+  sec.forEach((p) => assert.ok(toRing(p, cta) < 0.001, 'the sector arc is on the CTA arc: ' + toRing(p, cta)));
+  cta.forEach((p) => assert.ok(toRing(p, sec) < 0.001, 'the CTA arc is on the sector arc: ' + toRing(p, sec)));
+  assert.ok(toRing(AX.geoDest(c[0], c[1], 175, 123), cta) > 6, 'as coded, 7 NM apart');
+});
+
+test('points up to 0.5 NM off a shared arc: the coded arc is kept, so the airspace on both sides of it meets', () => {
+  // a 75 NM arc and its points (75.245, 74.995, 74.987 NM from the centre): inside, one arc from A to C; outside, two
+  // airspaces from A to B and from B to C. Each through its own ends, they would leave slivers between them.
+  const c = [-31.0, 52.0], at = (b, d) => AX.geoDest(c[0], c[1], b, d), A = at(20, 75.245), B = at(60, 74.995), C = at(100, 74.987);
+  const arcs = [
+    AX.expandArcs([c, A, ['arcc', c[0], c[1], 75, 20, 100, true], C, c], true, null),
+    AX.expandArcs([A, ['arcc', c[0], c[1], 75, 20, 60, true], B, at(40, 90), A], true, null),
+    AX.expandArcs([B, ['arcc', c[0], c[1], 75, 60, 100, true], C, at(80, 90), B], true, null)
+  ].map((pts) => pts.filter((p) => Math.abs(AX.geoDist(c, p) - 75) < 1));
+  const own = (a) => a.filter((p) => ![A, B, C].some((q) => q[0] === p[0] && q[1] === p[1]));
+  arcs.forEach((a) => {
+    assert.ok(a.length > 10, 'arc drawn');
+    own(a).forEach((p) => near(AX.geoDist(c, p), 75, 1e-6, 'on the coded arc (not drawn through A, 0.245 NM off)'));
+  });
+  own(arcs[1]).concat(own(arcs[2])).forEach((p) => assert.ok(toRing(p, arcs[0]) < AX.GEO_TOL_NM, 'outside and inside meet: ' + toRing(p, arcs[0])));
+  assert.ok(arcs[0].some((p) => p[0] === A[0] && p[1] === A[1]) && arcs[2].some((p) => p[0] === C[0] && p[1] === C[1]), 'the published points stay in the boundary');
 });
