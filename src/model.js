@@ -500,6 +500,33 @@ var MODEL = (function () {
     for (var k in v) if (k !== '_geo' && k !== 'annotation' && k !== 'element' && v[k] && typeof v[k] === 'object') allGeo(v[k], want, out, (depth || 0) + 1);
     return out;
   }
+  // Obstacle assessment surfaces published with the procedures (AIXM ObstacleAssessmentArea, in AIXM 5.2 also named
+  // ObstacleAssessmentSurface): the design surfaces of legs, circling areas, holdings, route segments and approach
+  // conditions, as the data gives them (shown and reviewed, never computed). -> [{r: the feature holding it, o: the
+  // object, g: its area, type, sec, slope (%), alt / lo (assessed altitude / altitude at the bottom of the slope, ft),
+  // cats, zone, reg, obst: [{r: VerticalStructure, clr, min, controlling}]}]
+  var OAS_OWNERS = ['InitialLeg', 'IntermediateLeg', 'FinalLeg', 'MissedApproachLeg', 'DepartureLeg', 'ArrivalLeg', 'ArrivalFeederLeg', 'CirclingArea',
+    'NavigationAreaRestriction', 'HoldingAssessment', 'RouteSegment'];
+  function assessmentSurfaces(ds) {
+    var out = [];
+    function num(v) { v = arr(v)[0]; var n = v && typeof v === 'object' ? parseFloat(v.v) : parseFloat(v); return isNaN(n) ? null : n; }
+    function walk(r, v, depth) {
+      if (!v || typeof v !== 'object' || depth > 6) return;
+      if (Array.isArray(v)) { v.forEach(function (x) { walk(r, x, depth + 1); }); return; }
+      if (v._t === 'ObstacleAssessmentArea' || v._t === 'ObstacleAssessmentSurface') {
+        out.push({ r: r, o: v, g: findGeo(v.surface, ['A'], 0), type: s(v.type), sec: s(v.sectionNumber), slope: num(v.slope), alt: limitFt(v.assessedAltitude), lo: limitFt(v.slopeLowerAltitude),
+          cats: arr(v.aircraftCategory).map(function (c) { return c && s(c.aircraftLandingCategory || c.category); }).filter(Boolean),
+          zone: s(v.surfaceZone), reg: s(v.safetyRegulation),
+          obst: arr(v.significantObstacle).filter(function (x) { return x && x.nil === undefined; }).map(function (x) {
+            return { r: target(ds, x.theVerticalStructure), clr: fq(x.requiredClearance), min: fq(x.minimumAltitude), controlling: s(x.controlling) === 'YES' };
+          }) });
+        return;
+      }
+      for (var k in v) if (k !== '_geo' && k !== 'annotation' && v[k] && typeof v[k] === 'object') walk(r, v[k], depth + 1);
+    }
+    OAS_OWNERS.forEach(function (k) { (ds.byType[k] || []).forEach(function (r) { walk(r, r.cur.p, 0); }); });
+    return out;
+  }
   function pointOf(ds, r) {
     if (!r) return null;
     var p = r.cur.p, g;
@@ -1227,7 +1254,7 @@ var MODEL = (function () {
     setPeers: setPeers, peer: peer,
     setDict: setDict, dict: dict, amxmDict: amxmDict, amxmMeaning: amxmMeaning, finalize: finalize, finalizeAsync: finalizeAsync, setViewDate: setViewDate, harmonizeStates: harmonizeStates, setLocator: setLocator, target: target, eachRef: eachRef,
     geometry: geometry, setGeomEngine: setGeomEngine, setAssembler: setAssembler, geomEngine: geomEngine, needsEngine: needsEngine, needsAssembly: needsAssembly, assembly: assembly, componentsOf: componentsOf,
-    vband: vband, pieces: pieces, limitFt: limitFt, overlay: overlay, toJsts: function (J, gf, g, raw) { return toJsts(J, gf, g, raw); }, borderCurve: borderCurve, refPoint: refPoint, resolveRing: resolveRing, pointOf: pointOf, posFromNavaid: posFromNavaid, navaidOf: navaidOf, findGeo: findGeo, segPoint: segPoint, segPointLabel: segPointLabel, segPointRec: segPointRec,
+    vband: vband, pieces: pieces, limitFt: limitFt, assessmentSurfaces: assessmentSurfaces, overlay: overlay, toJsts: function (J, gf, g, raw) { return toJsts(J, gf, g, raw); }, borderCurve: borderCurve, refPoint: refPoint, resolveRing: resolveRing, pointOf: pointOf, posFromNavaid: posFromNavaid, navaidOf: navaidOf, findGeo: findGeo, segPoint: segPoint, segPointLabel: segPointLabel, segPointRec: segPointRec,
     label: label, shortName: shortName, typeName: typeName, routeDesignator: routeDesignator, s: s, searchText: searchText, searchMatch: searchMatch, searchCore: searchCore,
     fq: fq, fLimit: fLimit, fPoint: fPoint, fElev: fElev, fTimesheet: fTimesheet, fSchedule: fSchedule, noteText: noteText, notesOf: notesOf,
     fContact: fContact, fFreq: fFreq, fv: fv, propDef: propDef, featureDef: featureDef, codeDef: codeDef, def45: def45,

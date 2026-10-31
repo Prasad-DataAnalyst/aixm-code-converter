@@ -7,6 +7,21 @@ AIXM Code Converter · © 2026 Prasad Selvaraj (prasad2t@gmail.com) · Apache-2.
 - **Digital charts**: aerodrome, instrument approach, SID / STAR, en-route and obstacle charts drawn from the AIXM data,
   exported to PDF / PNG.
 
+## 1.31.0 — 2026-10-31 — Obstacle assessment surfaces of the procedures, shown as published
+
+- **Obstacle assessment surfaces**: when a procedure data set publishes the surfaces its procedures were assessed on
+  (AIXM `ObstacleAssessmentArea` in the `designSurface` of the legs — primary and secondary areas, final approach,
+  missed approach sections, departure and obstacle clearance surfaces — and in circling areas, holding assessments and
+  route segments), the map shows them in a layer of their own (*Obstacle assessment surfaces*, off at first): each area
+  coloured by its assessed altitude, or the altitude where its slope starts, from the lowest (red) to the highest
+  (blue), secondary areas dashed, with a legend. Hover names the surface and its procedure; a click gives its type,
+  section, altitudes, slope, aircraft category and controlling obstacle, then the leg that holds it. The procedure page
+  in the AIP lists the surfaces of its legs.
+- A viewer only: the surfaces are shown as the data gives them, for study and review. The tool does not design,
+  compute or check them — not for operational use.
+- Test data: `testdata/ifp_oas_test_EADD.xml` (fictitious surfaces at the Donlon sample aerodrome, made by
+  `tools/make_assessment_testdata.js`).
+
 ## 1.30.1 — 2026-10-28 — Arcs drawn between their published boundary points
 
 - **Airspace sharing boundary points shares the arc between them**: an arc whose coded radius or centre misses the

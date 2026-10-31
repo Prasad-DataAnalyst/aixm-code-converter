@@ -315,8 +315,9 @@ var MAPVIEW = (function () {
   function mercX(lon) { return lon / 360 + 0.5; }
   function mercY(lat) { var sn = Math.sin(Math.max(-MAXLAT, Math.min(MAXLAT, lat)) * Math.PI / 180); return 0.5 - Math.log((1 + sn) / (1 - sn)) / (4 * Math.PI); }
   function ShapeSet() { this.items = []; this.styles = []; this.keys = {}; }
-  // g: {t:'A', c:[rings]} or {t:'L', c:[points]}; st: {color, weight, opacity, fill, fillOpacity, dash}; tip: hover text
-  ShapeSet.prototype.add = function (g, st, r, ds, tip, vb) {
+  // g: {t:'A', c:[rings]} or {t:'L', c:[points]}; st: {color, weight, opacity, fill, fillOpacity, dash}; tip: hover text;
+  // extra: given back with a click (shown in the pop-up)
+  ShapeSet.prototype.add = function (g, st, r, ds, tip, vb, extra) {
     var sk = JSON.stringify(st);
     if (this.keys[sk] === undefined) { this.keys[sk] = this.styles.length; this.styles.push(st); }
     var rings = g.t === 'A' ? g.c : [g.c], out = [], bb = [Infinity, Infinity, -Infinity, -Infinity];
@@ -335,7 +336,7 @@ var MAPVIEW = (function () {
       if (g.t === 'A' && n >= 6 && (ringArea(a) > 0) !== (out.length === 0)) reversePairs(a);
       out.push(a);
     }
-    if (out.length) this.items.push({ area: g.t === 'A', rings: out, bb: bb, s: this.keys[sk], r: r, ds: ds, tip: tip, vb: vb });
+    if (out.length) this.items.push({ area: g.t === 'A', rings: out, bb: bb, s: this.keys[sk], r: r, ds: ds, tip: tip, vb: vb, x: extra });
   };
   function ringArea(a) { var A = 0; for (var i = 0, n = a.length, j = n - 2; i < n; j = i, i += 2) A += (a[j] - a[i]) * (a[j + 1] + a[i + 1]); return A; }
   function reversePairs(a) { for (var i = 0, j = a.length - 2; i < j; i += 2, j -= 2) { var x = a[i], y = a[i + 1]; a[i] = a[j]; a[i + 1] = a[j + 1]; a[j] = x; a[j + 1] = y; } }
@@ -403,7 +404,7 @@ var MAPVIEW = (function () {
         var score = nearRings(it, mx, my, tol) ? 0 : it.area && st.fillOpacity && inRings(it.rings, mx, my) ? (b[2] - b[0]) * (b[3] - b[1]) : Infinity;
         if (score < bestScore) { bestScore = score; best = it; if (score === 0) break; }
       }
-      return best ? { p: { ds: best.ds, r: best.r }, tip: best.tip, score: bestScore } : null;
+      return best ? { p: { ds: best.ds, r: best.r, x: best.x }, tip: best.tip, score: bestScore } : null;
     };
     layer.set = set;
     layer.count = set.items.length;
@@ -448,6 +449,7 @@ var MAPVIEW = (function () {
     var out = [];
     if (over.adShapes && over.aerodrome && map.hasLayer(over.aerodrome)) out.push(over.adShapes);
     if (over.obstLines && over.obstacles && map.hasLayer(over.obstacles)) out.push(over.obstLines);
+    if (over.oas && map.hasLayer(over.oas)) out.push(over.oas);
     if (over.cmpShapes && over.cmp && map.hasLayer(over.cmp)) out.push(over.cmpShapes);
     if (over.routes && map.hasLayer(over.routes)) out.push(over.routes);
     AS_CATS.forEach(function (c) { var l = over['as_' + c[0]]; if (l && map.hasLayer(l)) out.push(l); });
@@ -843,9 +845,35 @@ var MAPVIEW = (function () {
     return '<div class="pop-title">' + esc(M.label(ds, r)) + '</div>' + rows.join('') +
       '<div class="pop-actions">' + (ad ? '<button data-act="adview">✈ Airport view</button>' : '') + '<button data-act="aip">AIP section</button><button data-act="xml">View AIXM</button><button data-act="detail">All data</button></div>';
   }
+  // an obstacle assessment surface (MODEL.assessmentSurfaces): its data as published, then the feature that holds it
+  function oasHtml(ds, a) {
+    var rows = [];
+    function kv(k, v) { if (v) rows.push('<div class="pop-kv"><b>' + k + ':</b> ' + esc(v) + '</div>'); }
+    kv('Surface', oasName(a)); kv('Procedure / leg', oasOwner(ds, a.r)); kv('Assessed altitude', ftTxt(a.alt)); kv('Altitude at the bottom of the slope', ftTxt(a.lo));
+    kv('Slope', a.slope !== null ? a.slope + ' %' : ''); kv('Aircraft category', a.cats.join(', ')); kv('Zone', a.zone); kv('Safety regulation', a.reg);
+    a.obst.forEach(function (o) { kv(o.controlling ? 'Controlling obstacle' : 'Significant obstacle', [o.r ? M.label(ds, o.r) : 'not in the data', o.min ? 'minimum altitude ' + o.min : '', o.clr ? 'clearance ' + o.clr : ''].filter(Boolean).join(' · ')); });
+    return '<div class="pop-title">Obstacle assessment surface</div>' + rows.join('') + '<div class="muted" style="font-size:11px;margin:2px 0 6px">As published in the procedure data, for study and review — not for operational use. Held by:</div>';
+  }
+  function ftTxt(v) { return v === null || v === undefined || v === Infinity ? '' : Math.round(v).toLocaleString('en-US') + ' ft (' + Math.round(v * 0.3048).toLocaleString('en-US') + ' m)'; }
+  var OAS_NAMES = { PRIMARY: 'primary area', SECONDARY: 'secondary area', FINAL: 'final approach area', MA: 'missed approach area', DER: 'departure (from the end of the runway)', OCS: 'obstacle clearance surface',
+    SECTION_1_OCS: 'missed approach, section 1', SECTION_2_OCS: 'missed approach, section 2', CIRCLING: 'circling area', CIH: 'climb in holding', TURN: 'turn area', TURN_INITIATION: 'turn initiation area',
+    '40_TO_1': '40:1 surface', '72_TO_1': '72:1 surface', VSS: 'visual segment surface', OIS: 'obstacle identification surface', POFZ: 'precision obstacle free zone', SEGMENT: 'segment', SECTOR: 'sector' };
+  function oasName(a) { return (a.type ? a.type.replace(/_/g, ' ') + (OAS_NAMES[a.type] ? ' — ' + OAS_NAMES[a.type] : '') : 'surface') + (a.sec && !/^SECTION/.test(a.type) ? ', section ' + a.sec : ''); }
+  // the procedure a leg belongs to, and the leg: "RNP 09 TEST · Final Leg"
+  function oasOwner(ds, r) {
+    var p = r.cur.p, pr = M.target(ds, arr(p.approach)[0] || arr(p.departure)[0] || arr(p.arrival)[0]);
+    return pr ? (s(pr.cur.p.designator) || s(pr.cur.p.name)) + ' · ' + M.typeName(r) : M.label(ds, r);
+  }
+  // altitude colours of the surfaces: lowest (most restrictive) red, through orange and yellow, to green and blue
+  var OAS_RAMP = ['#d7301f', '#f46d43', '#fdae61', '#fee08b', '#a6d96a', '#1a9850', '#2c7bb6'];
+  function oasColor(v, lo, hi) {
+    if (v === null || v === undefined || !isFinite(v)) return '#7a8590';
+    var t = hi > lo ? (v - lo) / (hi - lo) : 0, k = Math.min(OAS_RAMP.length - 1, Math.max(0, Math.round(t * (OAS_RAMP.length - 1))));
+    return OAS_RAMP[k];
+  }
   function esc(t) { return String(t === undefined || t === null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function openPopup(ds, r, latlng) {
-    var pop = L.popup({ maxWidth: 360 }).setLatLng(latlng).setContent(popupHtml(ds, r)).openOn(map);
+  function openPopup(ds, r, latlng, x) {
+    var pop = L.popup({ maxWidth: 360 }).setLatLng(latlng).setContent(x && x.oas ? oasHtml(ds, x.oas) + popupHtml(ds, r) : popupHtml(ds, r)).openOn(map);
     var node = pop.getElement();
     if (node) node.addEventListener('click', function (e) {
       var a = e.target.getAttribute && e.target.getAttribute('data-act');
@@ -986,6 +1014,19 @@ var MAPVIEW = (function () {
     over.hill.count = 0;
     over.obstLines = shapeLayer(obSet, { prio: 4 });
     over.obstacles = L.layerGroup([over.obstLines, over.pObs]);
+    // obstacle assessment surfaces of the procedures, as published (coloured by their altitude; secondary areas dashed)
+    var oasList = [];
+    eachDs(list, function (ds) { M.assessmentSurfaces(ds).forEach(function (a) { if (a.g) oasList.push({ a: a, ds: ds, v: a.alt !== null ? a.alt : a.lo }); }); });
+    var vals = oasList.map(function (x) { return x.v; }).filter(function (v) { return v !== null && isFinite(v); });
+    var vLo = vals.length ? Math.min.apply(null, vals) : 0, vHi = vals.length ? Math.max.apply(null, vals) : 0, oasSet = new ShapeSet();
+    oasList.sort(function (a, b) { return (b.v === null ? -1 : b.v) - (a.v === null ? -1 : a.v); }); // lowest drawn last, on top
+    oasList.forEach(function (x) {
+      var a = x.a, col = oasColor(x.v, vLo, vHi);
+      oasSet.add(a.g, { color: col, weight: 1.2, fill: col, fillOpacity: 0.28, dash: a.type === 'SECONDARY' ? '5 4' : null }, a.r, x.ds,
+        oasName(a) + (ftTxt(a.alt) ? ' · assessed ' + ftTxt(a.alt) : ftTxt(a.lo) ? ' · from ' + ftTxt(a.lo) : '') + (a.slope !== null ? ' · slope ' + a.slope + ' %' : '') + ' · ' + oasOwner(x.ds, a.r), null, { oas: a });
+    });
+    over.oas = shapeLayer(oasSet, { prio: 2 });
+    over.oas.range = vals.length ? [vLo, vHi] : null;
     over.procs = buildProcs(list, state.procAd && list.some(function (ds) { return ds.recs.indexOf(state.procAd) >= 0; }) ? state.procAd : null);
     return over;
   }
@@ -1119,7 +1160,7 @@ var MAPVIEW = (function () {
   var LAYER_DEF = [
     ['pAd', 'Aerodromes / heliports', true], ['aerodrome', 'Airport chart: runways, taxiways, aprons, stands, ILS', true], ['pNav', 'Radio navigation aids', true], ['pDp', 'Designated points', true],
     ['routes', 'ATS routes', true], ['procs', 'Instrument procedures (SID / STAR / approach)', false], ['obstacles', 'Obstacles', true], ['pLgt', 'Aeronautical ground lights', false],
-    ['annot', 'Airspace and route labels', true], ['mora', 'Grid MORA (terrain, indicative)', false], ['hill', 'Terrain shading (online)', false]
+    ['oas', 'Obstacle assessment surfaces (as published with the procedures)', false], ['annot', 'Airspace and route labels', true], ['mora', 'Grid MORA (terrain, indicative)', false], ['hill', 'Terrain shading (online)', false]
   ];
   function applyLayers() {
     LAYER_DEF.forEach(function (d) {
@@ -1392,7 +1433,10 @@ var MAPVIEW = (function () {
     h += '</optgroup>';
     h += '</select><div class="muted" style="font-size:11.5px;margin-top:4px">Online maps need the laptop\'s internet connection. The offline map always works. Esri maps: free for non-commercial use only (Esri terms of use) — for commercial work use the offline, OpenStreetMap or NASA maps, or your own ArcGIS licence.</div>';
     h += '<h4>Aeronautical layers</h4>';
-    LAYER_DEF.forEach(function (d) { h += '<label class="chk"><input type="checkbox" data-layer="' + d[0] + '"' + (d[2] ? ' checked' : '') + '> ' + d[1] + ' <span class="muted" data-count="' + d[0] + '"></span></label>'; });
+    LAYER_DEF.forEach(function (d) {
+      h += '<label class="chk"><input type="checkbox" data-layer="' + d[0] + '"' + (d[2] ? ' checked' : '') + '> ' + d[1] + ' <span class="muted" data-count="' + d[0] + '"></span></label>';
+      if (d[0] === 'oas') h += '<div class="muted map-oas-legend hidden" id="map-oas-legend"></div>';
+    });
     h += '<h4>Airport view</h4><select class="inp" id="map-adview" aria-label="Airport view" style="width:100%"><option value="">Choose an aerodrome…</option></select>';
     h += '<div class="muted" style="font-size:11.5px;margin-top:2px">Airport chart with runway markings, taxiways, stands, ILS and an information card.</div>';
     h += '<h4>Procedures</h4><div class="row" style="gap:6px;flex-wrap:wrap"><select class="inp" id="map-proc-ad" aria-label="Procedures of aerodrome" style="flex:1;min-width:0"><option value="">All aerodromes</option></select></div>';
@@ -1459,7 +1503,7 @@ var MAPVIEW = (function () {
         }
       }
       var sh = shapeHit(cp);
-      if (sh) openPopup(sh.p.ds, sh.p.r, e.latlng);
+      if (sh) openPopup(sh.p.ds, sh.p.r, e.latlng, sh.p.x);
     });
     map.on('mousemove', shapeTip);
     map.on('mouseout', function () { if (tipLayer) { map.closeTooltip(tipLayer); tipLayer = null; } });
@@ -1600,6 +1644,12 @@ var MAPVIEW = (function () {
     fillAdView(list);
     if (state.adView && list.indexOf(state.adView.ds) < 0) closeAdCard();
     document.querySelectorAll('[data-count]').forEach(function (n) { var c = countOf(n.getAttribute('data-count')); n.textContent = c ? '(' + c + ')' : '(0)'; });
+    var lg = document.getElementById('map-oas-legend'), rg = over.oas && over.oas.range;
+    if (lg) {
+      lg.classList.toggle('hidden', !(over.oas && over.oas.count));
+      lg.innerHTML = rg ? '<span class="oas-ramp" style="background:linear-gradient(90deg,' + OAS_RAMP.join(',') + ')"></span> ' + esc(ftTxt(rg[0])) + ' → ' + esc(ftTxt(rg[1])) +
+        '<br>Coloured by the assessed altitude (or the altitude where the slope starts); dashed: secondary areas. As published — for study and review, not for operational use.' : '';
+    }
     dsUi();
   }
   // show this data set: added to the main one if it is already on the map, otherwise on its own

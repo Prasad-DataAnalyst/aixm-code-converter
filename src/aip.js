@@ -821,6 +821,15 @@ var AIP = (function () {
       });
     });
     if (mins.length) blocks.push(table('Minima', ['Aircraft category', 'Final approach', 'OCA / DA / MDA', 'OCH / DH / MDH', 'Visibility / RVR'], mins));
+    // obstacle assessment surfaces of its legs, as published by the procedure designer (shown on the map: Obstacle assessment surfaces)
+    var legSet = new Set(legs.map(function (x) { return x.leg; })), ft = function (v) { return v === null || v === Infinity ? '' : Math.round(v) + ' ft'; };
+    var oas = M.assessmentSurfaces(ds).filter(function (a) { return legSet.has(a.r); }).map(function (a) {
+      return [C(a.r.k.replace('Leg', '') + (s(a.r.cur.p.legTypeARINC) ? ' (' + s(a.r.cur.p.legTypeARINC) + ')' : ''), a.r, 'designSurface'), C(join([a.type.replace(/_/g, ' '), a.sec ? 'section ' + a.sec : ''], ', '), a.r, 'designSurface'),
+        C(ft(a.alt), a.r, 'designSurface'), C(join([a.slope !== null ? a.slope + ' %' : '', a.lo !== null ? 'from ' + ft(a.lo) : ''], ' '), a.r, 'designSurface'), C(a.cats.join(', '), a.r, 'designSurface'),
+        C(a.obst.map(function (o) { return join([o.r ? M.label(ds, o.r) : 'not in the data', o.controlling ? 'controlling' : '', o.min ? 'min ' + o.min : '', o.clr ? 'clearance ' + o.clr : ''], ' · '); }).join('\n'), a.r, 'designSurface'),
+        C(a.g ? '' : 'no area in the data', a.r, 'designSurface')];
+    });
+    if (oas.length) blocks.push(table('Obstacle assessment surfaces (as published, for review)', ['Leg', 'Surface', 'Assessed altitude', 'Slope', 'Aircraft category', 'Significant obstacle', 'Remarks'], oas));
     // final approach segment data block (SBAS / GBAS approaches)
     legs.forEach(function (x) {
       var f = x.leg.k === 'FinalLeg' || arr(x.leg.cur.p.FASData).length ? IFP.fas(x.leg) : null;

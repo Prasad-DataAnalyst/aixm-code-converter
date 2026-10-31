@@ -9,7 +9,7 @@
  * ========================================================================== */
 var APP_INFO = Object.freeze({
   name: 'AIXM Code Converter',
-  version: '1.30.1',
+  version: '1.31.0',
   year: '2026',
   author: 'Prasad Selvaraj',
   email: 'prasad2t@gmail.com',
