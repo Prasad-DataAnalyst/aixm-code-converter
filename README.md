@@ -1,6 +1,6 @@
 # AIXM Code Converter: downloads and traffic
 
-Updated 2026-10-30 (daily). GitHub does not report the location of visitors.
+Updated 2026-10-31 (daily). GitHub does not report the location of visitors.
 
 > Page views, visitors and referring sites are not recorded yet: add the `TRAFFIC_TOKEN` secret (see `tools/stats.js`).
 
@@ -8,15 +8,16 @@ Updated 2026-10-30 (daily). GitHub does not report the location of visitors.
 
 | | |
 |---|---|
-| Downloads of the tool (HTML file), all time | **139** |
-| All release files, all time (HTML, ZIP, checksums) | **200** |
-| Current release v1.30.1: HTML file | 10 |
+| Downloads of the tool (HTML file), all time | **144** |
+| All release files, all time (HTML, ZIP, checksums) | **216** |
+| Current release v1.31.0: HTML file | 1 |
 | Stars · forks · watchers | 0 · 0 · 0 |
 
 ## New downloads of the HTML file per day (last 30 days recorded)
 
 | Date | New | Total |
 |---|---|---|
+| 2026-10-31 | 5 | 144 |
 | 2026-10-30 | 0 | 139 |
 | 2026-10-29 | 1 | 139 |
 | 2026-10-28 | 27 | 138 |
@@ -46,16 +47,16 @@ Updated 2026-10-30 (daily). GitHub does not report the location of visitors.
 | 2026-10-04 | 0 | 31 |
 | 2026-10-03 | 6 | 31 |
 | 2026-10-02 | 24 | 25 |
-| 2026-10-01 | 1 | 1 |
 
 ## Downloads per release, all time
 
 | Release | HTML | ZIP | Checksums | |
 |---|---|---|---|---|
-| v1.30.1 | 10 | 0 | 1 | current |
-| v1.30.0 | 17 | 0 | 1 | current |
-| v1.29.0 | 17 | 3 | 1 | current |
-| v1.28.3 | 12 | 3 | 3 | current |
+| v1.31.0 | 1 | 2 | 1 | current |
+| v1.30.1 | 11 | 1 | 2 | current |
+| v1.30.0 | 18 | 1 | 2 | current |
+| v1.29.0 | 18 | 4 | 2 | current |
+| v1.28.3 | 13 | 4 | 4 | current |
 | v1.28.2 | 0 | 0 | 0 | removed |
 | v1.28.1 | 2 | 2 | 1 | removed |
 | v1.25.0 | 14 | 2 | 1 | removed |
